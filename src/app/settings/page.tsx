@@ -5,10 +5,8 @@ import {
   User, 
   Key, 
   Bell, 
-  Shield, 
   Smartphone, 
   LogOut,
-  CreditCard,
   Settings as SettingsIcon,
   ChevronRight
 } from "lucide-react";
@@ -25,7 +23,6 @@ const settingsGroups = [
     items: [
       { icon: User, label: "Profile Information", desc: "Update your personal details and avatar." },
       { icon: Key, label: "API Keys", desc: "Manage your exchange connection keys." },
-      { icon: Shield, label: "Two-Factor Auth", desc: "Add an extra layer of security.", action: "Active" },
     ]
   },
   {
@@ -33,7 +30,6 @@ const settingsGroups = [
     items: [
       { icon: Bell, label: "Notifications", desc: "Configure trade alerts and AI signals.", toggle: true },
       { icon: Smartphone, label: "PWA Options", desc: "Manage offline access and home screen settings." },
-      { icon: CreditCard, label: "Subscription", desc: "Pro Plan - Auto-renews on Jan 12, 2026." },
     ]
   }
 ];

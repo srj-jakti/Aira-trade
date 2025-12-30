@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   User, 
   Key, 
@@ -8,7 +8,8 @@ import {
   History, 
   BarChart3,
   LogOut,
-  Loader2
+  Loader2,
+  Settings2
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -16,7 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-// Section Components
 import { ProfileForm } from "./ProfileForm";
 import { PasswordForm } from "./PasswordForm";
 import { ApiKeysForm } from "./ApiKeysForm";
@@ -26,8 +26,20 @@ import { AIAnalysisReports } from "./AIAnalysisReports";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    async function checkAdmin() {
+      const res = await fetch("/api/admin/check");
+      if (res.ok) {
+        const data = await res.json();
+        setIsAdmin(data.isAdmin);
+      }
+    }
+    checkAdmin();
+  }, []);
 
   const handleLogout = async () => {
     setLoading(true);
@@ -40,9 +52,22 @@ export default function SettingsPage() {
     <div className="flex flex-col h-full bg-[#030303]">
       <div className="flex-1 p-4 md:p-8 pt-6 space-y-6 max-w-6xl mx-auto w-full">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Settings</h1>
-            <p className="text-white/50 text-sm">Manage your account, API keys, and risk preferences.</p>
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-white">Settings</h1>
+              <p className="text-white/50 text-sm">Manage your account, API keys, and risk preferences.</p>
+            </div>
+            {isAdmin && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300"
+                onClick={() => router.push("/admin")}
+              >
+                <Settings2 className="w-4 h-4 mr-2" />
+                Admin Panel
+              </Button>
+            )}
           </div>
           <Button 
             variant="ghost" 

@@ -1,72 +1,163 @@
 "use client";
 
 import { 
-  Radar,
+  Radar, 
+  History, 
+  Settings as SettingsIcon,
   Search,
   Filter,
-  TrendingUp
+  Check
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 
 export default function ScannerPage() {
   return (
-    <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Market Scanner</h1>
-          <p className="text-white/50 text-sm">Scan Indian markets for trading opportunities.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-            <Input 
-              placeholder="Search stocks..." 
-              className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 w-64"
-            />
+    <div className="flex flex-col h-full bg-[#030303]">
+      <div className="flex-1 p-4 md:p-8 pt-6 space-y-6 max-w-7xl mx-auto w-full">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-white">Market Scanner</h1>
+            <p className="text-white/50 text-sm">Scan markets for trading opportunities based on your strategies.</p>
           </div>
-          <Button variant="outline" size="sm" className="bg-white/5 border-white/10 hover:bg-white/10 text-white">
-            <Filter className="w-4 h-4 mr-2" />
-            Filter
-          </Button>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <TrendingUp className="w-5 h-5 text-green-400" />
-              <span className="text-sm font-medium">Top Gainers</span>
-            </div>
-            <p className="text-2xl font-bold">0</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <TrendingUp className="w-5 h-5 text-red-400 rotate-180" />
-              <span className="text-sm font-medium">Top Losers</span>
-            </div>
-            <p className="text-2xl font-bold">0</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <Radar className="w-5 h-5 text-blue-400" />
-              <span className="text-sm font-medium">Active Scans</span>
-            </div>
-            <p className="text-2xl font-bold">0</p>
-          </CardContent>
-        </Card>
-      </div>
+        <Tabs defaultValue="current" className="space-y-6">
+          <div className="relative">
+            <TabsList className="flex h-11 items-center justify-start gap-1 rounded-xl border border-white/10 bg-white/5 p-1 overflow-x-auto no-scrollbar w-full md:w-max">
+              <TabsTrigger 
+                value="current" 
+                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+              >
+                <Radar className="w-4 h-4 shrink-0" />
+                <span>Current Scanner</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="signals" 
+                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+              >
+                <History className="w-4 h-4 shrink-0" />
+                <span>Past Signals</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="settings" 
+                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+              >
+                <SettingsIcon className="w-4 h-4 shrink-0" />
+                <span>Settings</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-      <div className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/10 rounded-2xl bg-white/[0.02]">
-        <Radar className="w-12 h-12 text-white/20 mb-4" />
-        <h2 className="text-xl font-semibold text-white/60">No Scan Results</h2>
-        <p className="text-white/40 text-sm">Configure scanner filters to find trading opportunities.</p>
+          <div className="mt-6">
+            <TabsContent value="current" className="space-y-6 mt-0">
+              <Card className="bg-white/5 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg">Current Scan Results</CardTitle>
+                  <CardDescription className="text-white/40">Real-time trading signals based on your active scanner settings.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center min-h-[400px] border-2 border-dashed border-white/5 rounded-xl">
+                  <Radar className="w-12 h-12 text-white/10 mb-4 animate-pulse" />
+                  <p className="text-white/40">Scanning markets...</p>
+                  <p className="text-white/20 text-xs mt-2">Configure settings to start seeing results</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="signals" className="space-y-6 mt-0">
+              <Card className="bg-white/5 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg">Past Signals</CardTitle>
+                  <CardDescription className="text-white/40">Historical signals generated by the scanner.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center min-h-[400px] border-2 border-dashed border-white/5 rounded-xl">
+                  <History className="w-12 h-12 text-white/10 mb-4" />
+                  <p className="text-white/40">No historical signals found</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="settings" className="space-y-6 mt-0">
+              <Card className="bg-white/5 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg">Scanner Settings</CardTitle>
+                  <CardDescription className="text-white/40">Configure how and what the scanner should look for.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-8 p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-white/70">Market Segment</Label>
+                      <Select defaultValue="nifty50">
+                        <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                          <SelectValue placeholder="Select segment" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#1A1A1A] border-white/10 text-white">
+                          <SelectItem value="nifty50">Nifty 50</SelectItem>
+                          <SelectItem value="niftybank">Nifty Bank</SelectItem>
+                          <SelectItem value="fno">F&O Stocks</SelectItem>
+                          <SelectItem value="mcx">MCX Commodities</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-white/70">Timeframe</Label>
+                      <Select defaultValue="5m">
+                        <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                          <SelectValue placeholder="Select timeframe" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#1A1A1A] border-white/10 text-white">
+                          <SelectItem value="1m">1 Minute</SelectItem>
+                          <SelectItem value="5m">5 Minutes</SelectItem>
+                          <SelectItem value="15m">15 Minutes</SelectItem>
+                          <SelectItem value="1h">1 Hour</SelectItem>
+                          <SelectItem value="1d">1 Day</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-white/70">Scan Interval</Label>
+                      <Select defaultValue="every-min">
+                        <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                          <SelectValue placeholder="Select interval" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#1A1A1A] border-white/10 text-white">
+                          <SelectItem value="realtime">Real-time (Tick by Tick)</SelectItem>
+                          <SelectItem value="every-min">Every 1 Minute</SelectItem>
+                          <SelectItem value="every-5m">Every 5 Minutes</SelectItem>
+                          <SelectItem value="candle-close">On Candle Close</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label className="text-white/70">Select Strategies to Scan</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {["RSI Oversold/Overbought", "MACD Crossover", "Bollinger Band Breakout", "EMA 20/50 Cross", "Volume Surge", "Price Action Reversal"].map((strategy) => (
+                        <div key={strategy} className="flex items-center space-x-3 p-3 rounded-lg border border-white/10 bg-white/[0.02] hover:bg-white/5 transition-colors cursor-pointer">
+                          <Checkbox id={strategy} className="border-white/20 data-[state=checked]:bg-white data-[state=checked]:text-black" />
+                          <label htmlFor={strategy} className="text-sm text-white/70 cursor-pointer flex-1">{strategy}</label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex justify-end">
+                    <Button className="bg-white text-black hover:bg-white/90">
+                      Save & Start Scanner
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
     </div>
   );

@@ -1,64 +1,72 @@
 "use client";
 
-import { 
-  BrainCircuit,
-  TrendingUp,
-  LineChart,
-  BarChart3
-} from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Search, BrainCircuit, LineChart, Target } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function AnalysisPage() {
   return (
-    <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-white">AI Analysis</h1>
-        <p className="text-white/50 text-sm">Deep market analysis powered by machine learning.</p>
+    <div className="p-2 md:p-4 space-y-4 max-w-[1600px] mx-auto">
+      {/* Search Section */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+        <Input 
+          placeholder="Search instrument (e.g. NIFTY 50, RELIANCE)..." 
+          className="pl-10 bg-white/5 border-white/10 h-10 md:h-12 text-white placeholder:text-white/20"
+        />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <TrendingUp className="w-5 h-5 text-green-400" />
-              <span className="text-sm font-medium">Bullish Signals</span>
-            </div>
-            <p className="text-2xl font-bold">0</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <TrendingUp className="w-5 h-5 text-red-400 rotate-180" />
-              <span className="text-sm font-medium">Bearish Signals</span>
-            </div>
-            <p className="text-2xl font-bold">0</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <LineChart className="w-5 h-5 text-blue-400" />
-              <span className="text-sm font-medium">Patterns Found</span>
-            </div>
-            <p className="text-2xl font-bold">0</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <BarChart3 className="w-5 h-5 text-purple-400" />
-              <span className="text-sm font-medium">Reports</span>
-            </div>
-            <p className="text-2xl font-bold">0</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Main Content Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Chart Area */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="bg-white/5 border-white/10 overflow-hidden">
+            <CardHeader className="p-3 md:p-4 border-b border-white/10">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <LineChart className="w-4 h-4 text-blue-400" />
+                Live Market Chart
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="aspect-[16/9] md:aspect-video bg-black/40 flex items-center justify-center text-white/20 text-sm">
+                Connect Zerodha to view live market data
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      <div className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/10 rounded-2xl bg-white/[0.02]">
-        <BrainCircuit className="w-12 h-12 text-white/20 mb-4" />
-        <h2 className="text-xl font-semibold text-white/60">No Analysis Data</h2>
-        <p className="text-white/40 text-sm">Connect your broker to start AI-powered market analysis.</p>
+        {/* Analysis Section */}
+        <div className="lg:col-span-1 space-y-4">
+          {/* AI Analysis */}
+          <Card className="bg-white/5 border-white/10">
+            <CardHeader className="p-3 md:p-4 border-b border-white/10">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <BrainCircuit className="w-4 h-4 text-purple-400" />
+                AI Analysis
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 min-h-[150px] flex items-center justify-center text-center">
+              <p className="text-white/30 text-xs md:text-sm">
+                No active analysis. Select an instrument to begin.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Strategy Analysis */}
+          <Card className="bg-white/5 border-white/10">
+            <CardHeader className="p-3 md:p-4 border-b border-white/10">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Target className="w-4 h-4 text-green-400" />
+                Strategy Analysis
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 min-h-[150px] flex items-center justify-center text-center">
+              <p className="text-white/30 text-xs md:text-sm">
+                No active strategies for this instrument.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

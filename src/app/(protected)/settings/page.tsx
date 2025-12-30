@@ -6,23 +6,23 @@ import {
   Key, 
   LogOut,
   ChevronRight,
-  Loader2
+  Loader2,
+  Lock
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-
-const settingsGroups = [
-  {
-    title: "Account & Security",
-    items: [
-      { icon: User, label: "Profile Information", desc: "Update your personal details and avatar." },
-      { icon: Key, label: "API Keys", desc: "Manage your exchange connection keys." },
-    ]
-  }
-];
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ProfileForm } from "./ProfileForm";
+import { PasswordForm } from "./PasswordForm";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
@@ -36,35 +36,73 @@ export default function SettingsPage() {
     router.refresh();
   };
 
+  const settingsGroups = [
+    {
+      title: "Account & Security",
+      items: [
+        { 
+          icon: User, 
+          label: "Profile Information", 
+          desc: "Update your personal details and avatar.",
+          component: <ProfileForm />
+        },
+        { 
+          icon: Lock, 
+          label: "Change Password", 
+          desc: "Update your account password.",
+          component: <PasswordForm />
+        },
+        { 
+          icon: Key, 
+          label: "API Keys", 
+          desc: "Manage your exchange connection keys.",
+          component: <div className="p-4 text-center text-white/40 italic">API Keys management coming soon.</div>
+        },
+      ]
+    }
+  ];
+
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-3xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-white">Settings</h1>
         <p className="text-white/50 text-sm">Manage your account and platform preferences.</p>
       </div>
 
       <div className="space-y-8">
-        {settingsGroups.map((group, groupIdx) => (
+        {settingsGroups.map((group) => (
           <div key={group.title} className="space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-white/40 ml-1">{group.title}</h2>
             <Card className="bg-white/5 border-white/10 overflow-hidden">
               <CardContent className="p-0 divide-y divide-white/5">
-                {group.items.map((item, i) => (
-                  <div 
-                    key={item.label}
-                    className="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 bg-white/5 rounded-lg border border-white/10 text-white/60 group-hover:text-white transition-colors">
-                        <item.icon className="w-5 h-5" />
+                {group.items.map((item) => (
+                  <Dialog key={item.label}>
+                    <DialogTrigger asChild>
+                      <div className="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors cursor-pointer group">
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 bg-white/5 rounded-lg border border-white/10 text-white/60 group-hover:text-white transition-colors">
+                            <item.icon className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-white">{item.label}</p>
+                            <p className="text-xs text-white/40">{item.desc}</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-white/20" />
                       </div>
-                      <div>
-                        <p className="font-medium text-sm">{item.label}</p>
-                        <p className="text-xs text-white/40">{item.desc}</p>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#0a0a0a] border-white/10 text-white">
+                      <DialogHeader>
+                        <DialogTitle>{item.label}</DialogTitle>
+                        <DialogDescription className="text-white/40">
+                          {item.desc}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="py-4">
+                        {item.component}
                       </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-white/20" />
-                  </div>
+                    </DialogContent>
+                  </Dialog>
                 ))}
               </CardContent>
             </Card>

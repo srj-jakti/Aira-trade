@@ -134,15 +134,7 @@ export default function SignInPage() {
             </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-white/70">Password</Label>
-                  <Link
-                    href="/forgot-password"
-                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
+                <Label htmlFor="password" className="text-white/70">Password</Label>
                 <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                 <Input
@@ -160,14 +152,23 @@ export default function SignInPage() {
               <p className="text-sm text-red-400 text-center">{error}</p>
             )}
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Sign In
-            </Button>
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Sign In
+              </Button>
+
+              <div className="text-center">
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
           </form>
 
           <p className="text-center text-sm text-white/50">

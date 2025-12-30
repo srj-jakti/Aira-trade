@@ -4,8 +4,6 @@ import { motion } from "framer-motion";
 import { 
   User, 
   Key, 
-  Bell, 
-  Smartphone, 
   LogOut,
   Settings as SettingsIcon,
   ChevronRight
@@ -23,13 +21,6 @@ const settingsGroups = [
     items: [
       { icon: User, label: "Profile Information", desc: "Update your personal details and avatar." },
       { icon: Key, label: "API Keys", desc: "Manage your exchange connection keys." },
-    ]
-  },
-  {
-    title: "App Settings",
-    items: [
-      { icon: Bell, label: "Notifications", desc: "Configure trade alerts and AI signals.", toggle: true },
-      { icon: Smartphone, label: "PWA Options", desc: "Manage offline access and home screen settings." },
     ]
   }
 ];

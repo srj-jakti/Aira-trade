@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Zap, Mail, Lock, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getURL } from "@/lib/utils";
 
 function SignInContent() {
   const [email, setEmail] = useState("");
@@ -44,14 +45,15 @@ function SignInContent() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+    const handleGoogleSignIn = async () => {
+      setGoogleLoading(true);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${getURL()}/auth/callback`,
+        },
+      });
+
 
     if (error) {
       setError(error.message);

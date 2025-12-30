@@ -14,19 +14,20 @@ export function ProfileForm() {
   const [profile, setProfile] = useState<{ full_name: string; email: string } | null>(null);
   const supabase = createClient();
 
-  useEffect(() => {
+    useEffect(() => {
     async function getProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("profiles")
-          .select("full_name, email")
+          .select("full_name")
           .eq("id", user.id)
           .single();
 
-        if (data) {
-          setProfile(data);
-        }
+        setProfile({
+          full_name: data?.full_name || "",
+          email: user.email || ""
+        });
       }
       setLoading(false);
     }

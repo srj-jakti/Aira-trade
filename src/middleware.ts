@@ -33,18 +33,21 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const publicPaths = ["/", "/signin", "/signup", "/auth/callback"];
-  const isPublicPath = publicPaths.some(
-    (path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith("/auth/")
-  );
-
-  if (!user && !isPublicPath) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/signin";
-    return NextResponse.redirect(url);
-  }
-
-  if (user && (request.nextUrl.pathname === "/signin" || request.nextUrl.pathname === "/signup")) {
+    const publicPaths = ["/", "/signin", "/signup", "/forgot-password", "/reset-password", "/auth/callback"];
+    const isPublicPath = publicPaths.some(
+      (path) => 
+        request.nextUrl.pathname === path || 
+        request.nextUrl.pathname.startsWith("/auth/") ||
+        request.nextUrl.pathname === "/favicon.ico"
+    );
+  
+    if (!user && !isPublicPath) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/signin";
+      return NextResponse.redirect(url);
+    }
+  
+    if (user && (request.nextUrl.pathname === "/signin" || request.nextUrl.pathname === "/signup" || request.nextUrl.pathname === "/forgot-password")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

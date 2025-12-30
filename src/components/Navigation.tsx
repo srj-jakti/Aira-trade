@@ -51,10 +51,6 @@ export function Navigation() {
         </nav>
 
         <div className="flex items-center gap-4">
-          <div className="text-xs font-mono text-green-500 bg-green-500/10 px-2 py-1 rounded border border-green-500/20">
-            SYSTEM: ONLINE
-          </div>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 border border-white/20" />
         </div>
       </header>
 

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Zap, Mail, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -15,23 +16,25 @@ export default function ForgotPasswordPage() {
   const [success, setSuccess] = useState(false);
   const supabase = createClient();
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-    });
-
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-    } else {
-      setSuccess(true);
-      setLoading(false);
-    }
-  };
+    const handleResetPassword = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoading(true);
+      setError(null);
+  
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      });
+  
+      if (error) {
+        toast.error(error.message);
+        setError(error.message);
+        setLoading(false);
+      } else {
+        toast.success("Reset link sent successfully");
+        setSuccess(true);
+        setLoading(false);
+      }
+    };
 
   if (success) {
     return (

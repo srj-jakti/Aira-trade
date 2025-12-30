@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Zap, Lock, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -30,31 +31,34 @@ export default function ResetPasswordPage() {
     checkSession();
   }, [supabase.auth]);
 
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    const { error } = await supabase.auth.updateUser({
-      password: password,
-    });
-
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-    } else {
-      setSuccess(true);
-      setLoading(false);
-      setTimeout(() => {
-        router.push("/signin");
-      }, 3000);
-    }
-  };
+    const handleUpdatePassword = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (password !== confirmPassword) {
+        toast.error("Passwords do not match");
+        setError("Passwords do not match");
+        return;
+      }
+  
+      setLoading(true);
+      setError(null);
+  
+      const { error } = await supabase.auth.updateUser({
+        password: password,
+      });
+  
+      if (error) {
+        toast.error(error.message);
+        setError(error.message);
+        setLoading(false);
+      } else {
+        toast.success("Password updated successfully");
+        setSuccess(true);
+        setLoading(false);
+        setTimeout(() => {
+          router.push("/signin");
+        }, 3000);
+      }
+    };
 
   if (checkingSession) {
     return (

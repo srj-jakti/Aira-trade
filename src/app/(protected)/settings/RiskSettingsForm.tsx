@@ -32,25 +32,30 @@ export function RiskSettingsForm() {
 
   useEffect(() => {
     async function loadSettings() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("trading_preferences")
-          .select("*")
-          .eq("user_id", user.id)
-          .single();
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase
+            .from("trading_preferences")
+            .select("*")
+            .eq("user_id", user.id)
+            .single();
 
-        if (data) {
-          setSettings({
-            auto_trading_enabled: data.auto_trading_enabled || false,
-            preferred_markets: data.preferred_markets || [],
-            daily_profit_limit: data.daily_profit_limit?.toString() || "",
-            daily_loss_limit: data.daily_loss_limit?.toString() || "",
-            max_allocation_per_trade: data.max_allocation_per_trade?.toString() || ""
-          });
+          if (data) {
+            setSettings({
+              auto_trading_enabled: data.auto_trading_enabled || false,
+              preferred_markets: data.preferred_markets || [],
+              daily_profit_limit: data.daily_profit_limit?.toString() || "",
+              daily_loss_limit: data.daily_loss_limit?.toString() || "",
+              max_allocation_per_trade: data.max_allocation_per_trade?.toString() || ""
+            });
+          }
         }
+      } catch (error) {
+        console.error("Error loading risk settings:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     loadSettings();
   }, [supabase]);

@@ -20,18 +20,23 @@ export function TradingHistory() {
 
   useEffect(() => {
     async function loadTrades() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("trade_history")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(10);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase
+            .from("trade_history")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(10);
 
-        setTrades(data || []);
+          setTrades(data || []);
+        }
+      } catch (error) {
+        console.error("Error loading trades:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     loadTrades();
   }, [supabase]);

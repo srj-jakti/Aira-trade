@@ -16,20 +16,25 @@ export function ProfileForm() {
 
     useEffect(() => {
     async function getProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", user.id)
-          .single();
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", user.id)
+            .single();
 
-        setProfile({
-          full_name: data?.full_name || "",
-          email: user.email || ""
-        });
+          setProfile({
+            full_name: data?.full_name || "",
+            email: user.email || ""
+          });
+        }
+      } catch (error) {
+        console.error("Error loading profile:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     getProfile();
   }, [supabase]);

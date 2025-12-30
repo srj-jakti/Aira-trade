@@ -17,26 +17,31 @@ export function ApiKeysForm() {
 
   useEffect(() => {
     async function loadKeys() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("user_config")
-          .select("preferences")
-          .eq("user_id", user.id)
-          .single();
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase
+            .from("user_config")
+            .select("preferences")
+            .eq("user_id", user.id)
+            .single();
 
-        if (data?.preferences) {
-          const prefs = data.preferences as any;
-          setKeys({
-            apiKey: prefs.zerodha_api_key || "",
-            apiSecret: prefs.zerodha_api_secret || ""
-          });
-          if (prefs.zerodha_api_key && prefs.zerodha_api_secret) {
-            setStatus("connected");
+          if (data?.preferences) {
+            const prefs = data.preferences as any;
+            setKeys({
+              apiKey: prefs.zerodha_api_key || "",
+              apiSecret: prefs.zerodha_api_secret || ""
+            });
+            if (prefs.zerodha_api_key && prefs.zerodha_api_secret) {
+              setStatus("connected");
+            }
           }
         }
+      } catch (error) {
+        console.error("Error loading API keys:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     loadKeys();
   }, [supabase]);

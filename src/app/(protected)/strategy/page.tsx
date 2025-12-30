@@ -1,63 +1,137 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState } from "react";
 import { 
+  Activity, 
+  Bot, 
+  Lock, 
+  Globe, 
+  UserCheck,
   Zap,
-  AlertCircle,
-  Clock,
-  Target
+  Info
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default function StrategyPage() {
   return (
-    <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Trading Strategies</h1>
-          <p className="text-white/50 text-sm">Configure and manage your AI trading strategies.</p>
+    <div className="flex flex-col h-full bg-[#030303]">
+      <div className="flex-1 p-4 md:p-8 pt-6 space-y-6 max-w-7xl mx-auto w-full">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-white">Strategies</h1>
+            <p className="text-white/50 text-sm">Manage, create and discover trading strategies.</p>
+          </div>
         </div>
-        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white border-none">
-          <Zap className="w-4 h-4 mr-2" />
-          Create Strategy
-        </Button>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <Target className="w-5 h-5 text-blue-400" />
-              <span className="text-sm font-medium">Active Strategies</span>
-            </div>
-            <p className="text-2xl font-bold">0</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <Clock className="w-5 h-5 text-yellow-400" />
-              <span className="text-sm font-medium">Pending</span>
-            </div>
-            <p className="text-2xl font-bold">0</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <AlertCircle className="w-5 h-5 text-red-400" />
-              <span className="text-sm font-medium">Alerts</span>
-            </div>
-            <p className="text-2xl font-bold">0</p>
-          </CardContent>
-        </Card>
-      </div>
+        <Tabs defaultValue="active" className="space-y-6">
+          <div className="relative">
+            <TabsList className="flex h-11 items-center justify-start gap-1 rounded-xl border border-white/10 bg-white/5 p-1 overflow-x-auto no-scrollbar w-full md:w-max">
+              <TabsTrigger 
+                value="active" 
+                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+              >
+                <Activity className="w-4 h-4 shrink-0" />
+                <span>Active</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="create" 
+                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+              >
+                <Bot className="w-4 h-4 shrink-0" />
+                <span>Create AI</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="private" 
+                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+              >
+                <Lock className="w-4 h-4 shrink-0" />
+                <span>Private</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="public" 
+                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+              >
+                <Globe className="w-4 h-4 shrink-0" />
+                <span>Public</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="invite-only" 
+                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+              >
+                <UserCheck className="w-4 h-4 shrink-0" />
+                <span>Invite Only</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-      <div className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/10 rounded-2xl bg-white/[0.02]">
-        <Zap className="w-12 h-12 text-white/20 mb-4" />
-        <h2 className="text-xl font-semibold text-white/60">No Strategies Yet</h2>
-        <p className="text-white/40 text-sm">Create your first trading strategy to get started.</p>
+          <div className="mt-6">
+            <TabsContent value="active" className="space-y-6 mt-0">
+              <Card className="bg-white/5 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg">Active Strategies</CardTitle>
+                  <CardDescription className="text-white/40">Strategies currently running and allowed for AI auto-trading.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/5 rounded-xl">
+                  <Activity className="w-12 h-12 text-white/10 mb-4" />
+                  <p className="text-white/40">No active strategies found</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="create" className="space-y-6 mt-0">
+              <Card className="bg-white/5 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg">Create with AI</CardTitle>
+                  <CardDescription className="text-white/40">Use our AI assistant to build custom trading strategies.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/5 rounded-xl">
+                  <Bot className="w-12 h-12 text-white/10 mb-4" />
+                  <p className="text-white/40">AI strategy builder interface coming soon</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="private" className="space-y-6 mt-0">
+              <Card className="bg-white/5 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg">Private Strategies</CardTitle>
+                  <CardDescription className="text-white/40">Your personal strategies saved to your account.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/5 rounded-xl">
+                  <Lock className="w-12 h-12 text-white/10 mb-4" />
+                  <p className="text-white/40">No private strategies saved</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="public" className="space-y-6 mt-0">
+              <Card className="bg-white/5 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg">Public Marketplace</CardTitle>
+                  <CardDescription className="text-white/40">Discover strategies shared by the community and approved by admins.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/5 rounded-xl">
+                  <Globe className="w-12 h-12 text-white/10 mb-4" />
+                  <p className="text-white/40">Public strategies will appear here</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="invite-only" className="space-y-6 mt-0">
+              <Card className="bg-white/5 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg">Invite Only</CardTitle>
+                  <CardDescription className="text-white/40">Exclusive strategies accessible only through invitation or admin approval.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/5 rounded-xl">
+                  <UserCheck className="w-12 h-12 text-white/10 mb-4" />
+                  <p className="text-white/40">Check your invitations here</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
     </div>
   );

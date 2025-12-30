@@ -71,27 +71,28 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-2 md:p-4 space-y-3 max-w-7xl mx-auto">
       {/* AI Trading Toggle Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/5 p-4 md:p-6 rounded-2xl border border-white/10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/5 p-3 md:p-4 rounded-xl border border-white/10">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
-            <Zap className={`w-5 h-5 md:w-6 h-6 ${isAiTradingEnabled ? "text-yellow-400 fill-yellow-400" : "text-white/20"}`} />
+          <h1 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+            <Zap className={`w-4 h-4 md:w-5 h-5 ${isAiTradingEnabled ? "text-yellow-400 fill-yellow-400" : "text-white/20"}`} />
             AI Trading Dashboard
           </h1>
-          <p className="text-white/50 text-xs md:text-sm mt-1">Real-time monitoring and execution control</p>
+          <p className="text-white/50 text-[10px] md:text-xs">Real-time monitoring and execution control</p>
         </div>
-        <div className="flex items-center gap-4 bg-black/20 p-3 rounded-xl border border-white/5 w-fit">
+        <div className="flex items-center gap-3 bg-black/20 p-2 rounded-lg border border-white/5 w-fit">
           <div className="flex items-center space-x-3">
-            <Label htmlFor="ai-trading" className="text-sm font-medium text-white/70">
+            <Label htmlFor="ai-trading" className="text-xs font-medium text-white/70">
               AI Auto-Trading
             </Label>
             <Switch 
               id="ai-trading" 
               checked={isAiTradingEnabled}
               onCheckedChange={handleToggleAi}
+              className="scale-75 md:scale-100"
             />
-            <Badge variant={isAiTradingEnabled ? "default" : "secondary"} className={isAiTradingEnabled ? "bg-green-500/20 text-green-400 border-green-500/20" : "bg-white/5 text-white/40"}>
+            <Badge variant={isAiTradingEnabled ? "default" : "secondary"} className={`text-[10px] h-5 ${isAiTradingEnabled ? "bg-green-500/20 text-green-400 border-green-500/20" : "bg-white/5 text-white/40"}`}>
               {isAiTradingEnabled ? "ON" : "OFF"}
             </Badge>
           </div>
@@ -99,15 +100,15 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Row - Responsive side-by-side on mobile */}
-      <div className="grid grid-cols-3 gap-2 md:gap-6">
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
         <Card className="bg-white/5 border-white/10 overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between p-3 md:p-6 pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium text-white/60">Balance</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between p-2 md:p-3 pb-1">
+            <CardTitle className="text-[10px] md:text-xs font-medium text-white/60">Balance</CardTitle>
             <Wallet className="w-3 h-3 md:w-4 md:h-4 text-blue-400" />
           </CardHeader>
-          <CardContent className="p-3 md:p-6 pt-0">
-            <div className="text-sm md:text-2xl font-bold text-white truncate">₹{isConnected ? balance.total : "0.00"}</div>
-            <div className="hidden md:flex items-center gap-2 mt-2 text-xs">
+          <CardContent className="p-2 md:p-3 pt-0">
+            <div className="text-xs md:text-xl font-bold text-white truncate">₹{isConnected ? balance.total : "0.00"}</div>
+            <div className="hidden md:flex items-center gap-2 mt-1 text-[10px] md:text-xs">
               <span className="text-white/40 text-nowrap">Margin:</span>
               <span className="text-green-400 font-medium">₹{isConnected ? balance.available : "0.00"}</span>
             </div>
@@ -115,15 +116,15 @@ export default function Dashboard() {
         </Card>
 
         <Card className="bg-white/5 border-white/10 overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between p-3 md:p-6 pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium text-white/60">P*L</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between p-2 md:p-3 pb-1">
+            <CardTitle className="text-[10px] md:text-xs font-medium text-white/60">P*L</CardTitle>
             <TrendingUp className={`w-3 h-3 md:w-4 md:h-4 ${pl.isPositive ? "text-green-400" : "text-red-400"}`} />
           </CardHeader>
-          <CardContent className="p-3 md:p-6 pt-0">
-            <div className={`text-sm md:text-2xl font-bold truncate ${pl.isPositive ? "text-green-400" : "text-red-400"}`}>
+          <CardContent className="p-2 md:p-3 pt-0">
+            <div className={`text-xs md:text-xl font-bold truncate ${pl.isPositive ? "text-green-400" : "text-red-400"}`}>
               ₹{isConnected ? pl.total : "0.00"}
             </div>
-            <div className="hidden md:flex items-center gap-2 mt-2 text-xs">
+            <div className="hidden md:flex items-center gap-2 mt-1 text-[10px] md:text-xs">
               <span className="text-white/40 text-nowrap">Day:</span>
               <span className={`${pl.isPositive ? "text-green-400/70" : "text-red-400/70"} font-medium`}>
                 ₹{isConnected ? pl.day : "0.00"}
@@ -133,13 +134,13 @@ export default function Dashboard() {
         </Card>
 
         <Card className="bg-white/5 border-white/10 overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between p-3 md:p-6 pb-2">
-            <CardTitle className="text-[10px] md:text-sm font-medium text-white/60">Positions</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between p-2 md:p-3 pb-1">
+            <CardTitle className="text-[10px] md:text-xs font-medium text-white/60">Positions</CardTitle>
             <Briefcase className="w-3 h-3 md:w-4 md:h-4 text-purple-400" />
           </CardHeader>
-          <CardContent className="p-3 md:p-6 pt-0">
-            <div className="text-sm md:text-2xl font-bold text-white truncate">{isConnected ? positionsSummary.active : 0} Active</div>
-            <div className="hidden md:flex items-center gap-2 mt-2 text-xs text-white/40">
+          <CardContent className="p-2 md:p-3 pt-0">
+            <div className="text-xs md:text-xl font-bold text-white truncate">{isConnected ? positionsSummary.active : 0} Active</div>
+            <div className="hidden md:flex items-center gap-2 mt-1 text-[10px] md:text-xs text-white/40">
               <span>{isConnected ? positionsSummary.total : 0} Total</span>
             </div>
           </CardContent>
@@ -147,54 +148,54 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-4">
         {/* Active Positions */}
         <Card className="bg-white/5 border-white/10">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between p-3 md:p-4">
             <div className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-400" />
-              <CardTitle className="text-lg font-semibold text-white">Active Positions</CardTitle>
+              <Activity className="w-4 h-4 text-blue-400" />
+              <CardTitle className="text-sm md:text-base font-semibold text-white">Active Positions</CardTitle>
             </div>
-            <Badge variant="outline" className="text-white/40 border-white/10">
+            <Badge variant="outline" className="text-[10px] h-5 text-white/40 border-white/10">
               {isConnected ? activePositions.length : 0} Open
             </Badge>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0 md:p-4 pt-0">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="border-white/10">
-                  <TableRow className="hover:bg-transparent border-white/10">
-                    <TableHead className="text-white/40">Symbol</TableHead>
-                    <TableHead className="text-white/40">Type</TableHead>
-                    <TableHead className="text-white/40">Qty</TableHead>
-                    <TableHead className="text-white/40">Avg. Price</TableHead>
-                    <TableHead className="text-white/40">LTP</TableHead>
-                    <TableHead className="text-white/40 text-right">P&L</TableHead>
+                  <TableRow className="hover:bg-transparent border-white/10 h-10">
+                    <TableHead className="text-white/40 h-10 text-xs">Symbol</TableHead>
+                    <TableHead className="text-white/40 h-10 text-xs">Type</TableHead>
+                    <TableHead className="text-white/40 h-10 text-xs">Qty</TableHead>
+                    <TableHead className="text-white/40 h-10 text-xs">Avg. Price</TableHead>
+                    <TableHead className="text-white/40 h-10 text-xs">LTP</TableHead>
+                    <TableHead className="text-white/40 h-10 text-xs text-right">P&L</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {!isConnected || activePositions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center text-white/20">
+                      <TableCell colSpan={6} className="h-16 text-center text-white/20 text-xs">
                         No active positions
                       </TableCell>
                     </TableRow>
                   ) : (
                     activePositions.map((pos: any) => (
-                      <TableRow key={pos.id} className="border-white/5 hover:bg-white/[0.02]">
-                        <TableCell className="font-medium text-white">{pos.symbol}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={pos.type === "BUY" ? "text-green-400 border-green-400/20" : "text-red-400 border-red-400/20"}>
+                      <TableRow key={pos.id} className="border-white/5 hover:bg-white/[0.02] h-10">
+                        <TableCell className="font-medium text-white text-xs py-2">{pos.symbol}</TableCell>
+                        <TableCell className="py-2">
+                          <Badge variant="outline" className={`text-[10px] h-5 ${pos.type === "BUY" ? "text-green-400 border-green-400/20" : "text-red-400 border-red-400/20"}`}>
                             {pos.type}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-white/70">{pos.qty}</TableCell>
-                        <TableCell className="text-white/70">{pos.avgPrice}</TableCell>
-                        <TableCell className="text-white/70 font-mono">{pos.ltp}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-white/70 text-xs py-2">{pos.qty}</TableCell>
+                        <TableCell className="text-white/70 text-xs py-2">{pos.avgPrice}</TableCell>
+                        <TableCell className="text-white/70 text-xs py-2 font-mono">{pos.ltp}</TableCell>
+                        <TableCell className="text-right py-2">
                           <div className="flex flex-col items-end">
-                            <span className={pos.pl.startsWith("+") ? "text-green-400" : "text-red-400"}>{pos.pl}</span>
-                            <span className="text-[10px] text-white/30">{pos.plPercent}</span>
+                            <span className={`text-xs ${pos.pl.startsWith("+") ? "text-green-400" : "text-red-400"}`}>{pos.pl}</span>
+                            <span className="text-[9px] text-white/30">{pos.plPercent}</span>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -208,48 +209,48 @@ export default function Dashboard() {
 
         {/* Recent Orders */}
         <Card className="bg-white/5 border-white/10">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between p-3 md:p-4">
             <div className="flex items-center gap-2">
-              <History className="w-5 h-5 text-purple-400" />
-              <CardTitle className="text-lg font-semibold text-white">Recent Orders</CardTitle>
+              <History className="w-4 h-4 text-purple-400" />
+              <CardTitle className="text-sm md:text-base font-semibold text-white">Recent Orders</CardTitle>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0 md:p-4 pt-0">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="border-white/10">
-                  <TableRow className="hover:bg-transparent border-white/10">
-                    <TableHead className="text-white/40">Time</TableHead>
-                    <TableHead className="text-white/40">Symbol</TableHead>
-                    <TableHead className="text-white/40">Type</TableHead>
-                    <TableHead className="text-white/40">Qty</TableHead>
-                    <TableHead className="text-white/40">Price</TableHead>
-                    <TableHead className="text-white/40 text-right">Status</TableHead>
+                  <TableRow className="hover:bg-transparent border-white/10 h-10">
+                    <TableHead className="text-white/40 h-10 text-xs">Time</TableHead>
+                    <TableHead className="text-white/40 h-10 text-xs">Symbol</TableHead>
+                    <TableHead className="text-white/40 h-10 text-xs">Type</TableHead>
+                    <TableHead className="text-white/40 h-10 text-xs">Qty</TableHead>
+                    <TableHead className="text-white/40 h-10 text-xs">Price</TableHead>
+                    <TableHead className="text-white/40 h-10 text-xs text-right">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {!isConnected || recentOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center text-white/20">
+                      <TableCell colSpan={6} className="h-16 text-center text-white/20 text-xs">
                         No recent orders
                       </TableCell>
                     </TableRow>
                   ) : (
                     recentOrders.map((order: any) => (
-                      <TableRow key={order.id} className="border-white/5 hover:bg-white/[0.02]">
-                        <TableCell className="text-white/40 text-xs">{order.time}</TableCell>
-                        <TableCell className="font-medium text-white">{order.symbol}</TableCell>
-                        <TableCell>
-                          <span className={order.type === "BUY" ? "text-green-400" : "text-red-400"}>{order.type}</span>
+                      <TableRow key={order.id} className="border-white/5 hover:bg-white/[0.02] h-10">
+                        <TableCell className="text-white/40 text-[10px] py-2">{order.time}</TableCell>
+                        <TableCell className="font-medium text-white text-xs py-2">{order.symbol}</TableCell>
+                        <TableCell className="py-2">
+                          <span className={`text-xs ${order.type === "BUY" ? "text-green-400" : "text-red-400"}`}>{order.type}</span>
                         </TableCell>
-                        <TableCell className="text-white/70">{order.qty}</TableCell>
-                        <TableCell className="text-white/70 font-mono">{order.price}</TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="outline" className={
+                        <TableCell className="text-white/70 text-xs py-2">{order.qty}</TableCell>
+                        <TableCell className="text-white/70 text-xs py-2 font-mono">{order.price}</TableCell>
+                        <TableCell className="text-right py-2">
+                          <Badge variant="outline" className={`text-[10px] h-5 ${
                             order.status === "COMPLETE" ? "text-green-400 border-green-400/20" : 
                             order.status === "CANCELLED" ? "text-white/20 border-white/10" : 
                             "text-yellow-400 border-yellow-400/20"
-                          }>
+                          }`}>
                             {order.status}
                           </Badge>
                         </TableCell>

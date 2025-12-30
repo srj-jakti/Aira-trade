@@ -121,7 +121,17 @@
   }
 }
 
-/* Hide Next.js error overlay portal */
-nextjs-portal {
-  display: none !important;
-}
+  /* Hide Next.js error overlay portal */
+  nextjs-portal {
+    display: none !important;
+  }
+
+  /* Custom utilities */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+

@@ -33,7 +33,7 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-    const publicPaths = ["/", "/signin", "/signup", "/forgot-password", "/reset-password", "/auth/callback"];
+    const publicPaths = ["/signin", "/signup", "/forgot-password", "/reset-password", "/auth/callback"];
     const isPublicPath = publicPaths.some(
       (path) => 
         request.nextUrl.pathname === path || 
@@ -47,7 +47,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
   
-    if (user && (request.nextUrl.pathname === "/signin" || request.nextUrl.pathname === "/signup" || request.nextUrl.pathname === "/forgot-password")) {
+    if (user && (request.nextUrl.pathname === "/signin" || request.nextUrl.pathname === "/signup" || request.nextUrl.pathname === "/forgot-password" || request.nextUrl.pathname === "/")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 const navItems = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Strategy", href: "/strategy", icon: Zap },
   { name: "Analysis", href: "/analysis", icon: BrainCircuit },
   { name: "Scanner", href: "/scanner", icon: Radar },
@@ -19,7 +19,6 @@ export function Navigation() {
 
   return (
     <>
-      {/* Desktop Top Navigation */}
       <header className="hidden md:flex fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-xl items-center justify-between px-6 h-16">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -54,7 +53,6 @@ export function Navigation() {
         </div>
       </header>
 
-      {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-black/80 backdrop-blur-xl px-4 py-3 flex justify-around items-center">
         {navItems.map((item) => {
           const Icon = item.icon;

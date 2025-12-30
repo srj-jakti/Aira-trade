@@ -13,8 +13,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-import { Navigation } from "@/components/Navigation";
-
 export const metadata: Metadata = {
   title: "AiRA | AI Trading App",
   description: "Fully automated AI trading and analysis platform.",
@@ -36,10 +34,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white min-h-screen overflow-x-hidden`}
       >
-        <Navigation />
-        <main className="pt-0 md:pt-16 pb-20 md:pb-0 min-h-screen">
-          {children}
-        </main>
+        {children}
         <VisualEditsMessenger />
       </body>
     </html>

@@ -1,19 +1,18 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState } from "react";
 import { 
   User, 
   Key, 
   LogOut,
-  Settings as SettingsIcon,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 const settingsGroups = [
   {
@@ -26,6 +25,17 @@ const settingsGroups = [
 ];
 
 export default function SettingsPage() {
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
+
+  const handleLogout = async () => {
+    setLoading(true);
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-3xl mx-auto">
       <div>
@@ -53,18 +63,7 @@ export default function SettingsPage() {
                         <p className="text-xs text-white/40">{item.desc}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      {item.action && (
-                        <span className="text-[10px] font-bold text-green-400 bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20 uppercase tracking-tight">
-                          {item.action}
-                        </span>
-                      )}
-                      {item.toggle ? (
-                        <Switch defaultChecked />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-white/20" />
-                      )}
-                    </div>
+                    <ChevronRight className="w-4 h-4 text-white/20" />
                   </div>
                 ))}
               </CardContent>
@@ -79,8 +78,18 @@ export default function SettingsPage() {
                 <p className="text-sm font-bold text-red-500">Sign Out</p>
                 <p className="text-xs text-red-500/60">Logout from this device and clear session.</p>
               </div>
-              <Button variant="outline" size="sm" className="border-red-500/20 text-red-500 hover:bg-red-500/10">
-                <LogOut className="w-4 h-4 mr-2" />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="border-red-500/20 text-red-500 hover:bg-red-500/10"
+                onClick={handleLogout}
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <LogOut className="w-4 h-4 mr-2" />
+                )}
                 Logout
               </Button>
             </CardContent>

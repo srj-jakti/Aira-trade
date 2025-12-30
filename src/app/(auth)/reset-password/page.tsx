@@ -15,8 +15,20 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const supabase = createClient();
   const router = useRouter();
+
+  useState(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError("Invalid or expired reset link. Please request a new one.");
+      }
+      setCheckingSession(false);
+    };
+    checkSession();
+  });
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +55,14 @@ export default function ResetPasswordPage() {
       }, 3000);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+      </div>
+    );
+  }
 
   if (success) {
     return (

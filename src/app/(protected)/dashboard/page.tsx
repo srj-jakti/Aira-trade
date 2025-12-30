@@ -100,52 +100,52 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Row - Responsive side-by-side on mobile */}
-      <div className="grid grid-cols-3 gap-2 md:gap-4">
-        <Card className="bg-white/5 border-white/10 overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between p-2 md:p-3 pb-1">
-            <CardTitle className="text-[10px] md:text-xs font-medium text-white/60">Balance</CardTitle>
-            <Wallet className="w-3 h-3 md:w-4 md:h-4 text-blue-400" />
-          </CardHeader>
-          <CardContent className="p-2 md:p-3 pt-0">
-            <div className="text-xs md:text-xl font-bold text-white truncate">₹{isConnected ? balance.total : "0.00"}</div>
-            <div className="hidden md:flex items-center gap-2 mt-1 text-[10px] md:text-xs">
-              <span className="text-white/40 text-nowrap">Margin:</span>
-              <span className="text-green-400 font-medium">₹{isConnected ? balance.available : "0.00"}</span>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-3 gap-2 md:gap-4">
+          <Card className="bg-white/5 border-white/10 overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between p-1.5 md:p-2 pb-0.5">
+              <CardTitle className="text-[10px] md:text-xs font-medium text-white/60">Balance</CardTitle>
+              <Wallet className="w-3 h-3 md:w-4 md:h-4 text-blue-400" />
+            </CardHeader>
+            <CardContent className="p-1.5 md:p-2 pt-0">
+              <div className="text-xs md:text-xl font-bold text-white truncate">₹{isConnected ? balance.total : "0.00"}</div>
+              <div className="hidden md:flex items-center gap-2 mt-0.5 text-[10px] md:text-xs">
+                <span className="text-white/40 text-nowrap">Margin:</span>
+                <span className="text-green-400 font-medium">₹{isConnected ? balance.available : "0.00"}</span>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-white/5 border-white/10 overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between p-2 md:p-3 pb-1">
-            <CardTitle className="text-[10px] md:text-xs font-medium text-white/60">P*L</CardTitle>
-            <TrendingUp className={`w-3 h-3 md:w-4 md:h-4 ${pl.isPositive ? "text-green-400" : "text-red-400"}`} />
-          </CardHeader>
-          <CardContent className="p-2 md:p-3 pt-0">
-            <div className={`text-xs md:text-xl font-bold truncate ${pl.isPositive ? "text-green-400" : "text-red-400"}`}>
-              ₹{isConnected ? pl.total : "0.00"}
-            </div>
-            <div className="hidden md:flex items-center gap-2 mt-1 text-[10px] md:text-xs">
-              <span className="text-white/40 text-nowrap">Day:</span>
-              <span className={`${pl.isPositive ? "text-green-400/70" : "text-red-400/70"} font-medium`}>
-                ₹{isConnected ? pl.day : "0.00"}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+          <Card className="bg-white/5 border-white/10 overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between p-1.5 md:p-2 pb-0.5">
+              <CardTitle className="text-[10px] md:text-xs font-medium text-white/60">P*L</CardTitle>
+              <TrendingUp className={`w-3 h-3 md:w-4 md:h-4 ${pl.isPositive ? "text-green-400" : "text-red-400"}`} />
+            </CardHeader>
+            <CardContent className="p-1.5 md:p-2 pt-0">
+              <div className={`text-xs md:text-xl font-bold truncate ${pl.isPositive ? "text-green-400" : "text-red-400"}`}>
+                ₹{isConnected ? pl.total : "0.00"}
+              </div>
+              <div className="hidden md:flex items-center gap-2 mt-0.5 text-[10px] md:text-xs">
+                <span className="text-white/40 text-nowrap">Day:</span>
+                <span className={`${pl.isPositive ? "text-green-400/70" : "text-red-400/70"} font-medium`}>
+                  ₹{isConnected ? pl.day : "0.00"}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="bg-white/5 border-white/10 overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between p-2 md:p-3 pb-1">
-            <CardTitle className="text-[10px] md:text-xs font-medium text-white/60">Positions</CardTitle>
-            <Briefcase className="w-3 h-3 md:w-4 md:h-4 text-purple-400" />
-          </CardHeader>
-          <CardContent className="p-2 md:p-3 pt-0">
-            <div className="text-xs md:text-xl font-bold text-white truncate">{isConnected ? positionsSummary.active : 0} Active</div>
-            <div className="hidden md:flex items-center gap-2 mt-1 text-[10px] md:text-xs text-white/40">
-              <span>{isConnected ? positionsSummary.total : 0} Total</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="bg-white/5 border-white/10 overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between p-1.5 md:p-2 pb-0.5">
+              <CardTitle className="text-[10px] md:text-xs font-medium text-white/60">Positions</CardTitle>
+              <Briefcase className="w-3 h-3 md:w-4 md:h-4 text-purple-400" />
+            </CardHeader>
+            <CardContent className="p-1.5 md:p-2 pt-0">
+              <div className="text-xs md:text-xl font-bold text-white truncate">{isConnected ? positionsSummary.active : 0} Active</div>
+              <div className="hidden md:flex items-center gap-2 mt-0.5 text-[10px] md:text-xs text-white/40">
+                <span>{isConnected ? positionsSummary.total : 0} Total</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 gap-4">

@@ -12,7 +12,12 @@ export function getURL() {
     (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
 
   // Make sure to include `https://` when not localhost.
-  url = url.includes("http") ? url : `https://${url}`;
+  if (url.includes("localhost")) {
+    url = url.startsWith("http") ? url : `http://${url}`;
+  } else {
+    url = url.startsWith("http") ? url : `https://${url}`;
+  }
+  
   // Remove trailing slash if present for easier concatenation
   url = url.endsWith("/") ? url.slice(0, -1) : url;
   return url;

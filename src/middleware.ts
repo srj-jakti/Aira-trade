@@ -35,23 +35,19 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   
-  // Normalize pathname to remove trailing slash for comparison, except for root
-  const normalizedPathname = pathname !== "/" && pathname.endsWith("/") 
-    ? pathname.slice(0, -1) 
-    : pathname;
-
-  const publicPaths = ["/", "/signin", "/signup", "/forgot-password", "/reset-password", "/auth/callback"];
+  // Define public paths that don't require authentication
+  const publicPaths = ["/", "/signin", "/signup", "/forgot-password", "/reset-password"];
   const isPublicPath = 
-    publicPaths.includes(normalizedPathname) || 
-    normalizedPathname.startsWith("/auth/") ||
-    normalizedPathname === "/favicon.ico";
+    publicPaths.includes(pathname) || 
+    pathname.startsWith("/auth/") ||
+    pathname === "/favicon.ico";
 
   // Redirect to dashboard if logged in and trying to access auth pages or landing page
   if (user && (
-    normalizedPathname === "/signin" || 
-    normalizedPathname === "/signup" || 
-    normalizedPathname === "/forgot-password" || 
-    normalizedPathname === "/"
+    pathname === "/signin" || 
+    pathname === "/signup" || 
+    pathname === "/forgot-password" || 
+    pathname === "/"
   )) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";

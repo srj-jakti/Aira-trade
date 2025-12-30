@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Zap, Mail, Lock, Loader2 } from "lucide-react";
+import { Zap, Mail, Lock, Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -17,6 +17,14 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const authError = searchParams.get("error");
+
+  useEffect(() => {
+    if (authError === "auth-code-error") {
+      setError("The reset link is invalid or has expired. Please try requesting a new one.");
+    }
+  }, [authError]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();

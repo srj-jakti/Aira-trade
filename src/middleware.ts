@@ -33,23 +33,35 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-    const publicPaths = ["/", "/signin", "/signup", "/forgot-password", "/reset-password", "/auth/callback"];
-    const isPublicPath = publicPaths.some(
-      (path) => 
-        request.nextUrl.pathname === path || 
-        request.nextUrl.pathname.startsWith("/auth/") ||
-        request.nextUrl.pathname === "/favicon.ico"
-    );
+  const pathname = request.nextUrl.pathname;
   
-    if (!user && !isPublicPath) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/signin";
-      return NextResponse.redirect(url);
-    }
-  
-    if (user && (request.nextUrl.pathname === "/signin" || request.nextUrl.pathname === "/signup" || request.nextUrl.pathname === "/forgot-password" || request.nextUrl.pathname === "/")) {
+  // Normalize pathname to remove trailing slash for comparison, except for root
+  const normalizedPathname = pathname !== "/" && pathname.endsWith("/") 
+    ? pathname.slice(0, -1) 
+    : pathname;
+
+  const publicPaths = ["/", "/signin", "/signup", "/forgot-password", "/reset-password", "/auth/callback"];
+  const isPublicPath = 
+    publicPaths.includes(normalizedPathname) || 
+    normalizedPathname.startsWith("/auth/") ||
+    normalizedPathname === "/favicon.ico";
+
+  // Redirect to dashboard if logged in and trying to access auth pages or landing page
+  if (user && (
+    normalizedPathname === "/signin" || 
+    normalizedPathname === "/signup" || 
+    normalizedPathname === "/forgot-password" || 
+    normalizedPathname === "/"
+  )) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
+  // Redirect to signin if not logged in and trying to access protected pages
+  if (!user && !isPublicPath) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/signin";
     return NextResponse.redirect(url);
   }
 

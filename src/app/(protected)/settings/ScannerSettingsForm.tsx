@@ -27,13 +27,8 @@ export function ScannerSettingsForm() {
   const [saving, setSaving] = useState(false);
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [config, setConfig] = useState({
-    selectedStrategies: [] as string[],
-    dailyProfitTarget: 5000,
-    dailyLossLimit: 2000,
     segments: ["NSE", "NFO"],
-    orderType: "MIS",
-    slicingEnabled: true,
-    maxSlicingQuantity: 100
+    scanInterval: "5" // Default 5 minutes
   });
 
   const supabase = createClient();
@@ -44,23 +39,15 @@ export function ScannerSettingsForm() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Load active strategies
-        const { data: strategiesData } = await supabase
-          .from("strategies")
-          .select("id, name, is_active")
-          .eq("is_active", true);
-        
-        setStrategies(strategiesData || []);
-
         // Load existing settings from the dedicated scanner settings API
         const response = await fetch('/api/scanner/settings');
         const data = await response.json();
         
         if (data.success && data.config) {
-          setConfig(prev => ({
-            ...prev,
-            ...data.config
-          }));
+          setConfig({
+            segments: data.config.segments || ["NSE", "NFO"],
+            scanInterval: data.config.scanInterval || "5"
+          });
         }
       } catch (error) {
         console.error("Error loading scanner settings:", error);
@@ -95,15 +82,6 @@ export function ScannerSettingsForm() {
     }
   };
 
-  const toggleStrategy = (id: string) => {
-    setConfig(prev => ({
-      ...prev,
-      selectedStrategies: prev.selectedStrategies.includes(id)
-        ? prev.selectedStrategies.filter(s => s !== id)
-        : [...prev.selectedStrategies, id]
-    }));
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -116,46 +94,16 @@ export function ScannerSettingsForm() {
     <form onSubmit={handleSave} className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-4">
-          <div>
-            <Label className="text-white text-sm font-medium mb-3 block">Active Strategies to Scan</Label>
-            {strategies.length === 0 ? (
-              <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex gap-3 items-start">
-                <AlertCircle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
-                <div className="text-xs text-yellow-200/80">
-                  No active strategies found. Please activate strategies in the Strategy page first.
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                {strategies.map((strategy) => (
-                  <div key={strategy.id} className="flex items-center space-x-2 bg-white/5 p-2 rounded-md border border-white/5 hover:border-white/10 transition-colors">
-                    <Checkbox 
-                      id={`strategy-${strategy.id}`} 
-                      checked={config.selectedStrategies.includes(strategy.id)}
-                      onCheckedChange={() => toggleStrategy(strategy.id)}
-                    />
-                    <label 
-                      htmlFor={`strategy-${strategy.id}`}
-                      className="text-sm text-white/80 cursor-pointer flex-1"
-                    >
-                      {strategy.name}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           <div className="space-y-2">
-            <Label htmlFor="segments">Trading Segments</Label>
-            <div className="flex flex-wrap gap-2">
+            <Label htmlFor="segments" className="text-white text-sm font-medium">Trading Segments to Scan</Label>
+            <div className="flex flex-wrap gap-2 pt-1">
               {["NSE", "NFO", "CDS", "MCX"].map(segment => (
                 <Button
                   key={segment}
                   type="button"
                   variant={config.segments.includes(segment) ? "default" : "outline"}
                   size="sm"
-                  className="text-xs h-7"
+                  className={`text-xs h-8 px-4 ${config.segments.includes(segment) ? 'bg-white text-black hover:bg-white/90' : 'bg-transparent border-white/10 hover:bg-white/5'}`}
                   onClick={() => {
                     const newSegments = config.segments.includes(segment)
                       ? config.segments.filter(s => s !== segment)
@@ -167,74 +115,30 @@ export function ScannerSettingsForm() {
                 </Button>
               ))}
             </div>
+            <p className="text-[10px] text-white/40 pt-1">The AI will identify opportunities in these markets.</p>
           </div>
         </div>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="profit">Daily Profit Target (₹)</Label>
-              <Input 
-                id="profit" 
-                type="number"
-                value={config.dailyProfitTarget}
-                onChange={(e) => setConfig(prev => ({ ...prev, dailyProfitTarget: Number(e.target.value) }))}
-                className="bg-white/5 border-white/10"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="loss">Daily Loss Limit (₹)</Label>
-              <Input 
-                id="loss" 
-                type="number"
-                value={config.dailyLossLimit}
-                onChange={(e) => setConfig(prev => ({ ...prev, dailyLossLimit: Number(e.target.value) }))}
-                className="bg-white/5 border-white/10"
-              />
-            </div>
-          </div>
-
           <div className="space-y-2">
-            <Label htmlFor="orderType">Order Type</Label>
+            <Label htmlFor="scanInterval" className="text-white text-sm font-medium">Scan Interval</Label>
             <Select 
-              value={config.orderType} 
-              onValueChange={(val) => setConfig(prev => ({ ...prev, orderType: val }))}
+              value={config.scanInterval} 
+              onValueChange={(val) => setConfig(prev => ({ ...prev, scanInterval: val }))}
             >
-              <SelectTrigger className="bg-white/5 border-white/10">
-                <SelectValue placeholder="Select order type" />
+              <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                <SelectValue placeholder="Select interval" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="MIS">MIS (Intraday)</SelectItem>
-                <SelectItem value="CNC">CNC (Delivery)</SelectItem>
-                <SelectItem value="NRML">NRML (Normal)</SelectItem>
+              <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                <SelectItem value="1">1 Minute</SelectItem>
+                <SelectItem value="5">5 Minutes</SelectItem>
+                <SelectItem value="15">15 Minutes</SelectItem>
+                <SelectItem value="30">30 Minutes</SelectItem>
+                <SelectItem value="60">1 Hour</SelectItem>
+                <SelectItem value="strategy">Strategy Timeframe</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-4 pt-2">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-white">Iceberg Order Slicing</Label>
-                <p className="text-[10px] text-white/40">Slice large orders into smaller chunks.</p>
-              </div>
-              <Checkbox 
-                checked={config.slicingEnabled}
-                onCheckedChange={(val) => setConfig(prev => ({ ...prev, slicingEnabled: !!val }))}
-              />
-            </div>
-            
-            {config.slicingEnabled && (
-              <div className="space-y-2 pl-4 border-l border-white/10">
-                <Label htmlFor="sliceQty" className="text-xs">Max Slice Quantity</Label>
-                <Input 
-                  id="sliceQty" 
-                  type="number"
-                  value={config.maxSlicingQuantity}
-                  onChange={(e) => setConfig(prev => ({ ...prev, maxSlicingQuantity: Number(e.target.value) }))}
-                  className="bg-white/5 border-white/10 h-8 text-xs"
-                />
-              </div>
-            )}
+            <p className="text-[10px] text-white/40 pt-1">Frequency at which the scanner evaluates market conditions.</p>
           </div>
         </div>
       </div>
@@ -242,15 +146,15 @@ export function ScannerSettingsForm() {
       <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10 flex gap-3 items-start">
         <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
         <p className="text-[11px] text-blue-200/60 leading-relaxed">
-          The AI Scanner will automatically execute trades based on these settings when active. 
-          Make sure your Zerodha account has sufficient balance and your API keys are valid.
+          The scanner runs based on all your <strong>Active Strategies</strong>. 
+          It will automatically use your account's daily profit/loss limits and risk settings configured in general settings.
         </p>
       </div>
 
       <Button 
         type="submit" 
         disabled={saving}
-        className="w-full bg-white text-black hover:bg-white/90 font-bold"
+        className="w-full bg-white text-black hover:bg-white/90 font-bold h-11"
       >
         {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
         Save Scanner Configuration

@@ -23,21 +23,32 @@ export async function POST() {
     }
 
     const config = prefs.scanner_config || {};
-    const selectedStrategyIds = config.selectedStrategies || [];
+    const segments = config.segments || prefs.preferred_markets || ["NSE", "NFO"];
 
-    if (selectedStrategyIds.length === 0) {
-      return NextResponse.json({ success: true, message: "No strategies selected", found: 0 });
-    }
-
-    // 2. Load Selected Strategies
+    // 2. Load ALL Active Strategies
     const { data: strategies } = await supabase
       .from("strategies")
       .select("*")
-      .in("id", selectedStrategyIds)
       .eq("is_active", true);
 
     if (!strategies || strategies.length === 0) {
       return NextResponse.json({ success: true, message: "No active strategies found", found: 0 });
+    }
+
+    // Check risk limits
+    const { data: signalsToday } = await supabase
+      .from("ai_signals")
+      .select("pnl")
+      .eq("user_id", user.id)
+      .gte("created_at", new Date().toISOString().split('T')[0]);
+
+    const currentPnl = (signalsToday || []).reduce((acc, s) => acc + (s.pnl || 0), 0);
+    
+    if (prefs.daily_profit_limit && currentPnl >= prefs.daily_profit_limit) {
+      return NextResponse.json({ success: true, message: "Daily profit target reached", found: 0 });
+    }
+    if (prefs.daily_loss_limit && currentPnl <= -prefs.daily_loss_limit) {
+      return NextResponse.json({ success: true, message: "Daily loss limit reached", found: 0 });
     }
 
     // 3. Get Real-time Market Data

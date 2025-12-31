@@ -23,13 +23,8 @@ export async function GET() {
 
     // Use general settings as defaults if scanner-specific settings are missing
     const responseConfig = {
-      selectedStrategies: scanner_config.selectedStrategies || [],
-      dailyProfitTarget: scanner_config.dailyProfitTarget || settings.daily_profit_limit || 5000,
-      dailyLossLimit: scanner_config.dailyLossLimit || settings.daily_loss_limit || 2000,
       segments: scanner_config.segments || settings.preferred_markets || ["NSE", "NFO"],
-      orderType: scanner_config.orderType || "MIS",
-      slicingEnabled: scanner_config.slicingEnabled ?? true,
-      maxSlicingQuantity: scanner_config.maxSlicingQuantity || 100
+      scanInterval: scanner_config.scanInterval || "5"
     };
 
     return NextResponse.json({ success: true, config: responseConfig });

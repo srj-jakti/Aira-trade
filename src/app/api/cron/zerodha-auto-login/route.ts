@@ -2,106 +2,7 @@ import { NextRequest } from "next/server";
 import { serverErrorResponse, successResponse } from "@/lib/server/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt, encrypt } from "@/lib/server/encryption";
-import { authenticator } from "otplib";
-import crypto from "crypto";
-
-function generateTOTP(secret: string): string {
-  const cleanSecret = secret.replace(/\s/g, "").toUpperCase();
-  return authenticator.generate(cleanSecret);
-}
-
-async function performZerodhaLogin(config: {
-  id: string;
-  api_key: string;
-  api_secret: string;
-  user_id: string;
-  password: string;
-  totp_secret: string;
-}): Promise<{ success: boolean; accessToken?: string; error?: string }> {
-  try {
-    const apiKey = decrypt(config.api_key);
-    const apiSecret = decrypt(config.api_secret);
-    const userId = decrypt(config.user_id);
-    const password = decrypt(config.password);
-    const totpSecret = decrypt(config.totp_secret);
-
-    const loginResponse = await fetch("https://kite.zerodha.com/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ user_id: userId, password }),
-    });
-
-    const loginData = await loginResponse.json();
-    if (!loginData.data?.request_id) {
-      return { success: false, error: loginData.message || "Login failed - no request_id" };
-    }
-
-    // Capture cookies from login response to maintain session
-    const cookies = loginResponse.headers.getSetCookie().join("; ");
-
-    const totpCode = generateTOTP(totpSecret);
-    const twofaResponse = await fetch("https://kite.zerodha.com/api/twofa", {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Cookie": cookies
-      },
-      body: new URLSearchParams({
-        user_id: userId,
-        request_id: loginData.data.request_id,
-        twofa_value: totpCode,
-        twofa_type: "totp",
-      }),
-    });
-
-    const twofaData = await twofaResponse.json();
-    if (!twofaData.data?.request_token) {
-      const redirectUrl = twofaResponse.headers.get("location");
-      let requestToken = null;
-      
-      if (redirectUrl) {
-        const urlParams = new URLSearchParams(redirectUrl.split("?")[1]);
-        requestToken = urlParams.get("request_token");
-      }
-      
-      if (!requestToken) {
-        return { success: false, error: twofaData.message || "2FA failed - no request_token" };
-      }
-      twofaData.data = { request_token: requestToken };
-    }
-
-    const checksum = crypto
-      .createHash("sha256")
-      .update(apiKey + twofaData.data.request_token + apiSecret)
-      .digest("hex");
-
-    const sessionResponse = await fetch(
-      `https://api.kite.trade/session/token`,
-      {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/x-www-form-urlencoded",
-          "X-Kite-Version": "3",
-        },
-        body: new URLSearchParams({
-          api_key: apiKey,
-          request_token: twofaData.data.request_token,
-          checksum,
-        }),
-      }
-    );
-
-    const sessionData = await sessionResponse.json();
-    if (!sessionData.data?.access_token) {
-      return { success: false, error: sessionData.message || "Session generation failed" };
-    }
-
-    return { success: true, accessToken: sessionData.data.access_token };
-  } catch (error) {
-    console.error("Zerodha login error:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
-  }
-}
+import { performZerodhaFullLogin } from "@/lib/server/zerodha-auth";
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -135,7 +36,13 @@ export async function POST(request: NextRequest) {
         .update({ connection_status: "connecting" })
         .eq("id", config.id);
 
-      const result = await performZerodhaLogin(config);
+      const result = await performZerodhaFullLogin({
+        api_key: decrypt(config.api_key),
+        api_secret: decrypt(config.api_secret),
+        user_id: decrypt(config.user_id),
+        password: decrypt(config.password),
+        totp_secret: decrypt(config.totp_secret),
+      });
 
       if (result.success && result.accessToken) {
         const tokenExpiry = new Date();

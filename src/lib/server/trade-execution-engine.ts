@@ -1,7 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt, encrypt } from "@/lib/server/encryption";
-import { authenticator } from "otplib";
-import crypto from "crypto";
+import { performZerodhaFullLogin } from "@/lib/server/zerodha-auth";
 
 export interface UserBrokerAccount {
   id: string;
@@ -41,11 +40,6 @@ export interface RiskCheckResult {
   adjustedQuantity?: number;
 }
 
-function generateTOTP(secret: string): string {
-  const cleanSecret = secret.replace(/\s/g, "").toUpperCase();
-  return authenticator.generate(cleanSecret);
-}
-
 class TradeExecutionEngine {
   private static instance: TradeExecutionEngine;
 
@@ -80,74 +74,16 @@ class TradeExecutionEngine {
     }
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const loginResponse = await fetch("https://kite.zerodha.com/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          user_id: credentials.userIdBroker,
-          password: credentials.password,
-        }),
+      const result = await performZerodhaFullLogin({
+        api_key: credentials.apiKey,
+        api_secret: credentials.apiSecret,
+        user_id: credentials.userIdBroker,
+        password: credentials.password,
+        totp_secret: credentials.totpSecret,
       });
 
-      const loginData = await loginResponse.json();
-      if (!loginData.data?.request_id) {
-        return { success: false, error: loginData.message || "Login failed" };
-      }
-
-      // Capture cookies from login response to maintain session
-      const cookies = loginResponse.headers.getSetCookie().join("; ");
-
-      const totpCode = generateTOTP(credentials.totpSecret);
-      const twofaResponse = await fetch("https://kite.zerodha.com/api/twofa", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Cookie": cookies
-        },
-        body: new URLSearchParams({
-          user_id: credentials.userIdBroker,
-          request_id: loginData.data.request_id,
-          twofa_value: totpCode,
-          twofa_type: "totp",
-        }),
-      });
-
-      const twofaData = await twofaResponse.json();
-      let requestToken = twofaData.data?.request_token;
-      
-      if (!requestToken) {
-        const redirectUrl = twofaResponse.headers.get("location");
-        if (redirectUrl) {
-          const urlParams = new URLSearchParams(redirectUrl.split("?")[1]);
-          requestToken = urlParams.get("request_token");
-        }
-      }
-
-      if (!requestToken) {
-        return { success: false, error: "2FA failed - no request token" };
-      }
-
-      const checksum = crypto
-        .createHash("sha256")
-        .update(credentials.apiKey + requestToken + credentials.apiSecret)
-        .digest("hex");
-
-      const sessionResponse = await fetch("https://api.kite.trade/session/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "X-Kite-Version": "3",
-        },
-        body: new URLSearchParams({
-          api_key: credentials.apiKey,
-          request_token: requestToken,
-          checksum,
-        }),
-      });
-
-      const sessionData = await sessionResponse.json();
-      if (!sessionData.data?.access_token) {
-        return { success: false, error: sessionData.message || "Session failed" };
+      if (!result.success || !result.accessToken) {
+        return { success: false, error: result.error || "Login failed" };
       }
 
       const tokenExpiry = new Date();
@@ -161,7 +97,7 @@ class TradeExecutionEngine {
         user_id_broker: encrypt(credentials.userIdBroker),
         password: encrypt(credentials.password),
         totp_secret: encrypt(credentials.totpSecret),
-        access_token: encrypt(sessionData.data.access_token),
+        access_token: encrypt(result.accessToken),
         token_expires_at: tokenExpiry.toISOString(),
         is_connected: true,
         last_connected_at: new Date().toISOString(),

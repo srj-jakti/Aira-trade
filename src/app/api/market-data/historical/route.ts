@@ -6,8 +6,7 @@ import {
   serverErrorResponse,
   successResponse,
 } from "@/lib/server/auth";
-import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getHistoricalCandles } from "@/lib/server/market-data-engine";
+import { getHistoricalCandles, fetchHistoricalData, storeHistoricalCandles } from "@/lib/server/market-data-engine";
 
 export async function GET(request: NextRequest) {
   const user = await getAuthenticatedUser();
@@ -27,12 +26,45 @@ export async function GET(request: NextRequest) {
     const fromDate = from ? new Date(from) : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
     const toDate = to ? new Date(to) : new Date();
 
-    const candles = await getHistoricalCandles(
+    // Try to get from database first
+    let candles = await getHistoricalCandles(
       parseInt(instrumentToken),
       timeframe,
       fromDate,
       toDate
     );
+
+    // If no candles found or too few, try to fetch from Zerodha
+    if (candles.length < 10) {
+      try {
+        const fetchedCandles = await fetchHistoricalData(
+          parseInt(instrumentToken),
+          timeframe,
+          fromDate,
+          toDate
+        );
+        
+        if (fetchedCandles.length > 0) {
+          // Store in background
+          storeHistoricalCandles(parseInt(instrumentToken), timeframe, fetchedCandles).catch(err => 
+            console.error("Error storing historical candles:", err)
+          );
+          
+          // Return the fetched candles
+          candles = fetchedCandles.map(c => ({
+            timestamp: c.timestamp,
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+            volume: c.volume,
+            oi: c.oi || 0
+          }));
+        }
+      } catch (zerodhaError) {
+        console.warn("Could not fetch from Zerodha, returning DB data (if any):", zerodhaError);
+      }
+    }
 
     return successResponse({ candles });
   } catch (error) {

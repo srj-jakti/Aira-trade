@@ -59,19 +59,28 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
   { id: "bollinger", name: "Bollinger Bands", type: "bollinger", params: { period: 20, stdDev: 2 }, visible: false },
 ];
 
-export default function AnalysisPage() {
-  const [selectedInstrument, setSelectedInstrument] = useState<Instrument | null>(null);
-  const [chartData, setChartData] = useState<CandleData[]>([]);
-  const [isLoadingChart, setIsLoadingChart] = useState(false);
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
-  const [signals, setSignals] = useState<Signal[]>([]);
-  const [isLoadingSignals, setIsLoadingSignals] = useState(false);
-  const [timeframe, setTimeframe] = useState("1d");
-  const [indicators, setIndicators] = useState<IndicatorOverlay[]>(DEFAULT_INDICATORS);
-  const [showIndicatorPanel, setShowIndicatorPanel] = useState(false);
-  const [strategies, setStrategies] = useState<Strategy[]>([]);
-  const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
+  export default function AnalysisPage() {
+    const [selectedInstrument, setSelectedInstrument] = useState<Instrument | null>({
+      instrument_token: 256265,
+      tradingsymbol: "NIFTY 50",
+      name: "NIFTY 50",
+      exchange: "NSE",
+      segment: "INDICES",
+      instrument_type: "EQ",
+      lot_size: 1,
+      tick_size: 0.05
+    } as Instrument);
+    const [chartData, setChartData] = useState<CandleData[]>([]);
+    const [isLoadingChart, setIsLoadingChart] = useState(false);
+    const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+    const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
+    const [signals, setSignals] = useState<Signal[]>([]);
+    const [isLoadingSignals, setIsLoadingSignals] = useState(false);
+    const [timeframe, setTimeframe] = useState("15m");
+    const [indicators, setIndicators] = useState<IndicatorOverlay[]>(DEFAULT_INDICATORS);
+    const [showIndicatorPanel, setShowIndicatorPanel] = useState(false);
+    const [strategies, setStrategies] = useState<Strategy[]>([]);
+    const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
 
   const fetchChartData = useCallback(async (instrument: Instrument, tf: string) => {
     setIsLoadingChart(true);
@@ -373,46 +382,49 @@ export default function AnalysisPage() {
             </Card>
           )}
 
-          <Card className="bg-white/5 border-white/10">
-            <CardHeader className="p-3 md:p-4 border-b border-white/10">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Target className="w-4 h-4 text-indigo-400" />
-                Strategy Overlay
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setSelectedStrategy(null)}
-                  className={cn(
-                    "px-3 py-1.5 text-xs rounded-full border transition-colors",
-                    !selectedStrategy
-                      ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                      : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+            <Card className="bg-white/5 border-white/10">
+              <CardHeader className="p-3 md:p-4 border-b border-white/10">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Target className="w-4 h-4 text-indigo-400" />
+                  Strategy Overlay
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="flex flex-wrap gap-2">
+                  {strategies.length > 0 ? (
+                    <>
+                      <button
+                        onClick={() => setSelectedStrategy(null)}
+                        className={cn(
+                          "px-3 py-1.5 text-xs rounded-full border transition-colors",
+                          !selectedStrategy
+                            ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                            : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+                        )}
+                      >
+                        None
+                      </button>
+                      {strategies.map((strategy) => (
+                        <button
+                          key={strategy.id}
+                          onClick={() => setSelectedStrategy(strategy.id)}
+                          className={cn(
+                            "px-3 py-1.5 text-xs rounded-full border transition-colors",
+                            selectedStrategy === strategy.id
+                              ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
+                              : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+                          )}
+                        >
+                          {strategy.name}
+                        </button>
+                      ))}
+                    </>
+                  ) : (
+                    <span className="text-xs text-white/30 italic">No strategies available. Create one in the Strategy section.</span>
                   )}
-                >
-                  None
-                </button>
-                {strategies.slice(0, 6).map((strategy) => (
-                  <button
-                    key={strategy.id}
-                    onClick={() => setSelectedStrategy(strategy.id)}
-                    className={cn(
-                      "px-3 py-1.5 text-xs rounded-full border transition-colors",
-                      selectedStrategy === strategy.id
-                        ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
-                        : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
-                    )}
-                  >
-                    {strategy.name}
-                  </button>
-                ))}
-                {strategies.length === 0 && (
-                  <span className="text-xs text-white/30">No strategies available</span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
         </div>
 
         <div className="lg:col-span-1 space-y-4">

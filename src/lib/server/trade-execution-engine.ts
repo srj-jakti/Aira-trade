@@ -94,10 +94,16 @@ class TradeExecutionEngine {
         return { success: false, error: loginData.message || "Login failed" };
       }
 
+      // Capture cookies from login response to maintain session
+      const cookies = loginResponse.headers.getSetCookie().join("; ");
+
       const totpCode = generateTOTP(credentials.totpSecret);
       const twofaResponse = await fetch("https://kite.zerodha.com/api/twofa", {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers: { 
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Cookie": cookies
+        },
         body: new URLSearchParams({
           user_id: credentials.userIdBroker,
           request_id: loginData.data.request_id,

@@ -10,31 +10,12 @@ import {
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt, encrypt } from "@/lib/server/encryption";
 import { logAudit } from "@/lib/server/audit";
+import { authenticator } from "otplib";
 import crypto from "crypto";
 
 function generateTOTP(secret: string): string {
-  const time = Math.floor(Date.now() / 1000 / 30);
-  const timeBuffer = Buffer.alloc(8);
-  for (let i = 7; i >= 0; i--) {
-    timeBuffer[i] = time & 0xff;
-    timeBuffer.writeUInt8(time & 0xff, i);
-  }
-  timeBuffer.writeBigInt64BE(BigInt(time));
-  
-  const secretBuffer = Buffer.from(secret.replace(/\s/g, "").toUpperCase(), "base32");
-  const hmac = crypto.createHmac("sha1", secretBuffer);
-  hmac.update(timeBuffer);
-  const hash = hmac.digest();
-  
-  const offset = hash[hash.length - 1] & 0x0f;
-  const binary = 
-    ((hash[offset] & 0x7f) << 24) |
-    ((hash[offset + 1] & 0xff) << 16) |
-    ((hash[offset + 2] & 0xff) << 8) |
-    (hash[offset + 3] & 0xff);
-  
-  const otp = binary % 1000000;
-  return otp.toString().padStart(6, "0");
+  const cleanSecret = secret.replace(/\s/g, "").toUpperCase();
+  return authenticator.generate(cleanSecret);
 }
 
 async function performZerodhaLogin(config: {

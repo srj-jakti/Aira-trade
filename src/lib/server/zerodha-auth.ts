@@ -65,44 +65,46 @@ export async function performZerodhaFullLogin(config: {
       return { success: false, error: loginData.message || "Login step failed" };
     }
 
-    const requestId = loginData.data.request_id;
-    const loginCookies = extractCookies(loginResp);
-    console.log("[Zerodha Auth] Step 1 Success - request_id:", requestId, "cookies count:", loginCookies.length);
-    console.log("[Zerodha Auth] Cookies received:", loginCookies);
+const requestId = loginData.data.request_id;
+const userId = loginData.data.user_id || config.user_id; // Use uppercase if returned
+const loginCookies = extractCookies(loginResp);
+console.log("[Zerodha Auth] Step 1 Success - request_id:", requestId, "cookies count:", loginCookies.length);
+console.log("[Zerodha Auth] Cookies received:", loginCookies);
 
-    // ----------------------------------------
-    // STEP 2: 2FA GENERATION & SUBMISSION
-    // ----------------------------------------
-    const secret = config.totp_secret.replace(/\s+/g, "");
-    const totp = new OTPAuth.TOTP({
-      issuer: "Zerodha",
-      label: config.user_id,
-      algorithm: "SHA1",
-      digits: 6,
-      period: 30,
-      secret: OTPAuth.Secret.fromBase32(secret),
-    });
+// ----------------------------------------
+// STEP 2: 2FA GENERATION & SUBMISSION
+// ----------------------------------------
+const secret = config.totp_secret.replace(/\s+/g, "");
+const totp = new OTPAuth.TOTP({
+issuer: "Zerodha",
+label: userId,
+algorithm: "SHA1",
+digits: 6,
+period: 30,
+secret: OTPAuth.Secret.fromBase32(secret),
+});
 
-    const totpCode = totp.generate();
-    console.log("[Zerodha Auth] Step 2: Generated TOTP code:", totpCode);
+const totpCode = totp.generate();
+console.log("[Zerodha Auth] Step 2: Generated TOTP code:", totpCode);
 
-    // Note: Zerodha's newer API does NOT require twofa_type parameter
-    const twofaBody = new URLSearchParams({
-      user_id: config.user_id,
-      request_id: requestId,
-      twofa_value: totpCode,
-    });
+const twofaBody = new URLSearchParams({
+user_id: userId,
+request_id: requestId,
+twofa_value: totpCode,
+twofa_type: "totp", // Explicitly added
+});
 
-    console.log("[Zerodha Auth] Step 2: Sending 2FA with cookies:", loginCookies.join("; "));
-    
-    const twofaResp = await fetch("https://kite.zerodha.com/api/twofa", {
-      method: "POST",
-      headers: {
-        ...BASE_HEADERS,
-        "Cookie": loginCookies.join("; "),
-      },
-      body: twofaBody.toString(),
-    });
+console.log("[Zerodha Auth] Step 2: Sending 2FA with cookies:", loginCookies.join("; "));
+
+const twofaResp = await fetch("https://kite.zerodha.com/api/twofa", {
+method: "POST",
+headers: {
+...BASE_HEADERS,
+"Cookie": loginCookies.join("; "),
+},
+body: twofaBody.toString(),
+});
+
 
     const twofaData = await twofaResp.json();
     console.log("[Zerodha Auth] Step 2 Response status:", twofaResp.status, "data:", JSON.stringify(twofaData));

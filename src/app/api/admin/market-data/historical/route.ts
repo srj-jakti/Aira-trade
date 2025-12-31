@@ -30,12 +30,24 @@ export async function GET(request: NextRequest) {
       .limit(10000);
 
     const coverageMap: Record<string, Set<string>> = {};
+    const instrumentTokens = new Set<string>();
     (coverage || []).forEach((c) => {
       if (!coverageMap[c.instrument_token]) {
         coverageMap[c.instrument_token] = new Set();
+        instrumentTokens.add(c.instrument_token);
       }
       coverageMap[c.instrument_token].add(c.timeframe);
     });
+
+    // Fetch instrument details for covered tokens
+    let instrumentsInfo = [];
+    if (instrumentTokens.size > 0) {
+      const { data: instruments } = await supabaseAdmin
+        .from("instruments")
+        .select("instrument_token, tradingsymbol, name, exchange")
+        .in("instrument_token", Array.from(instrumentTokens));
+      instrumentsInfo = instruments || [];
+    }
 
     const { count: totalCandles } = await supabaseAdmin
       .from("historical_candles")
@@ -46,6 +58,7 @@ export async function GET(request: NextRequest) {
       coverage: Object.fromEntries(
         Object.entries(coverageMap).map(([k, v]) => [k, Array.from(v)])
       ),
+      instruments: instrumentsInfo,
       stats: {
         totalCandles: totalCandles || 0,
         timeframes: TIMEFRAMES,

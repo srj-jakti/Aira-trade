@@ -67,7 +67,7 @@ export async function GET() {
   if (!admin.isAdmin) return forbiddenResponse("Admin access required");
 
   try {
-    const [zerodhaConfigs, aiConfigs, userCount, tradeCount, strategyCount, healthLogs, loginLogs] = await Promise.all([
+    const [zerodhaConfigs, aiConfigs, userCount, tradeCount, strategyCount, healthLogs, loginLogs, engineStatus] = await Promise.all([
       supabaseAdmin.from("admin_zerodha_configs").select("*").order("priority"),
       supabaseAdmin.from("admin_ai_configs").select("*").order("priority"),
       supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
@@ -85,19 +85,13 @@ export async function GET() {
         .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .order("created_at", { ascending: false })
         .limit(50),
+      supabaseAdmin.from("data_engine_status").select("*"),
     ]);
 
     const zerodhaData = zerodhaConfigs.data || [];
     const aiData = aiConfigs.data || [];
 
-    const zerodhaConnected = zerodhaData.filter((c) => c.connection_status === "connected").length;
-    const zerodhaErrors = zerodhaData.filter((c) => c.connection_status === "error").length;
-    const aiActive = aiData.filter((c) => c.is_active).length;
-    const aiErrors = aiData.filter((c) => c.last_error).length;
-
-    const failedLogins = (loginLogs.data || []).filter((l) => l.status === "failed").length;
-
-    const health: SystemHealthData = {
+    const health: SystemHealthData & { engines: any[] } = {
       zerodha: {
         total: zerodhaData.length,
         connected: zerodhaConnected,
@@ -139,6 +133,13 @@ export async function GET() {
         avgResponseTime: 0,
         errorRate: 0,
       },
+      engines: (engineStatus.data || []).map(e => ({
+        type: e.engine_type,
+        last_instrument_sync_at: e.last_instrument_sync_at,
+        auto_sync_instruments: e.auto_sync_instruments,
+        status: e.status,
+        last_run_at: e.last_run_at
+      })),
       errors: {
         zerodhaErrors24h: failedLogins,
         aiErrors24h: (healthLogs.data || []).filter((l) => l.metric_type === "ai_error").length,

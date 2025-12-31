@@ -51,18 +51,30 @@ export async function POST() {
       return NextResponse.json({ success: true, message: "Daily loss limit reached", found: 0 });
     }
 
-    // 3. Get Real-time Market Data
-    // For this implementation, we'll fetch the latest ticks for the symbols being monitored
-    // In a real scenario, this would be a continuous stream or a broad scan of Nifty 50/Liquid stocks
-    const { data: ticks } = await supabase
-      .from("realtime_ticks")
-      .select("*")
-      .order("timestamp", { ascending: false })
-      .limit(100); // Get latest snapshots
+      const staleThreshold = new Date(Date.now() - 30000).toISOString();
 
-    if (!ticks || ticks.length === 0) {
-      return NextResponse.json({ success: true, message: "No real-time data available", found: 0 });
-    }
+      const { data: latestTicks } = await supabase
+        .from("realtime_ticks")
+        .select("instrument_token, last_price, open, high, low, close, change, change_percent, volume, tick_timestamp")
+        .gte("tick_timestamp", staleThreshold)
+        .order("tick_timestamp", { ascending: false });
+
+      if (!latestTicks || latestTicks.length === 0) {
+        return NextResponse.json({ 
+          success: true, 
+          message: "No live tick data available. Ensure WebSocket worker is running.", 
+          found: 0 
+        });
+      }
+
+      const ticksByToken = new Map<number, typeof latestTicks[0]>();
+      for (const tick of latestTicks) {
+        if (!ticksByToken.has(tick.instrument_token)) {
+          ticksByToken.set(tick.instrument_token, tick);
+        }
+      }
+
+      const ticks = Array.from(ticksByToken.values());
 
     let signalsFound = 0;
 
@@ -131,12 +143,13 @@ export async function POST() {
   }
 }
 
-// Simplified evaluator logic
 function evaluateStrategy(strategy: any, tick: any): 'BUY' | 'SELL' | 'HOLD' {
-  // Real implementation would parse strategy.buy_entry_logic etc.
-  // For demonstration, we'll use a placeholder logic
   const price = tick.last_price;
-  const change = tick.ohlc?.close ? (price - tick.ohlc.close) / tick.ohlc.close : 0;
+  const close = tick.close;
+  
+  if (!price || !close) return 'HOLD';
+  
+  const change = (price - close) / close;
   
   if (change > 0.01) return 'BUY';
   if (change < -0.01) return 'SELL';

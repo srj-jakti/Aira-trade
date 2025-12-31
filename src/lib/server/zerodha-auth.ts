@@ -10,12 +10,18 @@ const BASE_HEADERS = {
   "X-Kite-Version": "3",
 };
 
+const DEBUG = process.env.NODE_ENV === "development";
+
+function log(...args: unknown[]) {
+  if (DEBUG) console.log(...args);
+}
+
 function extractCookies(response: Response): string[] {
   const cookies: string[] = [];
   
-  // @ts-ignore - getSetCookie is available in modern Node.js
+  // @ts-expect-error - getSetCookie is available in modern Node.js
   if (typeof response.headers.getSetCookie === 'function') {
-    // @ts-ignore
+    // @ts-expect-error
     const setCookies = response.headers.getSetCookie();
     setCookies.forEach((c: string) => {
       const part = c.split(';')[0];
@@ -23,7 +29,6 @@ function extractCookies(response: Response): string[] {
     });
   }
   
-  // Fallback: also try raw set-cookie header
   if (cookies.length === 0) {
     const raw = response.headers.get('set-cookie');
     if (raw) {
@@ -44,11 +49,8 @@ export async function performZerodhaFullLogin(config: {
   totp_secret: string;
 }): Promise<{ success: boolean; accessToken?: string; error?: string }> {
   try {
-    console.log("[Zerodha Auth] Step 1: Starting login for user:", config.user_id);
+    log("[Zerodha Auth] Starting login for user:", config.user_id);
     
-    // ----------------------------------------
-    // STEP 1: LOGIN
-    // ----------------------------------------
     const loginResp = await fetch("https://kite.zerodha.com/api/login", {
       method: "POST",
       headers: BASE_HEADERS,
@@ -59,55 +61,45 @@ export async function performZerodhaFullLogin(config: {
     });
 
     const loginData = await loginResp.json();
-    console.log("[Zerodha Auth] Step 1 Response status:", loginResp.status, "data:", JSON.stringify(loginData));
     
     if (!loginResp.ok || loginData.status !== "success") {
       return { success: false, error: loginData.message || "Login step failed" };
     }
 
-const requestId = loginData.data.request_id;
-const userId = loginData.data.user_id || config.user_id; // Use uppercase if returned
-const loginCookies = extractCookies(loginResp);
-console.log("[Zerodha Auth] Step 1 Success - request_id:", requestId, "cookies count:", loginCookies.length);
-console.log("[Zerodha Auth] Cookies received:", loginCookies);
+    const requestId = loginData.data.request_id;
+    const userId = loginData.data.user_id || config.user_id;
+    const loginCookies = extractCookies(loginResp);
+    log("[Zerodha Auth] Step 1 Success");
 
-// ----------------------------------------
-// STEP 2: 2FA GENERATION & SUBMISSION
-// ----------------------------------------
-const secret = config.totp_secret.replace(/\s+/g, "");
-const totp = new OTPAuth.TOTP({
-issuer: "Zerodha",
-label: userId,
-algorithm: "SHA1",
-digits: 6,
-period: 30,
-secret: OTPAuth.Secret.fromBase32(secret),
-});
+    const secret = config.totp_secret.replace(/\s+/g, "");
+    const totp = new OTPAuth.TOTP({
+      issuer: "Zerodha",
+      label: userId,
+      algorithm: "SHA1",
+      digits: 6,
+      period: 30,
+      secret: OTPAuth.Secret.fromBase32(secret),
+    });
 
-const totpCode = totp.generate();
-console.log("[Zerodha Auth] Step 2: Generated TOTP code:", totpCode);
+    const totpCode = totp.generate();
 
-const twofaBody = new URLSearchParams({
-user_id: userId,
-request_id: requestId,
-twofa_value: totpCode,
-twofa_type: "totp", // Explicitly added
-});
+    const twofaBody = new URLSearchParams({
+      user_id: userId,
+      request_id: requestId,
+      twofa_value: totpCode,
+      twofa_type: "totp",
+    });
 
-console.log("[Zerodha Auth] Step 2: Sending 2FA with cookies:", loginCookies.join("; "));
-
-const twofaResp = await fetch("https://kite.zerodha.com/api/twofa", {
-method: "POST",
-headers: {
-...BASE_HEADERS,
-"Cookie": loginCookies.join("; "),
-},
-body: twofaBody.toString(),
-});
-
+    const twofaResp = await fetch("https://kite.zerodha.com/api/twofa", {
+      method: "POST",
+      headers: {
+        ...BASE_HEADERS,
+        "Cookie": loginCookies.join("; "),
+      },
+      body: twofaBody.toString(),
+    });
 
     const twofaData = await twofaResp.json();
-    console.log("[Zerodha Auth] Step 2 Response status:", twofaResp.status, "data:", JSON.stringify(twofaData));
     
     if (!twofaResp.ok || twofaData.status !== "success") {
       return { success: false, error: twofaData.message || "2FA step failed" };
@@ -115,34 +107,25 @@ body: twofaBody.toString(),
 
     const twofaCookies = extractCookies(twofaResp);
     const allCookies = [...loginCookies, ...twofaCookies];
-    console.log("[Zerodha Auth] Step 2 Success - total cookies:", allCookies.length);
+    log("[Zerodha Auth] Step 2 Success");
     
-    // Extract enctoken
     let enctoken = null;
     allCookies.forEach(c => {
       if (c.startsWith("enctoken=")) enctoken = c.split("=")[1];
     });
 
-    console.log("[Zerodha Auth] Enctoken found:", enctoken ? "Yes" : "No");
-
     if (!enctoken) {
       return { success: false, error: "Failed to obtain enctoken from cookies" };
     }
 
-    // ----------------------------------------
-    // STEP 3: OAUTH AUTHORIZATION FLOW
-    // ----------------------------------------
-    console.log("[Zerodha Auth] Step 3: Starting OAuth flow");
+    log("[Zerodha Auth] Step 3: Starting OAuth flow");
     const oauthUrl = `https://kite.trade/connect/login?v=3&api_key=${config.api_key}`;
     const cookieString = `enctoken=${enctoken}; ${allCookies.join("; ")}`;
     
     let currentUrl = oauthUrl;
     let requestToken = null;
     
-    // Follow redirects manually
     for (let i = 0; i < 10; i++) {
-      console.log(`[Zerodha Auth] Step 3 Redirect #${i + 1}: ${currentUrl.substring(0, 80)}...`);
-      
       const resp = await fetch(currentUrl, {
         method: "GET",
         headers: {
@@ -152,17 +135,13 @@ body: twofaBody.toString(),
         redirect: "manual"
       });
 
-      console.log(`[Zerodha Auth] Step 3 Response status: ${resp.status}`);
-
       if ([301, 302, 307].includes(resp.status)) {
         const location = resp.headers.get("location");
-        console.log("[Zerodha Auth] Redirect location:", location);
         if (!location) break;
 
         const match = location.match(/[?&]request_token=([^&]+)/);
         if (match) {
           requestToken = match[1];
-          console.log("[Zerodha Auth] Found request_token in redirect!");
           break;
         }
 
@@ -170,25 +149,18 @@ body: twofaBody.toString(),
       } 
       else if (resp.status === 200) {
         const text = await resp.text();
-        console.log("[Zerodha Auth] Got 200 response, checking for token in body...");
         
         const match = text.match(/[?&]request_token=([^&"'\s]+)/);
         if (match) {
           requestToken = match[1];
-          console.log("[Zerodha Auth] Found request_token in body!");
           break;
         }
 
         if (text.includes("Authorize")) {
-          console.log("[Zerodha Auth] Hit Authorize page, attempting auto-approve...");
           const sessIdMatch = currentUrl.match(/[?&]sess_id=([^&]+)/);
-          if (!sessIdMatch) {
-            console.log("[Zerodha Auth] No sess_id found in URL");
-            break;
-          }
+          if (!sessIdMatch) break;
           
           const actionUrl = `https://kite.zerodha.com/connect/login?api_key=${config.api_key}&sess_id=${sessIdMatch[1]}`;
-          console.log("[Zerodha Auth] Auto-approve URL:", actionUrl);
           
           const approveResp = await fetch(actionUrl, {
             method: "POST",
@@ -197,24 +169,18 @@ body: twofaBody.toString(),
             redirect: "manual"
           });
           
-          console.log("[Zerodha Auth] Auto-approve response status:", approveResp.status);
           const loc = approveResp.headers.get("location");
-          console.log("[Zerodha Auth] Auto-approve redirect:", loc);
           
           if (loc) {
             const rtMatch = loc.match(/request_token=([^&]+)/);
             if (rtMatch) {
               requestToken = rtMatch[1];
-              console.log("[Zerodha Auth] Found request_token after auto-approve!");
               break;
             }
           }
         }
-        
-        console.log("[Zerodha Auth] Page content (first 500 chars):", text.substring(0, 500));
         break;
       } else {
-        console.log("[Zerodha Auth] Unexpected status, breaking loop");
         break;
       }
     }
@@ -223,10 +189,7 @@ body: twofaBody.toString(),
       return { success: false, error: "Failed to obtain request_token after redirects" };
     }
 
-    // ----------------------------------------
-    // STEP 4: EXCHANGE FOR ACCESS TOKEN
-    // ----------------------------------------
-    console.log("[Zerodha Auth] Step 4: Exchanging request_token for access_token");
+    log("[Zerodha Auth] Step 4: Exchanging for access token");
     const checksum = crypto
       .createHash("sha256")
       .update(config.api_key + requestToken + config.api_secret)
@@ -246,17 +209,16 @@ body: twofaBody.toString(),
     });
 
     const tokenData = await tokenResp.json();
-    console.log("[Zerodha Auth] Step 4 Response:", JSON.stringify(tokenData));
     
     if (tokenData.status === "success" && tokenData.data?.access_token) {
-      console.log("[Zerodha Auth] SUCCESS! Access token obtained");
+      log("[Zerodha Auth] SUCCESS");
       return { success: true, accessToken: tokenData.data.access_token };
     } else {
       return { success: false, error: tokenData.message || "Token exchange failed" };
     }
 
   } catch (err) {
-    console.error("Zerodha full login exception:", err);
+    console.error("Zerodha login error:", err instanceof Error ? err.message : "Unknown error");
     return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
   }
 }

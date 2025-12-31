@@ -1,62 +1,189 @@
 "use client";
 
-import { useState } from "react";
-import { 
-  Activity, 
-  Bot, 
-  Lock, 
-  Globe, 
+import { useState, useEffect, useCallback } from "react";
+import {
+  Activity,
+  Bot,
+  Lock,
+  Globe,
   UserCheck,
   Zap,
-  Info
+  Send,
+  Loader2,
+  ArrowRight,
+  Check,
+  X,
+  ChevronDown,
+  ChevronUp,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Target,
+  Shield,
+  Clock,
+  RefreshCw,
+  Save,
+  Play,
+  Sparkles,
+  Eye,
+  EyeOff,
+  Users,
+  Calendar,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+interface StrategyLogic {
+  conditions: string[];
+  indicators?: string[];
+  parameters?: Record<string, number | string>;
+  description?: string;
+}
+
+interface StructuredStrategy {
+  name: string;
+  description: string;
+  buy_entry_logic: StrategyLogic;
+  buy_stop_loss: StrategyLogic;
+  buy_target: StrategyLogic;
+  buy_trailing_sl: StrategyLogic;
+  sell_entry_logic: StrategyLogic;
+  sell_stop_loss: StrategyLogic;
+  sell_target: StrategyLogic;
+  sell_trailing_sl: StrategyLogic;
+  hold_logic: StrategyLogic;
+}
+
+interface BacktestResult {
+  capital_used: number;
+  total_trades: number;
+  buy_count: number;
+  sell_count: number;
+  hold_count: number;
+  net_pnl: number;
+  net_pnl_percentage: number;
+  win_rate: number;
+  loss_rate: number;
+  max_drawdown: number;
+  max_drawdown_percentage: number;
+  trade_log: TradeEntry[];
+}
+
+interface TradeEntry {
+  id: string;
+  type: "BUY" | "SELL";
+  entry_time: string;
+  entry_price: number;
+  exit_time?: string;
+  exit_price?: number;
+  quantity: number;
+  pnl?: number;
+  pnl_percentage?: number;
+  exit_reason?: string;
+}
+
+interface Strategy {
+  id: number;
+  name: string;
+  description: string;
+  visibility: string;
+  is_active: boolean;
+  selected_timeframes: string[];
+  created_at: string;
+  admin_approved?: boolean;
+  creator?: string;
+  stats?: {
+    win_rate: number;
+    net_pnl_percentage: number;
+    total_trades: number;
+  };
+}
+
+const TIMEFRAMES = [
+  { value: "3minute", label: "3 Min", coverage: "1 Month" },
+  { value: "5minute", label: "5 Min", coverage: "3 Months" },
+  { value: "15minute", label: "15 Min", coverage: "6 Months" },
+  { value: "60minute", label: "1 Hour", coverage: "1 Year" },
+  { value: "day", label: "Daily", coverage: "3 Years" },
+];
 
 export default function StrategyPage() {
+  const [activeTab, setActiveTab] = useState("create");
+
   return (
     <div className="flex flex-col h-full bg-[#030303]">
       <div className="flex-1 p-4 md:p-8 pt-6 space-y-6 max-w-7xl mx-auto w-full">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Strategies</h1>
-            <p className="text-white/50 text-sm">Manage, create and discover trading strategies.</p>
+            <h1 className="text-3xl font-bold tracking-tight text-white">
+              Strategies
+            </h1>
+            <p className="text-white/50 text-sm">
+              Create, backtest, and manage AI-powered trading strategies.
+            </p>
           </div>
         </div>
 
-        <Tabs defaultValue="active" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="relative">
             <TabsList className="flex h-11 items-center justify-start gap-1 rounded-xl border border-white/10 bg-white/5 p-1 overflow-x-auto no-scrollbar w-full md:w-max">
-              <TabsTrigger 
-                value="active" 
+              <TabsTrigger
+                value="active"
                 className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
               >
                 <Activity className="w-4 h-4 shrink-0" />
                 <span>Active</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="create" 
+              <TabsTrigger
+                value="create"
                 className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
               >
                 <Bot className="w-4 h-4 shrink-0" />
                 <span>Create AI</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="private" 
+              <TabsTrigger
+                value="private"
                 className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
               >
                 <Lock className="w-4 h-4 shrink-0" />
                 <span>Private</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="public" 
+              <TabsTrigger
+                value="public"
                 className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
               >
                 <Globe className="w-4 h-4 shrink-0" />
                 <span>Public</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="invite-only" 
+              <TabsTrigger
+                value="invite-only"
                 className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
               >
                 <UserCheck className="w-4 h-4 shrink-0" />
@@ -67,72 +194,1236 @@ export default function StrategyPage() {
 
           <div className="mt-6">
             <TabsContent value="active" className="space-y-6 mt-0">
-              <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg">Active Strategies</CardTitle>
-                  <CardDescription className="text-white/40">Strategies currently running and allowed for AI auto-trading.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/5 rounded-xl">
-                  <Activity className="w-12 h-12 text-white/10 mb-4" />
-                  <p className="text-white/40">No active strategies found</p>
-                </CardContent>
-              </Card>
+              <ActiveStrategiesTab />
             </TabsContent>
 
             <TabsContent value="create" className="space-y-6 mt-0">
-              <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg">Create with AI</CardTitle>
-                  <CardDescription className="text-white/40">Use our AI assistant to build custom trading strategies.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/5 rounded-xl">
-                  <Bot className="w-12 h-12 text-white/10 mb-4" />
-                  <p className="text-white/40">AI strategy builder interface coming soon</p>
-                </CardContent>
-              </Card>
+              <CreateStrategyTab />
             </TabsContent>
 
             <TabsContent value="private" className="space-y-6 mt-0">
-              <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg">Private Strategies</CardTitle>
-                  <CardDescription className="text-white/40">Your personal strategies saved to your account.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/5 rounded-xl">
-                  <Lock className="w-12 h-12 text-white/10 mb-4" />
-                  <p className="text-white/40">No private strategies saved</p>
-                </CardContent>
-              </Card>
+              <PrivateStrategiesTab />
             </TabsContent>
 
             <TabsContent value="public" className="space-y-6 mt-0">
-              <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg">Public Marketplace</CardTitle>
-                  <CardDescription className="text-white/40">Discover strategies shared by the community and approved by admins.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/5 rounded-xl">
-                  <Globe className="w-12 h-12 text-white/10 mb-4" />
-                  <p className="text-white/40">Public strategies will appear here</p>
-                </CardContent>
-              </Card>
+              <PublicStrategiesTab />
             </TabsContent>
 
             <TabsContent value="invite-only" className="space-y-6 mt-0">
-              <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg">Invite Only</CardTitle>
-                  <CardDescription className="text-white/40">Exclusive strategies accessible only through invitation or admin approval.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed border-white/5 rounded-xl">
-                  <UserCheck className="w-12 h-12 text-white/10 mb-4" />
-                  <p className="text-white/40">Check your invitations here</p>
-                </CardContent>
-              </Card>
+              <InviteOnlyTab />
             </TabsContent>
           </div>
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+function ActiveStrategiesTab() {
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchActiveStrategies();
+  }, []);
+
+  const fetchActiveStrategies = async () => {
+    try {
+      const res = await fetch("/api/strategies");
+      if (res.ok) {
+        const data = await res.json();
+        setStrategies((data.strategies || []).filter((s: Strategy) => s.is_active));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleActive = async (id: number, active: boolean) => {
+    const res = await fetch(`/api/strategies/${id}/activate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active }),
+    });
+    if (res.ok) {
+      fetchActiveStrategies();
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="bg-white/5 border-white/10">
+        <CardContent className="flex items-center justify-center min-h-[300px]">
+          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="bg-white/5 border-white/10">
+      <CardHeader>
+        <CardTitle className="text-white text-lg">Active Strategies</CardTitle>
+        <CardDescription className="text-white/40">
+          Strategies enabled for AI Analysis, Scanner, and Automated Trading.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {strategies.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-white/5 rounded-xl">
+            <Activity className="w-12 h-12 text-white/10 mb-4" />
+            <p className="text-white/40">No active strategies</p>
+            <p className="text-white/20 text-sm mt-1">
+              Activate a strategy from your Private tab to use it
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {strategies.map((strategy) => (
+              <div
+                key={strategy.id}
+                className="p-4 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-white font-medium">{strategy.name}</h3>
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-green-500/30 text-green-400"
+                    >
+                      Active
+                    </Badge>
+                  </div>
+                  <p className="text-white/40 text-sm mt-1">
+                    {strategy.description}
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    {strategy.selected_timeframes?.map((tf) => (
+                      <Badge
+                        key={tf}
+                        variant="outline"
+                        className="text-xs border-white/10 text-white/50"
+                      >
+                        {TIMEFRAMES.find((t) => t.value === tf)?.label || tf}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <Switch
+                  checked={strategy.is_active}
+                  onCheckedChange={(checked) => toggleActive(strategy.id, checked)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CreateStrategyTab() {
+  const [step, setStep] = useState<"input" | "review" | "backtest" | "improve" | "save">("input");
+  const [rawInput, setRawInput] = useState("");
+  const [formatting, setFormatting] = useState(false);
+  const [strategy, setStrategy] = useState<StructuredStrategy | null>(null);
+  const [backtestResults, setBacktestResults] = useState<Record<string, BacktestResult>>({});
+  const [selectedTimeframes, setSelectedTimeframes] = useState<string[]>([]);
+  const [selectedInstrument, setSelectedInstrument] = useState<number | null>(null);
+  const [instrumentSearch, setInstrumentSearch] = useState("");
+  const [instruments, setInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
+  const [backtesting, setBacktesting] = useState(false);
+  const [improving, setImproving] = useState(false);
+  const [improvementNotes, setImprovementNotes] = useState("");
+  const [improvementCount, setImprovementCount] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [visibility, setVisibility] = useState<"private" | "public" | "invite_only">("private");
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+
+  const searchInstruments = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setInstruments([]);
+      return;
+    }
+    const res = await fetch(`/api/admin/market-data/instruments?search=${encodeURIComponent(query)}&limit=10`);
+    if (res.ok) {
+      const data = await res.json();
+      setInstruments(data.instruments || []);
+    }
+  }, []);
+
+  const formatStrategy = async () => {
+    if (!rawInput.trim()) return;
+    setFormatting(true);
+    try {
+      const res = await fetch("/api/strategies/format", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawInput }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStrategy(data.strategy);
+        setStep("review");
+      } else {
+        alert("Failed to format strategy. Please try again.");
+      }
+    } catch {
+      alert("Error formatting strategy");
+    } finally {
+      setFormatting(false);
+    }
+  };
+
+  const runBacktest = async (timeframe: string) => {
+    if (!strategy || !selectedInstrument) return;
+    setBacktesting(true);
+    try {
+      const res = await fetch("/api/strategies/preview/backtest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          strategy,
+          instrumentToken: selectedInstrument,
+          timeframe,
+          capital: 100000,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBacktestResults((prev) => ({ ...prev, [timeframe]: data.result }));
+        if (step === "review") setStep("backtest");
+      } else {
+        const error = await res.json();
+        alert(error.error || "Backtest failed");
+      }
+    } catch {
+      alert("Error running backtest");
+    } finally {
+      setBacktesting(false);
+    }
+  };
+
+  const improveStrategy = async () => {
+    if (!strategy || Object.keys(backtestResults).length === 0) return;
+    setImproving(true);
+    try {
+      const latestBacktest = Object.values(backtestResults)[0];
+      const res = await fetch("/api/strategies/preview/improve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ strategy, backtestResults: latestBacktest }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStrategy(data.improved);
+        setImprovementNotes(data.notes);
+        setImprovementCount((c) => c + 1);
+        setBacktestResults({});
+        setStep("improve");
+      }
+    } catch {
+      alert("Error improving strategy");
+    } finally {
+      setImproving(false);
+    }
+  };
+
+  const saveStrategy = async () => {
+    if (!strategy || selectedTimeframes.length === 0) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/strategies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          strategy,
+          rawInput,
+          selectedTimeframes,
+          visibility,
+        }),
+      });
+      if (res.ok) {
+        setShowSaveDialog(false);
+        resetForm();
+        alert(visibility === "private" 
+          ? "Strategy saved successfully!" 
+          : "Strategy saved and submitted for approval!");
+      }
+    } catch {
+      alert("Error saving strategy");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetForm = () => {
+    setStep("input");
+    setRawInput("");
+    setStrategy(null);
+    setBacktestResults({});
+    setSelectedTimeframes([]);
+    setSelectedInstrument(null);
+    setImprovementNotes("");
+    setImprovementCount(0);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4 mb-6">
+        {["input", "review", "backtest", "improve", "save"].map((s, i) => (
+          <div key={s} className="flex items-center">
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                step === s
+                  ? "bg-cyan-500 text-white"
+                  : ["input", "review", "backtest", "improve", "save"].indexOf(step) > i
+                  ? "bg-green-500 text-white"
+                  : "bg-white/10 text-white/40"
+              }`}
+            >
+              {["input", "review", "backtest", "improve", "save"].indexOf(step) > i ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                i + 1
+              )}
+            </div>
+            {i < 4 && (
+              <div
+                className={`w-12 h-0.5 mx-2 ${
+                  ["input", "review", "backtest", "improve", "save"].indexOf(step) > i
+                    ? "bg-green-500"
+                    : "bg-white/10"
+                }`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {step === "input" && (
+        <Card className="bg-white/5 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-white text-lg flex items-center gap-2">
+              <Bot className="w-5 h-5 text-cyan-400" />
+              Describe Your Strategy
+            </CardTitle>
+            <CardDescription className="text-white/40">
+              Write your trading idea in any form - even incomplete or unclear. Our AI will convert it into a complete, executable strategy.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea
+              placeholder="Example: Buy when RSI is low and price is above 20 SMA. Use 2% stop loss and 4% target. Avoid trading during high volatility..."
+              value={rawInput}
+              onChange={(e) => setRawInput(e.target.value)}
+              className="min-h-[200px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none"
+            />
+            <div className="flex justify-end">
+              <Button
+                onClick={formatStrategy}
+                disabled={!rawInput.trim() || formatting}
+                className="bg-cyan-500 hover:bg-cyan-600"
+              >
+                {formatting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 mr-2" />
+                )}
+                Format with AI
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(step === "review" || step === "backtest" || step === "improve") && strategy && (
+        <div className="space-y-6">
+          {improvementNotes && step === "improve" && (
+            <Card className="bg-cyan-500/10 border-cyan-500/30">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="w-5 h-5 text-cyan-400 mt-0.5" />
+                  <div>
+                    <h4 className="text-white font-medium mb-2">
+                      AI Improvement #{improvementCount}
+                    </h4>
+                    <p className="text-white/70 text-sm">{improvementNotes}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="bg-white/5 border-white/10">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-white text-lg">{strategy.name}</CardTitle>
+                <CardDescription className="text-white/40">
+                  {strategy.description}
+                </CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={resetForm} className="border-white/10 text-white/60">
+                <X className="w-4 h-4 mr-2" />
+                Start Over
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <StrategySection
+                  title="BUY Side"
+                  icon={<TrendingUp className="w-4 h-4 text-green-400" />}
+                  sections={[
+                    { label: "Entry Logic", data: strategy.buy_entry_logic },
+                    { label: "Stop Loss", data: strategy.buy_stop_loss },
+                    { label: "Target", data: strategy.buy_target },
+                    { label: "Trailing SL", data: strategy.buy_trailing_sl },
+                  ]}
+                />
+                <StrategySection
+                  title="SELL Side"
+                  icon={<TrendingDown className="w-4 h-4 text-red-400" />}
+                  sections={[
+                    { label: "Entry Logic", data: strategy.sell_entry_logic },
+                    { label: "Stop Loss", data: strategy.sell_stop_loss },
+                    { label: "Target", data: strategy.sell_target },
+                    { label: "Trailing SL", data: strategy.sell_trailing_sl },
+                  ]}
+                />
+              </div>
+
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield className="w-4 h-4 text-yellow-400" />
+                  <span className="text-yellow-400 font-medium">Hold / No-Trade Logic</span>
+                </div>
+                <ul className="text-white/60 text-sm space-y-1">
+                  {strategy.hold_logic.conditions?.map((c, i) => (
+                    <li key={i}>• {c}</li>
+                  ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10">
+            <CardHeader>
+              <CardTitle className="text-white text-lg flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-purple-400" />
+                Backtest Strategy
+              </CardTitle>
+              <CardDescription className="text-white/40">
+                Select an instrument and run backtests across different timeframes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <Label className="text-white/60 mb-2 block">Select Instrument</Label>
+                <Input
+                  placeholder="Search by symbol (e.g., NIFTY, SBIN)..."
+                  value={instrumentSearch}
+                  onChange={(e) => {
+                    setInstrumentSearch(e.target.value);
+                    searchInstruments(e.target.value);
+                  }}
+                  className="bg-white/5 border-white/10 text-white"
+                />
+                {instruments.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                    {instruments.map((inst) => (
+                      <button
+                        key={inst.instrument_token}
+                        className="w-full text-left px-4 py-2 hover:bg-white/5 text-white text-sm"
+                        onClick={() => {
+                          setSelectedInstrument(inst.instrument_token);
+                          setInstrumentSearch(inst.tradingsymbol);
+                          setInstruments([]);
+                        }}
+                      >
+                        {inst.tradingsymbol} - {inst.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedInstrument && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {TIMEFRAMES.map((tf) => (
+                    <Button
+                      key={tf.value}
+                      variant="outline"
+                      onClick={() => runBacktest(tf.value)}
+                      disabled={backtesting}
+                      className={`border-white/10 text-white hover:bg-white/5 ${
+                        backtestResults[tf.value] ? "border-green-500/50" : ""
+                      }`}
+                    >
+                      {backtesting ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : backtestResults[tf.value] ? (
+                        <Check className="w-4 h-4 mr-2 text-green-400" />
+                      ) : (
+                        <Play className="w-4 h-4 mr-2" />
+                      )}
+                      {tf.label}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {Object.keys(backtestResults).length > 0 && (
+                <div className="space-y-4 mt-6">
+                  {Object.entries(backtestResults).map(([timeframe, result]) => (
+                    <BacktestResultCard
+                      key={timeframe}
+                      timeframe={timeframe}
+                      result={result}
+                    />
+                  ))}
+
+                  <div className="flex gap-4 pt-4">
+                    <Button
+                      onClick={improveStrategy}
+                      disabled={improving}
+                      className="flex-1 bg-purple-500 hover:bg-purple-600"
+                    >
+                      {improving ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 mr-2" />
+                      )}
+                      AI Analyze & Improve Strategy
+                    </Button>
+                    <Button
+                      onClick={() => setShowSaveDialog(true)}
+                      className="flex-1 bg-cyan-500 hover:bg-cyan-600"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      Finalize & Save Strategy
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent className="bg-[#1a1a1a] border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Save Strategy</DialogTitle>
+            <DialogDescription className="text-white/50">
+              Select timeframes and visibility for your strategy.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-white/60 mb-2 block">Select Timeframes</Label>
+              <div className="flex flex-wrap gap-2">
+                {TIMEFRAMES.map((tf) => (
+                  <Button
+                    key={tf.value}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedTimeframes((prev) =>
+                        prev.includes(tf.value)
+                          ? prev.filter((t) => t !== tf.value)
+                          : [...prev, tf.value]
+                      );
+                    }}
+                    className={`border-white/10 ${
+                      selectedTimeframes.includes(tf.value)
+                        ? "bg-cyan-500 border-cyan-500 text-white"
+                        : "text-white/60"
+                    }`}
+                  >
+                    {tf.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-white/60 mb-2 block">Visibility</Label>
+              <Select value={visibility} onValueChange={(v: "private" | "public" | "invite_only") => setVisibility(v)}>
+                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-white/10">
+                  <SelectItem value="private" className="text-white">
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      Private - Only you can see
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="public" className="text-white">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4" />
+                      Public - Visible to everyone (requires approval)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="invite_only" className="text-white">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="w-4 h-4" />
+                      Invite Only - Controlled access (requires approval)
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowSaveDialog(false)}
+              className="border-white/10 text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={saveStrategy}
+              disabled={saving || selectedTimeframes.length === 0}
+              className="bg-cyan-500 hover:bg-cyan-600"
+            >
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              Save Strategy
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function StrategySection({
+  title,
+  icon,
+  sections,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  sections: { label: string; data: StrategyLogic }[];
+}) {
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between mb-4"
+      >
+        <div className="flex items-center gap-2">
+          {icon}
+          <span className="text-white font-medium">{title}</span>
+        </div>
+        {expanded ? (
+          <ChevronUp className="w-4 h-4 text-white/40" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-white/40" />
+        )}
+      </button>
+
+      {expanded && (
+        <div className="space-y-4">
+          {sections.map((section) => (
+            <div key={section.label}>
+              <p className="text-white/40 text-xs uppercase tracking-wider mb-1">
+                {section.label}
+              </p>
+              <div className="text-white/80 text-sm">
+                {section.data.description && (
+                  <p className="mb-1 text-white/60 italic">{section.data.description}</p>
+                )}
+                <ul className="space-y-0.5">
+                  {section.data.conditions?.map((c, i) => (
+                    <li key={i}>• {c}</li>
+                  ))}
+                </ul>
+                {section.data.parameters && Object.keys(section.data.parameters).length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {Object.entries(section.data.parameters).map(([k, v]) => (
+                      <Badge key={k} variant="outline" className="text-xs border-white/10 text-white/50">
+                        {k}: {v}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BacktestResultCard({ timeframe, result }: { timeframe: string; result: BacktestResult }) {
+  const [showTrades, setShowTrades] = useState(false);
+  const tf = TIMEFRAMES.find((t) => t.value === timeframe);
+
+  return (
+    <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="border-cyan-500/30 text-cyan-400">
+            {tf?.label || timeframe}
+          </Badge>
+          <span className="text-white/40 text-sm">{tf?.coverage} data</span>
+        </div>
+        <div
+          className={`text-lg font-bold ${
+            result.net_pnl >= 0 ? "text-green-400" : "text-red-400"
+          }`}
+        >
+          {result.net_pnl >= 0 ? "+" : ""}
+          {result.net_pnl_percentage.toFixed(2)}%
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <p className="text-white/40 text-xs">Capital</p>
+          <p className="text-white font-medium">₹{result.capital_used.toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-white/40 text-xs">Total Trades</p>
+          <p className="text-white font-medium">{result.total_trades}</p>
+        </div>
+        <div>
+          <p className="text-white/40 text-xs">Win Rate</p>
+          <p className="text-green-400 font-medium">{result.win_rate.toFixed(1)}%</p>
+        </div>
+        <div>
+          <p className="text-white/40 text-xs">Max Drawdown</p>
+          <p className="text-red-400 font-medium">{result.max_drawdown_percentage.toFixed(1)}%</p>
+        </div>
+      </div>
+
+      <div className="flex gap-4 mt-4 text-sm">
+        <span className="text-white/40">
+          Buy: <span className="text-green-400">{result.buy_count}</span>
+        </span>
+        <span className="text-white/40">
+          Sell: <span className="text-red-400">{result.sell_count}</span>
+        </span>
+        <span className="text-white/40">
+          Hold: <span className="text-white/60">{result.hold_count}</span>
+        </span>
+      </div>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setShowTrades(!showTrades)}
+        className="mt-4 text-white/40 hover:text-white"
+      >
+        {showTrades ? "Hide" : "Show"} Trade Log ({result.trade_log.length})
+      </Button>
+
+      {showTrades && (
+        <div className="mt-4 max-h-60 overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="text-white/40 text-xs">
+              <tr>
+                <th className="text-left py-2">Type</th>
+                <th className="text-left py-2">Entry</th>
+                <th className="text-left py-2">Exit</th>
+                <th className="text-right py-2">P&L</th>
+              </tr>
+            </thead>
+            <tbody className="text-white/80">
+              {result.trade_log.slice(0, 20).map((trade) => (
+                <tr key={trade.id} className="border-t border-white/5">
+                  <td className="py-2">
+                    <Badge
+                      variant="outline"
+                      className={
+                        trade.type === "BUY"
+                          ? "border-green-500/30 text-green-400"
+                          : "border-red-500/30 text-red-400"
+                      }
+                    >
+                      {trade.type}
+                    </Badge>
+                  </td>
+                  <td className="py-2">
+                    ₹{trade.entry_price.toFixed(2)}
+                    <span className="text-white/40 text-xs block">
+                      {new Date(trade.entry_time).toLocaleDateString()}
+                    </span>
+                  </td>
+                  <td className="py-2">
+                    ₹{trade.exit_price?.toFixed(2) || "-"}
+                    <span className="text-white/40 text-xs block">
+                      {trade.exit_reason}
+                    </span>
+                  </td>
+                  <td
+                    className={`py-2 text-right ${
+                      (trade.pnl || 0) >= 0 ? "text-green-400" : "text-red-400"
+                    }`}
+                  >
+                    {(trade.pnl || 0) >= 0 ? "+" : ""}₹{trade.pnl?.toFixed(2) || "0"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PrivateStrategiesTab() {
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchStrategies();
+  }, []);
+
+  const fetchStrategies = async () => {
+    try {
+      const res = await fetch("/api/strategies");
+      if (res.ok) {
+        const data = await res.json();
+        setStrategies(data.strategies || []);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleActive = async (id: number, active: boolean) => {
+    const res = await fetch(`/api/strategies/${id}/activate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active }),
+    });
+    if (res.ok) {
+      fetchStrategies();
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="bg-white/5 border-white/10">
+        <CardContent className="flex items-center justify-center min-h-[300px]">
+          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="bg-white/5 border-white/10">
+      <CardHeader>
+        <CardTitle className="text-white text-lg">Private Strategies</CardTitle>
+        <CardDescription className="text-white/40">
+          Your personal strategies. Toggle to activate for AI trading.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {strategies.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-white/5 rounded-xl">
+            <Lock className="w-12 h-12 text-white/10 mb-4" />
+            <p className="text-white/40">No private strategies saved</p>
+            <p className="text-white/20 text-sm mt-1">
+              Create your first strategy in the Create AI tab
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {strategies.map((strategy) => (
+              <div
+                key={strategy.id}
+                className="p-4 bg-white/5 border border-white/10 rounded-xl"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-white font-medium">{strategy.name}</h3>
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${
+                          strategy.visibility === "private"
+                            ? "border-white/20 text-white/40"
+                            : strategy.visibility === "public"
+                            ? "border-green-500/30 text-green-400"
+                            : "border-purple-500/30 text-purple-400"
+                        }`}
+                      >
+                        {strategy.visibility === "invite_only" ? "Invite Only" : strategy.visibility}
+                      </Badge>
+                      {strategy.visibility !== "private" && !strategy.admin_approved && (
+                        <Badge variant="outline" className="text-xs border-yellow-500/30 text-yellow-400">
+                          Pending Approval
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-white/40 text-sm mt-1">{strategy.description}</p>
+                    <div className="flex gap-2 mt-2">
+                      {strategy.selected_timeframes?.map((tf) => (
+                        <Badge
+                          key={tf}
+                          variant="outline"
+                          className="text-xs border-white/10 text-white/50"
+                        >
+                          {TIMEFRAMES.find((t) => t.value === tf)?.label || tf}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-white/40 text-xs">Activation</p>
+                      <Switch
+                        checked={strategy.is_active}
+                        onCheckedChange={(checked) => toggleActive(strategy.id, checked)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PublicStrategiesTab() {
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPublicStrategies();
+  }, []);
+
+  const fetchPublicStrategies = async () => {
+    try {
+      const res = await fetch("/api/strategies/public");
+      if (res.ok) {
+        const data = await res.json();
+        setStrategies((data.strategies || []).filter((s: Strategy) => s.visibility === "public"));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="bg-white/5 border-white/10">
+        <CardContent className="flex items-center justify-center min-h-[300px]">
+          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="bg-white/5 border-white/10">
+      <CardHeader>
+        <CardTitle className="text-white text-lg">Public Marketplace</CardTitle>
+        <CardDescription className="text-white/40">
+          Discover strategies shared by the community.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {strategies.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-white/5 rounded-xl">
+            <Globe className="w-12 h-12 text-white/10 mb-4" />
+            <p className="text-white/40">No public strategies available yet</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {strategies.map((strategy) => (
+              <div
+                key={strategy.id}
+                className="p-4 bg-white/5 border border-white/10 rounded-xl"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-white font-medium">{strategy.name}</h3>
+                  <Badge variant="outline" className="border-green-500/30 text-green-400">
+                    Public
+                  </Badge>
+                </div>
+                <p className="text-white/40 text-sm mb-3">{strategy.description}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/30 text-xs">by {strategy.creator}</span>
+                  {strategy.stats && (
+                    <div className="flex gap-3 text-xs">
+                      <span className="text-green-400">
+                        {strategy.stats.win_rate?.toFixed(0)}% Win
+                      </span>
+                      <span className={strategy.stats.net_pnl_percentage >= 0 ? "text-green-400" : "text-red-400"}>
+                        {strategy.stats.net_pnl_percentage >= 0 ? "+" : ""}
+                        {strategy.stats.net_pnl_percentage?.toFixed(1)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function InviteOnlyTab() {
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [accessData, setAccessData] = useState<{
+    incomingRequests: unknown[];
+    myRequests: unknown[];
+    myGrants: unknown[];
+  }>({ incomingRequests: [], myRequests: [], myGrants: [] });
+  const [loading, setLoading] = useState(true);
+  const [activeSubTab, setActiveSubTab] = useState<"browse" | "requests" | "manage">("browse");
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const [publicRes, accessRes] = await Promise.all([
+        fetch("/api/strategies/public"),
+        fetch("/api/strategies/access"),
+      ]);
+
+      if (publicRes.ok) {
+        const data = await publicRes.json();
+        setStrategies((data.strategies || []).filter((s: Strategy) => s.visibility === "invite_only"));
+      }
+
+      if (accessRes.ok) {
+        const data = await accessRes.json();
+        setAccessData(data);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestAccess = async (strategyId: number) => {
+    const res = await fetch("/api/strategies/access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ strategyId, message: "I would like access to this strategy." }),
+    });
+    if (res.ok) {
+      alert("Access request sent!");
+      fetchData();
+    } else {
+      const error = await res.json();
+      alert(error.error || "Failed to request access");
+    }
+  };
+
+  const handleRequest = async (requestId: number, action: "approve" | "reject") => {
+    const res = await fetch(`/api/strategies/access/${requestId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    if (res.ok) {
+      fetchData();
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="bg-white/5 border-white/10">
+        <CardContent className="flex items-center justify-center min-h-[300px]">
+          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-2">
+        <Button
+          variant={activeSubTab === "browse" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setActiveSubTab("browse")}
+          className={activeSubTab === "browse" ? "bg-cyan-500" : "border-white/10 text-white/60"}
+        >
+          Browse
+        </Button>
+        <Button
+          variant={activeSubTab === "requests" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setActiveSubTab("requests")}
+          className={activeSubTab === "requests" ? "bg-cyan-500" : "border-white/10 text-white/60"}
+        >
+          My Requests
+        </Button>
+        <Button
+          variant={activeSubTab === "manage" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setActiveSubTab("manage")}
+          className={activeSubTab === "manage" ? "bg-cyan-500" : "border-white/10 text-white/60"}
+        >
+          Manage Invites
+          {accessData.incomingRequests.length > 0 && (
+            <Badge className="ml-2 bg-red-500">{accessData.incomingRequests.length}</Badge>
+          )}
+        </Button>
+      </div>
+
+      {activeSubTab === "browse" && (
+        <Card className="bg-white/5 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-white text-lg">Invite-Only Strategies</CardTitle>
+            <CardDescription className="text-white/40">
+              Request access to exclusive strategies.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {strategies.length === 0 ? (
+              <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-white/5 rounded-xl">
+                <UserCheck className="w-12 h-12 text-white/10 mb-4" />
+                <p className="text-white/40">No invite-only strategies available</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {strategies.map((strategy) => (
+                  <div
+                    key={strategy.id}
+                    className="p-4 bg-white/5 border border-white/10 rounded-xl"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-purple-400" />
+                        <h3 className="text-white font-medium">{strategy.name}</h3>
+                      </div>
+                      <Badge variant="outline" className="border-purple-500/30 text-purple-400">
+                        Invite Only
+                      </Badge>
+                    </div>
+                    <p className="text-white/40 text-sm mb-3">{strategy.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-white/30 text-xs">by {strategy.creator}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => requestAccess(strategy.id)}
+                        className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                      >
+                        Request Access
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeSubTab === "requests" && (
+        <Card className="bg-white/5 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-white text-lg">My Access Requests</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {accessData.myRequests.length === 0 ? (
+              <p className="text-white/40 text-center py-8">No access requests</p>
+            ) : (
+              <div className="space-y-3">
+                {accessData.myRequests.map((req: any) => (
+                  <div key={req.id} className="p-3 bg-white/5 border border-white/10 rounded-lg flex items-center justify-between">
+                    <div>
+                      <p className="text-white">{req.strategies?.name}</p>
+                      <p className="text-white/40 text-sm">Status: {req.status}</p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={
+                        req.status === "approved"
+                          ? "border-green-500/30 text-green-400"
+                          : req.status === "rejected"
+                          ? "border-red-500/30 text-red-400"
+                          : "border-yellow-500/30 text-yellow-400"
+                      }
+                    >
+                      {req.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeSubTab === "manage" && (
+        <Card className="bg-white/5 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-white text-lg">Manage Invite Requests</CardTitle>
+            <CardDescription className="text-white/40">
+              Approve or reject access requests for your invite-only strategies.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {accessData.incomingRequests.length === 0 ? (
+              <p className="text-white/40 text-center py-8">No pending requests</p>
+            ) : (
+              <div className="space-y-3">
+                {accessData.incomingRequests.map((req: any) => (
+                  <div key={req.id} className="p-4 bg-white/5 border border-white/10 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-white font-medium">{req.profiles?.username || req.profiles?.email}</p>
+                        <p className="text-white/40 text-sm">Requesting: {req.strategies?.name}</p>
+                      </div>
+                      <Badge variant="outline" className="border-yellow-500/30 text-yellow-400">
+                        {req.status}
+                      </Badge>
+                    </div>
+                    {req.message && (
+                      <p className="text-white/60 text-sm mb-3 italic">&quot;{req.message}&quot;</p>
+                    )}
+                    {req.status === "pending" && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleRequest(req.id, "approve")}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          <Check className="w-4 h-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRequest(req.id, "reject")}
+                          className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

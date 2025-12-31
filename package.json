@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "worker:ticker": "npx tsx src/workers/ticker-worker.ts",
-    "worker:ticker:prod": "node --loader ts-node/esm src/workers/ticker-worker.ts"
+    "worker:ticker:prod": "node --loader ts-node/esm src/workers/ticker-worker.ts",
+    "db:migrate": "npx supabase db push"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

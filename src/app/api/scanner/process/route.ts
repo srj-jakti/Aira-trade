@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { tradeExecutionEngine, OrderParams } from "@/lib/server/trade-execution-engine";
+import { checkKillSwitch } from "@/lib/server/kill-switches";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST() {
   try {
+    // CHECK KILL SWITCHES FIRST
+    const scannerCheck = await checkKillSwitch("scanner");
+    if (!scannerCheck.allowed) {
+      return NextResponse.json({ 
+        success: false, 
+        message: scannerCheck.reason,
+        found: 0 
+      });
+    }
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -23,7 +35,6 @@ export async function POST() {
     }
 
     const config = prefs.scanner_config || {};
-    const segments = config.segments || prefs.preferred_markets || ["NSE", "NFO"];
 
     // 2. Load ALL Active Strategies
     const { data: strategies } = await supabase
@@ -51,18 +62,60 @@ export async function POST() {
       return NextResponse.json({ success: true, message: "Daily loss limit reached", found: 0 });
     }
 
-      const staleThreshold = new Date(Date.now() - 30000).toISOString();
+    // 3. PREFER AGGREGATED CANDLES, FALLBACK TO RAW TICKS
+    const staleThreshold = new Date(Date.now() - 30000).toISOString();
+    
+    // Try aggregated 5s candles first (less noise)
+    const { data: aggregatedCandles } = await supabaseAdmin
+      .from("aggregated_candles_5s")
+      .select("instrument_token, open, high, low, close, volume, oi, bucket_start")
+      .gte("bucket_start", staleThreshold)
+      .order("bucket_start", { ascending: false });
 
-      const { data: latestTicks } = await supabase
+    let dataSource: "aggregated" | "raw" = "aggregated";
+    let marketData: Array<{
+      instrument_token: number;
+      last_price: number;
+      open: number | null;
+      high: number | null;
+      low: number | null;
+      close: number | null;
+      volume: number | null;
+      change_percent: number | null;
+    }> = [];
+
+    if (aggregatedCandles && aggregatedCandles.length > 0) {
+      // Use aggregated candles (deduplicate by token, keep latest)
+      const byToken = new Map<number, typeof aggregatedCandles[0]>();
+      for (const candle of aggregatedCandles) {
+        if (!byToken.has(candle.instrument_token)) {
+          byToken.set(candle.instrument_token, candle);
+        }
+      }
+      
+      marketData = Array.from(byToken.values()).map(c => ({
+        instrument_token: c.instrument_token,
+        last_price: c.close,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.open, // Previous close approximation
+        volume: c.volume,
+        change_percent: c.open ? ((c.close - c.open) / c.open) * 100 : null,
+      }));
+    } else {
+      // Fallback to raw ticks
+      dataSource = "raw";
+      const { data: latestTicks } = await supabaseAdmin
         .from("realtime_ticks")
-        .select("instrument_token, last_price, open, high, low, close, change, change_percent, volume, tick_timestamp")
+        .select("instrument_token, last_price, open, high, low, close, change_percent, volume, tick_timestamp")
         .gte("tick_timestamp", staleThreshold)
         .order("tick_timestamp", { ascending: false });
 
       if (!latestTicks || latestTicks.length === 0) {
         return NextResponse.json({ 
           success: true, 
-          message: "No live tick data available. Ensure WebSocket worker is running.", 
+          message: "No live market data available. Ensure WebSocket worker is running.", 
           found: 0 
         });
       }
@@ -74,16 +127,32 @@ export async function POST() {
         }
       }
 
-      const ticks = Array.from(ticksByToken.values());
+      marketData = Array.from(ticksByToken.values()).map(t => ({
+        instrument_token: t.instrument_token,
+        last_price: t.last_price,
+        open: t.open,
+        high: t.high,
+        low: t.low,
+        close: t.close,
+        volume: t.volume,
+        change_percent: t.change_percent,
+      }));
+    }
+
+    if (marketData.length === 0) {
+      return NextResponse.json({ 
+        success: true, 
+        message: "No market data available", 
+        found: 0 
+      });
+    }
 
     let signalsFound = 0;
 
-    // 4. Process Each Tick against Each Strategy
-    for (const tick of ticks) {
+    // 4. Process Each Market Data Point against Each Strategy
+    for (const data of marketData) {
       for (const strategy of strategies) {
-        // Evaluate logic (simplified for this implementation)
-        // In reality, this would use a proper technical analysis library or AI evaluator
-        const signal = evaluateStrategy(strategy, tick);
+        const signal = evaluateStrategy(strategy, data);
 
         if (signal && signal !== 'HOLD') {
           signalsFound++;
@@ -93,13 +162,20 @@ export async function POST() {
             .from("ai_signals")
             .select("*")
             .eq("user_id", user.id)
-            .eq("instrument_token", tick.instrument_token)
+            .eq("instrument_token", data.instrument_token)
             .eq("status", "active")
             .single();
 
           if (!existingSignal) {
+            // Get instrument details
+            const { data: instrument } = await supabaseAdmin
+              .from("instruments")
+              .select("tradingsymbol, exchange")
+              .eq("instrument_token", data.instrument_token)
+              .single();
+
             // New Signal
-            const entryPrice = tick.last_price;
+            const entryPrice = data.last_price;
             const targetPrice = signal === 'BUY' 
               ? entryPrice * 1.02 // 2% Target
               : entryPrice * 0.98;
@@ -111,55 +187,79 @@ export async function POST() {
               .from("ai_signals")
               .insert({
                 user_id: user.id,
-                tradingsymbol: tick.tradingsymbol,
-                instrument_token: tick.instrument_token,
+                tradingsymbol: instrument?.tradingsymbol || `TOKEN_${data.instrument_token}`,
+                instrument_token: data.instrument_token,
                 direction: signal,
                 entry_price: entryPrice,
                 target_price: targetPrice,
                 sl_price: slPrice,
                 status: 'active',
                 strategy_id: strategy.id,
+                data_source: dataSource,
                 created_at: new Date().toISOString()
               })
               .select()
               .single();
 
-            // 5. Auto Trading Execution
+            // 5. Auto Trading Execution (with kill switch check)
             if (prefs.auto_trading_enabled && newSignal) {
-              await executeAutoTrade(user.id, newSignal, prefs, config);
+              const tradingCheck = await checkKillSwitch("trading");
+              if (tradingCheck.allowed) {
+                await executeAutoTrade(user.id, newSignal, prefs, config, instrument?.exchange || "NSE");
+              }
             }
           } else {
             // Update existing signal (Check for Target/SL Hit)
-            await updateSignalStatus(supabase, existingSignal, tick);
+            await updateSignalStatus(supabase, existingSignal, data);
           }
         }
       }
     }
 
-    return NextResponse.json({ success: true, found: signalsFound });
-  } catch (error: any) {
+    return NextResponse.json({ 
+      success: true, 
+      found: signalsFound,
+      dataSource,
+      instrumentsScanned: marketData.length
+    });
+  } catch (error: unknown) {
     console.error("Scanner process error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
   }
 }
 
-function evaluateStrategy(strategy: any, tick: any): 'BUY' | 'SELL' | 'HOLD' {
-  const price = tick.last_price;
-  const close = tick.close;
+function evaluateStrategy(strategy: unknown, data: {
+  last_price: number;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+  change_percent: number | null;
+}): 'BUY' | 'SELL' | 'HOLD' {
+  const price = data.last_price;
+  const close = data.close || data.open;
   
   if (!price || !close) return 'HOLD';
   
   const change = (price - close) / close;
   
+  // Basic momentum strategy
   if (change > 0.01) return 'BUY';
   if (change < -0.01) return 'SELL';
   return 'HOLD';
 }
 
-async function updateSignalStatus(supabase: any, signal: any, tick: any) {
-  const currentPrice = tick.last_price;
+async function updateSignalStatus(supabase: ReturnType<typeof createClient> extends Promise<infer T> ? T : never, signal: {
+  id: string;
+  status: string;
+  direction: string;
+  entry_price: number;
+  target_price: number;
+  sl_price: number;
+}, data: { last_price: number }) {
+  const currentPrice = data.last_price;
   let newStatus = signal.status;
-  let exitPrice = null;
+  let exitPrice: number | null = null;
   let pnl = 0;
 
   if (signal.direction === 'BUY') {
@@ -180,10 +280,10 @@ async function updateSignalStatus(supabase: any, signal: any, tick: any) {
     }
   }
 
-  if (newStatus !== signal.status) {
+  if (newStatus !== signal.status && exitPrice !== null) {
     pnl = signal.direction === 'BUY' 
-      ? (exitPrice! - signal.entry_price) 
-      : (signal.entry_price - exitPrice!);
+      ? (exitPrice - signal.entry_price) 
+      : (signal.entry_price - exitPrice);
 
     await supabase
       .from("ai_signals")
@@ -197,23 +297,29 @@ async function updateSignalStatus(supabase: any, signal: any, tick: any) {
   }
 }
 
-async function executeAutoTrade(userId: string, signal: any, prefs: any, config: any) {
+async function executeAutoTrade(
+  userId: string, 
+  signal: { tradingsymbol: string; direction: string; entry_price: number; strategy_id?: string },
+  prefs: { max_allocation_per_trade?: number },
+  config: { orderType?: string; slicingEnabled?: boolean; maxSlicingQuantity?: number },
+  exchange: string
+) {
   // Calculate quantity based on max allocation
   const allocation = prefs.max_allocation_per_trade || 10000;
-  let quantity = Math.floor(allocation / signal.entry_price);
+  const quantity = Math.floor(allocation / signal.entry_price);
   
   if (quantity === 0) return;
 
   const orderParams: OrderParams = {
     tradingsymbol: signal.tradingsymbol,
-    exchange: "NSE", // Default or from tick
-    transactionType: signal.direction,
+    exchange: exchange,
+    transactionType: signal.direction as "BUY" | "SELL",
     orderType: "MARKET",
     product: config.orderType || "MIS",
     quantity: quantity
   };
 
-  // 6. Handle Order Slicing (Iceberg)
+  // Handle Order Slicing (Iceberg)
   if (config.slicingEnabled && quantity > (config.maxSlicingQuantity || 100)) {
     const maxSlice = config.maxSlicingQuantity || 100;
     const slices = Math.ceil(quantity / maxSlice);

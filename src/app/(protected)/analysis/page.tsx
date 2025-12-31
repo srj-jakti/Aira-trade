@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BrainCircuit, LineChart, Target, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
+import { BrainCircuit, LineChart, Target, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw, ArrowUp, ArrowDown, Loader2, ChevronDown, Eye, EyeOff, Settings2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { InstrumentSearch, type Instrument } from "@/components/InstrumentSearch";
-import { MarketChart, type CandleData } from "@/components/MarketChart";
+import { TradingViewChart, type CandleData } from "@/components/TradingViewChart";
+import { cn } from "@/lib/utils";
 
 interface AnalysisResult {
   trend: string;
@@ -34,6 +35,30 @@ interface Signal {
   strategy_name: string;
 }
 
+interface Strategy {
+  id: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+}
+
+interface IndicatorOverlay {
+  id: string;
+  name: string;
+  type: "sma" | "ema" | "bollinger" | "support_resistance";
+  params?: Record<string, number>;
+  color?: string;
+  visible: boolean;
+}
+
+const DEFAULT_INDICATORS: IndicatorOverlay[] = [
+  { id: "sma20", name: "SMA 20", type: "sma", params: { period: 20 }, color: "#f59e0b", visible: false },
+  { id: "sma50", name: "SMA 50", type: "sma", params: { period: 50 }, color: "#06b6d4", visible: false },
+  { id: "ema9", name: "EMA 9", type: "ema", params: { period: 9 }, color: "#ec4899", visible: false },
+  { id: "ema21", name: "EMA 21", type: "ema", params: { period: 21 }, color: "#8b5cf6", visible: false },
+  { id: "bollinger", name: "Bollinger Bands", type: "bollinger", params: { period: 20, stdDev: 2 }, visible: false },
+];
+
 export default function AnalysisPage() {
   const [selectedInstrument, setSelectedInstrument] = useState<Instrument | null>(null);
   const [chartData, setChartData] = useState<CandleData[]>([]);
@@ -42,16 +67,40 @@ export default function AnalysisPage() {
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [isLoadingSignals, setIsLoadingSignals] = useState(false);
+  const [timeframe, setTimeframe] = useState("1d");
+  const [indicators, setIndicators] = useState<IndicatorOverlay[]>(DEFAULT_INDICATORS);
+  const [showIndicatorPanel, setShowIndicatorPanel] = useState(false);
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
 
-  const fetchChartData = useCallback(async (instrument: Instrument) => {
+  const fetchChartData = useCallback(async (instrument: Instrument, tf: string) => {
     setIsLoadingChart(true);
     try {
       const toDate = new Date();
       const fromDate = new Date();
-      fromDate.setDate(fromDate.getDate() - 90);
+      
+      switch (tf) {
+        case "1m":
+        case "5m":
+        case "15m":
+          fromDate.setDate(fromDate.getDate() - 5);
+          break;
+        case "1h":
+        case "4h":
+          fromDate.setDate(fromDate.getDate() - 30);
+          break;
+        case "1d":
+          fromDate.setDate(fromDate.getDate() - 180);
+          break;
+        case "1w":
+          fromDate.setFullYear(fromDate.getFullYear() - 2);
+          break;
+        default:
+          fromDate.setDate(fromDate.getDate() - 90);
+      }
       
       const response = await fetch(
-        `/api/market-data/historical?instrument=${instrument.instrument_token}&timeframe=1d&from=${fromDate.toISOString()}&to=${toDate.toISOString()}`
+        `/api/market-data/historical?instrument=${instrument.instrument_token}&timeframe=${tf}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}`
       );
       
       if (response.ok) {
@@ -109,9 +158,25 @@ export default function AnalysisPage() {
     }
   }, []);
 
+  const fetchStrategies = useCallback(async () => {
+    try {
+      const response = await fetch("/api/strategies");
+      if (response.ok) {
+        const data = await response.json();
+        setStrategies(data.strategies || []);
+      }
+    } catch (error) {
+      console.error("Error fetching strategies:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStrategies();
+  }, [fetchStrategies]);
+
   useEffect(() => {
     if (selectedInstrument) {
-      fetchChartData(selectedInstrument);
+      fetchChartData(selectedInstrument, timeframe);
       fetchAnalysis(selectedInstrument);
       fetchSignals(selectedInstrument);
     } else {
@@ -119,14 +184,27 @@ export default function AnalysisPage() {
       setAnalysis(null);
       setSignals([]);
     }
-  }, [selectedInstrument, fetchChartData, fetchAnalysis, fetchSignals]);
+  }, [selectedInstrument, fetchChartData, fetchAnalysis, fetchSignals, timeframe]);
+
+  const handleTimeframeChange = (tf: string) => {
+    setTimeframe(tf);
+    if (selectedInstrument) {
+      fetchChartData(selectedInstrument, tf);
+    }
+  };
 
   const handleRefresh = () => {
     if (selectedInstrument) {
-      fetchChartData(selectedInstrument);
+      fetchChartData(selectedInstrument, timeframe);
       fetchAnalysis(selectedInstrument);
       fetchSignals(selectedInstrument);
     }
+  };
+
+  const toggleIndicator = (id: string) => {
+    setIndicators(prev => prev.map(ind => 
+      ind.id === id ? { ...ind, visible: !ind.visible } : ind
+    ));
   };
 
   const getTrendIcon = (trend: string) => {
@@ -169,24 +247,62 @@ export default function AnalysisPage() {
 
   return (
     <div className="p-2 md:p-4 space-y-4 max-w-[1600px] mx-auto">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <InstrumentSearch
           onSelect={setSelectedInstrument}
           selectedInstrument={selectedInstrument}
-          className="flex-1"
+          className="flex-1 min-w-[280px]"
         />
-        {selectedInstrument && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isLoadingChart || isLoadingAnalysis}
-            className="bg-white/5 border-white/10 hover:bg-white/10"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${(isLoadingChart || isLoadingAnalysis) ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowIndicatorPanel(!showIndicatorPanel)}
+              className="bg-white/5 border-white/10 hover:bg-white/10"
+            >
+              <Settings2 className="w-4 h-4 mr-2" />
+              Indicators
+              <ChevronDown className={cn("w-3 h-3 ml-1 transition-transform", showIndicatorPanel && "rotate-180")} />
+            </Button>
+            
+            {showIndicatorPanel && (
+              <div className="absolute top-full right-0 mt-1 z-50 w-56 bg-zinc-900/95 backdrop-blur-md border border-white/10 rounded-lg shadow-xl p-2">
+                <div className="text-xs text-white/40 px-2 py-1 mb-1">Technical Indicators</div>
+                {indicators.map((ind) => (
+                  <button
+                    key={ind.id}
+                    onClick={() => toggleIndicator(ind.id)}
+                    className="w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5 text-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded" style={{ backgroundColor: ind.color || "#f59e0b" }} />
+                      <span className={ind.visible ? "text-white" : "text-white/50"}>{ind.name}</span>
+                    </div>
+                    {ind.visible ? (
+                      <Eye className="w-4 h-4 text-blue-400" />
+                    ) : (
+                      <EyeOff className="w-4 h-4 text-white/30" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {selectedInstrument && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isLoadingChart || isLoadingAnalysis}
+              className="bg-white/5 border-white/10 hover:bg-white/10"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${(isLoadingChart || isLoadingAnalysis) ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -206,18 +322,21 @@ export default function AnalysisPage() {
                   )}
                 </div>
                 {chartData.length > 0 && (
-                  <span className="text-xs text-white/40">{chartData.length} data points</span>
+                  <span className="text-xs text-white/40">{chartData.length} candles</span>
                 )}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="aspect-[16/9] md:aspect-video">
-                <MarketChart
+              <div className="h-[400px] md:h-[500px]">
+                <TradingViewChart
                   data={chartData}
                   symbol={selectedInstrument?.tradingsymbol}
                   support={analysis?.support || undefined}
                   resistance={analysis?.resistance || undefined}
                   isLoading={isLoadingChart}
+                  timeframe={timeframe}
+                  onTimeframeChange={handleTimeframeChange}
+                  indicators={indicators}
                 />
               </div>
             </CardContent>
@@ -253,6 +372,47 @@ export default function AnalysisPage() {
               </CardContent>
             </Card>
           )}
+
+          <Card className="bg-white/5 border-white/10">
+            <CardHeader className="p-3 md:p-4 border-b border-white/10">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Target className="w-4 h-4 text-indigo-400" />
+                Strategy Overlay
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedStrategy(null)}
+                  className={cn(
+                    "px-3 py-1.5 text-xs rounded-full border transition-colors",
+                    !selectedStrategy
+                      ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                      : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+                  )}
+                >
+                  None
+                </button>
+                {strategies.slice(0, 6).map((strategy) => (
+                  <button
+                    key={strategy.id}
+                    onClick={() => setSelectedStrategy(strategy.id)}
+                    className={cn(
+                      "px-3 py-1.5 text-xs rounded-full border transition-colors",
+                      selectedStrategy === strategy.id
+                        ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
+                        : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+                    )}
+                  >
+                    {strategy.name}
+                  </button>
+                ))}
+                {strategies.length === 0 && (
+                  <span className="text-xs text-white/30">No strategies available</span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="lg:col-span-1 space-y-4">
@@ -267,7 +427,7 @@ export default function AnalysisPage() {
               {isLoadingAnalysis ? (
                 <div className="min-h-[200px] flex flex-col items-center justify-center gap-2">
                   <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
-                  <span className="text-white/50 text-sm">Analyzing market data...</span>
+                  <span className="text-white/50 text-sm">Analyzing...</span>
                 </div>
               ) : analysis ? (
                 <div className="space-y-4">
@@ -385,7 +545,7 @@ export default function AnalysisPage() {
               ) : (
                 <div className="min-h-[150px] flex items-center justify-center text-center">
                   <p className="text-white/30 text-xs md:text-sm">
-                    Select an instrument to view strategy signals
+                    Select an instrument to view signals
                   </p>
                 </div>
               )}

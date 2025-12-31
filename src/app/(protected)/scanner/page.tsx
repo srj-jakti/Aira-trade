@@ -31,10 +31,12 @@ import {
   XCircle,
   AlertTriangle,
   History,
-  Activity
+  Activity,
+  Settings2
 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { ScannerSettingsForm } from "../settings/ScannerSettingsForm";
 
 interface Signal {
   id: string;
@@ -252,7 +254,7 @@ export default function ScannerPage() {
       </div>
 
       <Tabs defaultValue="current" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="current" className="gap-2">
             <Activity className="h-4 w-4" />
             Current Scanner
@@ -260,6 +262,10 @@ export default function ScannerPage() {
           <TabsTrigger value="past" className="gap-2">
             <History className="h-4 w-4" />
             Past Signals
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="gap-2">
+            <Settings2 className="h-4 w-4" />
+            Scanner Settings
           </TabsTrigger>
         </TabsList>
         
@@ -401,6 +407,20 @@ export default function ScannerPage() {
                   </TableBody>
                 </Table>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Scanner Configuration</CardTitle>
+              <CardDescription>
+                Customize how the AI scanner identifies and executes trades.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScannerSettingsForm />
             </CardContent>
           </Card>
         </TabsContent>

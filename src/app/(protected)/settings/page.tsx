@@ -109,20 +109,12 @@ export default function SettingsPage() {
                     <span>Risk</span>
                   </TabsTrigger>
                   <TabsTrigger 
-                    value="scanner" 
+                    value="history" 
                     className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
                   >
-                    <Activity className="w-4 h-4 shrink-0" />
-                    <span>Scanner</span>
+                    <History className="w-4 h-4 shrink-0" />
+                    <span>History</span>
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="history" 
-
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-                >
-                  <History className="w-4 h-4 shrink-0" />
-                  <span>History</span>
-                </TabsTrigger>
                 <TabsTrigger 
                   value="analysis" 
                   className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
@@ -194,18 +186,6 @@ export default function SettingsPage() {
                   </CardHeader>
                   <CardContent>
                     <RiskSettingsForm />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="scanner" className="mt-0">
-                <Card className="bg-white/5 border-white/10">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg">Scanner Settings</CardTitle>
-                    <CardDescription className="text-white/40">Configure AI scanner strategies and execution parameters.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ScannerSettingsForm />
                   </CardContent>
                 </Card>
               </TabsContent>

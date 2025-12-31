@@ -52,14 +52,14 @@ export function ScannerSettingsForm() {
         
         setStrategies(strategiesData || []);
 
-        // Load existing settings
-        const response = await fetch('/api/trading/settings');
+        // Load existing settings from the dedicated scanner settings API
+        const response = await fetch('/api/scanner/settings');
         const data = await response.json();
         
-        if (data.success && data.settings?.scanner_config) {
+        if (data.success && data.config) {
           setConfig(prev => ({
             ...prev,
-            ...data.settings.scanner_config
+            ...data.config
           }));
         }
       } catch (error) {

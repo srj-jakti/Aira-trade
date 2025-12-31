@@ -29,7 +29,11 @@ import {
   UserCheck,
   UserX,
   Eye,
-  EyeOff
+  EyeOff,
+  Download,
+  BarChart3,
+  Search,
+  Calendar
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -237,6 +241,13 @@ export default function AdminPage() {
               <Users className="w-4 h-4 shrink-0" />
               <span>Users</span>
             </TabsTrigger>
+            <TabsTrigger 
+              value="market-data" 
+              className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+            >
+              <BarChart3 className="w-4 h-4 shrink-0" />
+              <span>Market Data</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="zerodha" className="mt-0">
@@ -253,6 +264,10 @@ export default function AdminPage() {
 
           <TabsContent value="users" className="mt-0">
             <UserManagement />
+          </TabsContent>
+
+          <TabsContent value="market-data" className="mt-0">
+            <MarketDataManager />
           </TabsContent>
         </Tabs>
       </div>
@@ -1429,20 +1444,376 @@ function UserManagement() {
                       <UserCheck className="w-4 h-4" />
                     </Button>
                   )}
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => handleDelete(user.id)}
-                    className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleDelete(user.id)}
+                      className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+function MarketDataManager() {
+  const [instruments, setInstruments] = useState<Array<{
+    instrument_token: number;
+    tradingsymbol: string;
+    name: string;
+    exchange: string;
+    is_subscribed: boolean;
+  }>>([]);
+  const [stats, setStats] = useState({ total: 0, subscribed: 0 });
+  const [historicalStats, setHistoricalStats] = useState({ totalCandles: 0 });
+  const [downloads, setDownloads] = useState<Array<{
+    id: string;
+    instrument_token: number;
+    timeframe: string;
+    status: string;
+    total_candles: number;
+    created_at: string;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [exchange, setExchange] = useState("");
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
+  const [downloadForm, setDownloadForm] = useState({
+    instrumentToken: "",
+    timeframe: "1d",
+    startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    endDate: new Date().toISOString().split("T")[0],
+  });
+  const [refreshingInstruments, setRefreshingInstruments] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    fetchData();
+  }, [search, exchange]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (exchange) params.set("exchange", exchange);
+      params.set("limit", "200");
+
+      const [instrumentsRes, historicalRes] = await Promise.all([
+        fetch(`/api/admin/market-data/instruments?${params}`),
+        fetch("/api/admin/market-data/historical"),
+      ]);
+
+      if (instrumentsRes.ok) {
+        const data = await instrumentsRes.json();
+        setInstruments(data.instruments || []);
+        setStats(data.stats || { total: 0, subscribed: 0 });
+      }
+
+      if (historicalRes.ok) {
+        const data = await historicalRes.json();
+        setHistoricalStats(data.stats || { totalCandles: 0 });
+        setDownloads(data.downloads || []);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefreshInstruments = async () => {
+    setRefreshingInstruments(true);
+    try {
+      await fetch("/api/admin/market-data/instruments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "refresh" }),
+      });
+      await fetchData();
+    } finally {
+      setRefreshingInstruments(false);
+    }
+  };
+
+  const handleSubscribe = async (tokens: number[], subscribe: boolean) => {
+    await fetch("/api/admin/market-data/instruments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: subscribe ? "subscribe" : "unsubscribe",
+        instrumentTokens: tokens,
+      }),
+    });
+    fetchData();
+  };
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      await fetch("/api/admin/market-data/historical", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instrumentToken: parseInt(downloadForm.instrumentToken),
+          timeframe: downloadForm.timeframe,
+          startDate: downloadForm.startDate,
+          endDate: downloadForm.endDate,
+        }),
+      });
+      setShowDownloadDialog(false);
+      fetchData();
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-white/5 border-white/10">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/40 text-sm">Total Instruments</p>
+                <p className="text-2xl font-bold text-white">{stats.total.toLocaleString()}</p>
               </div>
-            ))}
+              <Database className="w-8 h-8 text-cyan-400" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/5 border-white/10">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/40 text-sm">Subscribed</p>
+                <p className="text-2xl font-bold text-green-400">{stats.subscribed}</p>
+              </div>
+              <Activity className="w-8 h-8 text-green-400" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/5 border-white/10">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/40 text-sm">Historical Candles</p>
+                <p className="text-2xl font-bold text-white">{historicalStats.totalCandles.toLocaleString()}</p>
+              </div>
+              <BarChart3 className="w-8 h-8 text-purple-400" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="bg-white/5 border-white/10">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-white text-lg flex items-center gap-2">
+              <Database className="w-5 h-5 text-cyan-400" />
+              Instruments & Subscriptions
+            </CardTitle>
+            <CardDescription className="text-white/40">
+              Manage instrument subscriptions for realtime market data.
+            </CardDescription>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshInstruments}
+              disabled={refreshingInstruments}
+              className="border-white/20 text-white hover:bg-white/10"
+            >
+              {refreshingInstruments ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              Refresh Instruments
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowDownloadDialog(true)}
+              className="bg-cyan-500 hover:bg-cyan-600"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download Historical
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+              <Input
+                placeholder="Search instruments..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 bg-white/5 border-white/10 text-white"
+              />
+            </div>
+            <Select value={exchange} onValueChange={setExchange}>
+              <SelectTrigger className="w-40 bg-white/5 border-white/10 text-white">
+                <SelectValue placeholder="Exchange" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1a] border-white/10">
+                <SelectItem value="">All</SelectItem>
+                <SelectItem value="NSE">NSE</SelectItem>
+                <SelectItem value="BSE">BSE</SelectItem>
+                <SelectItem value="NFO">NFO</SelectItem>
+                <SelectItem value="MCX">MCX</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-white/40" />
+            </div>
+          ) : instruments.length === 0 ? (
+            <div className="p-8 border border-dashed border-white/20 rounded-lg text-center">
+              <Database className="w-12 h-12 mx-auto text-white/20 mb-4" />
+              <p className="text-white/40 text-sm">No instruments found. Click "Refresh Instruments" to fetch from Zerodha.</p>
+            </div>
+          ) : (
+            <div className="max-h-96 overflow-y-auto space-y-2">
+              {instruments.map((inst) => (
+                <div
+                  key={inst.instrument_token}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${
+                    inst.is_subscribed ? "bg-green-500/10 border-green-500/30" : "bg-white/5 border-white/10"
+                  }`}
+                >
+                  <div>
+                    <span className="text-white font-medium">{inst.tradingsymbol}</span>
+                    <span className="text-white/40 text-sm ml-2">({inst.exchange})</span>
+                    {inst.name && <span className="text-white/30 text-sm ml-2">{inst.name}</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-white/40 text-xs">{inst.instrument_token}</span>
+                    <Switch
+                      checked={inst.is_subscribed}
+                      onCheckedChange={(checked) => handleSubscribe([inst.instrument_token], checked)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {downloads.length > 0 && (
+        <Card className="bg-white/5 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-white text-lg flex items-center gap-2">
+              <Download className="w-5 h-5 text-purple-400" />
+              Recent Downloads
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {downloads.slice(0, 10).map((d) => (
+                <div key={d.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                  <div>
+                    <span className="text-white">{d.instrument_token}</span>
+                    <span className="text-white/40 text-sm ml-2">{d.timeframe}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-white/60 text-sm">{d.total_candles} candles</span>
+                    <Badge className={
+                      d.status === "completed" ? "bg-green-500/20 text-green-400" :
+                      d.status === "failed" ? "bg-red-500/20 text-red-400" :
+                      "bg-yellow-500/20 text-yellow-400"
+                    }>
+                      {d.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={showDownloadDialog} onOpenChange={setShowDownloadDialog}>
+        <DialogContent className="bg-[#0a0a0a] border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Download Historical Data</DialogTitle>
+            <DialogDescription className="text-white/50">
+              Download and cache historical candle data for backtesting and analysis.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-white/60">Instrument Token</Label>
+              <Input
+                placeholder="e.g., 256265 (NIFTY 50)"
+                value={downloadForm.instrumentToken}
+                onChange={(e) => setDownloadForm({ ...downloadForm, instrumentToken: e.target.value })}
+                className="bg-white/5 border-white/10 text-white"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-white/60">Timeframe</Label>
+              <Select
+                value={downloadForm.timeframe}
+                onValueChange={(v) => setDownloadForm({ ...downloadForm, timeframe: v })}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-white/10">
+                  <SelectItem value="1m">1 Minute</SelectItem>
+                  <SelectItem value="5m">5 Minutes</SelectItem>
+                  <SelectItem value="15m">15 Minutes</SelectItem>
+                  <SelectItem value="30m">30 Minutes</SelectItem>
+                  <SelectItem value="1h">1 Hour</SelectItem>
+                  <SelectItem value="1d">1 Day</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-white/60">Start Date</Label>
+                <Input
+                  type="date"
+                  value={downloadForm.startDate}
+                  onChange={(e) => setDownloadForm({ ...downloadForm, startDate: e.target.value })}
+                  className="bg-white/5 border-white/10 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-white/60">End Date</Label>
+                <Input
+                  type="date"
+                  value={downloadForm.endDate}
+                  onChange={(e) => setDownloadForm({ ...downloadForm, endDate: e.target.value })}
+                  className="bg-white/5 border-white/10 text-white"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDownloadDialog(false)} className="border-white/20 text-white hover:bg-white/10">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDownload}
+              disabled={downloading || !downloadForm.instrumentToken}
+              className="bg-cyan-500 hover:bg-cyan-600"
+            >
+              {downloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+              Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

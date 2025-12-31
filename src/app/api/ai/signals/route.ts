@@ -1,27 +1,35 @@
-import { NextRequest } from "next/server";
-import {
-  getAuthenticatedUser,
-  unauthorizedResponse,
-  serverErrorResponse,
-  successResponse,
-} from "@/lib/server/auth";
-import { aiSharedService } from "@/lib/server/ai-shared-service";
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
-export async function GET(request: NextRequest) {
-  const user = await getAuthenticatedUser();
-  if (!user.authenticated) return unauthorizedResponse();
-
-  const searchParams = request.nextUrl.searchParams;
-  const instrumentToken = searchParams.get("instrument");
-
+export async function GET() {
   try {
-    const signals = await aiSharedService.getActiveSignals(
-      instrumentToken ? parseInt(instrumentToken) : undefined
-    );
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    return successResponse({ signals });
-  } catch (error) {
-    console.error("Error fetching AI signals:", error);
-    return serverErrorResponse();
+    // Fetch signals with strategy names
+    const { data: signals, error } = await supabase
+      .from("ai_signals")
+      .select(`
+        *,
+        strategies:strategy_id (name)
+      `)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    // Flatten strategy name
+    const formattedSignals = signals.map((s: any) => ({
+      ...s,
+      strategy_name: s.strategies?.name || "AI Dynamic"
+    }));
+
+    return NextResponse.json({ success: true, signals: formattedSignals });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

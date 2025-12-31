@@ -6,11 +6,13 @@ import {
   Key, 
   ShieldCheck, 
   History, 
-  BarChart3,
-  LogOut,
-  Loader2,
-  Settings2
-} from "lucide-react";
+    BarChart3,
+    LogOut,
+    Loader2,
+    Settings2,
+    Activity
+  } from "lucide-react";
+
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +23,7 @@ import { ProfileForm } from "./ProfileForm";
 import { PasswordForm } from "./PasswordForm";
 import { ApiKeysForm } from "./ApiKeysForm";
 import { RiskSettingsForm } from "./RiskSettingsForm";
+import { ScannerSettingsForm } from "./ScannerSettingsForm";
 import { TradingHistory } from "./TradingHistory";
 import { AIAnalysisReports } from "./AIAnalysisReports";
 
@@ -98,15 +101,23 @@ export default function SettingsPage() {
                   <Key className="w-4 h-4 shrink-0" />
                   <span>API Keys</span>
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="risk" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-                >
-                  <ShieldCheck className="w-4 h-4 shrink-0" />
-                  <span>Risk</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="history" 
+                  <TabsTrigger 
+                    value="risk" 
+                    className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  >
+                    <ShieldCheck className="w-4 h-4 shrink-0" />
+                    <span>Risk</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="scanner" 
+                    className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  >
+                    <Activity className="w-4 h-4 shrink-0" />
+                    <span>Scanner</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="history" 
+
                   className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
                 >
                   <History className="w-4 h-4 shrink-0" />
@@ -175,17 +186,30 @@ export default function SettingsPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="risk" className="mt-0">
-              <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg">Risk Settings</CardTitle>
-                  <CardDescription className="text-white/40">Configure your trading limits and allowed segments.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <RiskSettingsForm />
-                </CardContent>
-              </Card>
-            </TabsContent>
+              <TabsContent value="risk" className="mt-0">
+                <Card className="bg-white/5 border-white/10">
+                  <CardHeader>
+                    <CardTitle className="text-white text-lg">Risk Settings</CardTitle>
+                    <CardDescription className="text-white/40">Configure your trading limits and allowed segments.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <RiskSettingsForm />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="scanner" className="mt-0">
+                <Card className="bg-white/5 border-white/10">
+                  <CardHeader>
+                    <CardTitle className="text-white text-lg">Scanner Settings</CardTitle>
+                    <CardDescription className="text-white/40">Configure AI scanner strategies and execution parameters.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ScannerSettingsForm />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
 
             <TabsContent value="history" className="mt-0">
               <Card className="bg-white/5 border-white/10">

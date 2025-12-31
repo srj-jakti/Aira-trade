@@ -1,0 +1,153 @@
+import { NextRequest, NextResponse } from "next/server";
+import {
+  getAuthenticatedUser,
+  unauthorizedResponse,
+  badRequestResponse,
+  serverErrorResponse,
+} from "@/lib/server/auth";
+import { aiSharedService } from "@/lib/server/ai-shared-service";
+import { getHistoricalCandles } from "@/lib/server/market-data-engine";
+
+export async function POST(request: NextRequest) {
+  const user = await getAuthenticatedUser();
+  if (!user.authenticated) return unauthorizedResponse();
+
+  try {
+    const body = await request.json();
+    const { instrumentToken, tradingsymbol, timeframe = "1d" } = body;
+
+    if (!instrumentToken || !tradingsymbol) {
+      return badRequestResponse("instrumentToken and tradingsymbol are required");
+    }
+
+    const toDate = new Date();
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - 90);
+
+    const candles = await getHistoricalCandles(
+      parseInt(instrumentToken),
+      timeframe,
+      fromDate,
+      toDate
+    );
+
+    if (candles.length === 0) {
+      return NextResponse.json({
+        success: true,
+        analysis: {
+          trend: "neutral",
+          strength: 0,
+          support: null,
+          resistance: null,
+          analysis: "No historical data available for this instrument. Please sync market data from the admin panel.",
+          signal: "hold",
+          confidence: 0,
+          entry: null,
+          target: null,
+          stopLoss: null,
+          reasoning: "Insufficient data for analysis",
+        },
+        hasData: false,
+      });
+    }
+
+    const marketAnalysis = await aiSharedService.analyzeMarketTrend({
+      symbol: tradingsymbol,
+      candles,
+    });
+
+    const signalAnalysis = await aiSharedService.generateSignal({
+      symbol: tradingsymbol,
+      candles,
+    });
+
+    let trendResult = {
+      trend: "neutral",
+      strength: 50,
+      support: null as number | null,
+      resistance: null as number | null,
+      analysis: "Analysis in progress...",
+    };
+
+    let signalResult = {
+      signal: "hold",
+      confidence: 50,
+      entry: null as number | null,
+      target: null as number | null,
+      stopLoss: null as number | null,
+      reasoning: "Signal generation in progress...",
+    };
+
+    if (marketAnalysis.success && marketAnalysis.result) {
+      try {
+        const parsed = typeof marketAnalysis.result === "string" 
+          ? JSON.parse(marketAnalysis.result) 
+          : marketAnalysis.result;
+        trendResult = { ...trendResult, ...parsed };
+      } catch {
+        if (typeof marketAnalysis.result === "string") {
+          trendResult.analysis = marketAnalysis.result;
+        }
+      }
+    }
+
+    if (signalAnalysis.success && signalAnalysis.result) {
+      try {
+        const parsed = typeof signalAnalysis.result === "string" 
+          ? JSON.parse(signalAnalysis.result) 
+          : signalAnalysis.result;
+        signalResult = { ...signalResult, ...parsed };
+      } catch {
+        if (typeof signalAnalysis.result === "string") {
+          signalResult.reasoning = signalAnalysis.result;
+        }
+      }
+    }
+
+    if (!marketAnalysis.success && !signalAnalysis.success) {
+      const recentCandles = candles.slice(-30);
+      const prices = recentCandles.map(c => c.close);
+      const highs = recentCandles.map(c => c.high);
+      const lows = recentCandles.map(c => c.low);
+      
+      const currentPrice = prices[prices.length - 1];
+      const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+      const maxHigh = Math.max(...highs);
+      const minLow = Math.min(...lows);
+      
+      const priceChange = ((currentPrice - prices[0]) / prices[0]) * 100;
+      
+      trendResult = {
+        trend: priceChange > 2 ? "bullish" : priceChange < -2 ? "bearish" : "neutral",
+        strength: Math.min(100, Math.abs(priceChange) * 10),
+        support: minLow,
+        resistance: maxHigh,
+        analysis: `Based on ${recentCandles.length} days of data: Price ${priceChange > 0 ? "up" : "down"} ${Math.abs(priceChange).toFixed(2)}%. Current: ${currentPrice.toFixed(2)}, Avg: ${avgPrice.toFixed(2)}.`,
+      };
+
+      signalResult = {
+        signal: priceChange > 3 ? "buy" : priceChange < -3 ? "sell" : "hold",
+        confidence: Math.min(80, 50 + Math.abs(priceChange) * 5),
+        entry: currentPrice,
+        target: currentPrice * (priceChange > 0 ? 1.05 : 0.95),
+        stopLoss: currentPrice * (priceChange > 0 ? 0.97 : 1.03),
+        reasoning: `Technical analysis based on recent price movement of ${priceChange.toFixed(2)}%.`,
+      };
+    }
+
+    return NextResponse.json({
+      success: true,
+      analysis: {
+        ...trendResult,
+        ...signalResult,
+      },
+      hasData: true,
+      dataPoints: candles.length,
+      aiProvider: marketAnalysis.provider || signalAnalysis.provider || "fallback",
+      cached: marketAnalysis.cached || signalAnalysis.cached,
+    });
+  } catch (error) {
+    console.error("AI Analysis error:", error);
+    return serverErrorResponse();
+  }
+}

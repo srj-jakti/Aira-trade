@@ -1580,29 +1580,29 @@ function MarketDataManager() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-white/40 text-sm">Total Instruments</p>
-                <p className="text-2xl font-bold text-white">{stats.total.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-white">{(stats?.total || 0).toLocaleString()}</p>
+                </div>
+                <Database className="w-8 h-8 text-cyan-400" />
               </div>
-              <Database className="w-8 h-8 text-cyan-400" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/40 text-sm">Subscribed</p>
-                <p className="text-2xl font-bold text-green-400">{stats.subscribed}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/5 border-white/10">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white/40 text-sm">Subscribed</p>
+                  <p className="text-2xl font-bold text-green-400">{stats?.subscribed || 0}</p>
+                </div>
+                <Activity className="w-8 h-8 text-green-400" />
               </div>
-              <Activity className="w-8 h-8 text-green-400" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/40 text-sm">Historical Candles</p>
-                <p className="text-2xl font-bold text-white">{historicalStats.totalCandles.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/5 border-white/10">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white/40 text-sm">Historical Candles</p>
+                  <p className="text-2xl font-bold text-white">{(historicalStats?.totalCandles || 0).toLocaleString()}</p>
               </div>
               <BarChart3 className="w-8 h-8 text-purple-400" />
             </div>
@@ -1647,99 +1647,99 @@ function MarketDataManager() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
-              <Input
-                placeholder="Search instruments..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 bg-white/5 border-white/10 text-white"
-              />
+            <div className="flex gap-4 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+                <Input
+                  placeholder="Search instruments..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 bg-white/5 border-white/10 text-white"
+                />
+              </div>
+              <Select value={exchange || "all"} onValueChange={(v) => setExchange(v === "all" ? "" : v)}>
+                <SelectTrigger className="w-40 bg-white/5 border-white/10 text-white">
+                  <SelectValue placeholder="Exchange" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-white/10">
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="NSE">NSE</SelectItem>
+                  <SelectItem value="BSE">BSE</SelectItem>
+                  <SelectItem value="NFO">NFO</SelectItem>
+                  <SelectItem value="MCX">MCX</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={exchange} onValueChange={setExchange}>
-              <SelectTrigger className="w-40 bg-white/5 border-white/10 text-white">
-                <SelectValue placeholder="Exchange" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#1a1a1a] border-white/10">
-                <SelectItem value="">All</SelectItem>
-                <SelectItem value="NSE">NSE</SelectItem>
-                <SelectItem value="BSE">BSE</SelectItem>
-                <SelectItem value="NFO">NFO</SelectItem>
-                <SelectItem value="MCX">MCX</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-white/40" />
-            </div>
-          ) : instruments.length === 0 ? (
-            <div className="p-8 border border-dashed border-white/20 rounded-lg text-center">
-              <Database className="w-12 h-12 mx-auto text-white/20 mb-4" />
-              <p className="text-white/40 text-sm">No instruments found. Click "Refresh Instruments" to fetch from Zerodha.</p>
-            </div>
-          ) : (
-            <div className="max-h-96 overflow-y-auto space-y-2">
-              {instruments.map((inst) => (
-                <div
-                  key={inst.instrument_token}
-                  className={`flex items-center justify-between p-3 rounded-lg border ${
-                    inst.is_subscribed ? "bg-green-500/10 border-green-500/30" : "bg-white/5 border-white/10"
-                  }`}
-                >
-                  <div>
-                    <span className="text-white font-medium">{inst.tradingsymbol}</span>
-                    <span className="text-white/40 text-sm ml-2">({inst.exchange})</span>
-                    {inst.name && <span className="text-white/30 text-sm ml-2">{inst.name}</span>}
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-white/40" />
+              </div>
+            ) : instruments.length === 0 ? (
+              <div className="p-8 border border-dashed border-white/20 rounded-lg text-center">
+                <Database className="w-12 h-12 mx-auto text-white/20 mb-4" />
+                <p className="text-white/40 text-sm">No instruments found. Click "Refresh Instruments" to fetch from Zerodha.</p>
+              </div>
+            ) : (
+              <div className="max-h-96 overflow-y-auto space-y-2">
+                {instruments.map((inst) => (
+                  <div
+                    key={String(inst.instrument_token)}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      inst.is_subscribed ? "bg-green-500/10 border-green-500/30" : "bg-white/5 border-white/10"
+                    }`}
+                  >
+                    <div>
+                      <span className="text-white font-medium">{inst.tradingsymbol}</span>
+                      <span className="text-white/40 text-sm ml-2">({inst.exchange})</span>
+                      {inst.name && <span className="text-white/30 text-sm ml-2">{inst.name}</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-white/40 text-xs">{String(inst.instrument_token)}</span>
+                      <Switch
+                        checked={!!inst.is_subscribed}
+                        onCheckedChange={(checked) => handleSubscribe([inst.instrument_token], checked)}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-white/40 text-xs">{inst.instrument_token}</span>
-                    <Switch
-                      checked={inst.is_subscribed}
-                      onCheckedChange={(checked) => handleSubscribe([inst.instrument_token], checked)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {downloads.length > 0 && (
-        <Card className="bg-white/5 border-white/10">
-          <CardHeader>
-            <CardTitle className="text-white text-lg flex items-center gap-2">
-              <Download className="w-5 h-5 text-purple-400" />
-              Recent Downloads
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {downloads.slice(0, 10).map((d) => (
-                <div key={d.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <div>
-                    <span className="text-white">{d.instrument_token}</span>
-                    <span className="text-white/40 text-sm ml-2">{d.timeframe}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-white/60 text-sm">{d.total_candles} candles</span>
-                    <Badge className={
-                      d.status === "completed" ? "bg-green-500/20 text-green-400" :
-                      d.status === "failed" ? "bg-red-500/20 text-red-400" :
-                      "bg-yellow-500/20 text-yellow-400"
-                    }>
-                      {d.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
+
+        {downloads.length > 0 && (
+          <Card className="bg-white/5 border-white/10">
+            <CardHeader>
+              <CardTitle className="text-white text-lg flex items-center gap-2">
+                <Download className="w-5 h-5 text-purple-400" />
+                Recent Downloads
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {downloads.slice(0, 10).map((d) => (
+                  <div key={d.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                    <div>
+                      <span className="text-white">{String(d.instrument_token)}</span>
+                      <span className="text-white/40 text-sm ml-2">{d.timeframe}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-white/60 text-sm">{d.total_candles || 0} candles</span>
+                      <Badge className={
+                        d.status === "completed" ? "bg-green-500/20 text-green-400" :
+                        d.status === "failed" ? "bg-red-500/20 text-red-400" :
+                        "bg-yellow-500/20 text-yellow-400"
+                      }>
+                        {d.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       <Dialog open={showDownloadDialog} onOpenChange={setShowDownloadDialog}>
         <DialogContent className="bg-[#0a0a0a] border-white/10 text-white">

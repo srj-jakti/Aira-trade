@@ -91,6 +91,12 @@ export async function GET() {
     const zerodhaData = zerodhaConfigs.data || [];
     const aiData = aiConfigs.data || [];
 
+    const zerodhaConnected = zerodhaData.filter(c => c.connection_status === "connected").length;
+    const zerodhaErrors = zerodhaData.filter(c => c.last_error).length;
+    const aiActive = aiData.filter(c => c.is_active).length;
+    const aiErrors = aiData.filter(c => c.last_error).length;
+    const failedLogins = (loginLogs.data || []).filter(l => l.status === "error").length;
+
     const health: SystemHealthData & { engines: any[] } = {
       zerodha: {
         total: zerodhaData.length,

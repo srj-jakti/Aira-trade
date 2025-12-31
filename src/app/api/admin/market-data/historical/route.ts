@@ -17,27 +17,37 @@ export async function GET(request: NextRequest) {
   if (!admin.authenticated) return unauthorizedResponse();
   if (!admin.isAdmin) return forbiddenResponse("Admin access required");
 
-  try {
-    const { data: downloads } = await supabaseAdmin
-      .from("historical_data_downloads")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
+    try {
+      const { data: downloads } = await supabaseAdmin
+        .from("historical_data_downloads")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
 
-    const { data: coverage } = await supabaseAdmin
-      .from("historical_candles")
-      .select("instrument_token, timeframe")
-      .limit(10000);
+      // Get coverage using a more efficient way than fetching 10k rows
+      const { data: coverageData, error: coverageError } = await supabaseAdmin.rpc("get_historical_coverage");
 
-    const coverageMap: Record<string, Set<string>> = {};
-    const instrumentTokens = new Set<string>();
-    (coverage || []).forEach((c) => {
-      if (!coverageMap[c.instrument_token]) {
-        coverageMap[c.instrument_token] = new Set();
-        instrumentTokens.add(c.instrument_token);
+      let coverage = coverageData;
+      
+      // Fallback if RPC doesn't exist (though we should create it)
+      if (coverageError || !coverage) {
+        const { data: fallbackCoverage } = await supabaseAdmin
+          .from("historical_candles")
+          .select("instrument_token, timeframe")
+          .limit(50000); // Increased limit as a stop-gap
+        coverage = fallbackCoverage;
       }
-      coverageMap[c.instrument_token].add(c.timeframe);
-    });
+
+      const coverageMap: Record<string, Set<string>> = {};
+      const instrumentTokens = new Set<string>();
+      (coverage || []).forEach((c: any) => {
+        const tokenStr = String(c.instrument_token);
+        if (!coverageMap[tokenStr]) {
+          coverageMap[tokenStr] = new Set();
+          instrumentTokens.add(tokenStr);
+        }
+        coverageMap[tokenStr].add(c.timeframe);
+      });
 
     // Fetch instrument details for covered tokens
     let instrumentsInfo = [];

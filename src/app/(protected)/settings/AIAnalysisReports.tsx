@@ -1,47 +1,25 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { 
-  BarChart, 
-  Bar, 
+  LineChart,
+  Line,
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer,
-  LineChart,
-  Line
+  ResponsiveContainer
 } from "recharts";
 import { Loader2, BrainCircuit, TrendingUp, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function AIAnalysisReports() {
   const [loading, setLoading] = useState(true);
-  const [analysis, setAnalysis] = useState<any[]>([]);
-  const supabase = createClient();
 
   useEffect(() => {
-    async function loadAnalysis() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data } = await supabase
-            .from("ai_analysis")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: false });
-
-          setAnalysis(data || []);
-        }
-      } catch (error) {
-        console.error("Error loading analysis:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadAnalysis();
-  }, [supabase]);
+    const timer = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (loading) {
     return (
@@ -51,8 +29,7 @@ export function AIAnalysisReports() {
     );
   }
 
-  // Mock data if no analysis exists to show UI
-  const chartData = analysis.length > 0 ? analysis : [
+  const chartData = [
     { name: 'Mon', accuracy: 65, profit: 1200 },
     { name: 'Tue', accuracy: 72, profit: -400 },
     { name: 'Wed', accuracy: 68, profit: 2100 },

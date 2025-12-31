@@ -1,41 +1,45 @@
-import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
+import {
+  getAdminUser,
+  unauthorizedResponse,
+  forbiddenResponse,
+  serverErrorResponse,
+  successResponse,
+} from "@/lib/server/auth";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET() {
-  const supabase = await createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const admin = await getAdminUser();
+  if (!admin.authenticated) {
+    return unauthorizedResponse();
+  }
+  if (!admin.isAdmin) {
+    return forbiddenResponse("Admin access required");
   }
 
-  const { data: adminUser } = await supabase
-    .from("admin_users")
-    .select("id")
-    .eq("email", user.email)
-    .single();
+  try {
+    const { data: profiles, error } = await supabaseAdmin
+      .from("profiles")
+      .select("id, email, full_name, is_approved, created_at")
+      .order("created_at", { ascending: false });
 
-  if (!adminUser) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (error) {
+      return serverErrorResponse();
+    }
+
+    const { data: subscriptions } = await supabaseAdmin
+      .from("subscriptions")
+      .select("user_id, plan_name");
+
+    const users = (profiles || []).map((profile) => {
+      const subscription = subscriptions?.find((s) => s.user_id === profile.id);
+      return {
+        ...profile,
+        plan: subscription?.plan_name || null,
+      };
+    });
+
+    return successResponse({ users });
+  } catch {
+    return serverErrorResponse();
   }
-
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, email, full_name, is_approved, created_at")
-    .order("created_at", { ascending: false });
-
-  const { data: subscriptions } = await supabase
-    .from("subscriptions")
-    .select("user_id, plan_name");
-
-  const users = (profiles || []).map(profile => {
-    const subscription = subscriptions?.find(s => s.user_id === profile.id);
-    return {
-      ...profile,
-      plan: subscription?.plan_name || null
-    };
-  });
-
-  return NextResponse.json({ users });
 }

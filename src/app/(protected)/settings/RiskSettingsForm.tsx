@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,26 +27,20 @@ export function RiskSettingsForm() {
     daily_loss_limit: "",
     max_allocation_per_trade: ""
   });
-  const supabase = createClient();
 
   useEffect(() => {
     async function loadSettings() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data } = await supabase
-            .from("trading_preferences")
-            .select("*")
-            .eq("user_id", user.id)
-            .single();
-
-          if (data) {
+        const response = await fetch("/api/trading/settings");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.settings) {
             setSettings({
-              auto_trading_enabled: data.auto_trading_enabled || false,
-              preferred_markets: data.preferred_markets || [],
-              daily_profit_limit: data.daily_profit_limit?.toString() || "",
-              daily_loss_limit: data.daily_loss_limit?.toString() || "",
-              max_allocation_per_trade: data.max_allocation_per_trade?.toString() || ""
+              auto_trading_enabled: data.settings.auto_trading_enabled || false,
+              preferred_markets: data.settings.preferred_markets || [],
+              daily_profit_limit: data.settings.daily_profit_limit?.toString() || "",
+              daily_loss_limit: data.settings.daily_loss_limit?.toString() || "",
+              max_allocation_per_trade: data.settings.max_allocation_per_trade?.toString() || ""
             });
           }
         }
@@ -58,32 +51,36 @@ export function RiskSettingsForm() {
       }
     }
     loadSettings();
-  }, [supabase]);
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
 
-    const { error } = await supabase
-      .from("trading_preferences")
-      .upsert({
-        user_id: user.id,
-        auto_trading_enabled: settings.auto_trading_enabled,
-        preferred_markets: settings.preferred_markets,
-        daily_profit_limit: parseFloat(settings.daily_profit_limit) || 0,
-        daily_loss_limit: parseFloat(settings.daily_loss_limit) || 0,
-        max_allocation_per_trade: parseFloat(settings.max_allocation_per_trade) || 0,
-        updated_at: new Date().toISOString()
+    try {
+      const response = await fetch("/api/trading/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          auto_trading_enabled: settings.auto_trading_enabled,
+          preferred_markets: settings.preferred_markets,
+          daily_profit_limit: parseFloat(settings.daily_profit_limit) || 0,
+          daily_loss_limit: parseFloat(settings.daily_loss_limit) || 0,
+          max_allocation_per_trade: parseFloat(settings.max_allocation_per_trade) || 0,
+        }),
       });
 
-    if (error) {
-      toast.error("Failed to save risk settings");
-    } else {
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to save");
+      }
+
       toast.success("Risk settings updated successfully");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save risk settings");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const toggleSegment = (id: string) => {
@@ -93,6 +90,27 @@ export function RiskSettingsForm() {
         ? prev.preferred_markets.filter(m => m !== id)
         : [...prev.preferred_markets, id]
     }));
+  };
+
+  const handleTradingToggle = async (checked: boolean) => {
+    setSettings(prev => ({ ...prev, auto_trading_enabled: checked }));
+    
+    try {
+      const response = await fetch("/api/trading/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: checked }),
+      });
+
+      if (!response.ok) {
+        setSettings(prev => ({ ...prev, auto_trading_enabled: !checked }));
+        throw new Error("Failed to toggle trading");
+      }
+
+      toast.success(checked ? "Auto-trading enabled" : "Auto-trading disabled");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to toggle trading");
+    }
   };
 
   if (loading) {
@@ -112,7 +130,7 @@ export function RiskSettingsForm() {
         </div>
         <Switch 
           checked={settings.auto_trading_enabled}
-          onCheckedChange={(checked) => setSettings(prev => ({ ...prev, auto_trading_enabled: checked }))}
+          onCheckedChange={handleTradingToggle}
         />
       </div>
 

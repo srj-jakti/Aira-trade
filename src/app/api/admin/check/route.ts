@@ -1,20 +1,15 @@
-import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
+import {
+  getAdminUser,
+  unauthorizedResponse,
+  forbiddenResponse,
+  successResponse,
+} from "@/lib/server/auth";
 
 export async function GET() {
-  const supabase = await createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return NextResponse.json({ isAdmin: false }, { status: 401 });
+  const admin = await getAdminUser();
+  if (!admin.authenticated) {
+    return unauthorizedResponse();
   }
-
-  const { data: adminUser } = await supabase
-    .from("admin_users")
-    .select("id")
-    .eq("email", user.email)
-    .single();
-
-  return NextResponse.json({ isAdmin: !!adminUser });
+  
+  return successResponse({ isAdmin: admin.isAdmin });
 }

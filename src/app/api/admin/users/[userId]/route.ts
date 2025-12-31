@@ -1,34 +1,57 @@
-import { createClient } from "@/lib/supabase/server";
-import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  getAdminUser,
+  unauthorizedResponse,
+  forbiddenResponse,
+  badRequestResponse,
+  serverErrorResponse,
+  successResponse,
+} from "@/lib/server/auth";
+import { uuidSchema } from "@/lib/validations";
+import { logAudit } from "@/lib/server/audit";
 
 export async function DELETE(
-  req: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ userId: string }> }
 ) {
-  const supabase = await createClient();
+  const admin = await getAdminUser();
+  if (!admin.authenticated) {
+    return unauthorizedResponse();
+  }
+  if (!admin.isAdmin) {
+    return forbiddenResponse("Admin access required");
+  }
+
   const { userId } = await params;
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const validation = uuidSchema.safeParse(userId);
+  if (!validation.success) {
+    return badRequestResponse("Invalid user ID");
   }
 
-  const { data: adminUser } = await supabase
-    .from("admin_users")
-    .select("id")
-    .eq("email", user.email)
-    .single();
+  try {
+    const tables = [
+      "strategies",
+      "trading_preferences",
+      "user_config",
+      "subscriptions",
+      "trade_history",
+      "profiles",
+    ];
 
-  if (!adminUser) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    for (const table of tables) {
+      const column = table === "profiles" ? "id" : "user_id";
+      await supabaseAdmin.from(table).delete().eq(column, userId);
+    }
+
+    await logAudit({
+      user_id: admin.userId!,
+      action: "admin_user_deleted",
+      target_table: "profiles",
+      target_id: userId,
+    });
+
+    return successResponse({ success: true });
+  } catch {
+    return serverErrorResponse();
   }
-
-  await supabase.from("profiles").delete().eq("id", userId);
-  await supabase.from("subscriptions").delete().eq("user_id", userId);
-  await supabase.from("user_config").delete().eq("user_id", userId);
-  await supabase.from("trading_preferences").delete().eq("user_id", userId);
-  await supabase.from("strategies").delete().eq("user_id", userId);
-
-  return NextResponse.json({ success: true });
 }

@@ -1,75 +1,104 @@
-import { createClient } from "@/lib/supabase/server";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import {
+  getAdminUser,
+  unauthorizedResponse,
+  forbiddenResponse,
+  badRequestResponse,
+  serverErrorResponse,
+  successResponse,
+} from "@/lib/server/auth";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { encrypt } from "@/lib/server/encryption";
+import { logAudit } from "@/lib/server/audit";
 
-export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function POST(request: NextRequest) {
+  const admin = await getAdminUser();
+  if (!admin.authenticated) {
+    return unauthorizedResponse();
+  }
+  if (!admin.isAdmin) {
+    return forbiddenResponse("Admin access required");
   }
 
-  const { data: adminUser } = await supabase
-    .from("admin_users")
-    .select("id")
-    .eq("email", user.email)
-    .single();
+  try {
+    const body = await request.json();
+    const { type, config } = body;
 
-  if (!adminUser) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+    if (!type || !config) {
+      return badRequestResponse("Type and config required");
+    }
 
-  const body = await req.json();
-  const { type, config } = body;
+    if (type === "zerodha") {
+      const configKeys = [
+        { key: "zerodha_api_key", value: config.apiKey },
+        { key: "zerodha_api_secret", value: config.apiSecret },
+        { key: "zerodha_user_id", value: config.userId },
+        { key: "zerodha_password", value: config.password },
+        { key: "zerodha_totp_secret", value: config.totpSecret },
+      ];
 
-  if (type === "zerodha") {
-    const configKeys = [
-      { key: "zerodha_api_key", value: config.apiKey },
-      { key: "zerodha_api_secret", value: config.apiSecret },
-      { key: "zerodha_user_id", value: config.userId },
-      { key: "zerodha_password", value: config.password },
-      { key: "zerodha_totp_secret", value: config.totpSecret }
-    ];
-
-    for (const { key, value } of configKeys) {
-      if (value) {
-        await supabase
-          .from("app_config")
-          .upsert({ key, value, encrypted: true, updated_at: new Date().toISOString() }, { onConflict: "key" });
+      for (const { key, value } of configKeys) {
+        if (value) {
+          const encryptedValue = encrypt(value);
+          await supabaseAdmin.from("app_config").upsert(
+            {
+              key,
+              value: encryptedValue,
+              encrypted: true,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "key" }
+          );
+        }
+      }
+    } else if (type === "ai") {
+      if (config.apiKey) {
+        const encryptedValue = encrypt(config.apiKey);
+        await supabaseAdmin.from("app_config").upsert(
+          {
+            key: "ai_api_key",
+            value: encryptedValue,
+            encrypted: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "key" }
+        );
       }
     }
-  } else if (type === "ai") {
-    await supabase
-      .from("app_config")
-      .upsert({ key: "ai_api_key", value: config.apiKey, encrypted: true, updated_at: new Date().toISOString() }, { onConflict: "key" });
-  }
 
-  return NextResponse.json({ success: true });
+    await logAudit({
+      user_id: admin.userId!,
+      action: "admin_config_updated",
+      target_table: "app_config",
+      metadata: { config_type: type },
+    });
+
+    return successResponse({ success: true });
+  } catch {
+    return serverErrorResponse();
+  }
 }
 
 export async function GET() {
-  const supabase = await createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const admin = await getAdminUser();
+  if (!admin.authenticated) {
+    return unauthorizedResponse();
+  }
+  if (!admin.isAdmin) {
+    return forbiddenResponse("Admin access required");
   }
 
-  const { data: adminUser } = await supabase
-    .from("admin_users")
-    .select("id")
-    .eq("email", user.email)
-    .single();
+  try {
+    const { data: configs, error } = await supabaseAdmin
+      .from("app_config")
+      .select("key, encrypted, updated_at");
 
-  if (!adminUser) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (error) {
+      return serverErrorResponse();
+    }
+
+    return successResponse({ configs: configs || [] });
+  } catch {
+    return serverErrorResponse();
   }
-
-  const { data: configs } = await supabase
-    .from("app_config")
-    .select("key, encrypted, updated_at");
-
-  return NextResponse.json({ configs: configs || [] });
 }

@@ -1,40 +1,60 @@
-import { createClient } from "@/lib/supabase/server";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import {
+  getAdminUser,
+  unauthorizedResponse,
+  forbiddenResponse,
+  badRequestResponse,
+  serverErrorResponse,
+  successResponse,
+} from "@/lib/server/auth";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { userApprovalSchema } from "@/lib/validations";
+import { logAudit } from "@/lib/server/audit";
 
-export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function POST(request: NextRequest) {
+  const admin = await getAdminUser();
+  if (!admin.authenticated) {
+    return unauthorizedResponse();
+  }
+  if (!admin.isAdmin) {
+    return forbiddenResponse("Admin access required");
   }
 
-  const { data: adminUser } = await supabase
-    .from("admin_users")
-    .select("id")
-    .eq("email", user.email)
-    .single();
+  try {
+    const body = await request.json();
+    const validation = userApprovalSchema.safeParse({
+      userId: body.userId,
+      approved: body.approve,
+    });
 
-  if (!adminUser) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!validation.success) {
+      return badRequestResponse("Invalid request", validation.error.flatten());
+    }
+
+    const { userId, approved } = validation.data;
+
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        is_approved: approved,
+        approved_at: approved ? new Date().toISOString() : null,
+        approved_by: approved ? admin.userId : null,
+      })
+      .eq("id", userId);
+
+    if (error) {
+      return serverErrorResponse();
+    }
+
+    await logAudit({
+      user_id: admin.userId!,
+      action: approved ? "admin_user_approved" : "admin_user_rejected",
+      target_table: "profiles",
+      target_id: userId,
+    });
+
+    return successResponse({ success: true });
+  } catch {
+    return serverErrorResponse();
   }
-
-  const body = await req.json();
-  const { userId, approve } = body;
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ 
-      is_approved: approve,
-      approved_at: approve ? new Date().toISOString() : null,
-      approved_by: approve ? adminUser.id : null
-    })
-    .eq("id", userId);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true });
 }

@@ -7,7 +7,6 @@ import {
   successResponse,
 } from "@/lib/server/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { tradeExecutionEngine } from "@/lib/server/trade-execution-engine";
 import { maskCredential } from "@/lib/server/encryption";
 
 export async function GET() {
@@ -28,8 +27,8 @@ export async function GET() {
     return successResponse({
       account: {
         ...account,
-        api_key: account.api_key ? maskCredential("*".repeat(16)) : null,
-        user_id_broker: account.user_id_broker ? maskCredential("*".repeat(8)) : null,
+        api_key: account.api_key ? maskCredential(account.api_key) : null,
+        user_id_broker: account.user_id_broker || null,
       },
     });
   } catch (error) {
@@ -44,27 +43,26 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { apiKey, apiSecret, userIdBroker, password, totpSecret } = body;
+    const { apiKey } = body;
 
-    if (!apiKey || !apiSecret || !userIdBroker || !password || !totpSecret) {
-      return badRequestResponse("All credentials are required");
+    if (!apiKey) {
+      return badRequestResponse("API Key is required");
     }
 
-    const result = await tradeExecutionEngine.connectUserBroker(user.userId, {
-      apiKey,
-      apiSecret,
-      userIdBroker,
-      password,
-      totpSecret,
-    });
-
-    if (!result.success) {
-      return successResponse({ success: false, error: result.error });
-    }
+    await supabaseAdmin
+      .from("user_broker_accounts")
+      .upsert({
+        user_id: user.userId,
+        broker: "zerodha",
+        api_key: apiKey,
+        is_connected: false,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
 
     return successResponse({ success: true });
   } catch (error) {
-    console.error("Error connecting broker:", error);
+    console.error("Error saving broker account:", error);
     return serverErrorResponse();
   }
 }
@@ -74,7 +72,16 @@ export async function DELETE() {
   if (!user.authenticated || !user.userId) return unauthorizedResponse();
 
   try {
-    await tradeExecutionEngine.disconnectUserBroker(user.userId);
+    await supabaseAdmin
+      .from("user_broker_accounts")
+      .update({
+        is_connected: false,
+        access_token_encrypted: null,
+        last_error: "Disconnected by user",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.userId);
+
     return successResponse({ success: true });
   } catch (error) {
     console.error("Error disconnecting broker:", error);

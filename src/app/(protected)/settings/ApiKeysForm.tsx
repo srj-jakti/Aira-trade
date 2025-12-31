@@ -1,62 +1,109 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Key, ShieldCheck, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Key, ShieldCheck, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
-export function ApiKeysForm() {
+function ApiKeysFormContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [keys, setKeys] = useState({ apiKey: "", apiSecret: "" });
   const [maskedKeys, setMaskedKeys] = useState({ apiKey: "", apiSecret: "" });
-  const [status, setStatus] = useState<"connected" | "disconnected" | "checking">("disconnected");
+  const [status, setStatus] = useState<"connected" | "disconnected" | "keys_saved">("disconnected");
+  const [brokerAccount, setBrokerAccount] = useState<{ is_connected: boolean; user_id_broker?: string } | null>(null);
+  const searchParams = useSearchParams();
 
-  useEffect(() => {
-    async function loadKeys() {
-      try {
-        const response = await fetch("/api/credentials");
-        if (response.ok) {
-          const data = await response.json();
-          const creds = data.credentials || {};
-          setMaskedKeys({
-            apiKey: creds.zerodha_api_key || "",
-            apiSecret: creds.zerodha_api_secret || "",
-          });
-          if (creds.zerodha_api_key && creds.zerodha_api_secret) {
+  const loadData = useCallback(async () => {
+    try {
+      const [credsRes, brokerRes] = await Promise.all([
+        fetch("/api/credentials"),
+        fetch("/api/user/broker"),
+      ]);
+
+      if (credsRes.ok) {
+        const data = await credsRes.json();
+        const creds = data.credentials || {};
+        setMaskedKeys({
+          apiKey: creds.zerodha_api_key || "",
+          apiSecret: creds.zerodha_api_secret || "",
+        });
+        if (creds.zerodha_api_key && creds.zerodha_api_secret) {
+          setStatus("keys_saved");
+        }
+      }
+
+      if (brokerRes.ok) {
+        const data = await brokerRes.json();
+        if (data.account) {
+          setBrokerAccount(data.account);
+          if (data.account.is_connected) {
             setStatus("connected");
           }
         }
-      } catch (error) {
-        console.error("Error loading API keys:", error);
-      } finally {
-        setLoading(false);
       }
+    } catch (error) {
+      console.error("Error loading data:", error);
+    } finally {
+      setLoading(false);
     }
-    loadKeys();
   }, []);
 
-  const handleSave = async (e: React.FormEvent) => {
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    const brokerError = searchParams.get("broker_error");
+    if (brokerError) {
+      const errorMessages: Record<string, string> = {
+        auth_failed: "Zerodha authentication failed. Please try again.",
+        missing_user: "Session expired. Please login again.",
+        no_account: "Please save your API keys first.",
+        no_secret: "API Secret not found. Please save your credentials.",
+        token_failed: "Failed to get access token. Please try again.",
+        server_error: "Server error. Please try again later.",
+      };
+      toast.error(errorMessages[brokerError] || "Connection failed");
+      window.history.replaceState({}, "", "/settings");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === "ZERODHA_AUTH_SUCCESS") {
+        toast.success("Zerodha connected successfully!");
+        setConnecting(false);
+        loadData();
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [loadData]);
+
+  const handleSaveKeys = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!keys.apiKey.trim() && !keys.apiSecret.trim()) {
-      toast.error("Please enter at least one credential");
+    if (!keys.apiKey.trim() || !keys.apiSecret.trim()) {
+      toast.error("Both API Key and API Secret are required");
       return;
     }
 
     setSaving(true);
     
     try {
-      const payload: Record<string, string> = {};
-      if (keys.apiKey.trim()) payload.zerodha_api_key = keys.apiKey;
-      if (keys.apiSecret.trim()) payload.zerodha_api_secret = keys.apiSecret;
-
       const response = await fetch("/api/credentials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          zerodha_api_key: keys.apiKey,
+          zerodha_api_secret: keys.apiSecret,
+        }),
       });
 
       if (!response.ok) {
@@ -64,23 +111,84 @@ export function ApiKeysForm() {
         throw new Error(error.error || "Failed to save");
       }
 
-      toast.success("API keys saved securely");
-      setStatus("connected");
+      await fetch("/api/user/broker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: keys.apiKey }),
+      });
+
+      toast.success("API keys saved! Now connect to Zerodha.");
+      setStatus("keys_saved");
       setKeys({ apiKey: "", apiSecret: "" });
-      
-      const refreshResponse = await fetch("/api/credentials");
-      if (refreshResponse.ok) {
-        const data = await refreshResponse.json();
-        const creds = data.credentials || {};
-        setMaskedKeys({
-          apiKey: creds.zerodha_api_key || "",
-          apiSecret: creds.zerodha_api_secret || "",
-        });
-      }
+      await loadData();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save API keys");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleConnectZerodha = async () => {
+    if (!maskedKeys.apiKey) {
+      toast.error("Please save your API keys first");
+      return;
+    }
+
+    setConnecting(true);
+
+    try {
+      const credsRes = await fetch("/api/credentials");
+      if (!credsRes.ok) throw new Error("Failed to get credentials");
+      
+      const credsData = await credsRes.json();
+      const rawApiKey = credsData.raw?.zerodha_api_key;
+      
+      if (!rawApiKey) {
+        toast.error("API Key not found. Please re-enter your credentials.");
+        setConnecting(false);
+        return;
+      }
+
+      const loginUrl = `https://kite.trade/connect/login?v=3&api_key=${rawApiKey}`;
+      
+      const popup = window.open(
+        loginUrl,
+        "zerodha_login",
+        "width=500,height=700,scrollbars=yes,resizable=yes"
+      );
+
+      if (!popup) {
+        toast.error("Popup blocked. Please allow popups for this site.");
+        setConnecting(false);
+        return;
+      }
+
+      const checkPopup = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkPopup);
+          setConnecting(false);
+          loadData();
+        }
+      }, 500);
+
+    } catch (error) {
+      console.error("Connect error:", error);
+      toast.error("Failed to initiate connection");
+      setConnecting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      const response = await fetch("/api/user/broker", { method: "DELETE" });
+      if (response.ok) {
+        toast.success("Broker disconnected");
+        setBrokerAccount(null);
+        setStatus("keys_saved");
+        await loadData();
+      }
+    } catch {
+      toast.error("Failed to disconnect");
     }
   };
 
@@ -96,79 +204,114 @@ export function ApiKeysForm() {
     <div className="space-y-6">
       <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${status === 'connected' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+          <div className={`p-2 rounded-lg ${status === 'connected' ? 'bg-green-500/10 text-green-500' : status === 'keys_saved' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'}`}>
             {status === 'connected' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
           </div>
           <div>
-            <p className="text-sm font-medium text-white">Connection Status</p>
-            <p className="text-xs text-white/40">{status === 'connected' ? 'Credentials stored securely' : 'Not configured'}</p>
+            <p className="text-sm font-medium text-white">
+              {status === 'connected' ? 'Zerodha Connected' : status === 'keys_saved' ? 'Keys Saved - Login Required' : 'Not Connected'}
+            </p>
+            <p className="text-xs text-white/40">
+              {status === 'connected' && brokerAccount?.user_id_broker 
+                ? `Broker ID: ${brokerAccount.user_id_broker}` 
+                : status === 'keys_saved' 
+                  ? 'Click "Connect to Zerodha" to authenticate'
+                  : 'Save your API credentials to get started'}
+            </p>
           </div>
         </div>
+        {status === 'connected' && (
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+            onClick={handleDisconnect}
+          >
+            Disconnect
+          </Button>
+        )}
       </div>
 
-      {status === 'connected' && (maskedKeys.apiKey || maskedKeys.apiSecret) && (
-        <div className="p-4 bg-white/5 border border-white/10 rounded-xl space-y-2">
-          <p className="text-xs text-white/40 font-medium uppercase tracking-wider">Stored Credentials (Masked)</p>
-          {maskedKeys.apiKey && (
-            <p className="text-sm text-white/70 font-mono">API Key: {maskedKeys.apiKey}</p>
+      {status === 'keys_saved' && (
+        <Button
+          onClick={handleConnectZerodha}
+          disabled={connecting}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          {connecting ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <ExternalLink className="w-4 h-4 mr-2" />
           )}
-          {maskedKeys.apiSecret && (
-            <p className="text-sm text-white/70 font-mono">API Secret: {maskedKeys.apiSecret}</p>
-          )}
-        </div>
+          {connecting ? 'Waiting for login...' : 'Connect to Zerodha'}
+        </Button>
       )}
 
-      <form onSubmit={handleSave} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="apiKey">Zerodha API Key {status === 'connected' && '(Update)'}</Label>
-          <div className="relative">
-            <Key className="absolute left-3 top-2.5 h-4 w-4 text-white/20" />
-            <Input 
-              id="apiKey" 
-              value={keys.apiKey}
-              onChange={(e) => setKeys(prev => ({ ...prev, apiKey: e.target.value }))}
-              placeholder={status === 'connected' ? "Enter new key to update" : "Enter your API key"}
-              className="bg-white/5 border-white/10 pl-10"
-              type="password"
-              autoComplete="off"
-            />
+      {status !== 'connected' && (
+        <form onSubmit={handleSaveKeys} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="apiKey">Zerodha API Key</Label>
+            <div className="relative">
+              <Key className="absolute left-3 top-2.5 h-4 w-4 text-white/20" />
+              <Input 
+                id="apiKey" 
+                value={keys.apiKey}
+                onChange={(e) => setKeys(prev => ({ ...prev, apiKey: e.target.value }))}
+                placeholder={maskedKeys.apiKey ? `Current: ${maskedKeys.apiKey}` : "Enter your API key"}
+                className="bg-white/5 border-white/10 pl-10"
+                autoComplete="off"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="apiSecret">Zerodha API Secret {status === 'connected' && '(Update)'}</Label>
-          <div className="relative">
-            <ShieldCheck className="absolute left-3 top-2.5 h-4 w-4 text-white/20" />
-            <Input 
-              id="apiSecret" 
-              value={keys.apiSecret}
-              onChange={(e) => setKeys(prev => ({ ...prev, apiSecret: e.target.value }))}
-              placeholder={status === 'connected' ? "Enter new secret to update" : "Enter your API secret"}
-              className="bg-white/5 border-white/10 pl-10"
-              type="password"
-              autoComplete="off"
-            />
+          <div className="space-y-2">
+            <Label htmlFor="apiSecret">Zerodha API Secret</Label>
+            <div className="relative">
+              <ShieldCheck className="absolute left-3 top-2.5 h-4 w-4 text-white/20" />
+              <Input 
+                id="apiSecret" 
+                value={keys.apiSecret}
+                onChange={(e) => setKeys(prev => ({ ...prev, apiSecret: e.target.value }))}
+                placeholder={maskedKeys.apiSecret ? `Current: ${maskedKeys.apiSecret}` : "Enter your API secret"}
+                className="bg-white/5 border-white/10 pl-10"
+                type="password"
+                autoComplete="off"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="pt-2">
-          <Button 
-            type="submit" 
-            disabled={saving}
-            className="w-full bg-white text-black hover:bg-white/90"
-          >
-            {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {status === 'connected' ? 'Update Credentials' : 'Save & Connect'}
-          </Button>
-        </div>
-      </form>
+          <div className="pt-2">
+            <Button 
+              type="submit" 
+              disabled={saving || !keys.apiKey.trim() || !keys.apiSecret.trim()}
+              className="w-full bg-white text-black hover:bg-white/90"
+            >
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {status === 'keys_saved' ? 'Update API Keys' : 'Save API Keys'}
+            </Button>
+          </div>
+        </form>
+      )}
       
       <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-lg">
         <p className="text-[10px] text-blue-400/80 leading-relaxed">
-          Your API keys are encrypted with AES-256-GCM before storage. We never share your credentials with third parties. 
-          Make sure you have enabled the required permissions in your Zerodha developer console.
+          <strong>How it works:</strong> 1) Save your API Key & Secret from Zerodha Developer Console. 
+          2) Click "Connect to Zerodha" to login with your Zerodha credentials. 
+          3) After login, your broker will be connected automatically.
         </p>
       </div>
     </div>
+  );
+}
+
+export function ApiKeysForm() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-6 h-6 animate-spin text-white/20" />
+      </div>
+    }>
+      <ApiKeysFormContent />
+    </Suspense>
   );
 }

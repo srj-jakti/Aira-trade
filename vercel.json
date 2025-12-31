@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/zerodha-auto-login",
+      "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/health-check",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}

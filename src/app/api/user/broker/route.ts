@@ -76,7 +76,7 @@ export async function DELETE() {
       .from("user_broker_accounts")
       .update({
         is_connected: false,
-        access_token_encrypted: null,
+        access_token: null,
         last_error: "Disconnected by user",
         updated_at: new Date().toISOString(),
       })

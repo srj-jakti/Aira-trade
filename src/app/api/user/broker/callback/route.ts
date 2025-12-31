@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { encryptCredential, decrypt } from "@/lib/server/encryption";
+import { encrypt, decrypt } from "@/lib/server/encryption";
 import crypto from "crypto";
 import { getURL } from "@/lib/utils";
 
@@ -116,9 +116,9 @@ export async function GET(request: NextRequest) {
 
     await supabaseAdmin
       .from("user_broker_accounts")
-      .update({
-        access_token_encrypted: encryptCredential(accessToken),
-        user_id_broker: brokerUserId,
+        .update({
+          access_token: encrypt(accessToken),
+          user_id_broker: brokerUserId,
         is_connected: true,
         last_connected_at: new Date().toISOString(),
         last_error: null,

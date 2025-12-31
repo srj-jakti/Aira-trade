@@ -33,7 +33,15 @@ import {
   Download,
   BarChart3,
   Search,
-  Calendar
+  Calendar,
+  Target,
+  Lock,
+  Globe,
+  Play,
+  Pause,
+  TrendingUp,
+  TrendingDown,
+  Shield
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -248,6 +256,13 @@ export default function AdminPage() {
               <BarChart3 className="w-4 h-4 shrink-0" />
               <span>Market Data</span>
             </TabsTrigger>
+            <TabsTrigger 
+              value="strategies" 
+              className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+            >
+              <Target className="w-4 h-4 shrink-0" />
+              <span>Strategies</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="zerodha" className="mt-0">
@@ -268,6 +283,10 @@ export default function AdminPage() {
 
           <TabsContent value="market-data" className="mt-0">
             <MarketDataManager />
+          </TabsContent>
+
+          <TabsContent value="strategies" className="mt-0">
+            <StrategyApprovalManager />
           </TabsContent>
         </Tabs>
       </div>
@@ -1857,9 +1876,600 @@ function UserManagement() {
                   </div>
                 </div>
               )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+interface AdminStrategy {
+  id: number;
+  name: string;
+  description: string;
+  visibility: string;
+  admin_approved: boolean;
+  is_active: boolean;
+  selected_timeframes: string[];
+  status: string;
+  created_at: string;
+  user_id: string;
+  creator: { username?: string; email?: string };
+  stats: { win_rate?: number; net_pnl_percentage?: number; total_trades?: number } | null;
+  raw_input?: string;
+  buy_entry_logic?: Record<string, unknown>;
+  buy_stop_loss?: Record<string, unknown>;
+  buy_target?: Record<string, unknown>;
+  buy_trailing_sl?: Record<string, unknown>;
+  sell_entry_logic?: Record<string, unknown>;
+  sell_stop_loss?: Record<string, unknown>;
+  sell_target?: Record<string, unknown>;
+  sell_trailing_sl?: Record<string, unknown>;
+  hold_logic?: Record<string, unknown>;
+}
+
+interface BacktestResult {
+  id: number;
+  timeframe: string;
+  capital_used: number;
+  total_trades: number;
+  net_pnl: number;
+  net_pnl_percentage: number;
+  win_rate: number;
+  max_drawdown_percentage: number;
+  created_at: string;
+}
+
+function StrategyApprovalManager() {
+  const [strategies, setStrategies] = useState<AdminStrategy[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedStrategy, setSelectedStrategy] = useState<AdminStrategy | null>(null);
+  const [backtests, setBacktests] = useState<BacktestResult[]>([]);
+  const [filter, setFilter] = useState<"pending" | "approved" | "all">("pending");
+  const [visibilityFilter, setVisibilityFilter] = useState<"all" | "public" | "invite_only">("all");
+  const [processingId, setProcessingId] = useState<number | null>(null);
+  const [runningBacktest, setRunningBacktest] = useState(false);
+  const [backtestTimeframe, setBacktestTimeframe] = useState("15minute");
+
+  useEffect(() => {
+    fetchStrategies();
+  }, [filter, visibilityFilter]);
+
+  const fetchStrategies = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/strategies");
+      if (res.ok) {
+        const data = await res.json();
+        let filtered = data.strategies || [];
+        
+        if (filter === "pending") {
+          filtered = filtered.filter((s: AdminStrategy) => !s.admin_approved);
+        } else if (filter === "approved") {
+          filtered = filtered.filter((s: AdminStrategy) => s.admin_approved);
+        }
+        
+        if (visibilityFilter !== "all") {
+          filtered = filtered.filter((s: AdminStrategy) => s.visibility === visibilityFilter);
+        }
+        
+        setStrategies(filtered);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApprove = async (id: number) => {
+    setProcessingId(id);
+    try {
+      const res = await fetch(`/api/admin/strategies/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve" }),
+      });
+      if (res.ok) {
+        fetchStrategies();
+        if (selectedStrategy?.id === id) {
+          setSelectedStrategy({ ...selectedStrategy, admin_approved: true });
+        }
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleReject = async (id: number) => {
+    if (!confirm("Are you sure you want to reject this strategy? It will be set back to private.")) return;
+    setProcessingId(id);
+    try {
+      const res = await fetch(`/api/admin/strategies/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
+      if (res.ok) {
+        fetchStrategies();
+        setSelectedStrategy(null);
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleHold = async (id: number) => {
+    setProcessingId(id);
+    try {
+      const res = await fetch(`/api/admin/strategies/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "hold" }),
+      });
+      if (res.ok) {
+        fetchStrategies();
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to permanently delete this strategy? This cannot be undone.")) return;
+    setProcessingId(id);
+    try {
+      const res = await fetch(`/api/admin/strategies/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        fetchStrategies();
+        if (selectedStrategy?.id === id) {
+          setSelectedStrategy(null);
+        }
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const viewStrategy = async (strategy: AdminStrategy) => {
+    setSelectedStrategy(strategy);
+    try {
+      const res = await fetch(`/api/admin/strategies/${strategy.id}/details`);
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedStrategy(data.strategy);
+        setBacktests(data.backtests || []);
+      }
+    } catch (error) {
+      console.error("Error fetching strategy details:", error);
+    }
+  };
+
+  const runBacktest = async () => {
+    if (!selectedStrategy) return;
+    setRunningBacktest(true);
+    try {
+      const res = await fetch(`/api/admin/strategies/${selectedStrategy.id}/backtest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timeframe: backtestTimeframe }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBacktests(prev => [data.result, ...prev]);
+        alert("Backtest completed successfully!");
+      } else {
+        const error = await res.json();
+        alert(error.error || "Backtest failed");
+      }
+    } finally {
+      setRunningBacktest(false);
+    }
+  };
+
+  const TIMEFRAMES = [
+    { value: "3minute", label: "3 Min" },
+    { value: "5minute", label: "5 Min" },
+    { value: "15minute", label: "15 Min" },
+    { value: "60minute", label: "1 Hour" },
+    { value: "day", label: "Daily" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-white/5 border-white/10">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/40 text-sm">Pending Approval</p>
+                <p className="text-2xl font-bold text-white">
+                  {strategies.filter(s => !s.admin_approved).length}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-yellow-500/20">
+                <Clock className="w-6 h-6 text-yellow-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/5 border-white/10">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/40 text-sm">Public Strategies</p>
+                <p className="text-2xl font-bold text-white">
+                  {strategies.filter(s => s.visibility === "public" && s.admin_approved).length}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-green-500/20">
+                <Globe className="w-6 h-6 text-green-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white/5 border-white/10">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/40 text-sm">Invite-Only Strategies</p>
+                <p className="text-2xl font-bold text-white">
+                  {strategies.filter(s => s.visibility === "invite_only" && s.admin_approved).length}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-purple-500/20">
+                <Lock className="w-6 h-6 text-purple-400" />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
-    );
-  }
+
+      <Card className="bg-white/5 border-white/10">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-white text-lg flex items-center gap-2">
+              <Target className="w-5 h-5 text-yellow-400" />
+              Strategy Approval & Management
+            </CardTitle>
+            <CardDescription className="text-white/40">
+              Review, approve, and manage public and invite-only strategies.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={filter} onValueChange={(v: "pending" | "approved" | "all") => setFilter(v)}>
+              <SelectTrigger className="w-32 bg-white/5 border-white/10 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1a] border-white/10">
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={visibilityFilter} onValueChange={(v: "all" | "public" | "invite_only") => setVisibilityFilter(v)}>
+              <SelectTrigger className="w-32 bg-white/5 border-white/10 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1a] border-white/10">
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="public">Public</SelectItem>
+                <SelectItem value="invite_only">Invite Only</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fetchStrategies}
+              className="border-white/20 text-white hover:bg-white/10"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-white/40" />
+            </div>
+          ) : strategies.length === 0 ? (
+            <div className="p-8 border border-dashed border-white/20 rounded-lg text-center">
+              <Target className="w-12 h-12 mx-auto text-white/20 mb-4" />
+              <p className="text-white/40 text-sm">No strategies found matching filters.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {strategies.map((strategy) => (
+                <div 
+                  key={strategy.id}
+                  className={`p-4 rounded-lg border ${
+                    selectedStrategy?.id === strategy.id 
+                      ? "bg-yellow-500/10 border-yellow-500/30" 
+                      : "bg-white/5 border-white/10"
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-white font-medium">{strategy.name}</span>
+                        <Badge className={
+                          strategy.visibility === "public" 
+                            ? "bg-green-500/20 text-green-400 border-green-500/30"
+                            : "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                        }>
+                          {strategy.visibility === "invite_only" ? "Invite Only" : "Public"}
+                        </Badge>
+                        {strategy.admin_approved ? (
+                          <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Approved
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                            <Clock className="w-3 h-3 mr-1" />
+                            Pending
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-white/40 text-sm">{strategy.description}</p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-white/40">
+                        <span>By: {strategy.creator?.username || strategy.creator?.email || "Unknown"}</span>
+                        <span>Created: {new Date(strategy.created_at).toLocaleDateString()}</span>
+                        {strategy.stats && (
+                          <>
+                            <span className="text-green-400">{strategy.stats.win_rate?.toFixed(0)}% Win</span>
+                            <span className={strategy.stats.net_pnl_percentage && strategy.stats.net_pnl_percentage >= 0 ? "text-green-400" : "text-red-400"}>
+                              {strategy.stats.net_pnl_percentage && strategy.stats.net_pnl_percentage >= 0 ? "+" : ""}
+                              {strategy.stats.net_pnl_percentage?.toFixed(1)}%
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => viewStrategy(strategy)}
+                        className="border-white/20 text-white hover:bg-white/10"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      {!strategy.admin_approved && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleApprove(strategy.id)}
+                          disabled={processingId === strategy.id}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          {processingId === strategy.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4" />
+                          )}
+                        </Button>
+                      )}
+                      {strategy.visibility === "public" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleHold(strategy.id)}
+                          disabled={processingId === strategy.id}
+                          className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
+                        >
+                          <Pause className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleReject(strategy.id)}
+                        disabled={processingId === strategy.id}
+                        className="text-orange-400 hover:text-orange-300 hover:bg-orange-400/10"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(strategy.id)}
+                        disabled={processingId === strategy.id}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {selectedStrategy && (
+        <Card className="bg-white/5 border-white/10">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-white text-lg">Strategy Details: {selectedStrategy.name}</CardTitle>
+              <CardDescription className="text-white/40">
+                Full strategy logic and backtest results (Admin View Only)
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedStrategy(null)}
+              className="border-white/10 text-white hover:bg-white/5"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingUp className="w-5 h-5 text-green-400" />
+                    <span className="text-green-400 font-medium">BUY Side Logic</span>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <p className="text-white/40 text-xs uppercase mb-1">Entry Conditions</p>
+                      <ul className="text-white/80">
+                        {(selectedStrategy.buy_entry_logic as any)?.conditions?.map((c: string, i: number) => (
+                          <li key={i}>• {c}</li>
+                        )) || <li className="text-white/40">Not defined</li>}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-white/40 text-xs uppercase mb-1">Stop Loss</p>
+                      <p className="text-white/80">{(selectedStrategy.buy_stop_loss as any)?.description || "Not defined"}</p>
+                    </div>
+                    <div>
+                      <p className="text-white/40 text-xs uppercase mb-1">Target</p>
+                      <p className="text-white/80">{(selectedStrategy.buy_target as any)?.description || "Not defined"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingDown className="w-5 h-5 text-red-400" />
+                    <span className="text-red-400 font-medium">SELL Side Logic</span>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <p className="text-white/40 text-xs uppercase mb-1">Entry Conditions</p>
+                      <ul className="text-white/80">
+                        {(selectedStrategy.sell_entry_logic as any)?.conditions?.map((c: string, i: number) => (
+                          <li key={i}>• {c}</li>
+                        )) || <li className="text-white/40">Not defined</li>}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-white/40 text-xs uppercase mb-1">Stop Loss</p>
+                      <p className="text-white/80">{(selectedStrategy.sell_stop_loss as any)?.description || "Not defined"}</p>
+                    </div>
+                    <div>
+                      <p className="text-white/40 text-xs uppercase mb-1">Target</p>
+                      <p className="text-white/80">{(selectedStrategy.sell_target as any)?.description || "Not defined"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Shield className="w-5 h-5 text-yellow-400" />
+                    <span className="text-yellow-400 font-medium">Hold / No-Trade Logic</span>
+                  </div>
+                  <ul className="text-white/80 text-sm">
+                    {(selectedStrategy.hold_logic as any)?.conditions?.map((c: string, i: number) => (
+                      <li key={i}>• {c}</li>
+                    )) || <li className="text-white/40">Not defined</li>}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-white font-medium">Run Admin Backtest</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Select value={backtestTimeframe} onValueChange={setBacktestTimeframe}>
+                      <SelectTrigger className="flex-1 bg-white/5 border-white/10 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#1a1a1a] border-white/10">
+                        {TIMEFRAMES.map((tf) => (
+                          <SelectItem key={tf.value} value={tf.value}>{tf.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={runBacktest}
+                      disabled={runningBacktest}
+                      className="bg-cyan-500 hover:bg-cyan-600"
+                    >
+                      {runningBacktest ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Play className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
+                  <span className="text-white font-medium mb-4 block">Backtest History</span>
+                  {backtests.length === 0 ? (
+                    <p className="text-white/40 text-sm">No backtests available</p>
+                  ) : (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {backtests.map((bt, i) => (
+                        <div key={i} className="p-3 bg-white/5 rounded-lg text-sm">
+                          <div className="flex items-center justify-between mb-1">
+                            <Badge variant="outline" className="border-cyan-500/30 text-cyan-400">
+                              {TIMEFRAMES.find(t => t.value === bt.timeframe)?.label || bt.timeframe}
+                            </Badge>
+                            <span className={`font-medium ${bt.net_pnl_percentage >= 0 ? "text-green-400" : "text-red-400"}`}>
+                              {bt.net_pnl_percentage >= 0 ? "+" : ""}{bt.net_pnl_percentage.toFixed(2)}%
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-xs text-white/60">
+                            <span>Trades: {bt.total_trades}</span>
+                            <span>Win: {bt.win_rate.toFixed(0)}%</span>
+                            <span>DD: {bt.max_drawdown_percentage.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {selectedStrategy.raw_input && (
+                  <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
+                    <span className="text-white font-medium mb-2 block">Original User Input</span>
+                    <p className="text-white/60 text-sm italic">&quot;{selectedStrategy.raw_input}&quot;</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-4 border-t border-white/10">
+              {!selectedStrategy.admin_approved && (
+                <Button
+                  onClick={() => handleApprove(selectedStrategy.id)}
+                  disabled={processingId === selectedStrategy.id}
+                  className="flex-1 bg-green-500 hover:bg-green-600"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Approve Strategy
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => handleReject(selectedStrategy.id)}
+                disabled={processingId === selectedStrategy.id}
+                className="flex-1 border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                Reject & Set Private
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => handleDelete(selectedStrategy.id)}
+                disabled={processingId === selectedStrategy.id}
+                className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

@@ -336,7 +336,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="h-[400px] md:h-[500px]">
+              <div className="h-[280px] md:h-[350px]">
                 <TradingViewChart
                   data={chartData}
                   symbol={selectedInstrument?.tradingsymbol}

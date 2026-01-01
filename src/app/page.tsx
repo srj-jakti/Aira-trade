@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import { 
   TrendingUp, 
-  Zap, 
   Shield, 
   BarChart3, 
   ArrowRight,
@@ -11,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 
 const features = [
   {
@@ -49,10 +49,10 @@ export default function LandingPage() {
             transition={{ duration: 0.5 }}
             className="space-y-6"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-sm text-white/70">
-              <Zap className="w-4 h-4 text-blue-400" />
-              AI-Powered Market Analysis Platform
-            </div>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-sm text-white/70">
+                <Logo iconOnly size="sm" className="h-4 w-4" />
+                AI-Powered Market Analysis Platform
+              </div>
 
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight">
               <span className="text-white">Analyze Smarter with</span>
@@ -147,13 +147,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="py-8 px-4 border-t border-white/5">
-        <div className="max-w-6xl mx-auto flex flex-col items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-blue-400" />
-            <span className="font-bold text-white">AiRA</span>
-          </div>
-          <div className="flex items-center justify-center gap-6 mb-2">
+        <footer className="py-8 px-4 border-t border-white/5">
+          <div className="max-w-6xl mx-auto flex flex-col items-center gap-4">
+            <Logo size="md" />
+            <div className="flex items-center justify-center gap-6 mb-2">
             <Link href="/pricing" className="text-sm text-white/40 hover:text-white/60 transition-colors">
               Pricing
             </Link>

@@ -55,7 +55,7 @@ export function Navigation() {
         </div>
       </header>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] border-t border-white/10 bg-black/80 backdrop-blur-2xl px-2 pb-[calc(env(safe-area-inset-bottom,0px)+8px)] pt-3 flex items-center justify-between shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[1000] border-t border-white/10 bg-black/90 backdrop-blur-2xl px-1 pb-[calc(env(safe-area-inset-bottom,0px)+10px)] pt-3 flex items-center justify-between shadow-[0_-10px_40px_rgba(0,0,0,0.8)] overflow-hidden">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -75,7 +75,7 @@ export function Navigation() {
                 <Icon className="size-5 sm:size-[22px]" />
               </div>
               <span className={cn(
-                "text-[9px] sm:text-[10px] font-bold tracking-tight transition-all",
+                "text-[9px] sm:text-[10px] font-bold tracking-tight transition-all truncate w-full text-center",
                 isActive ? "opacity-100" : "opacity-60"
               )}>
                 {item.name}

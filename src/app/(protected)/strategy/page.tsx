@@ -151,47 +151,46 @@ export default function StrategyPage() {
           </div>
         </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <div className="px-0">
-              <TabsList className="flex h-12 items-center justify-between gap-1 rounded-xl border border-white/10 bg-white/5 p-1 w-full">
-                <TabsTrigger
-                  value="active"
-                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
-                >
-                  <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span>Active</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="create"
-                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
-                >
-                  <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span>Create</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="private"
-                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
-                >
-                  <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span>Private</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="public"
-                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
-                >
-                  <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span>Public</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="invite-only"
-                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
-                >
-                  <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span className="hidden xs:inline">Invites</span>
-                  <span className="xs:hidden">Invites</span>
-                </TabsTrigger>
-              </TabsList>
-            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              <div className="px-0">
+                <TabsList className="flex h-auto sm:h-12 items-center justify-between gap-0.5 rounded-xl border border-white/10 bg-white/5 p-1 w-full overflow-x-auto scrollbar-hide">
+                  <TabsTrigger
+                    value="active"
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
+                  >
+                    <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Active</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="create"
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
+                  >
+                    <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Create</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="private"
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
+                  >
+                    <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Private</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="public"
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
+                  >
+                    <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Public</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="invite-only"
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
+                  >
+                    <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Invites</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
           <div className="mt-6">
             <TabsContent value="active" className="space-y-6 mt-0">
@@ -471,11 +470,11 @@ function CreateStrategyTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-1 mb-6 bg-white/5 p-2 rounded-xl border border-white/10">
+      <div className="flex items-center justify-between gap-0.5 mb-6 bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto scrollbar-hide">
         {["input", "review", "backtest", "improve", "save"].map((s, i) => (
           <div key={s} className="flex items-center flex-1 last:flex-none">
             <div
-              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-sm font-medium transition-colors shrink-0 ${
+              className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-sm font-medium transition-colors shrink-0 ${
                 step === s
                   ? "bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)]"
                   : ["input", "review", "backtest", "improve", "save"].indexOf(step) > i
@@ -491,7 +490,7 @@ function CreateStrategyTab() {
             </div>
             {i < 4 && (
               <div
-                className={`flex-1 h-0.5 mx-1 sm:mx-2 ${
+                className={`flex-1 h-0.5 mx-0.5 sm:mx-2 ${
                   ["input", "review", "backtest", "improve", "save"].indexOf(step) > i
                     ? "bg-green-500"
                     : "bg-white/10"

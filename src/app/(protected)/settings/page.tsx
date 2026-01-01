@@ -176,47 +176,46 @@ export default function SettingsPage() {
           </Button>
         </div>
 
-          <Tabs defaultValue="account" className="space-y-6">
-            <div className="px-0">
-              <TabsList className="flex h-12 items-center justify-between gap-1 rounded-xl border border-white/10 bg-white/5 p-1 w-full overflow-hidden">
-                <TabsTrigger 
-                  value="account" 
-                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
-                >
-                  <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span>Account</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="api-keys" 
-                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
-                >
-                  <Key className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span className="hidden xs:inline">APIs</span>
-                  <span className="xs:hidden">APIs</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="risk" 
-                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span>Risk</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="history" 
-                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
-                >
-                  <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span>History</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="analysis" 
-                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
-                >
-                  <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span>AI</span>
-                </TabsTrigger>
-              </TabsList>
-            </div>
+            <Tabs defaultValue="account" className="space-y-6">
+              <div className="px-0">
+                <TabsList className="flex h-auto sm:h-12 items-center justify-between gap-0.5 rounded-xl border border-white/10 bg-white/5 p-1 w-full overflow-x-auto scrollbar-hide">
+                  <TabsTrigger 
+                    value="account" 
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
+                  >
+                    <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Account</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="api-keys" 
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
+                  >
+                    <Key className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">APIs</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="risk" 
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Risk</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="history" 
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
+                  >
+                    <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">History</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="analysis" 
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
+                  >
+                    <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">AI</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
           <div className="mt-6">
             <TabsContent value="account" className="space-y-6 mt-0">

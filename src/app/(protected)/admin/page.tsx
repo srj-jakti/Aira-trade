@@ -220,51 +220,50 @@ export default function AdminPage() {
         </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <div className="px-4 -mx-4 overflow-x-auto no-scrollbar">
-              <TabsList className="flex h-11 items-center justify-start gap-1 rounded-xl border border-white/10 bg-white/5 p-1 w-max min-w-full sm:min-w-0">
+            <div className="px-0">
+              <TabsList className="grid grid-cols-3 sm:flex h-auto sm:h-11 items-center justify-start gap-1 rounded-xl border border-white/10 bg-white/5 p-1 w-full sm:w-max">
                 <TabsTrigger 
                   value="zerodha" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg transition-all text-[10px] sm:text-xs md:text-sm"
                 >
-                  <Key className="w-4 h-4 shrink-0" />
-                  <span>Zerodha APIs</span>
+                  <Key className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span>APIs</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="ai-config" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-lg transition-all text-[10px] sm:text-xs md:text-sm"
                 >
-                  <BrainCircuit className="w-4 h-4 shrink-0" />
-                  <span>AI Services</span>
+                  <BrainCircuit className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span>AI</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="system-health" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-green-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-2 data-[state=active]:bg-green-500 data-[state=active]:text-white rounded-lg transition-all text-[10px] sm:text-xs md:text-sm"
                 >
-                  <Activity className="w-4 h-4 shrink-0" />
-                  <span>System Health</span>
+                  <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span>Health</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="users" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-purple-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-2 data-[state=active]:bg-purple-500 data-[state=active]:text-white rounded-lg transition-all text-[10px] sm:text-xs md:text-sm"
                 >
-                  <Users className="w-4 h-4 shrink-0" />
+                  <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                   <span>Users</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="market-data" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white rounded-lg transition-all text-[10px] sm:text-xs md:text-sm"
                 >
-                  <BarChart3 className="w-4 h-4 shrink-0" />
-                  <span>Market Data</span>
+                  <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span>Data</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="strategies" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-white rounded-lg transition-all text-[10px] sm:text-xs md:text-sm"
                 >
-                  <Target className="w-4 h-4 shrink-0" />
-                  <span>Strategies</span>
+                  <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span>Strats</span>
                 </TabsTrigger>
-                <div className="w-4 shrink-0" aria-hidden="true" /> {/* End padding for scroll */}
               </TabsList>
             </div>
 

@@ -55,7 +55,7 @@ export function Navigation() {
         </div>
       </header>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/5 bg-black/60 backdrop-blur-2xl px-1 pb-[env(safe-area-inset-bottom,0.75rem)] pt-2 flex justify-around items-center">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] border-t border-white/10 bg-black/80 backdrop-blur-2xl px-2 pb-[calc(env(safe-area-inset-bottom,0px)+8px)] pt-3 flex items-center justify-between shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -64,16 +64,26 @@ export function Navigation() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center gap-1 py-2 px-1 transition-all duration-200 active:scale-95 active:bg-white/5 rounded-2xl flex-1 relative",
+                "flex flex-col items-center gap-1.5 transition-all duration-300 active:scale-90 rounded-2xl flex-1 relative min-w-0",
                 isActive ? "text-primary" : "text-white/40 hover:text-white"
               )}
             >
-              <Icon className={cn("size-[22px] transition-transform", isActive && "scale-110")} />
-              <span className="text-[10px] font-semibold tracking-tight">{item.name}</span>
+              <div className={cn(
+                "p-1 rounded-xl transition-all duration-300",
+                isActive && "bg-primary/10 scale-110 shadow-[0_0_20px_rgba(var(--primary),0.2)]"
+              )}>
+                <Icon className="size-5 sm:size-[22px]" />
+              </div>
+              <span className={cn(
+                "text-[9px] sm:text-[10px] font-bold tracking-tight transition-all",
+                isActive ? "opacity-100" : "opacity-60"
+              )}>
+                {item.name}
+              </span>
               {isActive && (
                 <motion.div
                   layoutId="mobile-nav-indicator"
-                  className="absolute bottom-1 w-1 h-1 bg-primary rounded-full"
+                  className="absolute -bottom-1 w-1 h-1 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--primary),1)]"
                   transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
                 />
               )}

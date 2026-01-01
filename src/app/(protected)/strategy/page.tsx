@@ -152,44 +152,44 @@ export default function StrategyPage() {
         </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <div className="px-4 -mx-4 overflow-x-auto no-scrollbar">
-              <TabsList className="flex h-11 items-center justify-start gap-1 rounded-xl border border-white/10 bg-white/5 p-1 w-max min-w-full sm:min-w-0">
+            <div className="px-0">
+              <TabsList className="flex h-12 items-center justify-between gap-1 rounded-xl border border-white/10 bg-white/5 p-1 w-full">
                 <TabsTrigger
                   value="active"
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
                 >
-                  <Activity className="w-4 h-4 shrink-0" />
+                  <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                   <span>Active</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="create"
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
                 >
-                  <Bot className="w-4 h-4 shrink-0" />
-                  <span>Create AI</span>
+                  <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span>Create</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="private"
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
                 >
-                  <Lock className="w-4 h-4 shrink-0" />
+                  <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                   <span>Private</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="public"
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
                 >
-                  <Globe className="w-4 h-4 shrink-0" />
+                  <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                   <span>Public</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="invite-only"
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
                 >
-                  <UserCheck className="w-4 h-4 shrink-0" />
-                  <span>Invite Only</span>
+                  <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="hidden xs:inline">Invites</span>
+                  <span className="xs:hidden">Invites</span>
                 </TabsTrigger>
-                <div className="w-4 shrink-0" aria-hidden="true" />
               </TabsList>
             </div>
 
@@ -471,27 +471,27 @@ function CreateStrategyTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-center justify-between gap-1 mb-6 bg-white/5 p-2 rounded-xl border border-white/10">
         {["input", "review", "backtest", "improve", "save"].map((s, i) => (
-          <div key={s} className="flex items-center">
+          <div key={s} className="flex items-center flex-1 last:flex-none">
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-sm font-medium transition-colors shrink-0 ${
                 step === s
-                  ? "bg-cyan-500 text-white"
+                  ? "bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)]"
                   : ["input", "review", "backtest", "improve", "save"].indexOf(step) > i
                   ? "bg-green-500 text-white"
                   : "bg-white/10 text-white/40"
               }`}
             >
               {["input", "review", "backtest", "improve", "save"].indexOf(step) > i ? (
-                <Check className="w-4 h-4" />
+                <Check className="w-3 h-3 sm:w-4 sm:h-4" />
               ) : (
                 i + 1
               )}
             </div>
             {i < 4 && (
               <div
-                className={`w-12 h-0.5 mx-2 ${
+                className={`flex-1 h-0.5 mx-1 sm:mx-2 ${
                   ["input", "review", "backtest", "improve", "save"].indexOf(step) > i
                     ? "bg-green-500"
                     : "bg-white/10"

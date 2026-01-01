@@ -177,42 +177,43 @@ export default function SettingsPage() {
         </div>
 
           <Tabs defaultValue="account" className="space-y-6">
-            <div className="relative">
-              <TabsList className="flex h-11 items-center justify-start gap-1 rounded-xl border border-white/10 bg-white/5 p-1 overflow-x-auto no-scrollbar w-full md:w-max">
+            <div className="px-0">
+              <TabsList className="flex h-12 items-center justify-between gap-1 rounded-xl border border-white/10 bg-white/5 p-1 w-full overflow-hidden">
                 <TabsTrigger 
                   value="account" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
                 >
-                  <User className="w-4 h-4 shrink-0" />
+                  <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                   <span>Account</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="api-keys" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
                 >
-                  <Key className="w-4 h-4 shrink-0" />
-                  <span>API Keys</span>
+                  <Key className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="hidden xs:inline">APIs</span>
+                  <span className="xs:hidden">APIs</span>
                 </TabsTrigger>
-                  <TabsTrigger 
-                    value="risk" 
-                    className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-                  >
-                    <ShieldCheck className="w-4 h-4 shrink-0" />
-                    <span>Risk</span>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="history" 
-                    className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-                  >
-                    <History className="w-4 h-4 shrink-0" />
-                    <span>History</span>
-                  </TabsTrigger>
+                <TabsTrigger 
+                  value="risk" 
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span>Risk</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="history" 
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
+                >
+                  <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span>History</span>
+                </TabsTrigger>
                 <TabsTrigger 
                   value="analysis" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[10px] sm:text-xs md:text-sm flex-1"
                 >
-                  <BarChart3 className="w-4 h-4 shrink-0" />
-                  <span>Analysis</span>
+                  <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span>AI</span>
                 </TabsTrigger>
               </TabsList>
             </div>

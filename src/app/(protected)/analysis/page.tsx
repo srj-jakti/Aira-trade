@@ -351,81 +351,37 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
             </CardContent>
           </Card>
 
-          {analysis && chartData.length > 0 && (
-            <Card className="bg-white/5 border-white/10">
-              <CardContent className="p-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-white/5 rounded-lg">
-                    <div className="text-xs text-white/50 mb-1">Entry Price</div>
-                    <div className="font-mono font-semibold text-blue-400">{formatPrice(analysis.entry)}</div>
-                  </div>
-                  <div className="text-center p-3 bg-white/5 rounded-lg">
-                    <div className="text-xs text-white/50 mb-1">Target</div>
-                    <div className="font-mono font-semibold text-green-400 flex items-center justify-center gap-1">
-                      <ArrowUp className="w-3 h-3" />
-                      {formatPrice(analysis.target)}
+            {analysis && chartData.length > 0 && (
+              <Card className="bg-white/5 border-white/10">
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center p-3 bg-white/5 rounded-lg">
+                      <div className="text-xs text-white/50 mb-1">Entry Price</div>
+                      <div className="font-mono font-semibold text-blue-400">{formatPrice(analysis.entry)}</div>
+                    </div>
+                    <div className="text-center p-3 bg-white/5 rounded-lg">
+                      <div className="text-xs text-white/50 mb-1">Target</div>
+                      <div className="font-mono font-semibold text-green-400 flex items-center justify-center gap-1">
+                        <ArrowUp className="w-3 h-3" />
+                        {formatPrice(analysis.target)}
+                      </div>
+                    </div>
+                    <div className="text-center p-3 bg-white/5 rounded-lg">
+                      <div className="text-xs text-white/50 mb-1">Stop Loss</div>
+                      <div className="font-mono font-semibold text-red-400 flex items-center justify-center gap-1">
+                        <ArrowDown className="w-3 h-3" />
+                        {formatPrice(analysis.stopLoss)}
+                      </div>
+                    </div>
+                    <div className="text-center p-3 bg-white/5 rounded-lg">
+                      <div className="text-xs text-white/50 mb-1">Confidence</div>
+                      <div className="font-mono font-semibold text-purple-400">{analysis.confidence}%</div>
                     </div>
                   </div>
-                  <div className="text-center p-3 bg-white/5 rounded-lg">
-                    <div className="text-xs text-white/50 mb-1">Stop Loss</div>
-                    <div className="font-mono font-semibold text-red-400 flex items-center justify-center gap-1">
-                      <ArrowDown className="w-3 h-3" />
-                      {formatPrice(analysis.stopLoss)}
-                    </div>
-                  </div>
-                  <div className="text-center p-3 bg-white/5 rounded-lg">
-                    <div className="text-xs text-white/50 mb-1">Confidence</div>
-                    <div className="font-mono font-semibold text-purple-400">{analysis.confidence}%</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-            <Card className="bg-white/5 border-white/10">
-              <CardHeader className="p-3 md:p-4 border-b border-white/10">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Target className="w-4 h-4 text-indigo-400" />
-                  Strategy Overlay
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="flex flex-wrap gap-2">
-                  {strategies.length > 0 ? (
-                    <>
-                      <button
-                        onClick={() => setSelectedStrategy(null)}
-                        className={cn(
-                          "px-3 py-1.5 text-xs rounded-full border transition-colors",
-                          !selectedStrategy
-                            ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                            : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
-                        )}
-                      >
-                        None
-                      </button>
-                      {strategies.map((strategy) => (
-                        <button
-                          key={strategy.id}
-                          onClick={() => setSelectedStrategy(strategy.id)}
-                          className={cn(
-                            "px-3 py-1.5 text-xs rounded-full border transition-colors",
-                            selectedStrategy === strategy.id
-                              ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
-                              : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
-                          )}
-                        >
-                          {strategy.name}
-                        </button>
-                      ))}
-                    </>
-                  ) : (
-                    <span className="text-xs text-white/30 italic">No strategies available. Create one in the Strategy section.</span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-        </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
         <div className="lg:col-span-1 space-y-4">
           <Card className="bg-white/5 border-white/10">
@@ -501,14 +457,58 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-white/5 border-white/10">
-            <CardHeader className="p-3 md:p-4 border-b border-white/10">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Target className="w-4 h-4 text-green-400" />
-                Strategy Signals
+            <Card className="bg-white/5 border-white/10">
+              <CardHeader className="p-3 md:p-4 border-b border-white/10">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Target className="w-4 h-4 text-indigo-400" />
+                  Strategy Overlay
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="flex flex-wrap gap-2">
+                  {strategies.length > 0 ? (
+                    <>
+                      <button
+                        onClick={() => setSelectedStrategy(null)}
+                        className={cn(
+                          "px-3 py-1.5 text-xs rounded-full border transition-colors",
+                          !selectedStrategy
+                            ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                            : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+                        )}
+                      >
+                        None
+                      </button>
+                      {strategies.map((strategy) => (
+                        <button
+                          key={strategy.id}
+                          onClick={() => setSelectedStrategy(strategy.id)}
+                          className={cn(
+                            "px-3 py-1.5 text-xs rounded-full border transition-colors",
+                            selectedStrategy === strategy.id
+                              ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
+                              : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+                          )}
+                        >
+                          {strategy.name}
+                        </button>
+                      ))}
+                    </>
+                  ) : (
+                    <span className="text-xs text-white/30 italic">No strategies available. Create one in the Strategy section.</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/5 border-white/10">
+              <CardHeader className="p-3 md:p-4 border-b border-white/10">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Target className="w-4 h-4 text-green-400" />
+                  Strategy Signals
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4">

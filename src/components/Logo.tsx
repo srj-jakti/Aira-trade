@@ -38,7 +38,7 @@ export function Logo({ className, iconOnly = false, size = 'md' }: LogoProps) {
           
           {/* Background Shape */}
           <rect x="5" y="5" width="90" height="90" rx="24" fill="currentColor" className="text-black/20" />
-          <rect x="5" y="5" width="90" height="90" rx="24" stroke="url(#logo-gradient)" strokeWidth="2" />
+          <rect x="5" y="5" width="90" height="90" rx="24" stroke="white" strokeWidth="2" />
           
           {/* Stylized 'A' + Lightning Bolt */}
           <path 
@@ -47,7 +47,7 @@ export function Logo({ className, iconOnly = false, size = 'md' }: LogoProps) {
             strokeWidth="8" 
             strokeLinecap="round" 
             strokeLinejoin="round"
-            className="opacity-20"
+            className="opacity-60"
           />
           
           {/* The Bolt / Trend Line */}

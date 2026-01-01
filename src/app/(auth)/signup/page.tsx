@@ -210,7 +210,10 @@ export default function SignUpPage() {
                 className="mt-0.5 border-white/20 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
               />
               <label htmlFor="terms" className="text-xs text-white/60 leading-relaxed cursor-pointer">
-                I understand that AiRA is a software platform only and does not provide investment or trading advice. I accept full responsibility for my actions and decisions.
+                I confirm that I understand AiRA is a technology platform providing analytical and automation tools only. It does not offer investment advice, recommendations, or guaranteed outcomes. I accept full responsibility for my actions and agree to the{" "}
+                <Link href="/legal/terms" className="text-blue-400 hover:underline">Terms & Conditions</Link>,{" "}
+                <Link href="/legal/privacy" className="text-blue-400 hover:underline">Privacy Policy</Link>, and{" "}
+                <Link href="/legal/risk-disclosure" className="text-blue-400 hover:underline">Risk Disclosure</Link>.
               </label>
             </div>
 

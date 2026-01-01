@@ -68,9 +68,9 @@ export default function LandingPage() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <Link href="/signup">
+              <Link href="/pricing">
                 <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white border-none px-8">
-                  Get Started
+                  View Pricing
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </Link>
@@ -152,6 +152,20 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-blue-400" />
             <span className="font-bold text-white">AiRA</span>
+          </div>
+          <div className="flex items-center justify-center gap-6 mb-2">
+            <Link href="/pricing" className="text-sm text-white/40 hover:text-white/60 transition-colors">
+              Pricing
+            </Link>
+            <Link href="/legal/terms" className="text-sm text-white/40 hover:text-white/60 transition-colors">
+              Terms & Conditions
+            </Link>
+            <Link href="/legal/privacy" className="text-sm text-white/40 hover:text-white/60 transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/legal/risk-disclosure" className="text-sm text-white/40 hover:text-white/60 transition-colors">
+              Risk Disclosure
+            </Link>
           </div>
           <p className="text-[10px] text-white/40 text-center max-w-3xl leading-relaxed">
             AiRA is a software platform providing analytical and automation tools only. It does not provide investment advice, trading recommendations, or financial services. All decisions are made by the user. Past analytical outputs do not guarantee future results.

@@ -1,7 +1,7 @@
 {
-  "name": "AiRA - AI Trading App",
+  "name": "AiRA - AI Market Analysis Platform",
   "short_name": "AiRA",
-  "description": "Fully automated AI Trading platform",
+  "description": "AI-powered market analysis and automation software platform",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

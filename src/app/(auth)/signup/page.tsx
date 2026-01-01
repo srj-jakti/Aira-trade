@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Zap, Mail, Lock, User, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,11 +18,18 @@ export default function SignUpPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const supabase = createClient();
   const router = useRouter();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!acceptedTerms) {
+      setError("You must accept the terms to create an account.");
+      return;
+    }
+    
     setLoading(true);
     setError(null);
 
@@ -46,6 +54,11 @@ export default function SignUpPage() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (!acceptedTerms) {
+      setError("You must accept the terms to create an account.");
+      return;
+    }
+    
     setGoogleLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -96,7 +109,7 @@ export default function SignUpPage() {
             <span className="text-2xl font-bold text-white">AiRA</span>
           </Link>
           <h1 className="text-3xl font-bold text-white">Create Account</h1>
-          <p className="text-white/50 text-sm">Start your AI-powered trading journey today</p>
+          <p className="text-white/50 text-sm">Start your AI-powered market analysis journey today</p>
         </div>
 
         <div className="bg-white/5 border border-white/10 p-8 rounded-2xl space-y-6 backdrop-blur-sm">
@@ -189,14 +202,26 @@ export default function SignUpPage() {
               </div>
             </div>
 
+            <div className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
+              <Checkbox 
+                id="terms" 
+                checked={acceptedTerms}
+                onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                className="mt-0.5 border-white/20 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+              />
+              <label htmlFor="terms" className="text-xs text-white/60 leading-relaxed cursor-pointer">
+                I understand that AiRA is a software platform only and does not provide investment or trading advice. I accept full responsibility for my actions and decisions.
+              </label>
+            </div>
+
             {error && (
               <p className="text-sm text-red-400 text-center">{error}</p>
             )}
 
             <Button
               type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11"
+              disabled={loading || !acceptedTerms}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11 disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Create Account
@@ -210,6 +235,10 @@ export default function SignUpPage() {
             </Link>
           </p>
         </div>
+
+        <p className="text-[10px] text-white/30 text-center max-w-sm mx-auto">
+          AiRA is a software platform providing analytical and automation tools only. It does not provide investment advice, trading recommendations, or financial services.
+        </p>
       </div>
     </div>
   );

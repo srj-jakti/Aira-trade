@@ -170,7 +170,7 @@ export default function SettingsPage() {
               <Card className="bg-white/5 border-white/10">
                 <CardHeader>
                   <CardTitle className="text-white text-lg">Broker API Keys</CardTitle>
-                  <CardDescription className="text-white/40">Connect your Zerodha account to enable AI trading.</CardDescription>
+                  <CardDescription className="text-white/40">Connect your Zerodha account to enable execution automation.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ApiKeysForm />
@@ -195,7 +195,7 @@ export default function SettingsPage() {
               <Card className="bg-white/5 border-white/10">
                 <CardHeader>
                   <CardTitle className="text-white text-lg">Trading History</CardTitle>
-                  <CardDescription className="text-white/40">Review your past trades executed by the AI.</CardDescription>
+                  <CardDescription className="text-white/40">Review your past actions executed via automation.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <TradingHistory />

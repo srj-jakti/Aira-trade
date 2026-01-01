@@ -56,7 +56,7 @@ export default function Dashboard() {
       toast.error(result.error);
       setIsAiTradingEnabled(!enabled);
     } else {
-      toast.success(`AI Trading ${enabled ? "enabled" : "disabled"}`);
+      toast.success(`Execution automation ${enabled ? "enabled" : "disabled"}`);
     }
   };
 
@@ -72,32 +72,31 @@ export default function Dashboard() {
 
   return (
     <div className="p-2 md:p-4 space-y-3 max-w-7xl mx-auto">
-      {/* AI Trading Toggle Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/5 p-3 md:p-4 rounded-xl border border-white/10">
-        <div>
-          <h1 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
-            <Zap className={`w-4 h-4 md:w-5 h-5 ${isAiTradingEnabled ? "text-yellow-400 fill-yellow-400" : "text-white/20"}`} />
-            AI Trading Dashboard
-          </h1>
-          <p className="text-white/50 text-[10px] md:text-xs">Real-time monitoring and execution control</p>
-        </div>
-        <div className="flex items-center gap-3 bg-black/20 p-2 rounded-lg border border-white/5 w-fit">
-          <div className="flex items-center space-x-3">
-            <Label htmlFor="ai-trading" className="text-xs font-medium text-white/70">
-              AI Auto-Trading
-            </Label>
-            <Switch 
-              id="ai-trading" 
-              checked={isAiTradingEnabled}
-              onCheckedChange={handleToggleAi}
-              className="scale-75 md:scale-100"
-            />
-            <Badge variant={isAiTradingEnabled ? "default" : "secondary"} className={`text-[10px] h-5 ${isAiTradingEnabled ? "bg-green-500/20 text-green-400 border-green-500/20" : "bg-white/5 text-white/40"}`}>
-              {isAiTradingEnabled ? "ON" : "OFF"}
-            </Badge>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/5 p-3 md:p-4 rounded-xl border border-white/10">
+          <div>
+            <h1 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+              <Zap className={`w-4 h-4 md:w-5 h-5 ${isAiTradingEnabled ? "text-yellow-400 fill-yellow-400" : "text-white/20"}`} />
+              Analysis Dashboard
+            </h1>
+            <p className="text-white/50 text-[10px] md:text-xs">Real-time monitoring and user-configured automation</p>
+          </div>
+          <div className="flex items-center gap-3 bg-black/20 p-2 rounded-lg border border-white/5 w-fit">
+            <div className="flex items-center space-x-3">
+              <Label htmlFor="ai-trading" className="text-xs font-medium text-white/70">
+                Execution Automation
+              </Label>
+              <Switch 
+                id="ai-trading" 
+                checked={isAiTradingEnabled}
+                onCheckedChange={handleToggleAi}
+                className="scale-75 md:scale-100"
+              />
+              <Badge variant={isAiTradingEnabled ? "default" : "secondary"} className={`text-[10px] h-5 ${isAiTradingEnabled ? "bg-green-500/20 text-green-400 border-green-500/20" : "bg-white/5 text-white/40"}`}>
+                {isAiTradingEnabled ? "ON" : "OFF"}
+              </Badge>
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Stats Row - Responsive side-by-side on mobile */}
         <div className="grid grid-cols-3 gap-2 md:gap-4">

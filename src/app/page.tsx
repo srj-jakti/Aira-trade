@@ -15,13 +15,13 @@ import Link from "next/link";
 const features = [
   {
     icon: Bot,
-    title: "AI-Powered Trading",
+    title: "AI-Powered Analysis",
     description: "Advanced machine learning algorithms analyze market patterns in real-time."
   },
   {
     icon: TrendingUp,
     title: "Smart Analytics",
-    description: "Deep insights into Indian market trends with predictive analytics."
+    description: "Deep insights into Indian market trends with analytical tools."
   },
   {
     icon: Shield,
@@ -51,11 +51,11 @@ export default function LandingPage() {
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-sm text-white/70">
               <Zap className="w-4 h-4 text-blue-400" />
-              AI-Powered Trading Intelligence
+              AI-Powered Market Analysis Platform
             </div>
 
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight">
-              <span className="text-white">Trade Smarter with</span>
+              <span className="text-white">Analyze Smarter with</span>
               <br />
               <span className="bg-gradient-to-r from-blue-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">
                 AiRA Intelligence
@@ -63,8 +63,8 @@ export default function LandingPage() {
             </h1>
 
             <p className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto">
-              Fully automated AI trading and analysis platform for Indian Markets. 
-              Make data-driven decisions with real-time insights.
+              AI-powered market analysis and automation platform for Indian Markets. 
+              Make data-driven decisions with real-time analytical insights.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -97,7 +97,7 @@ export default function LandingPage() {
               Why Choose AiRA?
             </h2>
             <p className="text-white/50 max-w-xl mx-auto">
-              Experience the future of trading with our cutting-edge AI technology
+              Experience the future of market analysis with our cutting-edge AI technology
             </p>
           </motion.div>
 
@@ -132,10 +132,10 @@ export default function LandingPage() {
             className="space-y-6"
           >
             <h2 className="text-3xl md:text-4xl font-bold text-white">
-              Ready to Start Trading?
+              Ready to Start Analyzing?
             </h2>
             <p className="text-white/50 max-w-xl mx-auto">
-              Join thousands of traders who are already using AiRA to make smarter investment decisions.
+              Join thousands of users who are already using AiRA to make data-driven market decisions.
             </p>
             <Link href="/signup">
               <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white border-none px-8">
@@ -148,13 +148,16 @@ export default function LandingPage() {
       </section>
 
       <footer className="py-8 px-4 border-t border-white/5">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto flex flex-col items-center gap-4">
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-blue-400" />
             <span className="font-bold text-white">AiRA</span>
           </div>
+          <p className="text-[10px] text-white/40 text-center max-w-3xl leading-relaxed">
+            AiRA is a software platform providing analytical and automation tools only. It does not provide investment advice, trading recommendations, or financial services. All decisions are made by the user. Past analytical outputs do not guarantee future results.
+          </p>
           <p className="text-xs text-white/30">
-            © 2025 AiRA Trading Platform. All rights reserved.
+            © 2025 AiRA. All rights reserved.
           </p>
         </div>
       </footer>

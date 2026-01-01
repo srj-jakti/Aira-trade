@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Loader2, TrendingUp, TrendingDown, Target } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Target, AlertTriangle, Info } from "lucide-react";
 
 const SEGMENTS = [
   { id: "equity", label: "Equity" },
@@ -20,6 +20,7 @@ const SEGMENTS = [
 export function RiskSettingsForm() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [automationConsent, setAutomationConsent] = useState(false);
   const [settings, setSettings] = useState({
     auto_trading_enabled: false,
     preferred_markets: [] as string[],
@@ -42,6 +43,9 @@ export function RiskSettingsForm() {
               daily_loss_limit: data.settings.daily_loss_limit?.toString() || "",
               max_allocation_per_trade: data.settings.max_allocation_per_trade?.toString() || ""
             });
+            if (data.settings.auto_trading_enabled) {
+              setAutomationConsent(true);
+            }
           }
         }
       } catch (error) {
@@ -93,6 +97,11 @@ export function RiskSettingsForm() {
   };
 
   const handleTradingToggle = async (checked: boolean) => {
+    if (checked && !automationConsent) {
+      toast.error("You must accept the automation disclaimer first.");
+      return;
+    }
+    
     setSettings(prev => ({ ...prev, auto_trading_enabled: checked }));
     
     try {
@@ -104,12 +113,12 @@ export function RiskSettingsForm() {
 
       if (!response.ok) {
         setSettings(prev => ({ ...prev, auto_trading_enabled: !checked }));
-        throw new Error("Failed to toggle trading");
+        throw new Error("Failed to toggle automation");
       }
 
-      toast.success(checked ? "Auto-trading enabled" : "Auto-trading disabled");
+      toast.success(checked ? "Execution automation enabled" : "Execution automation disabled");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to toggle trading");
+      toast.error(error instanceof Error ? error.message : "Failed to toggle automation");
     }
   };
 
@@ -123,15 +132,55 @@ export function RiskSettingsForm() {
 
   return (
     <form onSubmit={handleSave} className="space-y-8">
+      <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
+          <div className="space-y-2">
+            <h3 className="font-semibold text-amber-400">Execution Automation Disclaimer</h3>
+            <p className="text-xs text-amber-300/70 leading-relaxed">
+              This automation executes only user-defined rules. AiRA does not make trading decisions. 
+              You are fully responsible for all automated actions and their outcomes. Past performance 
+              does not guarantee future results.
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-start space-x-3 p-3 bg-black/20 rounded-lg">
+          <Checkbox 
+            id="automation-consent" 
+            checked={automationConsent}
+            onCheckedChange={(checked) => {
+              setAutomationConsent(checked === true);
+              if (!checked && settings.auto_trading_enabled) {
+                handleTradingToggle(false);
+              }
+            }}
+            className="mt-0.5 border-amber-400/30 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+          />
+          <label htmlFor="automation-consent" className="text-xs text-white/70 leading-relaxed cursor-pointer">
+            I understand that AiRA is a software platform only and does not provide investment or trading advice. 
+            I accept full responsibility for all automated actions executed based on my configured rules.
+          </label>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
         <div className="space-y-0.5">
-          <Label className="text-base text-white">Auto-Trading</Label>
-          <p className="text-xs text-white/40">Allow AI to execute trades automatically based on signals.</p>
+          <Label className="text-base text-white">Execution Automation (User-Configured)</Label>
+          <p className="text-xs text-white/40">Allow system to execute your configured rules automatically.</p>
         </div>
         <Switch 
           checked={settings.auto_trading_enabled}
           onCheckedChange={handleTradingToggle}
+          disabled={!automationConsent}
         />
+      </div>
+
+      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-start gap-2">
+        <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+        <p className="text-xs text-blue-300/80">
+          All settings below are user-configured limits. The system will execute actions only within your defined parameters.
+        </p>
       </div>
 
       <div className="space-y-4">
@@ -155,7 +204,7 @@ export function RiskSettingsForm() {
         <div className="space-y-2">
           <Label htmlFor="profitLimit" className="flex items-center gap-2">
             <TrendingUp className="w-3 h-3 text-green-500" />
-            Daily Profit Limit (₹)
+            Daily Target Limit (₹)
           </Label>
           <Input 
             id="profitLimit" 
@@ -185,7 +234,7 @@ export function RiskSettingsForm() {
         <div className="space-y-2 md:col-span-2">
           <Label htmlFor="maxAlloc" className="flex items-center gap-2">
             <Target className="w-3 h-3 text-blue-500" />
-            Max Allocation Per Trade (%)
+            Max Allocation Per Position (%)
           </Label>
           <Input 
             id="maxAlloc" 
@@ -204,7 +253,7 @@ export function RiskSettingsForm() {
         className="w-full bg-white text-black hover:bg-white/90"
       >
         {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-        Save Risk Preferences
+        Save Configuration
       </Button>
     </form>
   );

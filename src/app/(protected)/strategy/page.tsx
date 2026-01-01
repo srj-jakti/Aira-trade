@@ -146,7 +146,7 @@ export default function StrategyPage() {
               Strategies
             </h1>
             <p className="text-white/50 text-sm">
-              Create, backtest, and manage AI-powered trading strategies.
+              Create, backtest, and manage AI-powered analysis strategies.
             </p>
           </div>
         </div>
@@ -265,7 +265,7 @@ function ActiveStrategiesTab() {
       <CardHeader>
         <CardTitle className="text-white text-lg">Active Strategies</CardTitle>
         <CardDescription className="text-white/40">
-          Strategies enabled for AI Analysis, Scanner, and Automated Trading.
+          Strategies enabled for AI Analysis, Scanner, and User-Configured Automation.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -1026,7 +1026,7 @@ function PrivateStrategiesTab() {
       <CardHeader>
         <CardTitle className="text-white text-lg">Private Strategies</CardTitle>
         <CardDescription className="text-white/40">
-          Your personal strategies. Toggle to activate for AI trading.
+          Your personal strategies. Toggle to activate for AI analysis.
         </CardDescription>
       </CardHeader>
       <CardContent>

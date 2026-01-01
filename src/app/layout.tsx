@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AiRA | AI Trading App",
-  description: "Fully automated AI trading and analysis platform.",
+  title: "AiRA | AI Market Analysis Platform",
+  description: "AI-powered market analysis and automation software platform for Indian Markets.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

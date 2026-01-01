@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BrainCircuit, LineChart, Target, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw, ArrowUp, ArrowDown, Loader2, ChevronDown, Eye, EyeOff, Settings2 } from "lucide-react";
+import { BrainCircuit, LineChart, Target, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw, ArrowUp, ArrowDown, Loader2, ChevronDown, Eye, EyeOff, Settings2, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,7 @@ interface AnalysisResult {
   reasoning: string;
 }
 
-interface Signal {
+interface AnalysisOutput {
   id: string;
   signal_type: string;
   tradingsymbol: string;
@@ -74,8 +74,8 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     const [isLoadingChart, setIsLoadingChart] = useState(false);
     const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
     const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
-    const [signals, setSignals] = useState<Signal[]>([]);
-    const [isLoadingSignals, setIsLoadingSignals] = useState(false);
+    const [analysisOutputs, setAnalysisOutputs] = useState<AnalysisOutput[]>([]);
+    const [isLoadingOutputs, setIsLoadingOutputs] = useState(false);
     const [timeframe, setTimeframe] = useState("15m");
     const [indicators, setIndicators] = useState<IndicatorOverlay[]>(DEFAULT_INDICATORS);
     const [showIndicatorPanel, setShowIndicatorPanel] = useState(false);
@@ -149,21 +149,21 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     }
   }, []);
 
-  const fetchSignals = useCallback(async (instrument: Instrument) => {
-    setIsLoadingSignals(true);
+  const fetchAnalysisOutputs = useCallback(async (instrument: Instrument) => {
+    setIsLoadingOutputs(true);
     try {
-      const response = await fetch("/api/ai/signals");
+      const response = await fetch("/api/ai/analysis-output");
       if (response.ok) {
         const data = await response.json();
-        const instrumentSignals = (data.signals || []).filter(
-          (s: Signal) => s.tradingsymbol === instrument.tradingsymbol
+        const instrumentOutputs = (data.outputs || []).filter(
+          (s: AnalysisOutput) => s.tradingsymbol === instrument.tradingsymbol
         );
-        setSignals(instrumentSignals);
+        setAnalysisOutputs(instrumentOutputs);
       }
     } catch (error) {
-      console.error("Error fetching signals:", error);
+      console.error("Error fetching analysis outputs:", error);
     } finally {
-      setIsLoadingSignals(false);
+      setIsLoadingOutputs(false);
     }
   }, []);
 
@@ -187,13 +187,13 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     if (selectedInstrument) {
       fetchChartData(selectedInstrument, timeframe);
       fetchAnalysis(selectedInstrument);
-      fetchSignals(selectedInstrument);
+      fetchAnalysisOutputs(selectedInstrument);
     } else {
       setChartData([]);
       setAnalysis(null);
-      setSignals([]);
+      setAnalysisOutputs([]);
     }
-  }, [selectedInstrument, fetchChartData, fetchAnalysis, fetchSignals, timeframe]);
+  }, [selectedInstrument, fetchChartData, fetchAnalysis, fetchAnalysisOutputs, timeframe]);
 
   const handleTimeframeChange = (tf: string) => {
     setTimeframe(tf);
@@ -206,7 +206,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     if (selectedInstrument) {
       fetchChartData(selectedInstrument, timeframe);
       fetchAnalysis(selectedInstrument);
-      fetchSignals(selectedInstrument);
+      fetchAnalysisOutputs(selectedInstrument);
     }
   };
 
@@ -238,14 +238,16 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     }
   };
 
-  const getSignalBadge = (signal: string) => {
-    switch (signal?.toLowerCase()) {
+  const getDirectionBadge = (direction: string) => {
+    switch (direction?.toLowerCase()) {
       case "buy":
-        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">BUY</Badge>;
+      case "long":
+        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">LONG</Badge>;
       case "sell":
-        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">SELL</Badge>;
+      case "short":
+        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">SHORT</Badge>;
       default:
-        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">HOLD</Badge>;
+        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">NEUTRAL</Badge>;
     }
   };
 
@@ -312,6 +314,13 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-start gap-2">
+        <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+        <p className="text-xs text-blue-300/80">
+          AI analysis outputs are for informational purposes only. They do not constitute investment advice. All decisions are made by you.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -406,7 +415,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
                         {analysis.trend}
                       </span>
                     </div>
-                    {getSignalBadge(analysis.signal)}
+                    {getDirectionBadge(analysis.signal)}
                   </div>
                   
                   <div className="space-y-2">
@@ -442,7 +451,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
 
                   {analysis.reasoning && (
                     <div className="pt-3 border-t border-white/10">
-                      <div className="text-xs text-white/40 mb-1">Signal Reasoning</div>
+                      <div className="text-xs text-white/40 mb-1">Analysis Reasoning</div>
                       <div className="text-sm text-white/60">{analysis.reasoning}</div>
                     </div>
                   )}
@@ -508,38 +517,38 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
               <CardHeader className="p-3 md:p-4 border-b border-white/10">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Target className="w-4 h-4 text-green-400" />
-                  Strategy Signals
+                  Strategy Analysis Outputs
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4">
-              {isLoadingSignals ? (
+              {isLoadingOutputs ? (
                 <div className="min-h-[150px] flex flex-col items-center justify-center gap-2">
                   <Loader2 className="w-5 h-5 animate-spin text-green-400" />
-                  <span className="text-white/50 text-xs">Loading signals...</span>
+                  <span className="text-white/50 text-xs">Loading outputs...</span>
                 </div>
-              ) : signals.length > 0 ? (
+              ) : analysisOutputs.length > 0 ? (
                 <div className="space-y-3">
-                  {signals.slice(0, 5).map((signal) => (
+                  {analysisOutputs.slice(0, 5).map((output) => (
                     <div 
-                      key={signal.id} 
+                      key={output.id} 
                       className="p-3 bg-white/5 rounded-lg border border-white/5"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">{signal.strategy_name}</span>
+                        <span className="text-sm font-medium">{output.strategy_name}</span>
                         <Badge 
                           className={
-                            signal.direction === "long" 
+                            output.direction === "long" 
                               ? "bg-green-500/20 text-green-400 border-green-500/30" 
                               : "bg-red-500/20 text-red-400 border-red-500/30"
                           }
                         >
-                          {signal.direction?.toUpperCase()}
+                          {output.direction?.toUpperCase()}
                         </Badge>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-white/50">Confidence: {signal.confidence}%</span>
+                        <span className="text-white/50">Confidence: {output.confidence}%</span>
                         <span className="text-white/40">
-                          {new Date(signal.created_at).toLocaleDateString()}
+                          {new Date(output.created_at).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
@@ -550,14 +559,14 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
                   <div>
                     <Target className="w-6 h-6 text-white/20 mx-auto mb-2" />
                     <p className="text-white/30 text-xs">
-                      No active signals for {selectedInstrument.tradingsymbol}
+                      No active outputs for {selectedInstrument.tradingsymbol}
                     </p>
                   </div>
                 </div>
               ) : (
                 <div className="min-h-[150px] flex items-center justify-center text-center">
                   <p className="text-white/30 text-xs md:text-sm">
-                    Select an instrument to view signals
+                    Select an instrument to view outputs
                   </p>
                 </div>
               )}

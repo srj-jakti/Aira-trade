@@ -112,14 +112,27 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
+  @layer base {
+    * {
+      @apply border-border outline-ring/50;
+    }
+    body {
+      @apply bg-background text-foreground overflow-x-hidden antialiased selection:bg-primary/30;
+      font-feature-settings: "cv02", "cv05", "cv11";
+    }
+    html {
+      @apply scroll-smooth;
+      -webkit-tap-highlight-color: transparent;
+    }
   }
-  body {
-    @apply bg-background text-foreground;
+
+  /* Safe Area Utilities */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
   }
-}
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
 
   /* Hide Next.js error overlay portal */
   nextjs-portal {
@@ -134,4 +147,18 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+  }
+  
+  .glass-dark {
+    @apply bg-black/40 backdrop-blur-2xl border border-white/5;
+  }
+
+  /* Native touch feedback */
+  .active-scale {
+    @apply active:scale-95 transition-transform;
+  }
+
 

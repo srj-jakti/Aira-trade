@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { 
   Card, 
   CardContent, 
-  CardDescription, 
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
@@ -21,15 +20,12 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { 
-  Play, 
-  Square, 
+  Radar,
   RefreshCcw, 
   TrendingUp, 
-  TrendingDown, 
   Clock, 
   CheckCircle2, 
   XCircle,
-  AlertTriangle,
   History,
   Activity,
   Settings2,
@@ -38,6 +34,7 @@ import {
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ScannerSettingsForm } from "../settings/ScannerSettingsForm";
+import { cn } from "@/lib/utils";
 
 interface AnalysisOutput {
   id: string;
@@ -172,169 +169,154 @@ export default function ScannerPage() {
     }
   };
 
+  if (loading && currentOutputs.length === 0 && pastOutputs.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">AI Market Scanner</h1>
-          <p className="text-muted-foreground">Real-time pattern identification powered by user-configured AI strategies.</p>
+    <div className="p-3 md:p-6 space-y-3 md:space-y-4 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gradient-to-br from-white/10 to-transparent p-3 md:p-4 rounded-2xl border border-white/10 shadow-2xl">
+        <div className="flex items-center gap-3">
+          <div className="size-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+            <Radar className={`size-5 text-blue-400 ${isActive ? 'animate-pulse' : ''}`} />
+          </div>
+          <div>
+            <h1 className="text-lg md:text-xl font-bold text-white tracking-tight leading-none">
+              AI Market Scanner
+            </h1>
+            <p className="text-white/40 text-[10px] md:text-xs mt-1 font-medium italic">Real-time pattern identification and analysis</p>
+          </div>
         </div>
         
-        <div className="flex items-center gap-4 bg-card p-4 rounded-xl border border-border shadow-sm">
+        <div className="flex items-center gap-3 bg-black/40 p-1 pl-3 rounded-full border border-white/5 w-fit">
           <div className="flex items-center gap-2">
             <Switch 
               checked={isActive} 
               onCheckedChange={toggleScanner}
               disabled={processing}
+              className="scale-75"
             />
-            <span className="font-medium">{isActive ? "Live Scanning" : "Scanner Off"}</span>
+            <span className={cn(
+              "text-[9px] font-black px-1.5 py-0.5 rounded-full",
+              isActive ? "bg-blue-500/20 text-blue-400" : "bg-white/5 text-white/20"
+            )}>
+              {isActive ? "LIVE" : "OFF"}
+            </span>
           </div>
-          <div className="h-8 w-px bg-border mx-2" />
+          <div className="h-6 w-px bg-white/5 mx-1" />
           <Button 
-            variant="outline" 
+            variant="ghost" 
             size="sm" 
             onClick={runScannerNow}
             disabled={processing || !isActive}
-            className="gap-2"
+            className="h-8 rounded-full gap-2 text-[10px] font-bold uppercase tracking-wider text-white/60 hover:text-white hover:bg-white/5"
           >
-            <RefreshCcw className={`h-4 w-4 ${processing ? 'animate-spin' : ''}`} />
-            Scan Now
+            <RefreshCcw className={`size-3 ${processing ? 'animate-spin' : ''}`} />
+            Scan
           </Button>
         </div>
       </div>
 
-      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-start gap-2">
-        <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
-        <p className="text-xs text-blue-300/80">
-          This scanner provides analytical outputs based on user-configured strategy logic. All outputs are for informational purposes only and do not constitute trading advice. You are responsible for all decisions.
+      <div className="p-2.5 bg-blue-500/5 border border-blue-500/10 rounded-xl flex items-start gap-2.5">
+        <div className="size-5 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0 border border-blue-500/10">
+          <Info className="size-3 text-blue-400" />
+        </div>
+        <p className="text-[10px] text-blue-200/40 font-medium leading-relaxed">
+          Analytical outputs based on user-configured rules. Informational purposes only. No trading advice.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Activity className="h-4 w-4 text-blue-500" />
-              Active Outputs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{currentOutputs.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">Currently monitoring based on your rules</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-green-500" />
-              Historical Accuracy
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {pastOutputs.length > 0 
-                ? `${((pastOutputs.filter(s => s.status === 'target_hit').length / pastOutputs.length) * 100).toFixed(1)}%`
-                : "0%"
-              }
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Based on {pastOutputs.length} past outputs (not guaranteed)</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Clock className="h-4 w-4 text-orange-500" />
-              Daily Realized
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${pastOutputs.reduce((acc, s) => acc + (s.pnl || 0), 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-              ₹{pastOutputs.reduce((acc, s) => acc + (s.pnl || 0), 0).toFixed(2)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">From scanner outputs today</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {[
+          { label: "Active Signals", value: currentOutputs.length, sub: "Live monitoring", icon: Activity, color: "text-blue-400" },
+          { label: "Scan Accuracy", value: pastOutputs.length > 0 ? `${((pastOutputs.filter(s => s.status === 'target_hit').length / pastOutputs.length) * 100).toFixed(0)}%` : "0%", sub: `Based on ${pastOutputs.length} hits`, icon: TrendingUp, color: "text-green-400" },
+          { label: "Daily Realized", value: `₹${pastOutputs.reduce((acc, s) => acc + (s.pnl || 0), 0).toFixed(0)}`, sub: "Scanner outcomes", icon: Clock, color: "text-orange-400" }
+        ].map((stat, i) => (
+          <Card key={i} className={cn("bg-white/5 border-white/10 group", i === 2 && "col-span-2 md:col-span-1")}>
+            <CardHeader className="flex flex-row items-center justify-between pb-1">
+              <CardTitle className="text-[10px] font-bold text-white/30 uppercase tracking-widest">{stat.label}</CardTitle>
+              <stat.icon className={cn("size-3.5 opacity-50", stat.color)} />
+            </CardHeader>
+            <CardContent>
+              <div className={cn("text-xl md:text-2xl font-black tracking-tighter leading-none", stat.color)}>
+                {stat.value}
+              </div>
+              <p className="text-[10px] text-white/20 font-medium mt-1 uppercase tracking-tight">{stat.sub}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <Tabs defaultValue="current" className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-3">
-          <TabsTrigger value="current" className="gap-2">
-            <Activity className="h-4 w-4" />
-            Current Scanner
+        <TabsList className="grid w-full grid-cols-3 bg-black/40 border border-white/5 p-1 rounded-xl h-10">
+          <TabsTrigger value="current" className="rounded-lg text-[10px] font-bold uppercase tracking-wider data-[state=active]:bg-white/10 data-[state=active]:text-white">
+            Live
           </TabsTrigger>
-          <TabsTrigger value="past" className="gap-2">
-            <History className="h-4 w-4" />
-            Output History
+          <TabsTrigger value="past" className="rounded-lg text-[10px] font-bold uppercase tracking-wider data-[state=active]:bg-white/10 data-[state=active]:text-white">
+            History
           </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2">
-            <Settings2 className="h-4 w-4" />
-            Scanner Settings
+          <TabsTrigger value="settings" className="rounded-lg text-[10px] font-bold uppercase tracking-wider data-[state=active]:bg-white/10 data-[state=active]:text-white">
+            Config
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="current" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Analysis Outputs & Active Positions</CardTitle>
-              <CardDescription>
-                Live outputs where conditions are met based on your configured rules.
-              </CardDescription>
+        <TabsContent value="current" className="mt-3 space-y-3">
+          <Card className="bg-white/5 border-white/10 overflow-hidden">
+            <CardHeader className="bg-white/[0.02] border-b border-white/5 py-3">
+              <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
+                <Activity className="size-3.5 text-blue-400" />
+                Live Analysis
+              </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {currentOutputs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="bg-muted p-4 rounded-full mb-4">
-                    <Activity className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="font-semibold text-lg">No active outputs</h3>
-                  <p className="text-muted-foreground max-w-sm">
-                    {isActive 
-                      ? "The AI is currently scanning based on your configured rules. New outputs will appear here as patterns are detected." 
-                      : "Start the scanner to begin identifying market patterns."
-                    }
-                  </p>
-                  {!isActive && (
-                    <Button onClick={toggleScanner} variant="outline" className="mt-4">
-                      Start Scanning
-                    </Button>
-                  )}
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <Activity className="size-8 text-white/10 mb-3" />
+                  <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest">No active outputs</h3>
+                  <p className="text-[10px] text-white/20 mt-1">Scanner is waiting for pattern triggers</p>
                 </div>
               ) : (
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Symbol</TableHead>
-                      <TableHead>Strategy</TableHead>
-                      <TableHead>Direction</TableHead>
-                      <TableHead>Entry Price</TableHead>
-                      <TableHead>Current Price</TableHead>
-                      <TableHead>Target/SL</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>P&L</TableHead>
+                  <TableHeader className="bg-white/[0.01]">
+                    <TableRow className="border-white/5 hover:bg-transparent">
+                      <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Symbol</TableHead>
+                      <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Dir</TableHead>
+                      <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Entry/Current</TableHead>
+                      <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Target/SL</TableHead>
+                      <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest text-right">P&L</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {currentOutputs.map((output) => (
-                      <TableRow key={output.id}>
-                        <TableCell className="font-medium uppercase">{output.tradingsymbol}</TableCell>
-                        <TableCell className="text-sm">{output.strategy_name || 'AI Dynamic'}</TableCell>
+                      <TableRow key={output.id} className="border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer">
+                        <TableCell className="font-bold text-white text-xs uppercase">{output.tradingsymbol}</TableCell>
                         <TableCell>
-                          <div className={`flex items-center gap-1 font-bold ${output.direction === 'LONG' ? 'text-green-500' : 'text-red-500'}`}>
-                            {output.direction === 'LONG' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                          <Badge className={cn(
+                            "text-[8px] font-black px-1.5 py-0 border-none",
+                            output.direction === 'LONG' ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                          )}>
                             {output.direction}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-[11px] font-mono">
+                          <div className="text-white/60">E: ₹{output.entry_price.toFixed(2)}</div>
+                          <div className="text-white/40 text-[9px]">C: ₹{(output.current_price || output.entry_price).toFixed(2)}</div>
+                        </TableCell>
+                        <TableCell className="text-[10px] font-medium">
+                          <div className="text-green-500/60">T: ₹{output.target_price.toFixed(2)}</div>
+                          <div className="text-red-500/60">S: ₹{output.sl_price.toFixed(2)}</div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className={cn("font-bold text-xs", (output.pnl || 0) >= 0 ? 'text-green-400' : 'text-red-400')}>
+                            {output.pnl ? `₹${output.pnl.toFixed(1)}` : '-'}
                           </div>
-                        </TableCell>
-                        <TableCell>₹{output.entry_price.toFixed(2)}</TableCell>
-                        <TableCell>₹{(output.current_price || output.entry_price).toFixed(2)}</TableCell>
-                        <TableCell className="text-xs">
-                          <div className="text-green-600 font-medium">T: ₹{output.target_price.toFixed(2)}</div>
-                          <div className="text-red-600 font-medium">S: ₹{output.sl_price.toFixed(2)}</div>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(output.status)}</TableCell>
-                        <TableCell className={`font-bold ${(output.pnl || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {output.pnl ? `₹${output.pnl.toFixed(2)}` : '-'}
+                          <div className="text-[9px] text-white/20 font-medium">
+                            {getStatusBadge(output.status)}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -345,67 +327,60 @@ export default function ScannerPage() {
           </Card>
         </TabsContent>
         
-        <TabsContent value="past" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Output History</CardTitle>
-              <CardDescription>
-                Recent analytical outputs that have completed, stopped out, or expired.
-              </CardDescription>
+        <TabsContent value="past" className="mt-3">
+          <Card className="bg-white/5 border-white/10 overflow-hidden">
+            <CardHeader className="bg-white/[0.02] border-b border-white/5 py-3">
+              <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
+                <History className="size-3.5 text-purple-400" />
+                Historical Logs
+              </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {pastOutputs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                  <History className="h-12 w-12 mb-4 opacity-20" />
-                  <p>No output history available yet.</p>
+                <div className="py-16 text-center">
+                  <History className="size-8 text-white/10 mx-auto mb-3" />
+                  <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">No history available</p>
                 </div>
               ) : (
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Symbol</TableHead>
-                      <TableHead>Direction</TableHead>
-                      <TableHead>Entry/Exit</TableHead>
-                      <TableHead>Outcome</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>P&L</TableHead>
-                      <TableHead>Time</TableHead>
+                  <TableHeader className="bg-white/[0.01]">
+                    <TableRow className="border-white/5 hover:bg-transparent">
+                      <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Symbol</TableHead>
+                      <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Dir</TableHead>
+                      <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Outcome</TableHead>
+                      <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest text-right">P&L</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {pastOutputs.map((output) => (
-                      <TableRow key={output.id}>
-                        <TableCell className="font-medium uppercase">{output.tradingsymbol}</TableCell>
+                      <TableRow key={output.id} className="border-white/5 hover:bg-white/[0.02] transition-colors">
+                        <TableCell className="font-bold text-white text-xs uppercase">{output.tradingsymbol}</TableCell>
                         <TableCell>
-                          <div className={`flex items-center gap-1 font-bold ${output.direction === 'LONG' ? 'text-green-500' : 'text-red-500'}`}>
-                            {output.direction}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          <div>E: ₹{output.entry_price.toFixed(2)}</div>
-                          <div>X: ₹{(output.target_price).toFixed(2)}</div>
+                          <span className={cn(
+                            "text-[9px] font-black",
+                            output.direction === 'LONG' ? "text-green-400" : "text-red-400"
+                          )}>{output.direction}</span>
                         </TableCell>
                         <TableCell>
                           {output.status === 'target_hit' ? (
-                            <div className="flex items-center gap-1 text-green-500 font-medium">
-                              <CheckCircle2 className="h-4 w-4" /> Target Reached
+                            <div className="flex items-center gap-1 text-green-400 font-bold text-[10px]">
+                              <CheckCircle2 className="size-3" /> TARGET
                             </div>
                           ) : output.status === 'sl_hit' ? (
-                            <div className="flex items-center gap-1 text-red-500 font-medium">
-                              <XCircle className="h-4 w-4" /> Stop Loss
+                            <div className="flex items-center gap-1 text-red-400 font-bold text-[10px]">
+                              <XCircle className="size-3" /> STOPLOSS
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1 text-muted-foreground font-medium">
-                              <AlertTriangle className="h-4 w-4" /> Expired
-                            </div>
+                            <div className="text-white/20 font-bold text-[10px]">EXPIRED</div>
                           )}
                         </TableCell>
-                        <TableCell>{getStatusBadge(output.status)}</TableCell>
-                        <TableCell className={`font-bold ${(output.pnl || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          ₹{(output.pnl || 0).toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-xs">
-                          {new Date(output.created_at).toLocaleString()}
+                        <TableCell className="text-right">
+                          <div className={cn("font-bold text-xs font-mono", (output.pnl || 0) >= 0 ? 'text-green-400' : 'text-red-400')}>
+                            ₹{(output.pnl || 0).toFixed(1)}
+                          </div>
+                          <div className="text-[8px] text-white/20 font-medium">
+                            {new Date(output.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -415,16 +390,16 @@ export default function ScannerPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="settings" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Scanner Configuration</CardTitle>
-              <CardDescription>
-                Customize how the AI scanner identifies patterns based on your rules. All execution requires your explicit action.
-              </CardDescription>
+        
+        <TabsContent value="settings" className="mt-3">
+          <Card className="bg-white/5 border-white/10">
+            <CardHeader className="py-4">
+              <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
+                <Settings2 className="size-3.5 text-orange-400" />
+                Scanner Config
+              </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pb-6">
               <ScannerSettingsForm />
             </CardContent>
           </Card>

@@ -71,38 +71,42 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-3 md:p-6 space-y-4 max-w-[1600px] mx-auto animate-in fade-in duration-500">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-br from-white/10 to-transparent p-4 md:p-5 rounded-2xl border border-white/10 shadow-2xl">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-              <Zap className={`size-5 md:size-6 transition-colors ${isAiTradingEnabled ? "text-primary fill-primary" : "text-white/20"}`} />
-              Analysis Dashboard
-            </h1>
-            <p className="text-white/40 text-xs mt-0.5 font-medium">Real-time terminal monitoring and execution control</p>
+    <div className="p-3 md:p-6 space-y-3 md:space-y-4 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gradient-to-br from-white/10 to-transparent p-3 md:p-4 rounded-2xl border border-white/10 shadow-2xl">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-lg shadow-primary/5">
+              <Zap className={`size-5 transition-colors ${isAiTradingEnabled ? "text-primary fill-primary" : "text-white/20"}`} />
+            </div>
+            <div>
+              <h1 className="text-lg md:text-xl font-bold text-white tracking-tight leading-none">
+                Terminal Dashboard
+              </h1>
+              <p className="text-white/40 text-[10px] md:text-xs mt-1 font-medium">Real-time terminal monitoring and execution control</p>
+            </div>
           </div>
-          <div className="flex items-center gap-4 bg-black/40 p-1.5 pl-4 rounded-full border border-white/5 w-fit">
-            <Label htmlFor="ai-trading" className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+          <div className="flex items-center gap-3 bg-black/40 p-1 pl-3 rounded-full border border-white/5 w-fit">
+            <Label htmlFor="ai-trading" className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
               Automation
             </Label>
-            <div className="flex items-center gap-3 bg-white/5 rounded-full p-1 px-3 border border-white/5">
+            <div className="flex items-center gap-2 bg-white/5 rounded-full p-0.5 px-2 border border-white/5">
               <Switch 
                 id="ai-trading" 
                 checked={isAiTradingEnabled}
                 onCheckedChange={handleToggleAi}
-                className="scale-90"
+                className="scale-75"
               />
               <span className={cn(
-                "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                "text-[9px] font-black px-1.5 py-0.5 rounded-full",
                 isAiTradingEnabled ? "bg-primary/20 text-primary" : "bg-white/5 text-white/20"
               )}>
-                {isAiTradingEnabled ? "ACTIVE" : "INACTIVE"}
+                {isAiTradingEnabled ? "ACTIVE" : "OFF"}
               </span>
             </div>
           </div>
         </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {[
           { label: "Equity Balance", value: `₹${isConnected ? balance.total : "0.00"}`, sub: `Margin: ₹${isConnected ? balance.available : "0.00"}`, icon: Wallet, color: "text-blue-400" },
           { label: "Net P&L", value: `₹${isConnected ? pl.total : "0.00"}`, sub: `Day: ₹${isConnected ? pl.day : "0.00"}`, icon: TrendingUp, color: pl.isPositive ? "text-green-400" : "text-red-400" },
@@ -113,17 +117,18 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
+            className={cn(i === 2 && "col-span-2 md:col-span-1")}
           >
-            <Card className="bg-white/5 border-white/10 hover:bg-white/[0.07] transition-colors group cursor-default">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-bold text-white/40 uppercase tracking-widest">{stat.label}</CardTitle>
-                <stat.icon className={cn("size-4 opacity-50 group-hover:opacity-100 transition-opacity", stat.color)} />
+            <Card className="bg-white/5 border-white/10 hover:bg-white/[0.07] transition-all hover:border-white/20 group cursor-default">
+              <CardHeader className="flex flex-row items-center justify-between pb-1">
+                <CardTitle className="text-[10px] font-bold text-white/30 uppercase tracking-widest">{stat.label}</CardTitle>
+                <stat.icon className={cn("size-3.5 opacity-50 group-hover:opacity-100 transition-opacity", stat.color)} />
               </CardHeader>
               <CardContent>
-                <div className={cn("text-2xl md:text-3xl font-bold tracking-tighter", stat.color === "text-white" ? "text-white" : stat.color)}>
+                <div className={cn("text-xl md:text-2xl font-black tracking-tighter leading-none", stat.color)}>
                   {stat.value}
                 </div>
-                <div className="text-xs text-white/30 font-medium mt-1">
+                <div className="text-[10px] text-white/20 font-medium mt-1 uppercase tracking-tight">
                   {stat.sub}
                 </div>
               </CardContent>
@@ -133,62 +138,61 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
         {/* Active Positions - Takes 2/3 on desktop */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="bg-white/5 border-white/10 overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between bg-white/[0.02] border-b border-white/5">
-              <div className="flex items-center gap-3">
-                <div className="size-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <Activity className="size-4 text-blue-400" />
+        <div className="lg:col-span-2">
+          <Card className="bg-white/5 border-white/10 overflow-hidden h-full">
+            <CardHeader className="flex flex-row items-center justify-between bg-white/[0.02] border-b border-white/5 py-3">
+              <div className="flex items-center gap-2.5">
+                <div className="size-7 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                  <Activity className="size-3.5 text-blue-400" />
                 </div>
                 <div>
-                  <CardTitle className="text-base font-bold text-white">Active Positions</CardTitle>
-                  <p className="text-[10px] text-white/40 font-medium uppercase tracking-wider">Real-time portfolio</p>
+                  <CardTitle className="text-sm font-bold text-white">Active Positions</CardTitle>
                 </div>
               </div>
-              <Badge variant="secondary" className="bg-white/5 text-white/60 border-white/10">
+              <Badge variant="secondary" className="bg-white/5 text-white/60 border-white/10 text-[9px] font-bold">
                 {isConnected ? activePositions.length : 0} OPEN
               </Badge>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="bg-white/[0.01]">
-                  <TableRow className="border-white/5">
-                    <TableHead className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Instrument</TableHead>
-                    <TableHead className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Type</TableHead>
-                    <TableHead className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Qty</TableHead>
-                    <TableHead className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Avg. Price</TableHead>
-                    <TableHead className="text-[10px] font-bold text-white/30 uppercase tracking-widest text-right">M2M P&L</TableHead>
+                  <TableRow className="border-white/5 hover:bg-transparent">
+                    <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Instrument</TableHead>
+                    <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Type</TableHead>
+                    <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Qty</TableHead>
+                    <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Avg. Price</TableHead>
+                    <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest text-right">M2M P&L</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {!isConnected || activePositions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-32 text-center text-white/20 text-sm font-medium">
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={5} className="h-32 text-center text-white/20 text-xs font-medium italic">
                         No active positions found
                       </TableCell>
                     </TableRow>
                   ) : (
                     activePositions.map((pos: any) => (
                       <TableRow key={pos.id} className="border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer">
-                        <TableCell className="font-bold text-white">{pos.symbol}</TableCell>
+                        <TableCell className="font-bold text-white text-xs">{pos.symbol}</TableCell>
                         <TableCell>
                           <Badge className={cn(
-                            "text-[9px] font-black px-1.5 py-0",
-                            pos.type === "BUY" ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"
+                            "text-[8px] font-black px-1.5 py-0 border-none",
+                            pos.type === "BUY" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
                           )}>
                             {pos.type}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-white/70 font-mono text-xs">{pos.qty}</TableCell>
-                        <TableCell className="text-white/70 font-mono text-xs">₹{pos.avgPrice}</TableCell>
+                        <TableCell className="text-white/60 font-mono text-[11px]">{pos.qty}</TableCell>
+                        <TableCell className="text-white/60 font-mono text-[11px]">₹{pos.avgPrice}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-col items-end">
-                            <span className={cn("font-bold text-sm", pos.pl.startsWith("+") ? "text-green-400" : "text-red-400")}>
+                            <span className={cn("font-bold text-xs", pos.pl.startsWith("+") ? "text-green-400" : "text-red-400")}>
                               {pos.pl}
                             </span>
-                            <span className="text-[10px] text-white/30 font-medium">{pos.plPercent}</span>
+                            <span className="text-[9px] text-white/20 font-medium">{pos.plPercent}</span>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -201,43 +205,42 @@ export default function Dashboard() {
         </div>
 
         {/* Recent Orders - Takes 1/3 on desktop */}
-        <div className="space-y-6">
+        <div>
           <Card className="bg-white/5 border-white/10 h-full overflow-hidden">
-            <CardHeader className="bg-white/[0.02] border-b border-white/5">
-              <div className="flex items-center gap-3">
-                <div className="size-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                  <History className="size-4 text-purple-400" />
+            <CardHeader className="bg-white/[0.02] border-b border-white/5 py-3">
+              <div className="flex items-center gap-2.5">
+                <div className="size-7 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+                  <History className="size-3.5 text-purple-400" />
                 </div>
                 <div>
-                  <CardTitle className="text-base font-bold text-white">Recent Logs</CardTitle>
-                  <p className="text-[10px] text-white/40 font-medium uppercase tracking-wider">Execution History</p>
+                  <CardTitle className="text-sm font-bold text-white">Recent Logs</CardTitle>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-white/5">
                 {!isConnected || recentOrders.length === 0 ? (
-                  <div className="h-32 flex items-center justify-center text-white/20 text-sm font-medium">
-                    No recent orders
+                  <div className="h-32 flex items-center justify-center text-white/20 text-xs font-medium italic">
+                    No recent activity
                   </div>
                 ) : (
                   recentOrders.map((order: any) => (
-                    <div key={order.id} className="p-4 hover:bg-white/[0.02] transition-colors flex items-center justify-between">
-                      <div className="flex flex-col gap-1">
+                    <div key={order.id} className="p-3 hover:bg-white/[0.02] transition-colors flex items-center justify-between">
+                      <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-white">{order.symbol}</span>
+                          <span className="text-xs font-bold text-white tracking-tight">{order.symbol}</span>
                           <span className={cn(
-                            "text-[9px] font-black",
+                            "text-[8px] font-black uppercase",
                             order.type === "BUY" ? "text-green-400" : "text-red-400"
                           )}>{order.type}</span>
                         </div>
-                        <span className="text-[10px] text-white/30 font-mono">{order.time}</span>
+                        <span className="text-[9px] text-white/20 font-mono">{order.time}</span>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs font-mono text-white/70">₹{order.price}</div>
+                        <div className="text-xs font-mono text-white/60">₹{order.price}</div>
                         <div className={cn(
-                          "text-[9px] font-bold mt-1",
-                          order.status === "COMPLETE" ? "text-green-400" : "text-white/20"
+                          "text-[8px] font-bold mt-0.5 px-1 rounded-sm bg-white/5 inline-block",
+                          order.status === "COMPLETE" ? "text-green-400/60" : "text-white/20"
                         )}>{order.status}</div>
                       </div>
                     </div>
@@ -248,7 +251,6 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
-    </div>
     </div>
   );
 }

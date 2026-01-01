@@ -61,6 +61,26 @@ export async function POST(request: NextRequest) {
       candles,
     });
 
+    const parseAIResponse = (response: any) => {
+      if (!response.success || !response.result) return null;
+      
+      let content = response.result;
+      if (typeof content !== "string") return content;
+
+      // Strip markdown code blocks if present
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        content = jsonMatch[1];
+      }
+
+      try {
+        return JSON.parse(content.trim());
+      } catch (e) {
+        console.error("Failed to parse AI JSON:", e);
+        return null;
+      }
+    };
+
     let trendResult = {
       trend: "neutral",
       strength: 50,
@@ -78,30 +98,18 @@ export async function POST(request: NextRequest) {
       reasoning: "Signal generation in progress...",
     };
 
-    if (marketAnalysis.success && marketAnalysis.result) {
-      try {
-        const parsed = typeof marketAnalysis.result === "string" 
-          ? JSON.parse(marketAnalysis.result) 
-          : marketAnalysis.result;
-        trendResult = { ...trendResult, ...parsed };
-      } catch {
-        if (typeof marketAnalysis.result === "string") {
-          trendResult.analysis = marketAnalysis.result;
-        }
-      }
+    const parsedTrend = parseAIResponse(marketAnalysis);
+    if (parsedTrend) {
+      trendResult = { ...trendResult, ...parsedTrend };
+    } else if (typeof marketAnalysis.result === "string") {
+      trendResult.analysis = marketAnalysis.result;
     }
 
-    if (signalAnalysis.success && signalAnalysis.result) {
-      try {
-        const parsed = typeof signalAnalysis.result === "string" 
-          ? JSON.parse(signalAnalysis.result) 
-          : signalAnalysis.result;
-        signalResult = { ...signalResult, ...parsed };
-      } catch {
-        if (typeof signalAnalysis.result === "string") {
-          signalResult.reasoning = signalAnalysis.result;
-        }
-      }
+    const parsedSignal = parseAIResponse(signalAnalysis);
+    if (parsedSignal) {
+      signalResult = { ...signalResult, ...parsedSignal };
+    } else if (typeof signalAnalysis.result === "string") {
+      signalResult.reasoning = signalAnalysis.result;
     }
 
     if (!marketAnalysis.success && !signalAnalysis.success) {

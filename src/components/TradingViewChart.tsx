@@ -108,7 +108,7 @@ export function TradingViewChart({
     if (!chartContainerRef.current) return;
 
     const initChart = async () => {
-      const { createChart, CrosshairMode, ColorType } = await import("lightweight-charts");
+      const { createChart, CrosshairMode, ColorType, CandlestickSeries, HistogramSeries } = await import("lightweight-charts");
 
       if (!chartContainerRef.current) return;
 
@@ -183,7 +183,7 @@ export function TradingViewChart({
 
       chartInstanceRef.current = chart;
 
-      const candleSeries = chart.addCandlestickSeries({
+      const candleSeries = chart.addSeries(CandlestickSeries, {
         upColor: "#22c55e",
         downColor: "#ef4444",
         borderUpColor: "#22c55e",
@@ -198,7 +198,7 @@ export function TradingViewChart({
       });
       candleSeriesRef.current = candleSeries;
 
-      const volumeSeries = chart.addHistogramSeries({
+      const volumeSeries = chart.addSeries(HistogramSeries, {
         color: "#3b82f6",
         priceFormat: { type: "volume" },
         priceScaleId: "",
@@ -318,6 +318,7 @@ export function TradingViewChart({
     if (!chartReady || !chartInstanceRef.current || data.length === 0) return;
 
     const updateIndicators = async () => {
+      const { LineSeries } = await import("lightweight-charts");
       // Remove old indicator series
       indicatorSeriesRef.current.forEach((series) => {
         if (chartInstanceRef.current) {
@@ -371,7 +372,7 @@ export function TradingViewChart({
           }
 
           if (lineData.length > 0 && chartInstanceRef.current) {
-            const series = chartInstanceRef.current.addLineSeries({
+            const series = chartInstanceRef.current.addSeries(LineSeries, {
               color,
               lineWidth: 1.5,
               title: indicator.name,

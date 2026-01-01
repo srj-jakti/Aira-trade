@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Zap, BrainCircuit, Radar, Settings, Cpu } from "lucide-react";
+import { LayoutDashboard, Zap, BrainCircuit, Radar, Settings, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Strategy", href: "/strategy", icon: Zap },
+  { name: "Strategy", href: "/strategy", icon: Target },
   { name: "Analysis", href: "/analysis", icon: BrainCircuit },
   { name: "Scanner", href: "/scanner", icon: Radar },
   { name: "Settings", href: "/settings", icon: Settings },
@@ -22,7 +22,7 @@ export function Navigation() {
       <header className="hidden md:flex fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-xl items-center justify-between px-6 h-16">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <Cpu className="w-5 h-5 text-white" />
+            <Zap className="w-5 h-5 text-white fill-white" />
           </div>
           <span className="font-bold text-xl tracking-tighter">AiRA</span>
         </div>

@@ -219,51 +219,54 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="flex h-11 items-center justify-start gap-1 rounded-xl border border-white/10 bg-white/5 p-1 overflow-x-auto no-scrollbar w-full md:w-max">
-            <TabsTrigger 
-              value="zerodha" 
-              className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-            >
-              <Key className="w-4 h-4 shrink-0" />
-              <span>Zerodha APIs</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="ai-config" 
-              className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-            >
-              <BrainCircuit className="w-4 h-4 shrink-0" />
-              <span>AI Services</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="system-health" 
-              className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-green-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-            >
-              <Activity className="w-4 h-4 shrink-0" />
-              <span>System Health</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="users" 
-              className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-purple-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-            >
-              <Users className="w-4 h-4 shrink-0" />
-              <span>Users</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="market-data" 
-              className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-            >
-              <BarChart3 className="w-4 h-4 shrink-0" />
-              <span>Market Data</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="strategies" 
-              className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-            >
-              <Target className="w-4 h-4 shrink-0" />
-              <span>Strategies</span>
-            </TabsTrigger>
-          </TabsList>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <div className="px-4 -mx-4 overflow-x-auto no-scrollbar">
+              <TabsList className="flex h-11 items-center justify-start gap-1 rounded-xl border border-white/10 bg-white/5 p-1 w-max min-w-full sm:min-w-0">
+                <TabsTrigger 
+                  value="zerodha" 
+                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                >
+                  <Key className="w-4 h-4 shrink-0" />
+                  <span>Zerodha APIs</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="ai-config" 
+                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                >
+                  <BrainCircuit className="w-4 h-4 shrink-0" />
+                  <span>AI Services</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="system-health" 
+                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-green-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                >
+                  <Activity className="w-4 h-4 shrink-0" />
+                  <span>System Health</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="users" 
+                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-purple-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                >
+                  <Users className="w-4 h-4 shrink-0" />
+                  <span>Users</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="market-data" 
+                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-cyan-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                >
+                  <BarChart3 className="w-4 h-4 shrink-0" />
+                  <span>Market Data</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="strategies" 
+                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-yellow-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                >
+                  <Target className="w-4 h-4 shrink-0" />
+                  <span>Strategies</span>
+                </TabsTrigger>
+                <div className="w-4 shrink-0" aria-hidden="true" /> {/* End padding for scroll */}
+              </TabsList>
+            </div>
 
           <TabsContent value="zerodha" className="mt-0">
             <ZerodhaConfigManager />
@@ -416,15 +419,15 @@ function ZerodhaConfigManager() {
                           </Badge>
                         )}
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-white/40">API Key:</span>
-                          <span className="text-white/70 ml-2">{config.api_key}</span>
-                        </div>
-                        <div>
-                          <span className="text-white/40">User ID:</span>
-                          <span className="text-white/70 ml-2">{config.user_id}</span>
-                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <span className="text-white/40">API Key:</span>
+                            <span className="text-white/70 ml-2 break-all">{config.api_key}</span>
+                          </div>
+                          <div>
+                            <span className="text-white/40">User ID:</span>
+                            <span className="text-white/70 ml-2 break-all">{config.user_id}</span>
+                          </div>
                         <div>
                           <span className="text-white/40">Auto-Login:</span>
                           <span className="text-white/70 ml-2">
@@ -590,78 +593,78 @@ function ZerodhaConfigDialog({
               : "Add a new Zerodha API configuration for market data access."}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-white/60">Configuration Name</Label>
-              <Input 
-                placeholder="e.g., Primary Account"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="bg-white/5 border-white/10 text-white"
-              />
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-white/60">Configuration Name</Label>
+                <Input 
+                  placeholder="e.g., Primary Account"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="bg-white/5 border-white/10 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-white/60">Priority</Label>
+                <Select 
+                  value={form.priority.toString()} 
+                  onValueChange={(v) => setForm({ ...form, priority: parseInt(v) })}
+                >
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a1a] border-white/10">
+                    <SelectItem value="1">1 - Primary</SelectItem>
+                    <SelectItem value="2">2 - Secondary</SelectItem>
+                    <SelectItem value="3">3 - Tertiary</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-white/60">Priority</Label>
-              <Select 
-                value={form.priority.toString()} 
-                onValueChange={(v) => setForm({ ...form, priority: parseInt(v) })}
-              >
-                <SelectTrigger className="bg-white/5 border-white/10 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-white/10">
-                  <SelectItem value="1">1 - Primary</SelectItem>
-                  <SelectItem value="2">2 - Secondary</SelectItem>
-                  <SelectItem value="3">3 - Tertiary</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-white/60">API Key</Label>
+                <Input 
+                  type={showSecrets ? "text" : "password"}
+                  placeholder={editConfig ? "Leave empty to keep" : "Enter API Key"}
+                  value={form.apiKey}
+                  onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+                  className="bg-white/5 border-white/10 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-white/60">API Secret</Label>
+                <Input 
+                  type={showSecrets ? "text" : "password"}
+                  placeholder={editConfig ? "Leave empty to keep" : "Enter API Secret"}
+                  value={form.apiSecret}
+                  onChange={(e) => setForm({ ...form, apiSecret: e.target.value })}
+                  className="bg-white/5 border-white/10 text-white"
+                />
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-white/60">API Key</Label>
-              <Input 
-                type={showSecrets ? "text" : "password"}
-                placeholder={editConfig ? "Leave empty to keep" : "Enter API Key"}
-                value={form.apiKey}
-                onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-                className="bg-white/5 border-white/10 text-white"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-white/60">User ID</Label>
+                <Input 
+                  type={showSecrets ? "text" : "password"}
+                  placeholder={editConfig ? "Leave empty to keep" : "Enter User ID"}
+                  value={form.userId}
+                  onChange={(e) => setForm({ ...form, userId: e.target.value })}
+                  className="bg-white/5 border-white/10 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-white/60">Password</Label>
+                <Input 
+                  type={showSecrets ? "text" : "password"}
+                  placeholder={editConfig ? "Leave empty to keep" : "Enter Password"}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="bg-white/5 border-white/10 text-white"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-white/60">API Secret</Label>
-              <Input 
-                type={showSecrets ? "text" : "password"}
-                placeholder={editConfig ? "Leave empty to keep" : "Enter API Secret"}
-                value={form.apiSecret}
-                onChange={(e) => setForm({ ...form, apiSecret: e.target.value })}
-                className="bg-white/5 border-white/10 text-white"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-white/60">User ID</Label>
-              <Input 
-                type={showSecrets ? "text" : "password"}
-                placeholder={editConfig ? "Leave empty to keep" : "Enter User ID"}
-                value={form.userId}
-                onChange={(e) => setForm({ ...form, userId: e.target.value })}
-                className="bg-white/5 border-white/10 text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-white/60">Password</Label>
-              <Input 
-                type={showSecrets ? "text" : "password"}
-                placeholder={editConfig ? "Leave empty to keep" : "Enter Password"}
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="bg-white/5 border-white/10 text-white"
-              />
-            </div>
-          </div>
           <div className="space-y-2">
             <Label className="text-white/60">TOTP Secret (for auto-login)</Label>
             <Input 
@@ -842,106 +845,108 @@ function AIConfigManager() {
                   key={config.id} 
                   className={`p-4 rounded-lg border ${config.is_active ? "bg-white/5 border-white/10" : "bg-white/2 border-white/5 opacity-60"}`}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-3">
-                        {getProviderIcon(config.provider)}
-                        <span className="text-white font-medium text-lg">
-                          {providers[config.provider]?.name || config.provider}
-                        </span>
-                        <Badge className="bg-white/10 text-white/70 border-white/20">
-                          {config.model}
-                        </Badge>
-                        {config.is_default && (
-                          <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-                            <Star className="w-3 h-3 mr-1" />
-                            Default
-                          </Badge>
-                        )}
-                        {testResults[config.id] === "success" && (
-                          <span className="flex items-center gap-1 text-green-400 text-sm">
-                            <CheckCircle2 className="w-4 h-4" /> Working
-                          </span>
-                        )}
-                        {testResults[config.id] === "error" && (
-                          <span className="flex items-center gap-1 text-red-400 text-sm">
-                            <XCircle className="w-4 h-4" /> Failed
-                          </span>
-                        )}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="space-y-2 flex-1 w-full">
+                          <div className="flex flex-wrap items-center gap-3">
+                            {getProviderIcon(config.provider)}
+                            <span className="text-white font-medium text-lg shrink-0">
+                              {providers[config.provider]?.name || config.provider}
+                            </span>
+                            <Badge className="bg-white/10 text-white/70 border-white/20 shrink-0">
+                              {config.model}
+                            </Badge>
+                            {config.is_default && (
+                              <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 shrink-0">
+                                <Star className="w-3 h-3 mr-1" />
+                                Default
+                              </Badge>
+                            )}
+                            <div className="flex items-center gap-2">
+                              {testResults[config.id] === "success" && (
+                                <span className="flex items-center gap-1 text-green-400 text-sm whitespace-nowrap">
+                                  <CheckCircle2 className="w-4 h-4" /> Working
+                                </span>
+                              )}
+                              {testResults[config.id] === "error" && (
+                                <span className="flex items-center gap-1 text-red-400 text-sm whitespace-nowrap">
+                                  <XCircle className="w-4 h-4" /> Failed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-white/40">API Key:</span>
+                              <span className="text-white/70 ml-2 break-all">{config.api_key}</span>
+                            </div>
+                            <div>
+                              <span className="text-white/40">Priority:</span>
+                              <span className="text-white/70 ml-2">{config.priority}</span>
+                            </div>
+                            <div>
+                              <span className="text-white/40">Requests:</span>
+                              <span className="text-white/70 ml-2">{config.request_count}</span>
+                            </div>
+                            <div>
+                              <span className="text-white/40">Status:</span>
+                              <span className={`ml-2 ${config.is_active ? "text-green-400" : "text-white/40"}`}>
+                                {config.is_active ? "Active" : "Inactive"}
+                              </span>
+                            </div>
+                          </div>
+                          {config.last_error && (
+                            <div className="flex items-start gap-2 mt-2 p-2 bg-red-500/10 rounded-lg">
+                              <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                              <span className="text-red-400 text-sm break-words">{config.last_error}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0">
+                          <Switch
+                            checked={config.is_active}
+                            onCheckedChange={(checked) => handleToggleActive(config.id, checked)}
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleTest(config.id)}
+                            disabled={testingId === config.id || !config.is_active}
+                            className="border-white/20 text-white hover:bg-white/10"
+                          >
+                            {testingId === config.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <TestTube className="w-4 h-4" />
+                            )}
+                          </Button>
+                          {!config.is_default && config.is_active && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSetDefault(config.id)}
+                              className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-400/10"
+                            >
+                              <Star className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingConfig(config)}
+                            className="border-white/20 text-white hover:bg-white/10"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(config.id)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-white/40">API Key:</span>
-                          <span className="text-white/70 ml-2">{config.api_key}</span>
-                        </div>
-                        <div>
-                          <span className="text-white/40">Priority:</span>
-                          <span className="text-white/70 ml-2">{config.priority}</span>
-                        </div>
-                        <div>
-                          <span className="text-white/40">Requests:</span>
-                          <span className="text-white/70 ml-2">{config.request_count}</span>
-                        </div>
-                        <div>
-                          <span className="text-white/40">Status:</span>
-                          <span className={`ml-2 ${config.is_active ? "text-green-400" : "text-white/40"}`}>
-                            {config.is_active ? "Active" : "Inactive"}
-                          </span>
-                        </div>
-                      </div>
-                      {config.last_error && (
-                        <div className="flex items-start gap-2 mt-2 p-2 bg-red-500/10 rounded-lg">
-                          <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                          <span className="text-red-400 text-sm">{config.last_error}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 ml-4">
-                      <Switch
-                        checked={config.is_active}
-                        onCheckedChange={(checked) => handleToggleActive(config.id, checked)}
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleTest(config.id)}
-                        disabled={testingId === config.id || !config.is_active}
-                        className="border-white/20 text-white hover:bg-white/10"
-                      >
-                        {testingId === config.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <TestTube className="w-4 h-4" />
-                        )}
-                      </Button>
-                      {!config.is_default && config.is_active && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSetDefault(config.id)}
-                          className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-400/10"
-                        >
-                          <Star className="w-4 h-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditingConfig(config)}
-                        className="border-white/20 text-white hover:bg-white/10"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(config.id)}
-                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
                 </div>
               ))}
             </div>

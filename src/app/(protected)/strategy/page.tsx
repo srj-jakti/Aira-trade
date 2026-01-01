@@ -151,46 +151,47 @@ export default function StrategyPage() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <div className="relative">
-            <TabsList className="flex h-11 items-center justify-start gap-1 rounded-xl border border-white/10 bg-white/5 p-1 overflow-x-auto no-scrollbar w-full md:w-max">
-              <TabsTrigger
-                value="active"
-                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-              >
-                <Activity className="w-4 h-4 shrink-0" />
-                <span>Active</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="create"
-                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-              >
-                <Bot className="w-4 h-4 shrink-0" />
-                <span>Create AI</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="private"
-                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-              >
-                <Lock className="w-4 h-4 shrink-0" />
-                <span>Private</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="public"
-                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-              >
-                <Globe className="w-4 h-4 shrink-0" />
-                <span>Public</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="invite-only"
-                className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-              >
-                <UserCheck className="w-4 h-4 shrink-0" />
-                <span>Invite Only</span>
-              </TabsTrigger>
-            </TabsList>
-          </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <div className="px-4 -mx-4 overflow-x-auto no-scrollbar">
+              <TabsList className="flex h-11 items-center justify-start gap-1 rounded-xl border border-white/10 bg-white/5 p-1 w-max min-w-full sm:min-w-0">
+                <TabsTrigger
+                  value="active"
+                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                >
+                  <Activity className="w-4 h-4 shrink-0" />
+                  <span>Active</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="create"
+                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                >
+                  <Bot className="w-4 h-4 shrink-0" />
+                  <span>Create AI</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="private"
+                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                >
+                  <Lock className="w-4 h-4 shrink-0" />
+                  <span>Private</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="public"
+                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                >
+                  <Globe className="w-4 h-4 shrink-0" />
+                  <span>Public</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="invite-only"
+                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
+                >
+                  <UserCheck className="w-4 h-4 shrink-0" />
+                  <span>Invite Only</span>
+                </TabsTrigger>
+                <div className="w-4 shrink-0" aria-hidden="true" />
+              </TabsList>
+            </div>
 
           <div className="mt-6">
             <TabsContent value="active" className="space-y-6 mt-0">
@@ -885,24 +886,24 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <p className="text-white/40 text-xs">Capital</p>
-          <p className="text-white font-medium">₹{result.capital_used.toLocaleString()}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <p className="text-white/40 text-xs">Capital</p>
+            <p className="text-white font-medium">₹{result.capital_used.toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-white/40 text-xs">Total Trades</p>
+            <p className="text-white font-medium">{result.total_trades}</p>
+          </div>
+          <div>
+            <p className="text-white/40 text-xs">Win Rate</p>
+            <p className="text-green-400 font-medium">{result.win_rate.toFixed(1)}%</p>
+          </div>
+          <div>
+            <p className="text-white/40 text-xs">Max Drawdown</p>
+            <p className="text-red-400 font-medium">{result.max_drawdown_percentage.toFixed(1)}%</p>
+          </div>
         </div>
-        <div>
-          <p className="text-white/40 text-xs">Total Trades</p>
-          <p className="text-white font-medium">{result.total_trades}</p>
-        </div>
-        <div>
-          <p className="text-white/40 text-xs">Win Rate</p>
-          <p className="text-green-400 font-medium">{result.win_rate.toFixed(1)}%</p>
-        </div>
-        <div>
-          <p className="text-white/40 text-xs">Max Drawdown</p>
-          <p className="text-red-400 font-medium">{result.max_drawdown_percentage.toFixed(1)}%</p>
-        </div>
-      </div>
 
       <div className="flex gap-4 mt-4 text-sm">
         <span className="text-white/40">
@@ -926,54 +927,56 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
       </Button>
 
       {showTrades && (
-        <div className="mt-4 max-h-60 overflow-y-auto">
-          <table className="w-full text-sm">
-            <thead className="text-white/40 text-xs">
-              <tr>
-                <th className="text-left py-2">Type</th>
-                <th className="text-left py-2">Entry</th>
-                <th className="text-left py-2">Exit</th>
-                <th className="text-right py-2">P&L</th>
-              </tr>
-            </thead>
-            <tbody className="text-white/80">
-              {result.trade_log.slice(0, 20).map((trade) => (
-                <tr key={trade.id} className="border-t border-white/5">
-                  <td className="py-2">
-                    <Badge
-                      variant="outline"
-                      className={
-                        trade.type === "BUY"
-                          ? "border-green-500/30 text-green-400"
-                          : "border-red-500/30 text-red-400"
-                      }
-                    >
-                      {trade.type}
-                    </Badge>
-                  </td>
-                  <td className="py-2">
-                    ₹{trade.entry_price.toFixed(2)}
-                    <span className="text-white/40 text-xs block">
-                      {new Date(trade.entry_time).toLocaleDateString()}
-                    </span>
-                  </td>
-                  <td className="py-2">
-                    ₹{trade.exit_price?.toFixed(2) || "-"}
-                    <span className="text-white/40 text-xs block">
-                      {trade.exit_reason}
-                    </span>
-                  </td>
-                  <td
-                    className={`py-2 text-right ${
-                      (trade.pnl || 0) >= 0 ? "text-green-400" : "text-red-400"
-                    }`}
-                  >
-                    {(trade.pnl || 0) >= 0 ? "+" : ""}₹{trade.pnl?.toFixed(2) || "0"}
-                  </td>
+        <div className="mt-4 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="min-w-[600px]">
+            <table className="w-full text-sm">
+              <thead className="text-white/40 text-xs">
+                <tr>
+                  <th className="text-left py-2">Type</th>
+                  <th className="text-left py-2">Entry</th>
+                  <th className="text-left py-2">Exit</th>
+                  <th className="text-right py-2">P&L</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="text-white/80">
+                {result.trade_log.slice(0, 20).map((trade) => (
+                  <tr key={trade.id} className="border-t border-white/5">
+                    <td className="py-2">
+                      <Badge
+                        variant="outline"
+                        className={
+                          trade.type === "BUY"
+                            ? "border-green-500/30 text-green-400"
+                            : "border-red-500/30 text-red-400"
+                        }
+                      >
+                        {trade.type}
+                      </Badge>
+                    </td>
+                    <td className="py-2">
+                      ₹{trade.entry_price.toFixed(2)}
+                      <span className="text-white/40 text-xs block">
+                        {new Date(trade.entry_time).toLocaleDateString()}
+                      </span>
+                    </td>
+                    <td className="py-2">
+                      ₹{trade.exit_price?.toFixed(2) || "-"}
+                      <span className="text-white/40 text-xs block">
+                        {trade.exit_reason}
+                      </span>
+                    </td>
+                    <td
+                      className={`py-2 text-right ${
+                        (trade.pnl || 0) >= 0 ? "text-green-400" : "text-red-400"
+                      }`}
+                    >
+                      {(trade.pnl || 0) >= 0 ? "+" : ""}₹{trade.pnl?.toFixed(2) || "0"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

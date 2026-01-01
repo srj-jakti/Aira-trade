@@ -150,7 +150,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-4">
         {/* Active Positions */}
         <Card className="bg-white/5 border-white/10">
-          <CardHeader className="flex flex-row items-center justify-between p-3 md:p-4">
+          <CardHeader className="flex flex-row items-center justify-between p-2 md:p-3">
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-blue-400" />
               <CardTitle className="text-sm md:text-base font-semibold text-white">Active Positions</CardTitle>
@@ -159,7 +159,7 @@ export default function Dashboard() {
               {isConnected ? activePositions.length : 0} Open
             </Badge>
           </CardHeader>
-          <CardContent className="p-0 md:p-4 pt-0">
+          <CardContent className="p-0 md:p-3 pt-0">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="border-white/10">
@@ -208,13 +208,13 @@ export default function Dashboard() {
 
         {/* Recent Orders */}
         <Card className="bg-white/5 border-white/10">
-          <CardHeader className="flex flex-row items-center justify-between p-3 md:p-4">
+          <CardHeader className="flex flex-row items-center justify-between p-2 md:p-3">
             <div className="flex items-center gap-2">
               <History className="w-4 h-4 text-purple-400" />
               <CardTitle className="text-sm md:text-base font-semibold text-white">Recent Orders</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="p-0 md:p-4 pt-0">
+          <CardContent className="p-0 md:p-3 pt-0">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="border-white/10">

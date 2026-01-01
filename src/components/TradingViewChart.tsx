@@ -1,16 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import {
-  createChart,
-  IChartApi,
-  ISeriesApi,
-  CandlestickData,
-  Time,
-  CrosshairMode,
-  LineStyle,
-  ColorType,
-} from "lightweight-charts";
 import { cn } from "@/lib/utils";
 
 export interface CandleData {
@@ -53,66 +43,12 @@ const TIMEFRAMES = [
   { label: "1W", value: "1w" },
 ];
 
-function calculateSMA(data: CandleData[], period: number): { time: Time; value: number }[] {
-  const result: { time: Time; value: number }[] = [];
-  for (let i = period - 1; i < data.length; i++) {
-    let sum = 0;
-    for (let j = 0; j < period; j++) {
-      sum += data[i - j].close;
-    }
-    result.push({
-      time: Math.floor(new Date(data[i].timestamp).getTime() / 1000) as Time,
-      value: sum / period,
-    });
-  }
-  return result;
-}
-
-function calculateEMA(data: CandleData[], period: number): { time: Time; value: number }[] {
-  const result: { time: Time; value: number }[] = [];
-  const k = 2 / (period + 1);
-  let ema = data.slice(0, period).reduce((sum, d) => sum + d.close, 0) / period;
-  
-  for (let i = period - 1; i < data.length; i++) {
-    if (i === period - 1) {
-      result.push({
-        time: Math.floor(new Date(data[i].timestamp).getTime() / 1000) as Time,
-        value: ema,
-      });
-    } else {
-      ema = data[i].close * k + ema * (1 - k);
-      result.push({
-        time: Math.floor(new Date(data[i].timestamp).getTime() / 1000) as Time,
-        value: ema,
-      });
-    }
-  }
-  return result;
-}
-
-function calculateBollingerBands(data: CandleData[], period: number = 20, stdDev: number = 2) {
-  const upper: { time: Time; value: number }[] = [];
-  const middle: { time: Time; value: number }[] = [];
-  const lower: { time: Time; value: number }[] = [];
-  
-  for (let i = period - 1; i < data.length; i++) {
-    const slice = data.slice(i - period + 1, i + 1);
-    const avg = slice.reduce((sum, d) => sum + d.close, 0) / period;
-    const variance = slice.reduce((sum, d) => sum + Math.pow(d.close - avg, 2), 0) / period;
-    const std = Math.sqrt(variance);
-    const time = Math.floor(new Date(data[i].timestamp).getTime() / 1000) as Time;
-    
-    upper.push({ time, value: avg + stdDev * std });
-    middle.push({ time, value: avg });
-    lower.push({ time, value: avg - stdDev * std });
-  }
-  
-  return { upper, middle, lower };
-}
+type ChartApi = ReturnType<typeof import("lightweight-charts").createChart>;
+type CandlestickSeriesApi = ReturnType<ChartApi["addSeries"]>;
+type HistogramSeriesApi = ReturnType<ChartApi["addSeries"]>;
 
 export function TradingViewChart({
   data,
-  symbol,
   support,
   resistance,
   isLoading,
@@ -122,11 +58,11 @@ export function TradingViewChart({
   className,
 }: TradingViewChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
-  const indicatorSeriesRef = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
+  const chartInstanceRef = useRef<ChartApi | null>(null);
+  const candleSeriesRef = useRef<CandlestickSeriesApi | null>(null);
+  const volumeSeriesRef = useRef<HistogramSeriesApi | null>(null);
   const [ohlcData, setOhlcData] = useState<{ o: number; h: number; l: number; c: number; time: string } | null>(null);
+  const [chartReady, setChartReady] = useState(false);
 
   const formatPrice = useCallback((price: number) => {
     if (price >= 10000) return price.toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -136,81 +72,89 @@ export function TradingViewChart({
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    const chart = createChart(chartContainerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "rgba(255, 255, 255, 0.5)",
-      },
-      grid: {
-        vertLines: { color: "rgba(255, 255, 255, 0.05)" },
-        horzLines: { color: "rgba(255, 255, 255, 0.05)" },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: {
-          color: "rgba(255, 255, 255, 0.3)",
-          labelBackgroundColor: "#1f2937",
+    const initChart = async () => {
+      const { createChart, CrosshairMode, ColorType, CandlestickSeries, HistogramSeries } = await import("lightweight-charts");
+
+      if (!chartContainerRef.current) return;
+
+      const chart = createChart(chartContainerRef.current, {
+        width: chartContainerRef.current.clientWidth,
+        height: chartContainerRef.current.clientHeight,
+        layout: {
+          background: { type: ColorType.Solid, color: "transparent" },
+          textColor: "rgba(255, 255, 255, 0.5)",
         },
-        horzLine: {
-          color: "rgba(255, 255, 255, 0.3)",
-          labelBackgroundColor: "#1f2937",
+        grid: {
+          vertLines: { color: "rgba(255, 255, 255, 0.05)" },
+          horzLines: { color: "rgba(255, 255, 255, 0.05)" },
         },
-      },
-      rightPriceScale: {
-        borderColor: "rgba(255, 255, 255, 0.1)",
-        scaleMargins: { top: 0.1, bottom: 0.2 },
-      },
-      timeScale: {
-        borderColor: "rgba(255, 255, 255, 0.1)",
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      handleScale: {
-        axisPressedMouseMove: true,
-      },
-      handleScroll: {
-        vertTouchDrag: true,
-      },
-    });
+        crosshair: {
+          mode: CrosshairMode.Normal,
+          vertLine: {
+            color: "rgba(255, 255, 255, 0.3)",
+            labelBackgroundColor: "#1f2937",
+          },
+          horzLine: {
+            color: "rgba(255, 255, 255, 0.3)",
+            labelBackgroundColor: "#1f2937",
+          },
+        },
+        rightPriceScale: {
+          borderColor: "rgba(255, 255, 255, 0.1)",
+          scaleMargins: { top: 0.1, bottom: 0.2 },
+        },
+        timeScale: {
+          borderColor: "rgba(255, 255, 255, 0.1)",
+          timeVisible: true,
+          secondsVisible: false,
+        },
+      });
 
-    chartRef.current = chart;
+      chartInstanceRef.current = chart;
 
-    const candleSeries = chart.addCandlestickSeries({
-      upColor: "#22c55e",
-      downColor: "#ef4444",
-      borderUpColor: "#22c55e",
-      borderDownColor: "#ef4444",
-      wickUpColor: "#22c55e",
-      wickDownColor: "#ef4444",
-    });
-    candleSeriesRef.current = candleSeries;
+      const candleSeries = chart.addSeries(CandlestickSeries, {
+        upColor: "#22c55e",
+        downColor: "#ef4444",
+        borderUpColor: "#22c55e",
+        borderDownColor: "#ef4444",
+        wickUpColor: "#22c55e",
+        wickDownColor: "#ef4444",
+      });
+      candleSeriesRef.current = candleSeries;
 
-    const volumeSeries = chart.addHistogramSeries({
-      color: "#3b82f6",
-      priceFormat: { type: "volume" },
-      priceScaleId: "",
-    });
-    volumeSeries.priceScale().applyOptions({
-      scaleMargins: { top: 0.85, bottom: 0 },
-    });
-    volumeSeriesRef.current = volumeSeries;
+      const volumeSeries = chart.addSeries(HistogramSeries, {
+        color: "#3b82f6",
+        priceFormat: { type: "volume" },
+        priceScaleId: "",
+      });
+      volumeSeries.priceScale().applyOptions({
+        scaleMargins: { top: 0.85, bottom: 0 },
+      });
+      volumeSeriesRef.current = volumeSeries;
 
-    chart.subscribeCrosshairMove((param) => {
-      if (param.time && param.seriesData.get(candleSeries)) {
-        const d = param.seriesData.get(candleSeries) as CandlestickData;
-        setOhlcData({
-          o: d.open,
-          h: d.high,
-          l: d.low,
-          c: d.close,
-          time: new Date((param.time as number) * 1000).toLocaleString("en-IN"),
-        });
-      }
-    });
+      chart.subscribeCrosshairMove((param) => {
+        if (param.time && candleSeries) {
+          const d = param.seriesData.get(candleSeries) as { open: number; high: number; low: number; close: number } | undefined;
+          if (d) {
+            setOhlcData({
+              o: d.open,
+              h: d.high,
+              l: d.low,
+              c: d.close,
+              time: new Date((param.time as number) * 1000).toLocaleString("en-IN"),
+            });
+          }
+        }
+      });
+
+      setChartReady(true);
+    };
+
+    initChart();
 
     const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({
+      if (chartContainerRef.current && chartInstanceRef.current) {
+        chartInstanceRef.current.applyOptions({
           width: chartContainerRef.current.clientWidth,
           height: chartContainerRef.current.clientHeight,
         });
@@ -218,31 +162,37 @@ export function TradingViewChart({
     };
 
     window.addEventListener("resize", handleResize);
-    handleResize();
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      chart.remove();
-      chartRef.current = null;
-      candleSeriesRef.current = null;
-      volumeSeriesRef.current = null;
-      indicatorSeriesRef.current.clear();
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current.remove();
+        chartInstanceRef.current = null;
+        candleSeriesRef.current = null;
+        volumeSeriesRef.current = null;
+      }
+      setChartReady(false);
     };
   }, []);
 
   useEffect(() => {
-    if (!chartRef.current || !candleSeriesRef.current || !volumeSeriesRef.current || data.length === 0) return;
+    if (!chartReady || !chartInstanceRef.current || !candleSeriesRef.current || !volumeSeriesRef.current) return;
+    if (data.length === 0) return;
 
-    const candleData: CandlestickData[] = data.map((d) => ({
-      time: Math.floor(new Date(d.timestamp).getTime() / 1000) as Time,
+    const sortedData = [...data].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+    const candleData = sortedData.map((d) => ({
+      time: Math.floor(new Date(d.timestamp).getTime() / 1000) as import("lightweight-charts").Time,
       open: d.open,
       high: d.high,
       low: d.low,
       close: d.close,
     }));
 
-    const volumeData = data.map((d) => ({
-      time: Math.floor(new Date(d.timestamp).getTime() / 1000) as Time,
+    const volumeData = sortedData.map((d) => ({
+      time: Math.floor(new Date(d.timestamp).getTime() / 1000) as import("lightweight-charts").Time,
       value: d.volume,
       color: d.close >= d.open ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)",
     }));
@@ -250,97 +200,105 @@ export function TradingViewChart({
     candleSeriesRef.current.setData(candleData);
     volumeSeriesRef.current.setData(volumeData);
 
-    if (support) {
-      candleSeriesRef.current.createPriceLine({
-        price: support,
-        color: "#22c55e",
-        lineWidth: 1,
-        lineStyle: LineStyle.Dashed,
-        axisLabelVisible: true,
-        title: "Support",
-      });
-    }
-
-    if (resistance) {
-      candleSeriesRef.current.createPriceLine({
-        price: resistance,
-        color: "#ef4444",
-        lineWidth: 1,
-        lineStyle: LineStyle.Dashed,
-        axisLabelVisible: true,
-        title: "Resistance",
-      });
-    }
-
-    chartRef.current.timeScale().fitContent();
-  }, [data, support, resistance]);
+    chartInstanceRef.current.timeScale().fitContent();
+  }, [data, chartReady]);
 
   useEffect(() => {
-    if (!chartRef.current || data.length === 0) return;
+    if (!chartReady || !candleSeriesRef.current || !chartInstanceRef.current) return;
 
-    indicatorSeriesRef.current.forEach((series) => {
-      chartRef.current?.removeSeries(series);
-    });
-    indicatorSeriesRef.current.clear();
-
-    indicators.filter(ind => ind.visible).forEach((indicator) => {
-      let lineData: { time: Time; value: number }[] = [];
-      const color = indicator.color || "#f59e0b";
-
-      switch (indicator.type) {
-        case "sma": {
-          const period = indicator.params?.period || 20;
-          lineData = calculateSMA(data, period);
-          break;
-        }
-        case "ema": {
-          const period = indicator.params?.period || 20;
-          lineData = calculateEMA(data, period);
-          break;
-        }
-        case "bollinger": {
-          const period = indicator.params?.period || 20;
-          const stdDev = indicator.params?.stdDev || 2;
-          const bands = calculateBollingerBands(data, period, stdDev);
-          
-          const upperSeries = chartRef.current!.addLineSeries({
-            color: "rgba(147, 51, 234, 0.5)",
-            lineWidth: 1,
-            title: "BB Upper",
-          });
-          upperSeries.setData(bands.upper);
-          indicatorSeriesRef.current.set(`${indicator.id}_upper`, upperSeries);
-          
-          const middleSeries = chartRef.current!.addLineSeries({
-            color: "rgba(147, 51, 234, 0.8)",
-            lineWidth: 1,
-            title: "BB Middle",
-          });
-          middleSeries.setData(bands.middle);
-          indicatorSeriesRef.current.set(`${indicator.id}_middle`, middleSeries);
-          
-          const lowerSeries = chartRef.current!.addLineSeries({
-            color: "rgba(147, 51, 234, 0.5)",
-            lineWidth: 1,
-            title: "BB Lower",
-          });
-          lowerSeries.setData(bands.lower);
-          indicatorSeriesRef.current.set(`${indicator.id}_lower`, lowerSeries);
-          return;
-        }
-      }
-
-      if (lineData.length > 0) {
-        const series = chartRef.current!.addLineSeries({
-          color,
-          lineWidth: 2,
-          title: indicator.name,
+    const addPriceLines = async () => {
+      const { LineStyle } = await import("lightweight-charts");
+      
+      if (support && candleSeriesRef.current) {
+        candleSeriesRef.current.createPriceLine({
+          price: support,
+          color: "#22c55e",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: "Support",
         });
-        series.setData(lineData);
-        indicatorSeriesRef.current.set(indicator.id, series);
       }
-    });
-  }, [indicators, data]);
+
+      if (resistance && candleSeriesRef.current) {
+        candleSeriesRef.current.createPriceLine({
+          price: resistance,
+          color: "#ef4444",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: "Resistance",
+        });
+      }
+    };
+
+    addPriceLines();
+  }, [support, resistance, chartReady]);
+
+  useEffect(() => {
+    if (!chartReady || !chartInstanceRef.current || data.length === 0) return;
+
+    const addIndicators = async () => {
+      const { LineSeries } = await import("lightweight-charts");
+      
+      const sortedData = [...data].sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+
+      indicators.filter(ind => ind.visible).forEach((indicator) => {
+        if (!chartInstanceRef.current) return;
+
+        const color = indicator.color || "#f59e0b";
+
+        if (indicator.type === "sma" || indicator.type === "ema") {
+          const period = indicator.params?.period || 20;
+          const lineData: { time: import("lightweight-charts").Time; value: number }[] = [];
+          
+          if (indicator.type === "sma") {
+            for (let i = period - 1; i < sortedData.length; i++) {
+              let sum = 0;
+              for (let j = 0; j < period; j++) {
+                sum += sortedData[i - j].close;
+              }
+              lineData.push({
+                time: Math.floor(new Date(sortedData[i].timestamp).getTime() / 1000) as import("lightweight-charts").Time,
+                value: sum / period,
+              });
+            }
+          } else {
+            const k = 2 / (period + 1);
+            let ema = sortedData.slice(0, period).reduce((sum, d) => sum + d.close, 0) / period;
+            
+            for (let i = period - 1; i < sortedData.length; i++) {
+              if (i === period - 1) {
+                lineData.push({
+                  time: Math.floor(new Date(sortedData[i].timestamp).getTime() / 1000) as import("lightweight-charts").Time,
+                  value: ema,
+                });
+              } else {
+                ema = sortedData[i].close * k + ema * (1 - k);
+                lineData.push({
+                  time: Math.floor(new Date(sortedData[i].timestamp).getTime() / 1000) as import("lightweight-charts").Time,
+                  value: ema,
+                });
+              }
+            }
+          }
+
+          if (lineData.length > 0 && chartInstanceRef.current) {
+            const series = chartInstanceRef.current.addSeries(LineSeries, {
+              color,
+              lineWidth: 2,
+              title: indicator.name,
+            });
+            series.setData(lineData);
+          }
+        }
+      });
+    };
+
+    addIndicators();
+  }, [indicators, data, chartReady]);
 
   if (isLoading) {
     return (
@@ -353,16 +311,8 @@ export function TradingViewChart({
     );
   }
 
-  if (data.length === 0) {
-    return (
-      <div className={cn("w-full h-full flex items-center justify-center bg-black/40 text-white/30 text-sm", className)}>
-        Select an instrument to view chart
-      </div>
-    );
-  }
-
   return (
-    <div className={cn("w-full h-full flex flex-col bg-black/40", className)}>
+    <div className={cn("w-full h-full flex flex-col bg-black/40 relative", className)}>
       <div className="flex items-center justify-between p-2 border-b border-white/5">
         <div className="flex items-center gap-1">
           {TIMEFRAMES.map((tf) => (
@@ -393,6 +343,12 @@ export function TradingViewChart({
       </div>
       
       <div ref={chartContainerRef} className="flex-1 min-h-0" />
+      
+      {data.length === 0 && !isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-white/30 text-sm pointer-events-none">
+          Select an instrument to view chart
+        </div>
+      )}
     </div>
   );
 }

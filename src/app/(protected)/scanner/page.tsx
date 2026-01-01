@@ -21,6 +21,8 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { 
+  Play, 
+  Square, 
   RefreshCcw, 
   TrendingUp, 
   TrendingDown, 
@@ -31,13 +33,11 @@ import {
   History,
   Activity,
   Settings2,
-  Radar,
   Info
 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ScannerSettingsForm } from "../settings/ScannerSettingsForm";
-import { cn } from "@/lib/utils";
 
 interface AnalysisOutput {
   id: string;
@@ -163,279 +163,273 @@ export default function ScannerPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active': return <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px] h-5 font-bold">LIVE</Badge>;
-      case 'pending': return <Badge className="bg-yellow-500/10 text-yellow-400 border-yellow-500/20 text-[10px] h-5 font-bold">PENDING</Badge>;
-      case 'target_hit': return <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-[10px] h-5 font-bold uppercase">Target Hit</Badge>;
-      case 'sl_hit': return <Badge className="bg-red-500/10 text-red-400 border-red-500/20 text-[10px] h-5 font-bold uppercase">SL Hit</Badge>;
-      case 'expired': return <Badge variant="outline" className="text-[10px] h-5 border-white/10 text-white/40">EXPIRED</Badge>;
-      default: return <Badge variant="secondary" className="text-[10px] h-5">{status}</Badge>;
+      case 'active': return <Badge className="bg-blue-500">Live</Badge>;
+      case 'pending': return <Badge className="bg-yellow-500">Pending</Badge>;
+      case 'target_hit': return <Badge className="bg-green-500">Target Hit</Badge>;
+      case 'sl_hit': return <Badge className="bg-red-500">SL Hit</Badge>;
+      case 'expired': return <Badge variant="outline">Expired</Badge>;
+      default: return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
   return (
-    <div className="p-3 md:p-6 space-y-4 max-w-[1600px] mx-auto">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/[0.03] backdrop-blur-md p-4 md:p-6 rounded-2xl border border-white/10">
-        <div className="flex items-center gap-3">
-          <div className={cn(
-            "p-2 rounded-xl",
-            isActive ? "bg-blue-400/10 text-blue-400" : "bg-white/5 text-white/20"
-          )}>
-            <Radar className={cn("w-5 h-5", isActive && "animate-pulse")} />
-          </div>
-          <div>
-            <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">Market Scanner</h1>
-            <p className="text-white/40 text-xs font-medium uppercase tracking-wider">AI Pattern Identification</p>
-          </div>
+    <div className="p-6 space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">AI Market Scanner</h1>
+          <p className="text-muted-foreground">Real-time pattern identification powered by user-configured AI strategies.</p>
         </div>
         
-        <div className="flex items-center gap-4 bg-white/5 p-3 rounded-xl border border-white/5">
-          <div className="flex items-center gap-4 pr-4 border-r border-white/5">
+        <div className="flex items-center gap-4 bg-card p-4 rounded-xl border border-border shadow-sm">
+          <div className="flex items-center gap-2">
             <Switch 
               checked={isActive} 
               onCheckedChange={toggleScanner}
               disabled={processing}
-              className="data-[state=checked]:bg-blue-500"
             />
-            <span className="text-xs font-bold text-white/70 uppercase tracking-tighter">
-              {isActive ? "LIVE SCANNING" : "SCANNER OFF"}
-            </span>
+            <span className="font-medium">{isActive ? "Live Scanning" : "Scanner Off"}</span>
           </div>
+          <div className="h-8 w-px bg-border mx-2" />
           <Button 
-            variant="ghost" 
+            variant="outline" 
             size="sm" 
             onClick={runScannerNow}
             disabled={processing || !isActive}
-            className="h-8 gap-2 text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white hover:bg-white/5"
+            className="gap-2"
           >
-            <RefreshCcw className={cn("h-3 w-3", processing && "animate-spin")} />
+            <RefreshCcw className={`h-4 w-4 ${processing ? 'animate-spin' : ''}`} />
             Scan Now
           </Button>
         </div>
       </div>
 
-      <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl flex items-start gap-3">
+      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-start gap-2">
         <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
-        <p className="text-[10px] md:text-xs text-white/40 leading-relaxed uppercase tracking-tight font-medium">
-          This scanner provides analytical outputs based on user-configured strategy logic. All outputs are for informational purposes only.
+        <p className="text-xs text-blue-300/80">
+          This scanner provides analytical outputs based on user-configured strategy logic. All outputs are for informational purposes only and do not constitute trading advice. You are responsible for all decisions.
         </p>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <StatCard 
-          title="Active Outputs" 
-          value={currentOutputs.length}
-          subValue="Monitoring rules"
-          icon={Activity}
-          iconColor="text-blue-400"
-        />
-        <StatCard 
-          title="Avg Accuracy" 
-          value={pastOutputs.length > 0 
-            ? `${((pastOutputs.filter(s => s.status === 'target_hit').length / pastOutputs.length) * 100).toFixed(1)}%`
-            : "0%"
-          }
-          subValue={`Based on ${pastOutputs.length} trades`}
-          icon={TrendingUp}
-          iconColor="text-green-400"
-        />
-        <StatCard 
-          title="Daily Realized" 
-          value={`₹${pastOutputs.reduce((acc, s) => acc + (s.pnl || 0), 0).toFixed(2)}`}
-          subValue="Realized from scanner"
-          icon={Clock}
-          iconColor="text-purple-400"
-          valueColor={pastOutputs.reduce((acc, s) => acc + (s.pnl || 0), 0) >= 0 ? "text-green-400" : "text-red-400"}
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Activity className="h-4 w-4 text-blue-500" />
+              Active Outputs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{currentOutputs.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">Currently monitoring based on your rules</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-green-500" />
+              Historical Accuracy
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {pastOutputs.length > 0 
+                ? `${((pastOutputs.filter(s => s.status === 'target_hit').length / pastOutputs.length) * 100).toFixed(1)}%`
+                : "0%"
+              }
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Based on {pastOutputs.length} past outputs (not guaranteed)</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Clock className="h-4 w-4 text-orange-500" />
+              Daily Realized
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${pastOutputs.reduce((acc, s) => acc + (s.pnl || 0), 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              ₹{pastOutputs.reduce((acc, s) => acc + (s.pnl || 0), 0).toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">From scanner outputs today</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue="current" className="w-full">
-        <TabsList className="bg-white/5 border border-white/5 p-1 h-11 w-full md:w-fit">
-          <TabsTrigger value="current" className="gap-2 text-xs font-bold uppercase tracking-tighter data-[state=active]:bg-white/10">
-            <Activity className="h-3.5 w-3.5" />
-            Active Scanner
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
+          <TabsTrigger value="current" className="gap-2">
+            <Activity className="h-4 w-4" />
+            Current Scanner
           </TabsTrigger>
-          <TabsTrigger value="past" className="gap-2 text-xs font-bold uppercase tracking-tighter data-[state=active]:bg-white/10">
-            <History className="h-3.5 w-3.5" />
-            Past History
+          <TabsTrigger value="past" className="gap-2">
+            <History className="h-4 w-4" />
+            Output History
           </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2 text-xs font-bold uppercase tracking-tighter data-[state=active]:bg-white/10">
-            <Settings2 className="h-3.5 w-3.5" />
-            Configuration
+          <TabsTrigger value="settings" className="gap-2">
+            <Settings2 className="h-4 w-4" />
+            Scanner Settings
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="current" className="mt-4 space-y-4">
-          <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm overflow-hidden">
-            <CardHeader className="p-4 md:p-5 border-b border-white/5">
-              <CardTitle className="text-sm font-bold text-white uppercase tracking-tight">Active Analysis Outputs</CardTitle>
-              <CardDescription className="text-[10px] text-white/40 uppercase tracking-widest font-medium">Live detections based on configured strategies</CardDescription>
+        <TabsContent value="current" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Analysis Outputs & Active Positions</CardTitle>
+              <CardDescription>
+                Live outputs where conditions are met based on your configured rules.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent>
               {currentOutputs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <Radar className="h-10 w-10 text-white/10 mb-4 animate-pulse" />
-                  <h3 className="font-bold text-white uppercase tracking-tighter">No active outputs</h3>
-                  <p className="text-white/20 text-xs mt-1 uppercase tracking-widest">Scanner is listening for patterns...</p>
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="bg-muted p-4 rounded-full mb-4">
+                    <Activity className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="font-semibold text-lg">No active outputs</h3>
+                  <p className="text-muted-foreground max-w-sm">
+                    {isActive 
+                      ? "The AI is currently scanning based on your configured rules. New outputs will appear here as patterns are detected." 
+                      : "Start the scanner to begin identifying market patterns."
+                    }
+                  </p>
+                  {!isActive && (
+                    <Button onClick={toggleScanner} variant="outline" className="mt-4">
+                      Start Scanning
+                    </Button>
+                  )}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-white/[0.02] border-white/5">
-                      <TableRow className="hover:bg-transparent border-white/5">
-                        <TableHead className="text-white/30 font-bold uppercase tracking-tighter text-[10px] h-10 px-4">Symbol</TableHead>
-                        <TableHead className="text-white/30 font-bold uppercase tracking-tighter text-[10px] h-10 px-4">Direction</TableHead>
-                        <TableHead className="text-white/30 font-bold uppercase tracking-tighter text-[10px] h-10 px-4">Entry/LTP</TableHead>
-                        <TableHead className="text-white/30 font-bold uppercase tracking-tighter text-[10px] h-10 px-4">Target/SL</TableHead>
-                        <TableHead className="text-white/30 font-bold uppercase tracking-tighter text-[10px] h-10 px-4">Status</TableHead>
-                        <TableHead className="text-white/30 font-bold uppercase tracking-tighter text-[10px] h-10 px-4 text-right">P&L</TableHead>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Symbol</TableHead>
+                      <TableHead>Strategy</TableHead>
+                      <TableHead>Direction</TableHead>
+                      <TableHead>Entry Price</TableHead>
+                      <TableHead>Current Price</TableHead>
+                      <TableHead>Target/SL</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>P&L</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentOutputs.map((output) => (
+                      <TableRow key={output.id}>
+                        <TableCell className="font-medium uppercase">{output.tradingsymbol}</TableCell>
+                        <TableCell className="text-sm">{output.strategy_name || 'AI Dynamic'}</TableCell>
+                        <TableCell>
+                          <div className={`flex items-center gap-1 font-bold ${output.direction === 'LONG' ? 'text-green-500' : 'text-red-500'}`}>
+                            {output.direction === 'LONG' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                            {output.direction}
+                          </div>
+                        </TableCell>
+                        <TableCell>₹{output.entry_price.toFixed(2)}</TableCell>
+                        <TableCell>₹{(output.current_price || output.entry_price).toFixed(2)}</TableCell>
+                        <TableCell className="text-xs">
+                          <div className="text-green-600 font-medium">T: ₹{output.target_price.toFixed(2)}</div>
+                          <div className="text-red-600 font-medium">S: ₹{output.sl_price.toFixed(2)}</div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(output.status)}</TableCell>
+                        <TableCell className={`font-bold ${(output.pnl || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {output.pnl ? `₹${output.pnl.toFixed(2)}` : '-'}
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {currentOutputs.map((output) => (
-                        <TableRow key={output.id} className="border-white/5 hover:bg-white/[0.03] transition-colors">
-                          <TableCell className="font-bold text-white text-xs px-4 py-3 uppercase">
-                            {output.tradingsymbol}
-                            <div className="text-[9px] text-white/30 font-medium normal-case">{output.strategy_name || 'AI Dynamic'}</div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3">
-                            <div className={cn(
-                              "flex items-center gap-1.5 font-black text-[10px] uppercase",
-                              output.direction === 'LONG' ? 'text-green-400' : 'text-red-400'
-                            )}>
-                              {output.direction === 'LONG' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                              {output.direction}
-                            </div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3 font-mono text-xs">
-                            <div className="text-white">₹{output.entry_price.toFixed(2)}</div>
-                            <div className="text-white/30 text-[9px]">LTP: ₹{(output.current_price || output.entry_price).toFixed(2)}</div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3 font-mono text-[10px]">
-                            <div className="text-green-400">T: ₹{output.target_price.toFixed(2)}</div>
-                            <div className="text-red-400">S: ₹{output.sl_price.toFixed(2)}</div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3">{getStatusBadge(output.status)}</TableCell>
-                          <TableCell className={cn(
-                            "text-right px-4 py-3 font-black font-mono text-xs",
-                            (output.pnl || 0) >= 0 ? 'text-green-400' : 'text-red-400'
-                          )}>
-                            {output.pnl ? `₹${output.pnl.toFixed(2)}` : '—'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
         </TabsContent>
         
-        <TabsContent value="past" className="mt-4">
-          <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm overflow-hidden">
-            <CardHeader className="p-4 md:p-5 border-b border-white/5">
-              <CardTitle className="text-sm font-bold text-white uppercase tracking-tight">Scanner History</CardTitle>
+        <TabsContent value="past" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Output History</CardTitle>
+              <CardDescription>
+                Recent analytical outputs that have completed, stopped out, or expired.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent>
               {pastOutputs.length === 0 ? (
-                <div className="py-16 text-center text-white/20 text-xs uppercase tracking-widest font-medium">No history available</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-white/[0.02] border-white/5">
-                      <TableRow className="hover:bg-transparent border-white/5">
-                        <TableHead className="text-white/30 font-bold uppercase tracking-tighter text-[10px] h-10 px-4">Symbol</TableHead>
-                        <TableHead className="text-white/30 font-bold uppercase tracking-tighter text-[10px] h-10 px-4">Outcome</TableHead>
-                        <TableHead className="text-white/30 font-bold uppercase tracking-tighter text-[10px] h-10 px-4">P&L</TableHead>
-                        <TableHead className="text-white/30 font-bold uppercase tracking-tighter text-[10px] h-10 px-4 text-right">Time</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pastOutputs.map((output) => (
-                        <TableRow key={output.id} className="border-white/5 hover:bg-white/[0.03] transition-colors">
-                          <TableCell className="font-bold text-white text-xs px-4 py-3 uppercase">
-                            {output.tradingsymbol}
-                            <div className="text-[9px] text-white/30 font-medium">{output.direction}</div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3">
-                            <div className={cn(
-                              "flex items-center gap-1.5 text-[10px] font-bold uppercase",
-                              output.status === 'target_hit' ? 'text-green-400' : output.status === 'sl_hit' ? 'text-red-400' : 'text-white/30'
-                            )}>
-                              {output.status === 'target_hit' ? <CheckCircle2 className="h-3 w-3" /> : output.status === 'sl_hit' ? <XCircle className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-                              {output.status.replace('_', ' ')}
-                            </div>
-                          </TableCell>
-                          <TableCell className={cn(
-                            "font-bold font-mono text-xs px-4 py-3",
-                            (output.pnl || 0) >= 0 ? 'text-green-400' : 'text-red-400'
-                          )}>
-                            ₹{(output.pnl || 0).toFixed(2)}
-                          </TableCell>
-                          <TableCell className="text-right px-4 py-3 text-[10px] text-white/30 font-medium">
-                            {new Date(output.created_at).toLocaleString()}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <History className="h-12 w-12 mb-4 opacity-20" />
+                  <p>No output history available yet.</p>
                 </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Symbol</TableHead>
+                      <TableHead>Direction</TableHead>
+                      <TableHead>Entry/Exit</TableHead>
+                      <TableHead>Outcome</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>P&L</TableHead>
+                      <TableHead>Time</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pastOutputs.map((output) => (
+                      <TableRow key={output.id}>
+                        <TableCell className="font-medium uppercase">{output.tradingsymbol}</TableCell>
+                        <TableCell>
+                          <div className={`flex items-center gap-1 font-bold ${output.direction === 'LONG' ? 'text-green-500' : 'text-red-500'}`}>
+                            {output.direction}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <div>E: ₹{output.entry_price.toFixed(2)}</div>
+                          <div>X: ₹{(output.target_price).toFixed(2)}</div>
+                        </TableCell>
+                        <TableCell>
+                          {output.status === 'target_hit' ? (
+                            <div className="flex items-center gap-1 text-green-500 font-medium">
+                              <CheckCircle2 className="h-4 w-4" /> Target Reached
+                            </div>
+                          ) : output.status === 'sl_hit' ? (
+                            <div className="flex items-center gap-1 text-red-500 font-medium">
+                              <XCircle className="h-4 w-4" /> Stop Loss
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-muted-foreground font-medium">
+                              <AlertTriangle className="h-4 w-4" /> Expired
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(output.status)}</TableCell>
+                        <TableCell className={`font-bold ${(output.pnl || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          ₹{(output.pnl || 0).toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs">
+                          {new Date(output.created_at).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
         </TabsContent>
-        
-        <TabsContent value="settings" className="mt-4">
-          <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm">
-            <CardHeader className="p-4 md:p-5 border-b border-white/5">
-              <CardTitle className="text-sm font-bold text-white uppercase tracking-tight">Scanner Rules</CardTitle>
-              <CardDescription className="text-[10px] text-white/40 uppercase tracking-widest font-medium">Define logic for AI pattern recognition</CardDescription>
+
+        <TabsContent value="settings" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Scanner Configuration</CardTitle>
+              <CardDescription>
+                Customize how the AI scanner identifies patterns based on your rules. All execution requires your explicit action.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="p-4 md:p-6">
+            <CardContent>
               <ScannerSettingsForm />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
     </div>
-  );
-}
-
-function StatCard({ 
-  title, 
-  value, 
-  subValue, 
-  icon: Icon, 
-  iconColor = "text-white/40", 
-  valueColor = "text-white" 
-}: { 
-  title: string, 
-  value: string | number, 
-  subValue?: string, 
-  icon: any, 
-  iconColor?: string, 
-  valueColor?: string 
-}) {
-  return (
-    <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm overflow-hidden group hover:bg-white/[0.04] transition-all duration-300">
-      <CardHeader className="flex flex-row items-center justify-between p-3 md:p-4 pb-1">
-        <CardTitle className="text-[10px] md:text-xs font-bold text-white/40 uppercase tracking-widest">{title}</CardTitle>
-        <div className={cn("p-1.5 rounded-lg bg-white/5 group-hover:bg-white/10 transition-colors", iconColor)}>
-          <Icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
-        </div>
-      </CardHeader>
-      <CardContent className="p-3 md:p-4 pt-0">
-        <div className={cn("text-lg md:text-2xl font-black tracking-tighter truncate", valueColor)}>
-          {value}
-        </div>
-        {subValue && (
-          <div className="text-[10px] md:text-xs font-medium text-white/30 mt-0.5 truncate uppercase tracking-tight">
-            {subValue}
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }

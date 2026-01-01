@@ -18,15 +18,10 @@ export const metadata: Metadata = {
   title: "AiRA | AI Market Analysis Platform",
   description: "AI-powered market analysis and automation software platform for Indian Markets.",
   manifest: "/manifest.json",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover",
-  themeColor: "#000000",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "AiRA",
-  },
-  formatDetection: {
-    telephone: false,
   },
 };
 

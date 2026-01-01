@@ -38,6 +38,7 @@ export function Logo({ className, iconOnly = false, size = 'md' }: LogoProps) {
           
           {/* Background Shape */}
           <rect x="5" y="5" width="90" height="90" rx="24" fill="currentColor" className="text-black/20" />
+          <rect x="5" y="5" width="90" height="90" rx="24" stroke="white" strokeWidth="2" />
           
           {/* Stylized 'A' + Lightning Bolt */}
           <path 
@@ -46,7 +47,7 @@ export function Logo({ className, iconOnly = false, size = 'md' }: LogoProps) {
             strokeWidth="8" 
             strokeLinecap="round" 
             strokeLinejoin="round"
-            className="opacity-40"
+            className="opacity-60"
           />
           
           {/* The Bolt / Trend Line */}
@@ -79,9 +80,9 @@ export function Logo({ className, iconOnly = false, size = 'md' }: LogoProps) {
       
       {!iconOnly && (
         <span className={cn(
-          "font-black tracking-tight transition-colors duration-300",
+          "font-bold tracking-tighter transition-colors duration-300",
           sizes[size].text,
-          "bg-gradient-to-br from-white via-white to-white/90 bg-clip-text text-transparent"
+          "bg-gradient-to-br from-white via-white to-white/60 bg-clip-text text-transparent"
         )}>
           AiRA<span className="text-blue-500">.</span>
         </span>

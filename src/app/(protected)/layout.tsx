@@ -8,9 +8,9 @@ export default function ProtectedLayout({
   return (
     <>
       <Navigation />
-      <main className="pt-0 md:pt-16 pb-20 md:pb-0 min-h-screen">
-        {children}
-      </main>
+        <main className="pt-0 md:pt-16 pb-[calc(5rem+env(safe-area-inset-bottom,1.5rem))] md:pb-8 min-h-screen">
+          {children}
+        </main>
     </>
   );
 }

@@ -43,10 +43,30 @@ const TIMEFRAMES = [
   { label: "1W", value: "1w" },
 ];
 
-  type ChartApi = ReturnType<typeof import("lightweight-charts").createChart>;
-  type CandlestickSeriesApi = ReturnType<ChartApi["addSeries"]>;
-  type HistogramSeriesApi = ReturnType<ChartApi["addSeries"]>;
-  type ISeriesApi<T extends import("lightweight-charts").SeriesType> = ReturnType<ChartApi["addSeries<T>"]>;
+const IST_OFFSET_SECONDS = 5.5 * 60 * 60;
+
+function toISTTimestamp(dateStr: string): number {
+  const date = new Date(dateStr);
+  const utcSeconds = Math.floor(date.getTime() / 1000);
+  return utcSeconds + IST_OFFSET_SECONDS;
+}
+
+function formatISTTime(utcTimestamp: number): string {
+  const istDate = new Date((utcTimestamp + IST_OFFSET_SECONDS) * 1000);
+  return istDate.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+type ChartApi = ReturnType<typeof import("lightweight-charts").createChart>;
+type CandlestickSeriesApi = ReturnType<ChartApi["addSeries"]>;
+type HistogramSeriesApi = ReturnType<ChartApi["addSeries"]>;
 
   export function TradingViewChart({
     data,
@@ -119,6 +139,30 @@ const TIMEFRAMES = [
             secondsVisible: false,
             rightOffset: 12,
             barSpacing: 6,
+            tickMarkFormatter: (time: number) => {
+              const date = new Date(time * 1000);
+              return date.toLocaleTimeString("en-IN", {
+                timeZone: "Asia/Kolkata",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              });
+            },
+          },
+          localization: {
+            locale: "en-IN",
+            dateFormat: "dd MMM yyyy",
+            timeFormatter: (time: number) => {
+              const date = new Date(time * 1000);
+              return date.toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              });
+            },
           },
           handleScroll: true,
           handleScale: true,
@@ -160,7 +204,7 @@ const TIMEFRAMES = [
                 h: d.high,
                 l: d.low,
                 c: d.close,
-                time: new Date((param.time as number) * 1000).toLocaleString("en-IN"),
+                time: formatISTTime(param.time as number),
               });
             }
           }
@@ -206,7 +250,7 @@ const TIMEFRAMES = [
       );
 
       const candleData = sortedData.map((d) => ({
-        time: Math.floor(new Date(d.timestamp).getTime() / 1000) as import("lightweight-charts").Time,
+        time: toISTTimestamp(d.timestamp) as import("lightweight-charts").Time,
         open: d.open,
         high: d.high,
         low: d.low,
@@ -214,7 +258,7 @@ const TIMEFRAMES = [
       }));
 
       const volumeData = sortedData.map((d) => ({
-        time: Math.floor(new Date(d.timestamp).getTime() / 1000) as import("lightweight-charts").Time,
+        time: toISTTimestamp(d.timestamp) as import("lightweight-charts").Time,
         value: d.volume,
         color: d.close >= d.open ? "rgba(34, 197, 94, 0.25)" : "rgba(239, 68, 68, 0.25)",
       }));
@@ -295,7 +339,7 @@ const TIMEFRAMES = [
                   sum += sortedData[i - j].close;
                 }
                 lineData.push({
-                  time: Math.floor(new Date(sortedData[i].timestamp).getTime() / 1000) as import("lightweight-charts").Time,
+                  time: toISTTimestamp(sortedData[i].timestamp) as import("lightweight-charts").Time,
                   value: sum / period,
                 });
               }
@@ -306,13 +350,13 @@ const TIMEFRAMES = [
               for (let i = period - 1; i < sortedData.length; i++) {
                 if (i === period - 1) {
                   lineData.push({
-                    time: Math.floor(new Date(sortedData[i].timestamp).getTime() / 1000) as import("lightweight-charts").Time,
+                    time: toISTTimestamp(sortedData[i].timestamp) as import("lightweight-charts").Time,
                     value: ema,
                   });
                 } else {
                   ema = sortedData[i].close * k + ema * (1 - k);
                   lineData.push({
-                    time: Math.floor(new Date(sortedData[i].timestamp).getTime() / 1000) as import("lightweight-charts").Time,
+                    time: toISTTimestamp(sortedData[i].timestamp) as import("lightweight-charts").Time,
                     value: ema,
                   });
                 }

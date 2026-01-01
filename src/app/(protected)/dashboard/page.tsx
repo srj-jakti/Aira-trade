@@ -7,8 +7,7 @@ import {
   Briefcase,
   Activity,
   History,
-  Zap,
-  Power
+  Zap
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -24,6 +23,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { getDashboardStatus, toggleAiTrading } from "./actions";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   const [isAiTradingEnabled, setIsAiTradingEnabled] = useState(false);
@@ -72,38 +73,38 @@ export default function Dashboard() {
 
   return (
     <div className="p-3 md:p-6 space-y-3 md:space-y-4 max-w-[1600px] mx-auto animate-in fade-in duration-500">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gradient-to-br from-white/10 to-transparent p-3 md:p-4 rounded-2xl border border-white/10 shadow-2xl">
-          <div className="flex items-center gap-3">
-            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-lg shadow-primary/5">
-              <Zap className={`size-5 transition-colors ${isAiTradingEnabled ? "text-primary fill-primary" : "text-white/20"}`} />
-            </div>
-            <div>
-              <h1 className="text-lg md:text-xl font-bold text-white tracking-tight leading-none">
-                Terminal Dashboard
-              </h1>
-              <p className="text-white/40 text-[10px] md:text-xs mt-1 font-medium">Real-time terminal monitoring and execution control</p>
-            </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gradient-to-br from-white/10 to-transparent p-3 md:p-4 rounded-2xl border border-white/10 shadow-2xl">
+        <div className="flex items-center gap-3">
+          <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-lg shadow-primary/5">
+            <Zap className={cn("size-5 transition-colors", isAiTradingEnabled ? "text-primary fill-primary" : "text-white/20")} />
           </div>
-          <div className="flex items-center gap-3 bg-black/40 p-1 pl-3 rounded-full border border-white/5 w-fit">
-            <Label htmlFor="ai-trading" className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-              Automation
-            </Label>
-            <div className="flex items-center gap-2 bg-white/5 rounded-full p-0.5 px-2 border border-white/5">
-              <Switch 
-                id="ai-trading" 
-                checked={isAiTradingEnabled}
-                onCheckedChange={handleToggleAi}
-                className="scale-75"
-              />
-              <span className={cn(
-                "text-[9px] font-black px-1.5 py-0.5 rounded-full",
-                isAiTradingEnabled ? "bg-primary/20 text-primary" : "bg-white/5 text-white/20"
-              )}>
-                {isAiTradingEnabled ? "ACTIVE" : "OFF"}
-              </span>
-            </div>
+          <div>
+            <h1 className="text-lg md:text-xl font-bold text-white tracking-tight leading-none">
+              Terminal Dashboard
+            </h1>
+            <p className="text-white/40 text-[10px] md:text-xs mt-1 font-medium">Real-time terminal monitoring and execution control</p>
           </div>
         </div>
+        <div className="flex items-center gap-3 bg-black/40 p-1 pl-3 rounded-full border border-white/5 w-fit">
+          <Label htmlFor="ai-trading" className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+            Automation
+          </Label>
+          <div className="flex items-center gap-2 bg-white/5 rounded-full p-0.5 px-2 border border-white/5">
+            <Switch 
+              id="ai-trading" 
+              checked={isAiTradingEnabled}
+              onCheckedChange={handleToggleAi}
+              className="scale-75"
+            />
+            <span className={cn(
+              "text-[9px] font-black px-1.5 py-0.5 rounded-full",
+              isAiTradingEnabled ? "bg-primary/20 text-primary" : "bg-white/5 text-white/20"
+            )}>
+              {isAiTradingEnabled ? "ACTIVE" : "OFF"}
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">

@@ -1,7 +1,26 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BrainCircuit, LineChart, Target, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw, ArrowUp, ArrowDown, Loader2, ChevronDown, Eye, EyeOff, Settings2, Info } from "lucide-react";
+import { 
+  BrainCircuit, 
+  LineChart, 
+  Target, 
+  TrendingUp, 
+  TrendingDown, 
+  Minus, 
+  AlertCircle, 
+  RefreshCw, 
+  ArrowUp, 
+  ArrowDown, 
+  Loader2, 
+  ChevronDown, 
+  Eye, 
+  EyeOff, 
+  Settings2, 
+  Info,
+  Activity,
+  Radar
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,28 +78,28 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
   { id: "bollinger", name: "Bollinger Bands", type: "bollinger", params: { period: 20, stdDev: 2 }, visible: false },
 ];
 
-  export default function AnalysisPage() {
-    const [selectedInstrument, setSelectedInstrument] = useState<Instrument | null>({
-      instrument_token: 256265,
-      tradingsymbol: "NIFTY 50",
-      name: "NIFTY 50",
-      exchange: "NSE",
-      segment: "INDICES",
-      instrument_type: "EQ",
-      lot_size: 1,
-      tick_size: 0.05
-    } as Instrument);
-    const [chartData, setChartData] = useState<CandleData[]>([]);
-    const [isLoadingChart, setIsLoadingChart] = useState(false);
-    const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-    const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
-    const [analysisOutputs, setAnalysisOutputs] = useState<AnalysisOutput[]>([]);
-    const [isLoadingOutputs, setIsLoadingOutputs] = useState(false);
-    const [timeframe, setTimeframe] = useState("15m");
-    const [indicators, setIndicators] = useState<IndicatorOverlay[]>(DEFAULT_INDICATORS);
-    const [showIndicatorPanel, setShowIndicatorPanel] = useState(false);
-    const [strategies, setStrategies] = useState<Strategy[]>([]);
-    const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
+export default function AnalysisPage() {
+  const [selectedInstrument, setSelectedInstrument] = useState<Instrument | null>({
+    instrument_token: 256265,
+    tradingsymbol: "NIFTY 50",
+    name: "NIFTY 50",
+    exchange: "NSE",
+    segment: "INDICES",
+    instrument_type: "EQ",
+    lot_size: 1,
+    tick_size: 0.05
+  } as Instrument);
+  const [chartData, setChartData] = useState<CandleData[]>([]);
+  const [isLoadingChart, setIsLoadingChart] = useState(false);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
+  const [analysisOutputs, setAnalysisOutputs] = useState<AnalysisOutput[]>([]);
+  const [isLoadingOutputs, setIsLoadingOutputs] = useState(false);
+  const [timeframe, setTimeframe] = useState("15m");
+  const [indicators, setIndicators] = useState<IndicatorOverlay[]>(DEFAULT_INDICATORS);
+  const [showIndicatorPanel, setShowIndicatorPanel] = useState(false);
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
 
   const fetchChartData = useCallback(async (instrument: Instrument, tf: string) => {
     setIsLoadingChart(true);
@@ -216,61 +235,29 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     ));
   };
 
-  const getTrendIcon = (trend: string) => {
-    switch (trend?.toLowerCase()) {
-      case "bullish":
-        return <TrendingUp className="w-4 h-4 text-green-400" />;
-      case "bearish":
-        return <TrendingDown className="w-4 h-4 text-red-400" />;
-      default:
-        return <Minus className="w-4 h-4 text-yellow-400" />;
-    }
-  };
-
-  const getTrendColor = (trend: string) => {
-    switch (trend?.toLowerCase()) {
-      case "bullish":
-        return "text-green-400";
-      case "bearish":
-        return "text-red-400";
-      default:
-        return "text-yellow-400";
-    }
-  };
-
-  const getDirectionBadge = (direction: string) => {
-    switch (direction?.toLowerCase()) {
-      case "buy":
-      case "long":
-        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">LONG</Badge>;
-      case "sell":
-      case "short":
-        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">SHORT</Badge>;
-      default:
-        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">NEUTRAL</Badge>;
-    }
-  };
-
   const formatPrice = (price: number | null) => {
     if (price === null) return "—";
     return price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   return (
-    <div className="p-2 md:p-4 space-y-4 max-w-[1600px] mx-auto">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <InstrumentSearch
-          onSelect={setSelectedInstrument}
-          selectedInstrument={selectedInstrument}
-          className="flex-1 min-w-[280px]"
-        />
+    <div className="p-3 md:p-6 space-y-4 max-w-[1600px] mx-auto">
+      {/* Header & Search */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/[0.03] backdrop-blur-md p-4 md:p-6 rounded-2xl border border-white/10">
+        <div className="flex-1 min-w-[300px]">
+          <InstrumentSearch
+            onSelect={setSelectedInstrument}
+            selectedInstrument={selectedInstrument}
+            className="w-full"
+          />
+        </div>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowIndicatorPanel(!showIndicatorPanel)}
-              className="bg-white/5 border-white/10 hover:bg-white/10"
+              className="h-10 bg-white/5 border-white/10 hover:bg-white/10 text-xs font-bold uppercase tracking-tight"
             >
               <Settings2 className="w-4 h-4 mr-2" />
               Indicators
@@ -278,22 +265,22 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
             </Button>
             
             {showIndicatorPanel && (
-              <div className="absolute top-full right-0 mt-1 z-50 w-56 bg-zinc-900/95 backdrop-blur-md border border-white/10 rounded-lg shadow-xl p-2">
-                <div className="text-xs text-white/40 px-2 py-1 mb-1">Technical Indicators</div>
+              <div className="absolute top-full right-0 mt-2 z-50 w-64 bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-2 animate-in fade-in slide-in-from-top-2">
+                <div className="text-[10px] text-white/30 px-3 py-2 uppercase font-black tracking-widest">Technical Overlays</div>
                 {indicators.map((ind) => (
                   <button
                     key={ind.id}
                     onClick={() => toggleIndicator(ind.id)}
-                    className="w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5 text-sm"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors group"
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded" style={{ backgroundColor: ind.color || "#f59e0b" }} />
-                      <span className={ind.visible ? "text-white" : "text-white/50"}>{ind.name}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: ind.color || "#f59e0b" }} />
+                      <span className={cn("text-xs font-bold uppercase tracking-tight", ind.visible ? "text-white" : "text-white/30 group-hover:text-white/50")}>{ind.name}</span>
                     </div>
                     {ind.visible ? (
                       <Eye className="w-4 h-4 text-blue-400" />
                     ) : (
-                      <EyeOff className="w-4 h-4 text-white/30" />
+                      <EyeOff className="w-4 h-4 text-white/10" />
                     )}
                   </button>
                 ))}
@@ -301,51 +288,52 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
             )}
           </div>
           
-          {selectedInstrument && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isLoadingChart || isLoadingAnalysis}
-              className="bg-white/5 border-white/10 hover:bg-white/10"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${(isLoadingChart || isLoadingAnalysis) ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isLoadingChart || isLoadingAnalysis}
+            className="h-10 bg-white/5 border-white/10 hover:bg-white/10 text-xs font-bold uppercase tracking-tight"
+          >
+            <RefreshCw className={cn("w-4 h-4 mr-2", (isLoadingChart || isLoadingAnalysis) && "animate-spin")} />
+            Update
+          </Button>
         </div>
       </div>
 
-      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-start gap-2">
+      <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl flex items-start gap-3">
         <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
-        <p className="text-xs text-blue-300/80">
-          AI analysis outputs are for informational purposes only. They do not constitute investment advice. All decisions are made by you.
+        <p className="text-[10px] md:text-xs text-white/40 leading-relaxed uppercase tracking-tight font-medium">
+          Analytical outputs are for informational purposes only. Pattern recognition does not guarantee future results.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
-          <Card className="bg-white/5 border-white/10 overflow-hidden">
-            <CardHeader className="p-3 md:p-4 border-b border-white/10">
-              <CardTitle className="text-sm font-medium flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <LineChart className="w-4 h-4 text-blue-400" />
-                  {selectedInstrument ? (
-                    <span>
-                      {selectedInstrument.tradingsymbol}
-                      <span className="text-white/50 ml-2 text-xs">{selectedInstrument.exchange}</span>
-                    </span>
-                  ) : (
-                    "Market Chart"
-                  )}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+        {/* Chart Area */}
+        <div className="xl:col-span-3 space-y-4">
+          <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm overflow-hidden">
+            <CardHeader className="p-4 border-b border-white/5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-1.5 rounded-lg bg-blue-400/10 text-blue-400">
+                    <LineChart className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col">
+                    <CardTitle className="text-sm font-black uppercase tracking-tight">
+                      {selectedInstrument?.tradingsymbol || "Market Overview"}
+                    </CardTitle>
+                    <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">{selectedInstrument?.exchange || "SELECT ASSET"}</span>
+                  </div>
                 </div>
                 {chartData.length > 0 && (
-                  <span className="text-xs text-white/40">{chartData.length} candles</span>
+                  <Badge variant="outline" className="text-[10px] font-bold border-white/10 text-white/40">
+                    {chartData.length} BARS
+                  </Badge>
                 )}
-              </CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="h-[280px] md:h-[350px]">
+              <div className="h-[400px] md:h-[500px]">
                 <TradingViewChart
                   data={chartData}
                   symbol={selectedInstrument?.tradingsymbol}
@@ -360,214 +348,138 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
             </CardContent>
           </Card>
 
-            {analysis && chartData.length > 0 && (
-              <Card className="bg-white/5 border-white/10">
-                <CardContent className="p-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-3 bg-white/5 rounded-lg">
-                      <div className="text-xs text-white/50 mb-1">Entry Price</div>
-                      <div className="font-mono font-semibold text-blue-400">{formatPrice(analysis.entry)}</div>
-                    </div>
-                    <div className="text-center p-3 bg-white/5 rounded-lg">
-                      <div className="text-xs text-white/50 mb-1">Target</div>
-                      <div className="font-mono font-semibold text-green-400 flex items-center justify-center gap-1">
-                        <ArrowUp className="w-3 h-3" />
-                        {formatPrice(analysis.target)}
-                      </div>
-                    </div>
-                    <div className="text-center p-3 bg-white/5 rounded-lg">
-                      <div className="text-xs text-white/50 mb-1">Stop Loss</div>
-                      <div className="font-mono font-semibold text-red-400 flex items-center justify-center gap-1">
-                        <ArrowDown className="w-3 h-3" />
-                        {formatPrice(analysis.stopLoss)}
-                      </div>
-                    </div>
-                    <div className="text-center p-3 bg-white/5 rounded-lg">
-                      <div className="text-xs text-white/50 mb-1">Confidence</div>
-                      <div className="font-mono font-semibold text-purple-400">{analysis.confidence}%</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          {/* Key Levels Row */}
+          {analysis && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <StatCard title="Entry Node" value={`₹${formatPrice(analysis.entry)}`} icon={Target} iconColor="text-blue-400" />
+              <StatCard title="Target Exit" value={`₹${formatPrice(analysis.target)}`} icon={ArrowUp} iconColor="text-green-400" valueColor="text-green-400" />
+              <StatCard title="Risk Cut" value={`₹${formatPrice(analysis.stopLoss)}`} icon={ArrowDown} iconColor="text-red-400" valueColor="text-red-400" />
+              <StatCard title="AI Confidence" value={`${analysis.confidence}%`} icon={BrainCircuit} iconColor="text-purple-400" />
+            </div>
+          )}
+        </div>
 
-        <div className="lg:col-span-1 space-y-4">
-          <Card className="bg-white/5 border-white/10">
-            <CardHeader className="p-3 md:p-4 border-b border-white/10">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <BrainCircuit className="w-4 h-4 text-purple-400" />
-                AI Analysis
-              </CardTitle>
+        {/* Sidebar Info Area */}
+        <div className="xl:col-span-1 space-y-4">
+          {/* Trend Analysis */}
+          <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm">
+            <CardHeader className="p-4 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <Radar className="w-4 h-4 text-purple-400" />
+                <CardTitle className="text-xs font-black uppercase tracking-widest">Trend Intelligence</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="p-4">
               {isLoadingAnalysis ? (
-                <div className="min-h-[200px] flex flex-col items-center justify-center gap-2">
+                <div className="h-40 flex flex-col items-center justify-center gap-3">
                   <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
-                  <span className="text-white/50 text-sm">Analyzing...</span>
+                  <span className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Processing Market Data...</span>
                 </div>
               ) : analysis ? (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      {getTrendIcon(analysis.trend)}
-                      <span className={`font-semibold capitalize ${getTrendColor(analysis.trend)}`}>
-                        {analysis.trend}
+                      <div className={cn(
+                        "p-1.5 rounded-lg",
+                        analysis.trend === "bullish" ? "bg-green-400/10 text-green-400" : "bg-red-400/10 text-red-400"
+                      )}>
+                        {analysis.trend === "bullish" ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                      </div>
+                      <span className={cn("text-sm font-black uppercase tracking-tight", analysis.trend === "bullish" ? "text-green-400" : "text-red-400")}>
+                        {analysis.trend} Trend
                       </span>
                     </div>
-                    {getDirectionBadge(analysis.signal)}
+                    <Badge className={cn(
+                      "text-[10px] font-black uppercase px-2 py-0.5",
+                      analysis.signal.toLowerCase() === "buy" ? "bg-green-400 text-black" : "bg-red-400 text-black"
+                    )}>
+                      {analysis.signal}
+                    </Badge>
                   </div>
                   
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-white/50">Trend Strength</span>
-                      <span className="font-medium">{analysis.strength}%</span>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-white/40">
+                      <span>Signal Strength</span>
+                      <span>{analysis.strength}%</span>
                     </div>
-                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                       <div 
-                        className={`h-full rounded-full transition-all ${
-                          analysis.trend === "bullish" ? "bg-green-500" : 
-                          analysis.trend === "bearish" ? "bg-red-500" : "bg-yellow-500"
-                        }`}
+                        className={cn(
+                          "h-full rounded-full transition-all duration-1000",
+                          analysis.trend === "bullish" ? "bg-green-400" : "bg-red-400"
+                        )}
                         style={{ width: `${analysis.strength}%` }}
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="p-2 bg-green-500/10 rounded border border-green-500/20">
-                      <div className="text-green-400/70 text-xs">Support</div>
-                      <div className="font-mono font-medium text-green-400">{formatPrice(analysis.support)}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5">
+                      <div className="text-[9px] text-white/30 font-black uppercase tracking-widest mb-1">Floor</div>
+                      <div className="font-mono font-bold text-xs text-white">₹{formatPrice(analysis.support)}</div>
                     </div>
-                    <div className="p-2 bg-red-500/10 rounded border border-red-500/20">
-                      <div className="text-red-400/70 text-xs">Resistance</div>
-                      <div className="font-mono font-medium text-red-400">{formatPrice(analysis.resistance)}</div>
+                    <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5">
+                      <div className="text-[9px] text-white/30 font-black uppercase tracking-widest mb-1">Ceiling</div>
+                      <div className="font-mono font-bold text-xs text-white">₹{formatPrice(analysis.resistance)}</div>
                     </div>
                   </div>
 
-                  <div className="text-sm text-white/70 leading-relaxed">
-                    {analysis.analysis}
+                  <div className="text-xs text-white/60 leading-relaxed font-medium bg-white/5 p-3 rounded-xl border border-white/5 italic">
+                    "{analysis.analysis}"
                   </div>
-
-                  {analysis.reasoning && (
-                    <div className="pt-3 border-t border-white/10">
-                      <div className="text-xs text-white/40 mb-1">Analysis Reasoning</div>
-                      <div className="text-sm text-white/60">{analysis.reasoning}</div>
-                    </div>
-                  )}
                 </div>
               ) : (
-                <div className="min-h-[200px] flex items-center justify-center text-center">
-                  <div>
-                    <AlertCircle className="w-8 h-8 text-white/20 mx-auto mb-2" />
-                    <p className="text-white/30 text-xs md:text-sm">
-                      Select an instrument to view AI analysis
-                    </p>
-                  </div>
+                <div className="h-40 flex flex-col items-center justify-center text-center opacity-20">
+                  <Radar className="w-8 h-8 mb-2" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest">Select Asset to Analyze</p>
                 </div>
               )}
-              </CardContent>
-            </Card>
+            </CardContent>
+          </Card>
 
-            <Card className="bg-white/5 border-white/10">
-              <CardHeader className="p-3 md:p-4 border-b border-white/10">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Target className="w-4 h-4 text-indigo-400" />
-                  Strategy Overlay
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="flex flex-wrap gap-2">
-                  {strategies.length > 0 ? (
-                    <>
-                      <button
-                        onClick={() => setSelectedStrategy(null)}
-                        className={cn(
-                          "px-3 py-1.5 text-xs rounded-full border transition-colors",
-                          !selectedStrategy
-                            ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                            : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
-                        )}
-                      >
-                        None
-                      </button>
-                      {strategies.map((strategy) => (
-                        <button
-                          key={strategy.id}
-                          onClick={() => setSelectedStrategy(strategy.id)}
-                          className={cn(
-                            "px-3 py-1.5 text-xs rounded-full border transition-colors",
-                            selectedStrategy === strategy.id
-                              ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
-                              : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
-                          )}
-                        >
-                          {strategy.name}
-                        </button>
-                      ))}
-                    </>
-                  ) : (
-                    <span className="text-xs text-white/30 italic">No strategies available. Create one in the Strategy section.</span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/5 border-white/10">
-              <CardHeader className="p-3 md:p-4 border-b border-white/10">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Target className="w-4 h-4 text-green-400" />
-                  Strategy Analysis Outputs
-              </CardTitle>
+          {/* Strategy Outputs */}
+          <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm">
+            <CardHeader className="p-4 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-green-400" />
+                <CardTitle className="text-xs font-black uppercase tracking-widest">Strategy Pulse</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="p-4">
               {isLoadingOutputs ? (
-                <div className="min-h-[150px] flex flex-col items-center justify-center gap-2">
+                <div className="flex flex-col items-center py-8 gap-3">
                   <Loader2 className="w-5 h-5 animate-spin text-green-400" />
-                  <span className="text-white/50 text-xs">Loading outputs...</span>
                 </div>
               ) : analysisOutputs.length > 0 ? (
                 <div className="space-y-3">
-                  {analysisOutputs.slice(0, 5).map((output) => (
+                  {analysisOutputs.slice(0, 3).map((output) => (
                     <div 
                       key={output.id} 
-                      className="p-3 bg-white/5 rounded-lg border border-white/5"
+                      className="p-3 bg-white/[0.03] rounded-xl border border-white/5 group hover:bg-white/[0.05] transition-colors"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">{output.strategy_name}</span>
+                        <span className="text-[11px] font-bold text-white uppercase tracking-tight">{output.strategy_name}</span>
                         <Badge 
-                          className={
-                            output.direction === "long" 
-                              ? "bg-green-500/20 text-green-400 border-green-500/30" 
-                              : "bg-red-500/20 text-red-400 border-red-500/30"
-                          }
+                          variant="outline"
+                          className={cn(
+                            "text-[9px] font-black border-none h-4 px-1.5",
+                            output.direction === "long" ? "bg-green-400/10 text-green-400" : "bg-red-400/10 text-red-400"
+                          )}
                         >
                           {output.direction?.toUpperCase()}
                         </Badge>
                       </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-white/50">Confidence: {output.confidence}%</span>
-                        <span className="text-white/40">
-                          {new Date(output.created_at).toLocaleDateString()}
-                        </span>
+                      <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-white/20">
+                        <span>Confidence {output.confidence}%</span>
+                        <span>{new Date(output.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : selectedInstrument ? (
-                <div className="min-h-[150px] flex items-center justify-center text-center">
-                  <div>
-                    <Target className="w-6 h-6 text-white/20 mx-auto mb-2" />
-                    <p className="text-white/30 text-xs">
-                      No active outputs for {selectedInstrument.tradingsymbol}
-                    </p>
-                  </div>
-                </div>
               ) : (
-                <div className="min-h-[150px] flex items-center justify-center text-center">
-                  <p className="text-white/30 text-xs md:text-sm">
-                    Select an instrument to view outputs
-                  </p>
+                <div className="py-8 text-center opacity-10">
+                  <Activity className="w-6 h-6 mx-auto mb-2" />
+                  <span className="text-[9px] font-bold uppercase tracking-widest">No Active Pulses</span>
                 </div>
               )}
             </CardContent>
@@ -575,5 +487,42 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
         </div>
       </div>
     </div>
+  );
+}
+
+function StatCard({ 
+  title, 
+  value, 
+  subValue, 
+  icon: Icon, 
+  iconColor = "text-white/40", 
+  valueColor = "text-white" 
+}: { 
+  title: string, 
+  value: string | number, 
+  subValue?: string, 
+  icon: any, 
+  iconColor?: string, 
+  valueColor?: string 
+}) {
+  return (
+    <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm overflow-hidden group hover:bg-white/[0.04] transition-all duration-300">
+      <CardHeader className="flex flex-row items-center justify-between p-3 md:p-4 pb-1">
+        <CardTitle className="text-[10px] md:text-xs font-bold text-white/40 uppercase tracking-widest">{title}</CardTitle>
+        <div className={cn("p-1.5 rounded-lg bg-white/5 group-hover:bg-white/10 transition-colors", iconColor)}>
+          <Icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
+        </div>
+      </CardHeader>
+      <CardContent className="p-3 md:p-4 pt-0">
+        <div className={cn("text-lg md:text-2xl font-black tracking-tighter truncate", valueColor)}>
+          {value}
+        </div>
+        {subValue && (
+          <div className="text-[10px] md:text-xs font-medium text-white/30 mt-0.5 truncate uppercase tracking-tight">
+            {subValue}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

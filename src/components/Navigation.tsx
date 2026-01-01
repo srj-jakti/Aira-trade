@@ -19,63 +19,41 @@ export function Navigation() {
   const pathname = usePathname();
 
   return (
-    <>
-      <header className="hidden md:flex fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-xl items-center justify-between px-6 h-16">
-        <Link href="/dashboard" className="hover:opacity-80 transition-opacity">
-          <Logo size="md" />
-        </Link>
-
-        <nav className="flex items-center gap-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-colors relative",
-                pathname === item.href ? "text-white" : "text-white/50 hover:text-white"
-              )}
-            >
-              {pathname === item.href && (
-                <motion.div
-                  layoutId="nav-pill"
-                  className="absolute inset-0 bg-white/10 rounded-full"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                />
-              )}
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/5 bg-black/60 backdrop-blur-2xl px-4 pb-safe-area-inset-bottom pt-2 flex justify-around items-center">
+      {navItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = pathname === item.href;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "flex flex-col items-center gap-1.5 transition-all duration-300 relative py-1 flex-1",
+              isActive ? "text-blue-400" : "text-white/30"
+            )}
+          >
+            <div className={cn(
+              "p-1 rounded-xl transition-all duration-300",
+              isActive ? "bg-blue-400/10 scale-110" : "bg-transparent"
+            )}>
+              <Icon className="w-5 h-5" />
+            </div>
+            <span className={cn(
+              "text-[10px] font-bold tracking-tight transition-all duration-300",
+              isActive ? "opacity-100 translate-y-0" : "opacity-60"
+            )}>
               {item.name}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-4">
-        </div>
-      </header>
-
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-black/80 backdrop-blur-xl px-4 py-3 flex justify-around items-center">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex flex-col items-center gap-1 transition-colors relative",
-                isActive ? "text-blue-500" : "text-white/40"
-              )}
-            >
-              <Icon className="w-6 h-6" />
-              <span className="text-[10px] font-medium">{item.name}</span>
-              {isActive && (
-                <motion.div
-                  layoutId="mobile-nav-dot"
-                  className="absolute -top-1 w-1 h-1 bg-blue-500 rounded-full"
-                />
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-    </>
+            </span>
+            {isActive && (
+              <motion.div
+                layoutId="mobile-nav-indicator"
+                className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-blue-400 rounded-full"
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              />
+            )}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }

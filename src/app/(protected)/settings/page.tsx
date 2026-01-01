@@ -33,7 +33,6 @@ import { ProfileForm } from "./ProfileForm";
 import { PasswordForm } from "./PasswordForm";
 import { ApiKeysForm } from "./ApiKeysForm";
 import { RiskSettingsForm } from "./RiskSettingsForm";
-import { ScannerSettingsForm } from "./ScannerSettingsForm";
 import { TradingHistory } from "./TradingHistory";
 import { AIAnalysisReports } from "./AIAnalysisReports";
 
@@ -41,24 +40,22 @@ const SUBSCRIPTION_PLANS = [
   {
     id: "basic",
     name: "BASIC",
-    subtitle: "Platform Access",
+    subtitle: "Analysis Only",
     price: 999,
     icon: Zap,
     color: "green",
     features: [
-      { text: "Strategy Creation Module", included: true },
-      { text: "Strategy Library Access", included: true },
-      { text: "AI Analysis Page", included: true },
-      { text: "Market Scanner", included: true },
+      { text: "Strategy Factory", included: true },
+      { text: "AI Market Scanner", included: true },
+      { text: "Trend Intelligence", included: true },
       { text: "Automated Execution", included: false },
-      { text: "Broker Connection", included: false },
     ],
-    sebiLabel: "For research, analysis, and strategy development only.",
+    sebiLabel: "Research and analysis only.",
   },
   {
     id: "pro",
     name: "PRO",
-    subtitle: "User-Controlled Automation",
+    subtitle: "User-Automation",
     price: 1499,
     icon: Shield,
     color: "blue",
@@ -66,29 +63,25 @@ const SUBSCRIPTION_PLANS = [
     features: [
       { text: "Everything in BASIC", included: true },
       { text: "AI Automation Engine", included: true },
-      { text: "Manual Broker Login", included: true },
-      { text: "Strategy-based Execution", included: true },
-      { text: "Invite-Only Strategies", included: false },
-      { text: "Auto Broker Login", included: false },
+      { text: "Broker Connection", included: true },
+      { text: "Execution Guard", included: true },
     ],
-    sebiLabel: "Execution automation based on user-defined logic.",
+    sebiLabel: "User-defined logic automation.",
   },
   {
     id: "elite",
     name: "ELITE",
-    subtitle: "Advanced Automation",
+    subtitle: "Advanced Tools",
     price: 2499,
     icon: Crown,
     color: "purple",
     features: [
       { text: "Everything in PRO", included: true },
-      { text: "Invite-Only Strategy Publishing", included: true },
-      { text: "Auto Broker Login (Optional)", included: true },
-      { text: "Continuous Automation", included: true },
-      { text: "Advanced Controls", included: true },
-      { text: "Priority Support", included: true },
+      { text: "Invite-Only Publishing", included: true },
+      { text: "Auto Broker Login", included: true },
+      { text: "Priority Analysis", included: true },
     ],
-    sebiLabel: "Advanced execution automation. User retains full control.",
+    sebiLabel: "Full power automation.",
   },
 ];
 
@@ -144,334 +137,271 @@ export default function SettingsPage() {
     : null;
 
   return (
-    <div className="flex flex-col h-full bg-[#030303]">
-      <div className="flex-1 p-4 md:p-8 pt-6 space-y-6 max-w-6xl mx-auto w-full">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-white">Settings</h1>
-              <p className="text-white/50 text-sm">Manage your account, API keys, and risk preferences.</p>
-            </div>
-            {isAdmin && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:text-purple-300"
-                onClick={() => router.push("/admin")}
-              >
-                <Settings2 className="w-4 h-4 mr-2" />
-                Admin Panel
-              </Button>
-            )}
+    <div className="p-3 md:p-6 space-y-4 max-w-[1200px] mx-auto">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/[0.03] backdrop-blur-md p-4 md:p-6 rounded-2xl border border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-blue-400/10 text-blue-400">
+            <Settings2 className="w-5 h-5" />
           </div>
+          <div>
+            <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">System Settings</h1>
+            <p className="text-white/40 text-xs font-medium uppercase tracking-wider">Account & Risk Controls</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-9 border-purple-500/20 bg-purple-500/5 text-purple-400 hover:bg-purple-500/10 text-[10px] font-black uppercase tracking-widest"
+              onClick={() => router.push("/admin")}
+            >
+              Admin Panel
+            </Button>
+          )}
           <Button 
             variant="ghost" 
             size="sm" 
-            className="text-red-400 hover:text-red-300 hover:bg-red-400/10 hidden md:flex"
+            className="h-9 text-red-400/60 hover:text-red-400 hover:bg-red-400/5 text-[10px] font-black uppercase tracking-widest gap-2"
             onClick={handleLogout}
             disabled={loading}
           >
-            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogOut className="w-4 h-4 mr-2" />}
+            {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}
             Sign Out
           </Button>
         </div>
-
-          <Tabs defaultValue="account" className="space-y-6">
-            <div className="relative">
-              <TabsList className="flex h-11 items-center justify-start gap-1 rounded-xl border border-white/10 bg-white/5 p-1 overflow-x-auto no-scrollbar w-full md:w-max">
-                <TabsTrigger 
-                  value="account" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-                >
-                  <User className="w-4 h-4 shrink-0" />
-                  <span>Account</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="api-keys" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-                >
-                  <Key className="w-4 h-4 shrink-0" />
-                  <span>API Keys</span>
-                </TabsTrigger>
-                  <TabsTrigger 
-                    value="risk" 
-                    className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-                  >
-                    <ShieldCheck className="w-4 h-4 shrink-0" />
-                    <span>Risk</span>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="history" 
-                    className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-                  >
-                    <History className="w-4 h-4 shrink-0" />
-                    <span>History</span>
-                  </TabsTrigger>
-                <TabsTrigger 
-                  value="analysis" 
-                  className="flex items-center gap-2 px-3 py-2 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-xs md:text-sm whitespace-nowrap"
-                >
-                  <BarChart3 className="w-4 h-4 shrink-0" />
-                  <span>Analysis</span>
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-          <div className="mt-6">
-            <TabsContent value="account" className="space-y-6 mt-0">
-              <div className="grid gap-6 md:grid-cols-2">
-                <Card className="bg-white/5 border-white/10">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg">Profile Information</CardTitle>
-                    <CardDescription className="text-white/40">Update your personal details.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ProfileForm />
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white/5 border-white/10">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg">Change Password</CardTitle>
-                    <CardDescription className="text-white/40">Ensure your account is using a long, random password.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <PasswordForm />
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white/5 border-white/10 md:col-span-2">
-                    <CardHeader>
-                      <CardTitle className="text-white text-lg flex items-center gap-2">
-                        <CreditCard className="w-5 h-5 text-blue-400" />
-                        Plan Details
-                      </CardTitle>
-                      <CardDescription className="text-white/40">Manage your subscription and billing.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {loadingSubscription ? (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader2 className="w-6 h-6 animate-spin text-white/30" />
-                        </div>
-                      ) : subscription?.status === "active" ? (
-                        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              {currentPlan && (
-                                <div className={cn(
-                                  "w-10 h-10 rounded-lg flex items-center justify-center",
-                                  currentPlan.color === "green" && "bg-green-500/20",
-                                  currentPlan.color === "blue" && "bg-blue-500/20",
-                                  currentPlan.color === "purple" && "bg-purple-500/20"
-                                )}>
-                                  <currentPlan.icon className={cn(
-                                    "w-5 h-5",
-                                    currentPlan.color === "green" && "text-green-400",
-                                    currentPlan.color === "blue" && "text-blue-400",
-                                    currentPlan.color === "purple" && "text-purple-400"
-                                  )} />
-                                </div>
-                              )}
-                              <div>
-                                <p className="font-semibold text-white">{currentPlan?.name || subscription.plan_name} Plan</p>
-                                <p className="text-xs text-white/50">{currentPlan?.subtitle}</p>
-                              </div>
-                            </div>
-                            <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Active</Badge>
-                          </div>
-                          <div className="mt-4 pt-4 border-t border-green-500/20 flex items-center justify-between">
-                            <div className="text-sm text-white/60">
-                              <span>Next billing: </span>
-                              <span className="text-white">
-                                {subscription.current_period_end 
-                                  ? new Date(subscription.current_period_end).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
-                                  : "N/A"
-                                }
-                              </span>
-                            </div>
-                            <Link href="/pricing">
-                              <Button variant="outline" size="sm" className="border-white/10 text-white hover:bg-white/5">
-                                Change Plan
-                              </Button>
-                            </Link>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                          <div className="flex items-center gap-3">
-                            <Info className="w-5 h-5 text-amber-400" />
-                            <div>
-                              <p className="font-medium text-amber-400">No Active Subscription</p>
-                              <p className="text-xs text-amber-300/60">Subscribe to unlock all platform features</p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <h3 className="text-sm font-medium text-white/70 mb-4">Available Plans</h3>
-                        <div className="grid md:grid-cols-3 gap-4">
-                          {SUBSCRIPTION_PLANS.map((plan) => (
-                            <div
-                              key={plan.id}
-                              className={cn(
-                                "relative p-4 rounded-xl border transition-all",
-                                subscription?.plan_id === plan.id
-                                  ? "bg-blue-500/10 border-blue-500/30"
-                                  : "bg-white/5 border-white/10 hover:border-white/20"
-                              )}
-                            >
-                              {plan.popular && (
-                                <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-blue-500 text-white border-none text-xs">
-                                  Popular
-                                </Badge>
-                              )}
-                              
-                              <div className="flex items-center gap-2 mb-3">
-                                <div className={cn(
-                                  "w-8 h-8 rounded-lg flex items-center justify-center",
-                                  plan.color === "green" && "bg-green-500/20",
-                                  plan.color === "blue" && "bg-blue-500/20",
-                                  plan.color === "purple" && "bg-purple-500/20"
-                                )}>
-                                  <plan.icon className={cn(
-                                    "w-4 h-4",
-                                    plan.color === "green" && "text-green-400",
-                                    plan.color === "blue" && "text-blue-400",
-                                    plan.color === "purple" && "text-purple-400"
-                                  )} />
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold text-white text-sm">{plan.name}</h4>
-                                  <p className="text-xs text-white/40">{plan.subtitle}</p>
-                                </div>
-                              </div>
-
-                              <div className="mb-3">
-                                <span className="text-2xl font-bold text-white">₹{plan.price.toLocaleString("en-IN")}</span>
-                                <span className="text-white/50 text-sm">/month</span>
-                              </div>
-
-                              <div className="space-y-2 mb-4">
-                                {plan.features.slice(0, 4).map((feature, i) => (
-                                  <div key={i} className="flex items-center gap-2">
-                                    {feature.included ? (
-                                      <Check className="w-3 h-3 text-green-400" />
-                                    ) : (
-                                      <X className="w-3 h-3 text-white/20" />
-                                    )}
-                                    <span className={cn(
-                                      "text-xs",
-                                      feature.included ? "text-white/70" : "text-white/30"
-                                    )}>
-                                      {feature.text}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-
-                              <div className="p-2 bg-white/5 rounded-lg mb-3">
-                                <p className="text-[10px] text-white/40 italic">{plan.sebiLabel}</p>
-                              </div>
-
-                              {subscription?.plan_id === plan.id ? (
-                                <Badge className="w-full justify-center bg-blue-500/20 text-blue-400 border-blue-500/30">
-                                  Current Plan
-                                </Badge>
-                              ) : (
-                                <Link href="/pricing" className="block">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="w-full border-white/10 text-white hover:bg-white/5"
-                                  >
-                                    {subscription?.status === "active" ? "Switch" : "Subscribe"}
-                                    <ArrowRight className="w-3 h-3 ml-1" />
-                                  </Button>
-                                </Link>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
-                        <p className="text-[10px] text-white/40 text-center">
-                          AiRA is a software platform providing analytical and automation tools only. 
-                          It does not provide investment advice or trading recommendations.{" "}
-                          <Link href="/legal/terms" className="text-blue-400 hover:underline">Terms</Link> ·{" "}
-                          <Link href="/legal/risk-disclosure" className="text-blue-400 hover:underline">Risk Disclosure</Link>
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="api-keys" className="mt-0">
-              <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg">Broker API Keys</CardTitle>
-                  <CardDescription className="text-white/40">Connect your Zerodha account to enable execution automation.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ApiKeysForm />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-              <TabsContent value="risk" className="mt-0">
-                <Card className="bg-white/5 border-white/10">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg">Risk Settings</CardTitle>
-                    <CardDescription className="text-white/40">Configure your trading limits and allowed segments.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <RiskSettingsForm />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-
-            <TabsContent value="history" className="mt-0">
-              <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg">Trading History</CardTitle>
-                  <CardDescription className="text-white/40">Review your past actions executed via automation.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <TradingHistory />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="analysis" className="mt-0">
-              <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg">AI Performance Reports</CardTitle>
-                  <CardDescription className="text-white/40">Deep dive into your trading performance and AI improvements.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <AIAnalysisReports />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </div>
-        </Tabs>
-
-        {/* Mobile Sign Out */}
-        <div className="pt-8 pb-4 md:hidden">
-          <Button 
-            variant="ghost" 
-            className="w-full text-red-400 hover:text-red-300 hover:bg-red-400/10 justify-start"
-            onClick={handleLogout}
-            disabled={loading}
-          >
-            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogOut className="w-4 h-4 mr-2" />}
-            Sign Out from Account
-          </Button>
-        </div>
       </div>
+
+      <Tabs defaultValue="account" className="w-full">
+        <TabsList className="bg-white/5 border border-white/5 p-1 h-11 w-full md:w-fit overflow-x-auto no-scrollbar justify-start">
+          <TabsTrigger value="account" className="gap-2 text-[10px] font-black uppercase tracking-tighter data-[state=active]:bg-white/10">
+            <User className="h-3.5 w-3.5" />
+            Account
+          </TabsTrigger>
+          <TabsTrigger value="api-keys" className="gap-2 text-[10px] font-black uppercase tracking-tighter data-[state=active]:bg-white/10">
+            <Key className="h-3.5 w-3.5" />
+            API Keys
+          </TabsTrigger>
+          <TabsTrigger value="risk" className="gap-2 text-[10px] font-black uppercase tracking-tighter data-[state=active]:bg-white/10">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Risk
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-2 text-[10px] font-black uppercase tracking-tighter data-[state=active]:bg-white/10">
+            <History className="h-3.5 w-3.5" />
+            History
+          </TabsTrigger>
+          <TabsTrigger value="analysis" className="gap-2 text-[10px] font-black uppercase tracking-tighter data-[state=active]:bg-white/10">
+            <BarChart3 className="h-3.5 w-3.5" />
+            Analysis
+          </TabsTrigger>
+        </TabsList>
+
+        <div className="mt-4">
+          <TabsContent value="account" className="space-y-4 mt-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm overflow-hidden">
+                <CardHeader className="p-4 md:p-5 border-b border-white/5">
+                  <CardTitle className="text-sm font-bold text-white uppercase tracking-tight">Profile Information</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 md:p-6">
+                  <ProfileForm />
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm overflow-hidden">
+                <CardHeader className="p-4 md:p-5 border-b border-white/5">
+                  <CardTitle className="text-sm font-bold text-white uppercase tracking-tight">Security</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 md:p-6">
+                  <PasswordForm />
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm overflow-hidden md:col-span-2">
+                <CardHeader className="p-4 md:p-5 border-b border-white/5">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-blue-400" />
+                    <CardTitle className="text-sm font-bold text-white uppercase tracking-tight">Subscription Plan</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 md:p-6 space-y-6">
+                  {loadingSubscription ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-6 h-6 animate-spin text-white/20" />
+                    </div>
+                  ) : subscription?.status === "active" ? (
+                    <div className="p-5 bg-green-400/5 border border-green-400/10 rounded-2xl">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-4">
+                          {currentPlan && (
+                            <div className={cn(
+                              "w-12 h-12 rounded-xl flex items-center justify-center shadow-lg",
+                              currentPlan.color === "green" && "bg-green-400/10 text-green-400",
+                              currentPlan.color === "blue" && "bg-blue-400/10 text-blue-400",
+                              currentPlan.color === "purple" && "bg-purple-400/10 text-purple-400"
+                            )}>
+                              <currentPlan.icon className="w-6 h-6" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-black text-white uppercase tracking-tight">{currentPlan?.name || subscription.plan_name} PLAN</p>
+                            <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{currentPlan?.subtitle}</p>
+                          </div>
+                        </div>
+                        <Badge className="bg-green-400 text-black border-none text-[10px] font-black h-5 px-2">ACTIVE</Badge>
+                      </div>
+                      <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                        <div className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
+                          Renewal: <span className="text-white/60">{subscription.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'N/A'}</span>
+                        </div>
+                        <Link href="/pricing">
+                          <Button variant="outline" size="sm" className="h-8 border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-white/5">Change Plan</Button>
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-5 bg-yellow-400/5 border border-yellow-400/10 rounded-2xl flex items-center gap-4">
+                      <Info className="w-5 h-5 text-yellow-400" />
+                      <div>
+                        <p className="text-xs font-black text-white uppercase tracking-tight">No Active Subscription</p>
+                        <p className="text-[10px] text-white/40 font-medium uppercase tracking-widest">Unlock premium features by choosing a plan.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {SUBSCRIPTION_PLANS.map((plan) => (
+                      <div
+                        key={plan.id}
+                        className={cn(
+                          "relative p-5 rounded-2xl border transition-all duration-300",
+                          subscription?.plan_id === plan.id
+                            ? "bg-blue-400/5 border-blue-400/30 ring-1 ring-blue-400/20"
+                            : "bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]"
+                        )}
+                      >
+                        {plan.popular && (
+                          <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-blue-500 rounded-full text-[8px] font-black uppercase tracking-widest text-white shadow-lg">
+                            Most Popular
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center",
+                            plan.color === "green" && "bg-green-400/10 text-green-400",
+                            plan.color === "blue" && "bg-blue-400/10 text-blue-400",
+                            plan.color === "purple" && "bg-purple-400/10 text-purple-400"
+                          )}>
+                            <plan.icon className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-white text-[11px] uppercase tracking-tight">{plan.name}</h4>
+                            <p className="text-[9px] text-white/30 uppercase font-bold tracking-widest">{plan.subtitle}</p>
+                          </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <span className="text-2xl font-black text-white tracking-tighter">₹{plan.price}</span>
+                          <span className="text-white/20 text-[10px] font-bold uppercase tracking-widest ml-1">/ mo</span>
+                        </div>
+
+                        <ul className="space-y-2 mb-6">
+                          {plan.features.map((feature, i) => (
+                            <li key={i} className="flex items-center gap-2">
+                              {feature.included ? (
+                                <Check className="w-3 h-3 text-green-400" />
+                              ) : (
+                                <X className="w-3 h-3 text-white/10" />
+                              )}
+                              <span className={cn(
+                                "text-[10px] font-bold uppercase tracking-tight",
+                                feature.included ? "text-white/60" : "text-white/20"
+                              )}>
+                                {feature.text}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+
+                        <div className="p-2 bg-white/5 rounded-lg mb-4">
+                          <p className="text-[8px] text-white/30 italic leading-tight text-center uppercase tracking-tighter font-medium">{plan.sebiLabel}</p>
+                        </div>
+
+                        {subscription?.plan_id === plan.id ? (
+                          <div className="w-full text-center py-2 text-[9px] font-black text-blue-400 uppercase tracking-widest bg-blue-400/10 rounded-xl">
+                            Active Plan
+                          </div>
+                        ) : (
+                          <Link href="/pricing" className="block">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full border-white/5 bg-white/5 text-[9px] font-black uppercase tracking-widest h-9 rounded-xl hover:bg-white/10 hover:text-white"
+                            >
+                              {subscription?.status === "active" ? "Switch" : "Choose Plan"}
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="api-keys" className="mt-0">
+            <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm overflow-hidden">
+              <CardHeader className="p-4 md:p-5 border-b border-white/5">
+                <CardTitle className="text-sm font-bold text-white uppercase tracking-tight">Broker Connectivity</CardTitle>
+                <CardDescription className="text-[10px] text-white/40 uppercase tracking-widest font-medium">Link your trading account for automated insights</CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6">
+                <ApiKeysForm />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="risk" className="mt-0">
+            <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm overflow-hidden">
+              <CardHeader className="p-4 md:p-5 border-b border-white/5">
+                <CardTitle className="text-sm font-bold text-white uppercase tracking-tight">Risk Parameters</CardTitle>
+                <CardDescription className="text-[10px] text-white/40 uppercase tracking-widest font-medium">Global guardrails for analysis and automation</CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6">
+                <RiskSettingsForm />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-0">
+            <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm overflow-hidden">
+              <CardHeader className="p-4 md:p-5 border-b border-white/5">
+                <CardTitle className="text-sm font-bold text-white uppercase tracking-tight">Automation Log</CardTitle>
+                <CardDescription className="text-[10px] text-white/40 uppercase tracking-widest font-medium">Historical record of all system-guided actions</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <TradingHistory />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="analysis" className="mt-0">
+            <Card className="bg-white/[0.02] border-white/10 backdrop-blur-sm overflow-hidden">
+              <CardHeader className="p-4 md:p-5 border-b border-white/5">
+                <CardTitle className="text-sm font-bold text-white uppercase tracking-tight">Performance Intelligence</CardTitle>
+                <CardDescription className="text-[10px] text-white/40 uppercase tracking-widest font-medium">Deep dive into AI-guided strategy performance</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <AIAnalysisReports />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </div>
+      </Tabs>
     </div>
   );
 }

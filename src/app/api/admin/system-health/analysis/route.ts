@@ -59,14 +59,14 @@ interface SystemHealthAnalysis {
 
 export async function GET(request: NextRequest) {
   const authResult = await getAuthenticatedUser();
-  if (!authResult.authenticated || !authResult.user) {
+  if (!authResult.authenticated || !authResult.userId) {
     return unauthorizedResponse();
   }
 
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("role")
-    .eq("id", authResult.user.id)
+    .eq("id", authResult.userId)
     .single();
 
   if (profile?.role !== "admin") {

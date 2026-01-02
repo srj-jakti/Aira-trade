@@ -581,18 +581,53 @@ function ZerodhaConfigDialog({
     }
   };
 
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const redirectUrl = `${baseUrl}/api/admin/zerodha-configs/callback`;
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="bg-[#0a0a0a] border-white/10 text-white max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{editConfig ? "Edit" : "Add"} Zerodha Configuration</DialogTitle>
-          <DialogDescription className="text-white/50">
-            {editConfig 
-              ? "Update the configuration. Leave credential fields empty to keep existing values."
-              : "Add a new Zerodha API configuration for market data access."}
-          </DialogDescription>
-        </DialogHeader>
-          <div className="grid gap-4 py-4">
+      <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+        <DialogContent className="bg-[#0a0a0a] border-white/10 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editConfig ? "Edit" : "Add"} Zerodha Configuration</DialogTitle>
+            <DialogDescription className="text-white/50">
+              {editConfig 
+                ? "Update the configuration. Leave credential fields empty to keep existing values."
+                : "Add a new Zerodha API configuration for market data access."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg mb-4">
+            <div className="flex items-start gap-3">
+              <Globe className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-blue-400 font-medium text-sm mb-1">Kite Connect Redirect URL</p>
+                <p className="text-white/60 text-xs mb-2">
+                  Use this URL as the Redirect URL when creating your Kite Connect app at{" "}
+                  <a href="https://developers.kite.trade" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                    developers.kite.trade
+                  </a>
+                </p>
+                <div className="flex items-center gap-2 p-2 bg-black/30 rounded border border-white/10">
+                  <code className="text-green-400 text-xs flex-1 break-all">{redirectUrl}</code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(redirectUrl)}
+                    className="text-white/60 hover:text-white h-7 px-2"
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+            <div className="grid gap-4 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-white/60">Configuration Name</Label>

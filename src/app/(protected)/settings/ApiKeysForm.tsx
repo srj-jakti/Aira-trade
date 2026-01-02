@@ -5,10 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Key, ShieldCheck, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { Loader2, Key, ShieldCheck, CheckCircle2, XCircle, ExternalLink, Globe, Copy, Check } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 function ApiKeysFormContent() {
+  const [copied, setCopied] = useState(false);
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const redirectUrl = `${baseUrl}/api/user/broker/callback`;
+
+  const copyToClipboard = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success("Redirect URL copied!");
+    setTimeout(() => setCopied(false), 2000);
+  };
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -200,9 +210,36 @@ function ApiKeysFormContent() {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
+    return (
+      <div className="space-y-6">
+        <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+          <div className="flex items-start gap-3">
+            <Globe className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-blue-400 font-medium text-sm mb-1">Kite Connect Redirect URL</p>
+              <p className="text-white/60 text-xs mb-2">
+                When creating your Kite Connect app at{" "}
+                <a href="https://developers.kite.trade" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                  developers.kite.trade
+                </a>
+                , use this URL as the Redirect URL:
+              </p>
+              <div className="flex items-center gap-2 p-2 bg-black/30 rounded border border-white/10">
+                <code className="text-green-400 text-xs flex-1 break-all">{redirectUrl}</code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(redirectUrl)}
+                  className="text-white/60 hover:text-white h-7 px-2"
+                >
+                  {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-lg ${status === 'connected' ? 'bg-green-500/10 text-green-500' : status === 'keys_saved' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'}`}>
             {status === 'connected' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}

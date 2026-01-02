@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BrainCircuit, LineChart, Target, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw, ArrowUp, ArrowDown, Loader2, ChevronDown, Eye, EyeOff, Settings2, Info } from "lucide-react";
+import { BrainCircuit, LineChart, Target, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw, ArrowUp, ArrowDown, Loader2, ChevronDown, Eye, EyeOff, Settings2, Info, Wifi, WifiOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { InstrumentSearch, type Instrument } from "@/components/InstrumentSearch";
 import { TradingViewChart, type CandleData } from "@/components/TradingViewChart";
 import { cn } from "@/lib/utils";
+import { useLiveCandles } from "@/hooks/use-live-candles";
+import { useLatestPrice } from "@/hooks/use-realtime-ticks";
 
 interface AnalysisResult {
   trend: string;
@@ -70,7 +72,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
       lot_size: 1,
       tick_size: 0.05
     } as Instrument);
-    const [chartData, setChartData] = useState<CandleData[]>([]);
+    const [initialChartData, setInitialChartData] = useState<CandleData[]>([]);
     const [isLoadingChart, setIsLoadingChart] = useState(false);
     const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
     const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
@@ -82,6 +84,18 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     const [strategies, setStrategies] = useState<Strategy[]>([]);
     const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
 
+  const { candles: chartData, isConnected: isRealtimeConnected, refetch: refetchCandles } = useLiveCandles({
+    instrumentToken: selectedInstrument?.instrument_token || 0,
+    timeframe,
+    initialData: initialChartData,
+    enabled: !!selectedInstrument,
+  });
+
+  const { price: currentPrice, isConnected: isPriceConnected } = useLatestPrice({
+    instrumentToken: selectedInstrument?.instrument_token || 0,
+    enabled: !!selectedInstrument,
+  });
+
   const fetchChartData = useCallback(async (instrument: Instrument, tf: string) => {
     setIsLoadingChart(true);
     try {
@@ -91,7 +105,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
       
       if (response.ok) {
         const data = await response.json();
-        setChartData(data.candles || []);
+        setInitialChartData(data.candles || []);
       }
     } catch (error) {
       console.error("Error fetching chart data:", error);
@@ -166,7 +180,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
       fetchAnalysis(selectedInstrument, timeframe);
       fetchAnalysisOutputs(selectedInstrument);
     } else {
-      setChartData([]);
+      setInitialChartData([]);
       setAnalysis(null);
       setAnalysisOutputs([]);
     }
@@ -185,6 +199,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
       fetchChartData(selectedInstrument, timeframe);
       fetchAnalysis(selectedInstrument, timeframe);
       fetchAnalysisOutputs(selectedInstrument);
+      refetchCandles();
     }
   };
 
@@ -303,25 +318,43 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
-          <Card className="bg-white/5 border-white/10 overflow-hidden">
-            <CardHeader className="p-3 md:p-4 border-b border-white/10">
-              <CardTitle className="text-sm font-medium flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <LineChart className="w-4 h-4 text-blue-400" />
-                  {selectedInstrument ? (
-                    <span>
-                      {selectedInstrument.tradingsymbol}
-                      <span className="text-white/50 ml-2 text-xs">{selectedInstrument.exchange}</span>
-                    </span>
-                  ) : (
-                    "Market Chart"
-                  )}
-                </div>
-                {chartData.length > 0 && (
-                  <span className="text-xs text-white/40">{chartData.length} candles</span>
-                )}
-              </CardTitle>
-            </CardHeader>
+            <Card className="bg-white/5 border-white/10 overflow-hidden">
+              <CardHeader className="p-3 md:p-4 border-b border-white/10">
+                <CardTitle className="text-sm font-medium flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <LineChart className="w-4 h-4 text-blue-400" />
+                    {selectedInstrument ? (
+                      <span>
+                        {selectedInstrument.tradingsymbol}
+                        <span className="text-white/50 ml-2 text-xs">{selectedInstrument.exchange}</span>
+                        {currentPrice && (
+                          <span className="ml-2 font-mono text-green-400">
+                            ₹{currentPrice.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      "Market Chart"
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isRealtimeConnected ? (
+                      <div className="flex items-center gap-1 text-green-400">
+                        <Wifi className="w-3 h-3" />
+                        <span className="text-[10px] uppercase font-bold">Live</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-white/30">
+                        <WifiOff className="w-3 h-3" />
+                        <span className="text-[10px] uppercase">Offline</span>
+                      </div>
+                    )}
+                    {chartData.length > 0 && (
+                      <span className="text-xs text-white/40">{chartData.length} candles</span>
+                    )}
+                  </div>
+                </CardTitle>
+              </CardHeader>
             <CardContent className="p-0">
               <div className="h-[280px] md:h-[350px]">
                 <TradingViewChart

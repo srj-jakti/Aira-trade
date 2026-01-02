@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Card, 
   CardContent, 
@@ -29,12 +29,15 @@ import {
   History,
   Activity,
   Settings2,
-  Info
+  Info,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ScannerSettingsForm } from "../settings/ScannerSettingsForm";
 import { cn } from "@/lib/utils";
+import { useMultipleLatestPrices } from "@/hooks/use-realtime-ticks";
 
 interface AnalysisOutput {
   id: string;
@@ -58,6 +61,16 @@ export default function ScannerPage() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const supabase = createClient();
+
+  const instrumentTokens = useMemo(() => 
+    currentOutputs.map(o => parseInt(o.instrument_token)).filter(t => !isNaN(t)),
+    [currentOutputs]
+  );
+
+  const { prices: livePrices, isConnected: isPricesConnected, getPrice } = useMultipleLatestPrices(
+    instrumentTokens,
+    instrumentTokens.length > 0
+  );
 
   useEffect(() => {
     fetchScannerStatus();
@@ -267,9 +280,24 @@ export default function ScannerPage() {
         <TabsContent value="current" className="mt-3 space-y-3">
           <Card className="bg-white/5 border-white/10 overflow-hidden">
             <CardHeader className="bg-white/[0.02] border-b border-white/5 py-3">
-              <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
-                <Activity className="size-3.5 text-blue-400" />
-                Live Analysis
+              <CardTitle className="text-sm font-bold text-white flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Activity className="size-3.5 text-blue-400" />
+                  Live Analysis
+                </div>
+                <div className="flex items-center gap-1">
+                  {isPricesConnected ? (
+                    <div className="flex items-center gap-1 text-green-400">
+                      <Wifi className="size-3" />
+                      <span className="text-[9px] uppercase font-bold">Live Prices</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-white/30">
+                      <WifiOff className="size-3" />
+                      <span className="text-[9px] uppercase">Offline</span>
+                    </div>
+                  )}
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -285,41 +313,57 @@ export default function ScannerPage() {
                     <TableRow className="border-white/5 hover:bg-transparent">
                       <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Symbol</TableHead>
                       <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Dir</TableHead>
-                      <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Entry/Current</TableHead>
+                      <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Entry/Live</TableHead>
                       <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Target/SL</TableHead>
                       <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest text-right">P&L</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {currentOutputs.map((output) => (
-                      <TableRow key={output.id} className="border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer">
-                        <TableCell className="font-bold text-white text-xs uppercase">{output.tradingsymbol}</TableCell>
-                        <TableCell>
-                          <Badge className={cn(
-                            "text-[8px] font-black px-1.5 py-0 border-none",
-                            output.direction === 'LONG' ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                          )}>
-                            {output.direction}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-[11px] font-mono">
-                          <div className="text-white/60">E: ₹{output.entry_price.toFixed(2)}</div>
-                          <div className="text-white/40 text-[9px]">C: ₹{(output.current_price || output.entry_price).toFixed(2)}</div>
-                        </TableCell>
-                        <TableCell className="text-[10px] font-medium">
-                          <div className="text-green-500/60">T: ₹{output.target_price.toFixed(2)}</div>
-                          <div className="text-red-500/60">S: ₹{output.sl_price.toFixed(2)}</div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className={cn("font-bold text-xs", (output.pnl || 0) >= 0 ? 'text-green-400' : 'text-red-400')}>
-                            {output.pnl ? `₹${output.pnl.toFixed(1)}` : '-'}
-                          </div>
-                          <div className="text-[9px] text-white/20 font-medium">
-                            {getStatusBadge(output.status)}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {currentOutputs.map((output) => {
+                      const token = parseInt(output.instrument_token);
+                      const livePrice = getPrice(token);
+                      const currentPrice = livePrice || output.current_price || output.entry_price;
+                      const priceDiff = currentPrice - output.entry_price;
+                      const pnlPercent = (priceDiff / output.entry_price) * 100;
+                      const isLong = output.direction === 'LONG';
+                      const unrealizedPnl = isLong ? priceDiff : -priceDiff;
+                      
+                      return (
+                        <TableRow key={output.id} className="border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer">
+                          <TableCell className="font-bold text-white text-xs uppercase">{output.tradingsymbol}</TableCell>
+                          <TableCell>
+                            <Badge className={cn(
+                              "text-[8px] font-black px-1.5 py-0 border-none",
+                              output.direction === 'LONG' ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                            )}>
+                              {output.direction}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-[11px] font-mono">
+                            <div className="text-white/40 text-[9px]">E: ₹{output.entry_price.toFixed(2)}</div>
+                            <div className={cn(
+                              "font-bold",
+                              livePrice ? (unrealizedPnl >= 0 ? "text-green-400" : "text-red-400") : "text-white/60"
+                            )}>
+                              L: ₹{currentPrice.toFixed(2)}
+                              {livePrice && <span className="text-[8px] ml-1">({pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%)</span>}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-[10px] font-medium">
+                            <div className="text-green-500/60">T: ₹{output.target_price.toFixed(2)}</div>
+                            <div className="text-red-500/60">S: ₹{output.sl_price.toFixed(2)}</div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className={cn("font-bold text-xs", unrealizedPnl >= 0 ? 'text-green-400' : 'text-red-400')}>
+                              {livePrice ? `₹${unrealizedPnl.toFixed(1)}` : (output.pnl ? `₹${output.pnl.toFixed(1)}` : '-')}
+                            </div>
+                            <div className="text-[9px] text-white/20 font-medium">
+                              {getStatusBadge(output.status)}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}

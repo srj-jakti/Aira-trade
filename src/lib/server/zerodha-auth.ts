@@ -10,35 +10,48 @@ const BASE_HEADERS = {
   "X-Kite-Version": "3",
 };
 
-const DEBUG = process.env.NODE_ENV === "development";
+const DEBUG = true; // Forced for debugging auto-login issues
 
 function log(...args: unknown[]) {
   if (DEBUG) console.log(...args);
 }
 
-function extractCookies(response: Response): string[] {
-  const cookies: string[] = [];
+function extractCookies(response: Response, existingCookies: Map<string, string> = new Map()): Map<string, string> {
+  const cookieMap = new Map(existingCookies);
   
+  const getCookiesFromHeader = (header: string | null) => {
+    if (!header) return;
+    header.split(/,\s*(?=[A-Za-z_][A-Za-z0-9_]*=)/).forEach(c => {
+      const cookiePart = c.trim().split(';')[0];
+      if (cookiePart) {
+        const [name, ...valueParts] = cookiePart.split('=');
+        if (name) cookieMap.set(name.trim(), valueParts.join('='));
+      }
+    });
+  };
+
   // @ts-expect-error - getSetCookie is available in modern Node.js
   if (typeof response.headers.getSetCookie === 'function') {
     // @ts-expect-error
     const setCookies = response.headers.getSetCookie();
     setCookies.forEach((c: string) => {
-      const part = c.split(';')[0];
-      if (part && !cookies.includes(part)) cookies.push(part);
+      const cookiePart = c.split(';')[0];
+      if (cookiePart) {
+        const [name, ...valueParts] = cookiePart.split('=');
+        if (name) cookieMap.set(name.trim(), valueParts.join('='));
+      }
     });
+  } else {
+    getCookiesFromHeader(response.headers.get('set-cookie'));
   }
   
-  if (cookies.length === 0) {
-    const raw = response.headers.get('set-cookie');
-    if (raw) {
-      raw.split(/,\s*(?=[A-Za-z_][A-Za-z0-9_]*=)/).forEach(c => {
-        const part = c.trim().split(';')[0];
-        if (part && !cookies.includes(part)) cookies.push(part);
-      });
-    }
-  }
-  return cookies;
+  return cookieMap;
+}
+
+function cookieMapToString(cookieMap: Map<string, string>): string {
+  return Array.from(cookieMap.entries())
+    .map(([name, value]) => `${name}=${value}`)
+    .join('; ');
 }
 
 export async function performZerodhaFullLogin(config: {
@@ -51,6 +64,8 @@ export async function performZerodhaFullLogin(config: {
   try {
     log("[Zerodha Auth] Starting login for user:", config.user_id);
     
+    let cookies = new Map<string, string>();
+
     const loginResp = await fetch("https://kite.zerodha.com/api/login", {
       method: "POST",
       headers: BASE_HEADERS,
@@ -68,8 +83,8 @@ export async function performZerodhaFullLogin(config: {
 
     const requestId = loginData.data.request_id;
     const userId = loginData.data.user_id || config.user_id;
-    const loginCookies = extractCookies(loginResp);
-    log("[Zerodha Auth] Step 1 Success");
+    cookies = extractCookies(loginResp, cookies);
+    log("[Zerodha Auth] Step 1 Success, Cookies count:", cookies.size);
 
     const secret = config.totp_secret.replace(/\s+/g, "");
     const totp = new OTPAuth.TOTP({
@@ -94,7 +109,7 @@ export async function performZerodhaFullLogin(config: {
       method: "POST",
       headers: {
         ...BASE_HEADERS,
-        "Cookie": loginCookies.join("; "),
+        "Cookie": cookieMapToString(cookies),
       },
       body: twofaBody.toString(),
     });
@@ -105,43 +120,62 @@ export async function performZerodhaFullLogin(config: {
       return { success: false, error: twofaData.message || "2FA step failed" };
     }
 
-    const twofaCookies = extractCookies(twofaResp);
-    const allCookies = [...loginCookies, ...twofaCookies];
-    log("[Zerodha Auth] Step 2 Success");
+    cookies = extractCookies(twofaResp, cookies);
+    log("[Zerodha Auth] Step 2 Success, Cookies count:", cookies.size);
     
-    let enctoken = null;
-    allCookies.forEach(c => {
-      if (c.startsWith("enctoken=")) enctoken = c.split("=")[1];
+    // Visit home page once to solidify session
+    log("[Zerodha Auth] Solidifying session...");
+    const homeResp = await fetch("https://kite.zerodha.com/dashboard", {
+      headers: {
+        ...BASE_HEADERS,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Cookie": cookieMapToString(cookies),
+      }
     });
-
+    cookies = extractCookies(homeResp, cookies);
+    
+    const enctoken = cookies.get("enctoken");
     if (!enctoken) {
       return { success: false, error: "Failed to obtain enctoken from cookies" };
     }
 
     log("[Zerodha Auth] Step 3: Starting OAuth flow");
     const oauthUrl = `https://kite.trade/connect/login?v=3&api_key=${config.api_key}`;
-    const cookieString = `enctoken=${enctoken}; ${allCookies.join("; ")}`;
     
     let currentUrl = oauthUrl;
     let requestToken = null;
     
     for (let i = 0; i < 10; i++) {
+      const cookieString = cookieMapToString(cookies);
+      log("[Zerodha Auth] OAuth loop", i, "URL:", currentUrl);
+      
+      const oauthHeaders: Record<string, string> = {
+        "User-Agent": BASE_HEADERS["User-Agent"],
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "max-age=0",
+        "Connection": "keep-alive",
+        "Cookie": cookieString
+      };
+      
       const resp = await fetch(currentUrl, {
         method: "GET",
-        headers: {
-          ...BASE_HEADERS,
-          "Cookie": cookieString
-        },
+        headers: oauthHeaders,
         redirect: "manual"
       });
 
+      log("[Zerodha Auth] OAuth response status:", resp.status);
+      cookies = extractCookies(resp, cookies);
+
       if ([301, 302, 307].includes(resp.status)) {
         const location = resp.headers.get("location");
+        log("[Zerodha Auth] Redirecting to:", location);
         if (!location) break;
 
         const match = location.match(/[?&]request_token=([^&]+)/);
         if (match) {
           requestToken = match[1];
+          log("[Zerodha Auth] Found request_token in redirect:", requestToken);
           break;
         }
 
@@ -149,38 +183,56 @@ export async function performZerodhaFullLogin(config: {
       } 
       else if (resp.status === 200) {
         const text = await resp.text();
+        log("[Zerodha Auth] 200 OK, text length:", text.length);
         
         const match = text.match(/[?&]request_token=([^&"'\s]+)/);
         if (match) {
           requestToken = match[1];
+          log("[Zerodha Auth] Found request_token in text:", requestToken);
           break;
         }
 
         if (text.includes("Authorize")) {
+          log("[Zerodha Auth] Found Authorize button, attempting auto-approve");
           const sessIdMatch = currentUrl.match(/[?&]sess_id=([^&]+)/);
-          if (!sessIdMatch) break;
+          if (!sessIdMatch) {
+            log("[Zerodha Auth] sess_id not found in URL:", currentUrl);
+            break;
+          }
           
           const actionUrl = `https://kite.zerodha.com/connect/login?api_key=${config.api_key}&sess_id=${sessIdMatch[1]}`;
+          log("[Zerodha Auth] POST to actionUrl:", actionUrl);
           
           const approveResp = await fetch(actionUrl, {
             method: "POST",
-            headers: { ...BASE_HEADERS, "Cookie": cookieString },
+            headers: { ...BASE_HEADERS, "Cookie": cookieMapToString(cookies) },
             body: new URLSearchParams({ skipApi: "true" }).toString(),
             redirect: "manual"
           });
           
+          log("[Zerodha Auth] Approve response status:", approveResp.status);
+          cookies = extractCookies(approveResp, cookies);
           const loc = approveResp.headers.get("location");
+          log("[Zerodha Auth] Approve redirect loc:", loc);
           
           if (loc) {
             const rtMatch = loc.match(/request_token=([^&]+)/);
             if (rtMatch) {
               requestToken = rtMatch[1];
+              log("[Zerodha Auth] Found request_token after approve:", requestToken);
               break;
             }
+            currentUrl = loc.startsWith("http") ? loc : `https://kite.zerodha.com${loc}`;
+            log("[Zerodha Auth] Following redirect after approve:", currentUrl);
+            continue; 
           }
+        } else {
+          log("[Zerodha Auth] No request_token or Authorize button found in 200 OK response");
+          log("[Zerodha Auth] Response text snippet:", text.substring(0, 500));
         }
         break;
       } else {
+        log("[Zerodha Auth] Unexpected status:", resp.status);
         break;
       }
     }

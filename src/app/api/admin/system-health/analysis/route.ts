@@ -158,22 +158,25 @@ Keep the analysis concise but actionable. Focus on practical recommendations wit
 async function analyzeSystemHealth(): Promise<SystemHealthAnalysis> {
   const recommendations: ScalingRecommendation[] = [];
 
-  const { data: apiKeyConfigs } = await supabaseAdmin
-    .from("api_key_configs")
-    .select("id, tier_assignment, is_active");
-
   const { data: zerodhaConfigs } = await supabaseAdmin
     .from("admin_zerodha_configs")
-    .select("id, connection_status, is_active")
+    .select("id, name, connection_status, is_active, is_authorized, priority")
+    .eq("is_active", true)
+    .order("priority");
+
+  const { data: aiConfigs } = await supabaseAdmin
+    .from("admin_ai_configs")
+    .select("id, is_active")
     .eq("is_active", true);
 
-  const configuredKeys = apiKeyConfigs?.length || 0;
-  const activeKeys = zerodhaConfigs?.filter(c => c.connection_status === "connected").length || 0;
+  const configuredKeys = zerodhaConfigs?.length || 0;
+  const connectedKeys = zerodhaConfigs?.filter(c => c.connection_status === "connected" && c.is_authorized).length || 0;
+  const activeKeys = connectedKeys;
   
   const tiers = {
-    CORE: apiKeyConfigs?.some(c => c.tier_assignment === "CORE" && c.is_active) || false,
-    POPULAR: apiKeyConfigs?.some(c => c.tier_assignment === "POPULAR" && c.is_active) || false,
-    TEMP: apiKeyConfigs?.some(c => c.tier_assignment === "TEMP" && c.is_active) || false,
+    CORE: connectedKeys >= 1,
+    POPULAR: connectedKeys >= 2,
+    TEMP: connectedKeys >= 3,
   };
 
   const { data: subscriptions } = await supabaseAdmin
@@ -226,46 +229,47 @@ async function analyzeSystemHealth(): Promise<SystemHealthAnalysis> {
     .from("ai_signals")
     .select("*", { count: "exact", head: true });
 
-  if (configuredKeys < 3) {
-    const neededKeys = 3 - configuredKeys;
-    recommendations.push({
-      category: "api_keys",
-      severity: configuredKeys === 0 ? "critical" : "warning",
-      title: `Add ${neededKeys} More Zerodha API Key(s)`,
-      description: `You have ${configuredKeys}/3 API keys configured. For optimal tier-based allocation, you need 3 keys: one for CORE, one for POPULAR, and one for TEMP instruments.`,
-      action: "Go to Admin > Zerodha Configs and add new API keys, then assign them to tiers in API Key Configs.",
-      threshold: "3 keys",
-      current: `${configuredKeys} keys`,
-    });
-  }
-
-  if (!tiers.CORE) {
-    recommendations.push({
-      category: "api_keys",
-      severity: "critical",
-      title: "No CORE Tier API Key",
-      description: "CORE instruments (NIFTY, BANKNIFTY, NIFTY50 stocks) require a dedicated API key that is always connected.",
-      action: "Assign one of your Zerodha API keys to the CORE tier.",
-    });
-  }
-
-  if (!tiers.POPULAR && activeKeys >= 2) {
+  const disconnectedKeys = zerodhaConfigs?.filter(c => c.connection_status !== "connected" || !c.is_authorized) || [];
+  
+  if (disconnectedKeys.length > 0) {
     recommendations.push({
       category: "api_keys",
       severity: "warning",
-      title: "No POPULAR Tier API Key",
-      description: "Scanner and watchlist instruments work best with a dedicated POPULAR tier key.",
-      action: "Assign one API key to the POPULAR tier for scanner functionality.",
+      title: `${disconnectedKeys.length} API Key(s) Not Connected`,
+      description: `Keys not connected: ${disconnectedKeys.map(k => k.name).join(", ")}. These need to be logged in.`,
+      action: "Go to Admin > APIs and click Login on disconnected keys.",
+      threshold: "0 disconnected",
+      current: `${disconnectedKeys.length} disconnected`,
     });
   }
 
-  if (!tiers.TEMP && activeKeys >= 3) {
+  if (connectedKeys === 0) {
     recommendations.push({
       category: "api_keys",
-      severity: "info",
-      title: "No TEMP Tier API Key",
-      description: "User chart requests will use fallback sockets. A dedicated TEMP tier key improves user experience.",
-      action: "Assign one API key to the TEMP tier for better chart loading.",
+      severity: "critical",
+      title: "No Zerodha API Keys Connected",
+      description: "No API keys are currently connected. Market data and trading features will not work.",
+      action: "Go to Admin > APIs and login to at least one Zerodha configuration.",
+    });
+  }
+
+  if (configuredKeys === 0) {
+    recommendations.push({
+      category: "api_keys",
+      severity: "critical",
+      title: "No Zerodha API Keys Configured",
+      description: "Add at least one Zerodha API configuration to enable market data features.",
+      action: "Go to Admin > APIs and add a new Zerodha configuration.",
+    });
+  }
+
+  if ((aiConfigs?.length || 0) === 0) {
+    recommendations.push({
+      category: "api_keys",
+      severity: "warning",
+      title: "No AI Provider Configured",
+      description: "AI analysis and strategy recommendations require an AI provider.",
+      action: "Go to Admin > AI and add an AI provider (OpenAI, Anthropic, etc.).",
     });
   }
 
@@ -385,14 +389,14 @@ async function analyzeSystemHealth(): Promise<SystemHealthAnalysis> {
     metrics: {
       apiKeys: {
         configured: configuredKeys,
-        active: activeKeys,
-        needed: 3,
+        active: connectedKeys,
+        needed: Math.max(1, configuredKeys),
         tiers,
       },
       subscriptions: subscriptionStats,
       websockets: {
-        total: activeKeys,
-        connected: engineStatus?.websocket_status === "connected" ? activeKeys : 0,
+        total: configuredKeys,
+        connected: connectedKeys,
         fallbackActive: 0,
       },
       performance: {

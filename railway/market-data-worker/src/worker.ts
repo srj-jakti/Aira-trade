@@ -114,9 +114,23 @@ class MarketDataWorker {
   private subscriptionRefreshInterval: NodeJS.Timeout | null = null;
   private pendingSubscriptionRequests: SubscriptionRequest[] = [];
 
-  constructor() {
-    this.subscriptionManager = new SubscriptionManager(supabase);
-  }
+    constructor() {
+      this.subscriptionManager = new SubscriptionManager(supabase);
+      this.subscriptionManager.setFallbackDestroyCallback((wsId) => {
+        this.destroyFallbackConnection(wsId);
+      });
+    }
+
+    private destroyFallbackConnection(websocketId: string): void {
+      const conn = this.connections.get(websocketId);
+      if (conn) {
+        console.log(`[MarketDataWorker] Destroying ephemeral fallback ${websocketId}`);
+        try {
+          conn.ticker.disconnect();
+        } catch (e) {}
+        this.connections.delete(websocketId);
+      }
+    }
 
   async start(): Promise<void> {
     console.log("[MarketDataWorker] Starting Multi-API-Key Architecture...");
@@ -322,24 +336,32 @@ class MarketDataWorker {
   }
 
   private async resubscribeTokens(websocketId: string): Promise<void> {
-    const tokens = this.subscriptionManager.getSubscribedTokensForWebSocket(websocketId);
-    const connection = this.connections.get(websocketId);
+      const connection = this.connections.get(websocketId);
+      if (!connection) return;
 
-    if (!connection || tokens.length === 0) return;
+      const { core, popular, temp } = this.subscriptionManager.getTokensForResubscription(websocketId);
+      const totalTokens = core.length + popular.length + temp.length;
 
-    console.log(`[MarketDataWorker][${websocketId}] Resubscribing ${tokens.length} tokens`);
+      if (totalTokens === 0) return;
 
-    const chunks: number[][] = [];
-    for (let i = 0; i < tokens.length; i += 500) {
-      chunks.push(tokens.slice(i, i + 500));
+      console.log(`[MarketDataWorker][${websocketId}] Resubscribing ${totalTokens} tokens in PRIORITY ORDER (CORE: ${core.length}, POPULAR: ${popular.length}, TEMP: ${temp.length})`);
+
+      const subscribeChunks = async (tokens: number[], tier: string) => {
+        if (tokens.length === 0) return;
+        console.log(`[MarketDataWorker][${websocketId}] Subscribing ${tier}: ${tokens.length} tokens`);
+        
+        for (let i = 0; i < tokens.length; i += 500) {
+          const chunk = tokens.slice(i, i + 500);
+          connection.ticker.subscribe(chunk);
+          connection.ticker.setMode(connection.ticker.modeQuote, chunk);
+          await new Promise(r => setTimeout(r, 100));
+        }
+      };
+
+      await subscribeChunks(core, "CORE");
+      await subscribeChunks(popular, "POPULAR");
+      await subscribeChunks(temp, "TEMP");
     }
-
-    for (const chunk of chunks) {
-      connection.ticker.subscribe(chunk);
-      connection.ticker.setMode(connection.ticker.modeQuote, chunk);
-      await new Promise(r => setTimeout(r, 100));
-    }
-  }
 
   private async subscribeToCore(): Promise<void> {
     console.log("[MarketDataWorker] Subscribing to CORE instruments...");

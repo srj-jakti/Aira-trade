@@ -1,224 +1,342 @@
+import { NextRequest } from "next/server";
 import {
-  getAdminUser,
+  getAuthenticatedUser,
   unauthorizedResponse,
-  forbiddenResponse,
-  serverErrorResponse,
   successResponse,
+  serverErrorResponse,
 } from "@/lib/server/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-interface AIRecommendation {
-  category: "zerodha" | "ai" | "database" | "scaling" | "user_experience";
-  severity: "critical" | "warning" | "info";
+interface ScalingRecommendation {
+  category: "api_keys" | "vercel" | "supabase" | "railway";
+  severity: "info" | "warning" | "critical";
   title: string;
   description: string;
   action: string;
+  threshold?: string;
+  current?: string;
 }
 
-export async function GET() {
-  const admin = await getAdminUser();
-  if (!admin.authenticated) return unauthorizedResponse();
-  if (!admin.isAdmin) return forbiddenResponse("Admin access required");
+interface SystemHealthAnalysis {
+  overall: "healthy" | "warning" | "critical";
+  score: number;
+  recommendations: ScalingRecommendation[];
+  metrics: {
+    apiKeys: {
+      configured: number;
+      active: number;
+      needed: number;
+      tiers: { CORE: boolean; POPULAR: boolean; TEMP: boolean };
+    };
+    subscriptions: {
+      total: number;
+      byTier: { CORE: number; POPULAR: number; TEMP: number };
+      capacity: number;
+      utilizationPercent: number;
+    };
+    websockets: {
+      total: number;
+      connected: number;
+      fallbackActive: number;
+    };
+    performance: {
+      ticksPerSecond: number;
+      avgQueryTime: number;
+      errorRate: number;
+    };
+    users: {
+      total: number;
+      activeToday: number;
+      tradingEnabled: number;
+    };
+    database: {
+      ticksCount: number;
+      candlesCount: number;
+      signalsCount: number;
+    };
+  };
+}
+
+export async function GET(request: NextRequest) {
+  const authResult = await getAuthenticatedUser();
+  if (!authResult.authenticated || !authResult.user) {
+    return unauthorizedResponse();
+  }
+
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("role")
+    .eq("id", authResult.user.id)
+    .single();
+
+  if (profile?.role !== "admin") {
+    return unauthorizedResponse();
+  }
 
   try {
-    const [zerodhaConfigs, aiConfigs, userCount, tradeCount, healthSnapshots, loginLogs, auditLogs] = await Promise.all([
-      supabaseAdmin.from("admin_zerodha_configs").select("*"),
-      supabaseAdmin.from("admin_ai_configs").select("*"),
-      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
-      supabaseAdmin.from("trade_history").select("id", { count: "exact", head: true }),
-      supabaseAdmin
-        .from("system_health_snapshots")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(24),
-      supabaseAdmin
-        .from("zerodha_login_logs")
-        .select("*")
-        .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-      supabaseAdmin
-        .from("audit_logs")
-        .select("*")
-        .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-        .order("created_at", { ascending: false })
-        .limit(500),
-    ]);
-
-    const recommendations: AIRecommendation[] = [];
-    const zerodhaData = zerodhaConfigs.data || [];
-    const aiData = aiConfigs.data || [];
-    const totalUsers = userCount.count || 0;
-    const totalTrades = tradeCount.count || 0;
-    const loginLogsData = loginLogs.data || [];
-
-    if (zerodhaData.length === 0) {
-      recommendations.push({
-        category: "zerodha",
-        severity: "critical",
-        title: "No Zerodha API Configured",
-        description: "No Zerodha API keys are configured. Users won't be able to access market data.",
-        action: "Add at least one Zerodha API configuration in the admin panel.",
-      });
-    } else {
-      const connectedCount = zerodhaData.filter((c) => c.connection_status === "connected").length;
-      const errorCount = zerodhaData.filter((c) => c.connection_status === "error").length;
-
-      if (connectedCount === 0) {
-        recommendations.push({
-          category: "zerodha",
-          severity: "critical",
-          title: "No Active Zerodha Connections",
-          description: "None of the configured Zerodha APIs are connected. Market data is unavailable.",
-          action: "Manually trigger login for Zerodha configurations or check credentials.",
-        });
-      }
-
-      if (errorCount > 0) {
-        recommendations.push({
-          category: "zerodha",
-          severity: "warning",
-          title: `${errorCount} Zerodha Connection(s) Failed`,
-          description: "Some Zerodha API configurations have connection errors.",
-          action: "Review error messages and fix credentials or retry connections.",
-        });
-      }
-
-      if (totalUsers > 50 && zerodhaData.length < 2) {
-        recommendations.push({
-          category: "zerodha",
-          severity: "warning",
-          title: "Add More Zerodha APIs for Redundancy",
-          description: `With ${totalUsers} users, having only ${zerodhaData.length} Zerodha API can cause rate limiting issues.`,
-          action: "Add additional Zerodha API configurations to distribute the load.",
-        });
-      }
-
-      const failedLogins = loginLogsData.filter((l) => l.status === "failed").length;
-      if (failedLogins > 10) {
-        recommendations.push({
-          category: "zerodha",
-          severity: "warning",
-          title: "High Zerodha Login Failure Rate",
-          description: `${failedLogins} failed login attempts in the last 7 days.`,
-          action: "Check Zerodha credentials and TOTP secrets. Consider refreshing API keys.",
-        });
-      }
-    }
-
-    if (aiData.length === 0) {
-      recommendations.push({
-        category: "ai",
-        severity: "critical",
-        title: "No AI API Configured",
-        description: "No AI API keys are configured. AI-powered features won't work.",
-        action: "Add at least one AI API configuration (OpenAI, Claude, Gemini, or Groq).",
-      });
-    } else {
-      const activeAI = aiData.filter((c) => c.is_active).length;
-      const defaultAI = aiData.find((c) => c.is_default);
-
-      if (activeAI === 0) {
-        recommendations.push({
-          category: "ai",
-          severity: "critical",
-          title: "No Active AI Configurations",
-          description: "All AI configurations are disabled. AI features won't work.",
-          action: "Enable at least one AI configuration.",
-        });
-      }
-
-      if (!defaultAI) {
-        recommendations.push({
-          category: "ai",
-          severity: "warning",
-          title: "No Default AI Provider Set",
-          description: "No AI provider is marked as default. The system will use the first available one.",
-          action: "Set a default AI provider for consistent behavior.",
-        });
-      }
-
-      const aiWithErrors = aiData.filter((c) => c.last_error).length;
-      if (aiWithErrors > 0) {
-        recommendations.push({
-          category: "ai",
-          severity: "warning",
-          title: `${aiWithErrors} AI Configuration(s) Have Errors`,
-          description: "Some AI configurations have recent errors.",
-          action: "Test AI configurations and check API keys.",
-        });
-      }
-
-      if (totalUsers > 100 && aiData.length < 2) {
-        recommendations.push({
-          category: "ai",
-          severity: "info",
-          title: "Consider Adding Backup AI Provider",
-          description: "Having multiple AI providers ensures availability if one goes down.",
-          action: "Add a secondary AI provider (e.g., if using OpenAI, add Claude as backup).",
-        });
-      }
-    }
-
-    if (totalUsers > 100) {
-      recommendations.push({
-        category: "scaling",
-        severity: "info",
-        title: "Growing User Base",
-        description: `You have ${totalUsers} users. Consider scaling resources.`,
-        action: "Review Supabase and Vercel plans. Consider upgrading to Pro plans for better performance.",
-      });
-    }
-
-    if (totalTrades > 10000) {
-      recommendations.push({
-        category: "database",
-        severity: "info",
-        title: "Large Trade History",
-        description: `${totalTrades} trades recorded. Consider archiving old data.`,
-        action: "Implement data archival strategy for trades older than 1 year.",
-      });
-    }
-
-    const now = new Date();
-    const marketOpenIST = new Date(now);
-    marketOpenIST.setUTCHours(3, 45, 0, 0);
-    if (now.getDay() !== 0 && now.getDay() !== 6) {
-      const tokenExpiringConfigs = zerodhaData.filter((c) => {
-        if (!c.token_expires_at) return true;
-        const expiry = new Date(c.token_expires_at);
-        return expiry < now;
-      });
-
-      if (tokenExpiringConfigs.length > 0) {
-        recommendations.push({
-          category: "zerodha",
-          severity: "warning",
-          title: "Expired Zerodha Tokens",
-          description: `${tokenExpiringConfigs.length} Zerodha token(s) have expired.`,
-          action: "Tokens should auto-refresh, but manual login may be needed if auto-login failed.",
-        });
-      }
-    }
-
-    recommendations.sort((a, b) => {
-      const severityOrder = { critical: 0, warning: 1, info: 2 };
-      return severityOrder[a.severity] - severityOrder[b.severity];
-    });
-
-    await supabaseAdmin.from("system_health_snapshots").upsert({
-      ai_recommendations: recommendations,
-      created_at: new Date().toISOString(),
-    });
-
-    return successResponse({
-      recommendations,
-      summary: {
-        critical: recommendations.filter((r) => r.severity === "critical").length,
-        warning: recommendations.filter((r) => r.severity === "warning").length,
-        info: recommendations.filter((r) => r.severity === "info").length,
-      },
-    });
+    const analysis = await analyzeSystemHealth();
+    return successResponse(analysis);
   } catch (error) {
-    console.error("Error generating AI analysis:", error);
+    console.error("Error analyzing system health:", error);
     return serverErrorResponse();
   }
+}
+
+async function analyzeSystemHealth(): Promise<SystemHealthAnalysis> {
+  const recommendations: ScalingRecommendation[] = [];
+
+  const { data: apiKeyConfigs } = await supabaseAdmin
+    .from("api_key_configs")
+    .select("id, tier_assignment, is_active");
+
+  const { data: zerodhaConfigs } = await supabaseAdmin
+    .from("admin_zerodha_configs")
+    .select("id, connection_status, is_active")
+    .eq("is_active", true);
+
+  const configuredKeys = apiKeyConfigs?.length || 0;
+  const activeKeys = zerodhaConfigs?.filter(c => c.connection_status === "connected").length || 0;
+  
+  const tiers = {
+    CORE: apiKeyConfigs?.some(c => c.tier_assignment === "CORE" && c.is_active) || false,
+    POPULAR: apiKeyConfigs?.some(c => c.tier_assignment === "POPULAR" && c.is_active) || false,
+    TEMP: apiKeyConfigs?.some(c => c.tier_assignment === "TEMP" && c.is_active) || false,
+  };
+
+  const { data: subscriptions } = await supabaseAdmin
+    .from("instrument_subscriptions")
+    .select("priority");
+
+  const subscriptionStats = {
+    total: subscriptions?.length || 0,
+    byTier: {
+      CORE: subscriptions?.filter(s => s.priority === "CORE").length || 0,
+      POPULAR: subscriptions?.filter(s => s.priority === "POPULAR").length || 0,
+      TEMP: subscriptions?.filter(s => s.priority === "TEMP").length || 0,
+    },
+    capacity: activeKeys * 3000,
+    utilizationPercent: 0,
+  };
+  subscriptionStats.utilizationPercent = subscriptionStats.capacity > 0
+    ? Math.round((subscriptionStats.total / subscriptionStats.capacity) * 100)
+    : 0;
+
+  const { data: engineStatus } = await supabaseAdmin
+    .from("data_engine_status")
+    .select("*")
+    .eq("engine_type", "market_data")
+    .single();
+
+  const { count: totalUsers } = await supabaseAdmin
+    .from("profiles")
+    .select("*", { count: "exact", head: true });
+
+  const { count: activeUsers } = await supabaseAdmin
+    .from("profiles")
+    .select("*", { count: "exact", head: true })
+    .gte("updated_at", new Date(Date.now() - 86400000).toISOString());
+
+  const { count: tradingUsers } = await supabaseAdmin
+    .from("user_trading_settings")
+    .select("*", { count: "exact", head: true })
+    .eq("trading_enabled", true);
+
+  const { count: ticksCount } = await supabaseAdmin
+    .from("realtime_ticks")
+    .select("*", { count: "exact", head: true });
+
+  const { count: candlesCount } = await supabaseAdmin
+    .from("live_candles")
+    .select("*", { count: "exact", head: true });
+
+  const { count: signalsCount } = await supabaseAdmin
+    .from("ai_signals")
+    .select("*", { count: "exact", head: true });
+
+  if (configuredKeys < 3) {
+    const neededKeys = 3 - configuredKeys;
+    recommendations.push({
+      category: "api_keys",
+      severity: configuredKeys === 0 ? "critical" : "warning",
+      title: `Add ${neededKeys} More Zerodha API Key(s)`,
+      description: `You have ${configuredKeys}/3 API keys configured. For optimal tier-based allocation, you need 3 keys: one for CORE, one for POPULAR, and one for TEMP instruments.`,
+      action: "Go to Admin > Zerodha Configs and add new API keys, then assign them to tiers in API Key Configs.",
+      threshold: "3 keys",
+      current: `${configuredKeys} keys`,
+    });
+  }
+
+  if (!tiers.CORE) {
+    recommendations.push({
+      category: "api_keys",
+      severity: "critical",
+      title: "No CORE Tier API Key",
+      description: "CORE instruments (NIFTY, BANKNIFTY, NIFTY50 stocks) require a dedicated API key that is always connected.",
+      action: "Assign one of your Zerodha API keys to the CORE tier.",
+    });
+  }
+
+  if (!tiers.POPULAR && activeKeys >= 2) {
+    recommendations.push({
+      category: "api_keys",
+      severity: "warning",
+      title: "No POPULAR Tier API Key",
+      description: "Scanner and watchlist instruments work best with a dedicated POPULAR tier key.",
+      action: "Assign one API key to the POPULAR tier for scanner functionality.",
+    });
+  }
+
+  if (!tiers.TEMP && activeKeys >= 3) {
+    recommendations.push({
+      category: "api_keys",
+      severity: "info",
+      title: "No TEMP Tier API Key",
+      description: "User chart requests will use fallback sockets. A dedicated TEMP tier key improves user experience.",
+      action: "Assign one API key to the TEMP tier for better chart loading.",
+    });
+  }
+
+  if (subscriptionStats.utilizationPercent > 80) {
+    recommendations.push({
+      category: "api_keys",
+      severity: "critical",
+      title: "WebSocket Capacity Critical",
+      description: `${subscriptionStats.utilizationPercent}% of subscription capacity used. System may reject new subscriptions.`,
+      action: "Add another Zerodha API key immediately or reduce POPULAR/TEMP subscriptions.",
+      threshold: "80%",
+      current: `${subscriptionStats.utilizationPercent}%`,
+    });
+  } else if (subscriptionStats.utilizationPercent > 60) {
+    recommendations.push({
+      category: "api_keys",
+      severity: "warning",
+      title: "WebSocket Capacity High",
+      description: `${subscriptionStats.utilizationPercent}% of subscription capacity used. Plan for additional API key.`,
+      action: "Consider adding another Zerodha API key before reaching 80% capacity.",
+      threshold: "60%",
+      current: `${subscriptionStats.utilizationPercent}%`,
+    });
+  }
+
+  const usersPerKey = (totalUsers || 0) / Math.max(activeKeys, 1);
+  if (usersPerKey > 100) {
+    recommendations.push({
+      category: "api_keys",
+      severity: "warning",
+      title: "High Users per API Key Ratio",
+      description: `${Math.round(usersPerKey)} users per API key. Recommended: <100 users per key for optimal performance.`,
+      action: "Add more Zerodha API keys as user base grows.",
+      threshold: "100 users/key",
+      current: `${Math.round(usersPerKey)} users/key`,
+    });
+  }
+
+  if ((totalUsers || 0) > 50) {
+    recommendations.push({
+      category: "vercel",
+      severity: "info",
+      title: "Consider Vercel Pro Plan",
+      description: "With 50+ users, you may benefit from Vercel Pro for better performance and higher limits.",
+      action: "Upgrade to Vercel Pro for faster builds, more serverless function execution time, and priority support.",
+      threshold: "50 users",
+      current: `${totalUsers} users`,
+    });
+  }
+
+  if ((ticksCount || 0) > 1000000) {
+    recommendations.push({
+      category: "supabase",
+      severity: "warning",
+      title: "High Tick Data Volume",
+      description: `${((ticksCount || 0) / 1000000).toFixed(1)}M ticks stored. Consider data retention policy or Supabase Pro.`,
+      action: "Implement tick data cleanup (older than 7 days) or upgrade Supabase plan for more storage.",
+      threshold: "1M ticks",
+      current: `${((ticksCount || 0) / 1000000).toFixed(1)}M ticks`,
+    });
+  }
+
+  if ((tradingUsers || 0) > 10) {
+    recommendations.push({
+      category: "railway",
+      severity: "info",
+      title: "Scale Trading Engine",
+      description: `${tradingUsers} users with trading enabled. Consider Railway Pro for higher reliability.`,
+      action: "Upgrade Railway plan for better uptime guarantees and more compute resources.",
+      threshold: "10 trading users",
+      current: `${tradingUsers} trading users`,
+    });
+  }
+
+  if (engineStatus?.websocket_status !== "connected") {
+    recommendations.push({
+      category: "railway",
+      severity: "critical",
+      title: "Market Data Worker Disconnected",
+      description: "The Railway market data worker is not connected. Real-time data is unavailable.",
+      action: "Check Railway logs, verify Zerodha credentials, and redeploy if needed.",
+    });
+  }
+
+  let score = 100;
+  let criticalCount = 0;
+  let warningCount = 0;
+
+  for (const rec of recommendations) {
+    if (rec.severity === "critical") {
+      score -= 25;
+      criticalCount++;
+    } else if (rec.severity === "warning") {
+      score -= 10;
+      warningCount++;
+    } else {
+      score -= 2;
+    }
+  }
+
+  score = Math.max(0, score);
+
+  let overall: "healthy" | "warning" | "critical" = "healthy";
+  if (criticalCount > 0 || score < 50) {
+    overall = "critical";
+  } else if (warningCount > 0 || score < 75) {
+    overall = "warning";
+  }
+
+  return {
+    overall,
+    score,
+    recommendations: recommendations.sort((a, b) => {
+      const severityOrder = { critical: 0, warning: 1, info: 2 };
+      return severityOrder[a.severity] - severityOrder[b.severity];
+    }),
+    metrics: {
+      apiKeys: {
+        configured: configuredKeys,
+        active: activeKeys,
+        needed: 3,
+        tiers,
+      },
+      subscriptions: subscriptionStats,
+      websockets: {
+        total: activeKeys,
+        connected: engineStatus?.websocket_status === "connected" ? activeKeys : 0,
+        fallbackActive: 0,
+      },
+      performance: {
+        ticksPerSecond: engineStatus?.ticks_per_second || 0,
+        avgQueryTime: 0,
+        errorRate: 0,
+      },
+      users: {
+        total: totalUsers || 0,
+        activeToday: activeUsers || 0,
+        tradingEnabled: tradingUsers || 0,
+      },
+      database: {
+        ticksCount: ticksCount || 0,
+        candlesCount: candlesCount || 0,
+        signalsCount: signalsCount || 0,
+      },
+    },
+  };
 }

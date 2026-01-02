@@ -10,18 +10,54 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type SubscriptionTier = "CORE" | "POPULAR" | "TEMP";
 
+const RATE_LIMIT_WINDOW_MS = 60000;
+const MAX_REQUESTS_PER_WINDOW = 30;
+const MAX_TEMP_PER_USER = 50;
+const GLOBAL_TEMP_CAP = 1000;
+
+const userRequestCounts = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(userId: string): { allowed: boolean; remaining: number } {
+  const now = Date.now();
+  const userRate = userRequestCounts.get(userId);
+
+  if (!userRate || now > userRate.resetAt) {
+    userRequestCounts.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - 1 };
+  }
+
+  if (userRate.count >= MAX_REQUESTS_PER_WINDOW) {
+    return { allowed: false, remaining: 0 };
+  }
+
+  userRate.count++;
+  return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - userRate.count };
+}
+
 export async function POST(request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) {
     return unauthorizedResponse();
   }
 
+  const rateCheck = checkRateLimit(user.user.id);
+  if (!rateCheck.allowed) {
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: "Rate limit exceeded. Please wait before making more requests.",
+        retryAfter: 60
+      }),
+      { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "60" } }
+    );
+  }
+
   try {
     const body = await request.json();
     const { instrumentToken, source = "user_request" } = body;
 
-    if (!instrumentToken) {
-      return badRequestResponse("instrumentToken is required");
+    if (!instrumentToken || typeof instrumentToken !== "number") {
+      return badRequestResponse("Valid instrumentToken is required");
     }
 
     const tier: SubscriptionTier = source === "chart" || source === "ai_analysis" 
@@ -32,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     const { data: existing } = await supabaseAdmin
       .from("instrument_subscriptions")
-      .select("instrument_token")
+      .select("instrument_token, priority")
       .eq("instrument_token", instrumentToken)
       .single();
 
@@ -45,7 +81,61 @@ export async function POST(request: NextRequest) {
       return successResponse({ 
         subscribed: true, 
         status: "already_subscribed",
-        instrumentToken 
+        existingTier: existing.priority,
+        instrumentToken,
+        remaining: rateCheck.remaining,
+      });
+    }
+
+    if (tier === "TEMP") {
+      const { count: userTempCount } = await supabaseAdmin
+        .from("subscription_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("source", `user_${user.user.id}`)
+        .eq("tier", "TEMP")
+        .gte("created_at", new Date(Date.now() - 3600000).toISOString());
+
+      if (userTempCount && userTempCount >= MAX_TEMP_PER_USER) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "User TEMP subscription limit reached. Please wait for existing subscriptions to expire.",
+            limit: MAX_TEMP_PER_USER
+          }),
+          { status: 429, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const { count: globalTempCount } = await supabaseAdmin
+        .from("instrument_subscriptions")
+        .select("*", { count: "exact", head: true })
+        .eq("priority", "TEMP");
+
+      if (globalTempCount && globalTempCount >= GLOBAL_TEMP_CAP) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "System at capacity. Please try again later.",
+            status: "capacity_exceeded"
+          }),
+          { status: 503, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    const { data: pendingRequest } = await supabaseAdmin
+      .from("subscription_requests")
+      .select("id")
+      .eq("instrument_token", instrumentToken)
+      .eq("status", "pending")
+      .single();
+
+    if (pendingRequest) {
+      return successResponse({ 
+        subscribed: true, 
+        status: "already_requested",
+        instrumentToken,
+        remaining: rateCheck.remaining,
       });
     }
 
@@ -54,7 +144,7 @@ export async function POST(request: NextRequest) {
       .insert({
         instrument_token: instrumentToken,
         tier,
-        source,
+        source: `${source}_user_${user.user.id}`,
         status: "pending",
       });
 
@@ -67,7 +157,8 @@ export async function POST(request: NextRequest) {
       subscribed: true, 
       status: "requested",
       tier,
-      instrumentToken 
+      instrumentToken,
+      remaining: rateCheck.remaining,
     });
 
   } catch (error) {

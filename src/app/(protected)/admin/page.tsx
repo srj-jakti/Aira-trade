@@ -1132,42 +1132,64 @@ function AIConfigDialog({
   );
 }
 
+interface ScalingAnalysis {
+  overall: "healthy" | "warning" | "critical";
+  score: number;
+  recommendations: Array<{
+    category: string;
+    severity: "critical" | "warning" | "info";
+    title: string;
+    description: string;
+    action: string;
+    threshold?: string;
+    current?: string;
+  }>;
+  metrics: {
+    apiKeys: { configured: number; active: number; needed: number; tiers: { CORE: boolean; POPULAR: boolean; TEMP: boolean } };
+    subscriptions: { total: number; byTier: { CORE: number; POPULAR: number; TEMP: number }; capacity: number; utilizationPercent: number };
+    websockets: { total: number; connected: number; fallbackActive: number };
+    performance: { ticksPerSecond: number; avgQueryTime: number; errorRate: number };
+    users: { total: number; activeToday: number; tradingEnabled: number };
+    database: { ticksCount: number; candlesCount: number; signalsCount: number };
+  };
+}
+
 function SystemHealthDashboard() {
-  const [health, setHealth] = useState<SystemHealth | null>(null);
-  const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [analysisLoading, setAnalysisLoading] = useState(false);
+    const [health, setHealth] = useState<SystemHealth | null>(null);
+    const [analysis, setAnalysis] = useState<ScalingAnalysis | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [analysisLoading, setAnalysisLoading] = useState(false);
 
-  useEffect(() => {
-    fetchHealth();
-    fetchAnalysis();
-  }, []);
+    useEffect(() => {
+      fetchHealth();
+      fetchAnalysis();
+    }, []);
 
-  const fetchHealth = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/system-health");
-      if (res.ok) {
-        const data = await res.json();
-        setHealth(data.health);
+    const fetchHealth = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/admin/system-health");
+        if (res.ok) {
+          const data = await res.json();
+          setHealth(data.health);
+        }
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  const fetchAnalysis = async () => {
-    setAnalysisLoading(true);
-    try {
-      const res = await fetch("/api/admin/system-health/analysis");
-      if (res.ok) {
-        const data = await res.json();
-        setRecommendations(data.recommendations || []);
+    const fetchAnalysis = async () => {
+      setAnalysisLoading(true);
+      try {
+        const res = await fetch("/api/admin/system-health/analysis");
+        if (res.ok) {
+          const data = await res.json();
+          setAnalysis(data);
+        }
+      } finally {
+        setAnalysisLoading(false);
       }
-    } finally {
-      setAnalysisLoading(false);
-    }
-  };
+    };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -1196,171 +1218,231 @@ function SystemHealthDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/40 text-sm">Zerodha Status</p>
-                <p className="text-2xl font-bold text-white">
-                  {health?.zerodha.connected}/{health?.zerodha.total}
-                </p>
-              </div>
-              <div className={`p-3 rounded-lg ${health?.zerodha.connected === health?.zerodha.total ? "bg-green-500/20" : "bg-yellow-500/20"}`}>
-                <Key className={`w-6 h-6 ${health?.zerodha.connected === health?.zerodha.total ? "text-green-400" : "text-yellow-400"}`} />
-              </div>
-            </div>
-            <p className="text-xs text-white/40 mt-2">
-              {health?.zerodha.errors || 0} errors, {health?.zerodha.disconnected || 0} disconnected
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/40 text-sm">AI Services</p>
-                <p className="text-2xl font-bold text-white">
-                  {health?.ai.active}/{health?.ai.total}
-                </p>
-              </div>
-              <div className={`p-3 rounded-lg ${health?.ai.active === health?.ai.total ? "bg-green-500/20" : "bg-yellow-500/20"}`}>
-                <BrainCircuit className={`w-6 h-6 ${health?.ai.active === health?.ai.total ? "text-green-400" : "text-yellow-400"}`} />
-              </div>
-            </div>
-            <p className="text-xs text-white/40 mt-2">
-              {health?.ai.errors || 0} with errors, {health?.ai.inactive || 0} inactive
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/40 text-sm">Total Users</p>
-                <p className="text-2xl font-bold text-white">{health?.database.totalUsers || 0}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-purple-500/20">
-                <Users className="w-6 h-6 text-purple-400" />
-              </div>
-            </div>
-            <p className="text-xs text-white/40 mt-2">
-              {health?.database.totalStrategies || 0} strategies created
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/40 text-sm">Database</p>
-                <p className="text-2xl font-bold text-green-400">{health?.database.status || "Unknown"}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-green-500/20">
-                <Server className="w-6 h-6 text-green-400" />
-              </div>
-            </div>
-            <p className="text-xs text-white/40 mt-2">
-              {health?.database.totalTrades || 0} total trades
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="bg-white/5 border-white/10">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-white text-lg flex items-center gap-2">
-              <Activity className="w-5 h-5 text-green-400" />
-              AI System Analysis & Recommendations
-            </CardTitle>
-            <CardDescription className="text-white/40">
-              Intelligent insights about system health and suggested actions.
-            </CardDescription>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => { fetchHealth(); fetchAnalysis(); }}
-            className="border-white/20 text-white hover:bg-white/10"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${analysisLoading ? "animate-spin" : ""}`} />
-            Refresh Analysis
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {analysisLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-white/40" />
-            </div>
-          ) : recommendations.length === 0 ? (
-            <div className="p-8 border border-dashed border-green-500/30 rounded-lg text-center bg-green-500/5">
-              <CheckCircle2 className="w-12 h-12 mx-auto text-green-400 mb-4" />
-              <p className="text-green-400 font-medium">All Systems Healthy</p>
-              <p className="text-white/40 text-sm mt-2">No issues or recommendations at this time.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {recommendations.map((rec, index) => (
-                <div 
-                  key={index}
-                  className={`p-4 rounded-lg border ${getSeverityColor(rec.severity)}`}
-                >
-                  <div className="flex items-start gap-3">
-                    {getSeverityIcon(rec.severity)}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-white font-medium">{rec.title}</span>
-                        <Badge className="text-xs" variant="outline">{rec.category}</Badge>
-                      </div>
-                      <p className="text-white/60 text-sm mb-2">{rec.description}</p>
-                      <p className="text-white/80 text-sm">
-                        <span className="text-white/40">Suggested Action:</span> {rec.action}
-                      </p>
-                    </div>
+      <div className="space-y-6">
+        {analysis && (
+          <Card className={`border-2 ${
+            analysis.overall === "critical" ? "bg-red-500/10 border-red-500/30" :
+            analysis.overall === "warning" ? "bg-yellow-500/10 border-yellow-500/30" :
+            "bg-green-500/10 border-green-500/30"
+          }`}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`p-4 rounded-full ${
+                    analysis.overall === "critical" ? "bg-red-500/20" :
+                    analysis.overall === "warning" ? "bg-yellow-500/20" :
+                    "bg-green-500/20"
+                  }`}>
+                    {analysis.overall === "critical" ? <XCircle className="w-8 h-8 text-red-400" /> :
+                     analysis.overall === "warning" ? <AlertTriangle className="w-8 h-8 text-yellow-400" /> :
+                     <CheckCircle2 className="w-8 h-8 text-green-400" />}
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-white capitalize">{analysis.overall} Health</h3>
+                    <p className="text-white/60">System Score: {analysis.score}/100</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <div className="text-right">
+                  <div className="text-4xl font-bold text-white">{analysis.score}</div>
+                  <div className="text-white/40 text-sm">Health Score</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-      {health?.errors.recentErrors && health.errors.recentErrors.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="bg-white/5 border-white/10">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white/40 text-sm">API Keys</p>
+                  <p className="text-2xl font-bold text-white">
+                    {analysis?.metrics.apiKeys.active || 0}/{analysis?.metrics.apiKeys.needed || 3}
+                  </p>
+                </div>
+                <div className={`p-3 rounded-lg ${(analysis?.metrics.apiKeys.active || 0) >= 3 ? "bg-green-500/20" : "bg-yellow-500/20"}`}>
+                  <Key className={`w-6 h-6 ${(analysis?.metrics.apiKeys.active || 0) >= 3 ? "text-green-400" : "text-yellow-400"}`} />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <Badge className={analysis?.metrics.apiKeys.tiers.CORE ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}>CORE</Badge>
+                <Badge className={analysis?.metrics.apiKeys.tiers.POPULAR ? "bg-green-500/20 text-green-400" : "bg-white/10 text-white/40"}>POPULAR</Badge>
+                <Badge className={analysis?.metrics.apiKeys.tiers.TEMP ? "bg-green-500/20 text-green-400" : "bg-white/10 text-white/40"}>TEMP</Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white/40 text-sm">Subscriptions</p>
+                  <p className="text-2xl font-bold text-white">
+                    {analysis?.metrics.subscriptions.total || 0}
+                  </p>
+                </div>
+                <div className={`p-3 rounded-lg ${(analysis?.metrics.subscriptions.utilizationPercent || 0) < 60 ? "bg-green-500/20" : (analysis?.metrics.subscriptions.utilizationPercent || 0) < 80 ? "bg-yellow-500/20" : "bg-red-500/20"}`}>
+                  <Activity className={`w-6 h-6 ${(analysis?.metrics.subscriptions.utilizationPercent || 0) < 60 ? "text-green-400" : (analysis?.metrics.subscriptions.utilizationPercent || 0) < 80 ? "text-yellow-400" : "text-red-400"}`} />
+                </div>
+              </div>
+              <div className="mt-2">
+                <div className="flex justify-between text-xs text-white/40 mb-1">
+                  <span>Capacity</span>
+                  <span>{analysis?.metrics.subscriptions.utilizationPercent || 0}%</span>
+                </div>
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all ${
+                      (analysis?.metrics.subscriptions.utilizationPercent || 0) < 60 ? "bg-green-500" : 
+                      (analysis?.metrics.subscriptions.utilizationPercent || 0) < 80 ? "bg-yellow-500" : "bg-red-500"
+                    }`}
+                    style={{ width: `${Math.min(analysis?.metrics.subscriptions.utilizationPercent || 0, 100)}%` }}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white/40 text-sm">Total Users</p>
+                  <p className="text-2xl font-bold text-white">{analysis?.metrics.users.total || 0}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-purple-500/20">
+                  <Users className="w-6 h-6 text-purple-400" />
+                </div>
+              </div>
+              <p className="text-xs text-white/40 mt-2">
+                {analysis?.metrics.users.activeToday || 0} active today • {analysis?.metrics.users.tradingEnabled || 0} trading
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/5 border-white/10">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white/40 text-sm">Ticks/Second</p>
+                  <p className="text-2xl font-bold text-white">{analysis?.metrics.performance.ticksPerSecond || 0}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-cyan-500/20">
+                  <Zap className="w-6 h-6 text-cyan-400" />
+                </div>
+              </div>
+              <p className="text-xs text-white/40 mt-2">
+                {((analysis?.metrics.database.ticksCount || 0) / 1000000).toFixed(1)}M ticks • {((analysis?.metrics.database.candlesCount || 0) / 1000).toFixed(0)}K candles
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
         <Card className="bg-white/5 border-white/10">
-          <CardHeader>
-            <CardTitle className="text-white text-lg flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
-              Recent Errors
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-white text-lg flex items-center gap-2">
+                <Shield className="w-5 h-5 text-blue-400" />
+                Scaling Recommendations
+              </CardTitle>
+              <CardDescription className="text-white/40">
+                Actionable insights for Vercel, Supabase, Railway, and API key scaling
+              </CardDescription>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => { fetchHealth(); fetchAnalysis(); }}
+              className="border-white/20 text-white hover:bg-white/10"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${analysisLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {health.errors.recentErrors.map((error, index) => (
-                <div key={index} className="flex items-start gap-3 p-3 bg-red-500/10 rounded-lg">
-                  <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Badge className="text-xs bg-red-500/20 text-red-400">{error.type}</Badge>
-                      <span className="text-white/40 text-xs">
-                        {new Date(error.timestamp).toLocaleString()}
-                      </span>
+            {analysisLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-white/40" />
+              </div>
+            ) : !analysis?.recommendations || analysis.recommendations.length === 0 ? (
+              <div className="p-8 border border-dashed border-green-500/30 rounded-lg text-center bg-green-500/5">
+                <CheckCircle2 className="w-12 h-12 mx-auto text-green-400 mb-4" />
+                <p className="text-green-400 font-medium">All Systems Optimally Configured</p>
+                <p className="text-white/40 text-sm mt-2">No scaling recommendations at this time.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {analysis.recommendations.map((rec, index) => (
+                  <div 
+                    key={index}
+                    className={`p-4 rounded-lg border ${getSeverityColor(rec.severity)}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {getSeverityIcon(rec.severity)}
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className="text-white font-medium">{rec.title}</span>
+                          <Badge className={`text-xs ${
+                            rec.category === "api_keys" ? "bg-orange-500/20 text-orange-400" :
+                            rec.category === "vercel" ? "bg-purple-500/20 text-purple-400" :
+                            rec.category === "supabase" ? "bg-green-500/20 text-green-400" :
+                            rec.category === "railway" ? "bg-blue-500/20 text-blue-400" :
+                            "bg-white/10 text-white/60"
+                          }`}>
+                            {rec.category.toUpperCase()}
+                          </Badge>
+                          {rec.threshold && rec.current && (
+                            <span className="text-xs text-white/40">
+                              {rec.current} / {rec.threshold}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-white/60 text-sm mb-2">{rec.description}</p>
+                        <div className="flex items-center gap-2 p-2 bg-white/5 rounded">
+                          <Zap className="w-4 h-4 text-yellow-400 shrink-0" />
+                          <p className="text-white/80 text-sm">{rec.action}</p>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-white/70 text-sm mt-1">{error.message}</p>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
-    </div>
-  );
-}
+
+        {health?.errors.recentErrors && health.errors.recentErrors.length > 0 && (
+          <Card className="bg-white/5 border-white/10">
+            <CardHeader>
+              <CardTitle className="text-white text-lg flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+                Recent Errors
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {health.errors.recentErrors.map((error, index) => (
+                  <div key={index} className="flex items-start gap-3 p-3 bg-red-500/10 rounded-lg">
+                    <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Badge className="text-xs bg-red-500/20 text-red-400">{error.type}</Badge>
+                        <span className="text-white/40 text-xs">
+                          {new Date(error.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-white/70 text-sm mt-1">{error.message}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
 
 function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);

@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getURL } from "@/lib/utils";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -25,22 +25,34 @@ export async function GET(request: Request) {
                 cookieStore.set(name, value, options)
               );
             } catch {
-              // The `setAll` method was called from a Server Component.
-              // This can be ignored if you have middleware refreshing
-              // user sessions.
             }
           },
         },
       }
     );
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (!error) {
-        return NextResponse.redirect(`${origin}/${next.startsWith('/') ? next.slice(1) : next}`);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error && data.user) {
+      const { data: existingProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("id", data.user.id)
+        .single();
+
+      if (!existingProfile) {
+        await supabaseAdmin.from("profiles").insert({
+          id: data.user.id,
+          email: data.user.email,
+          full_name: data.user.user_metadata?.full_name || null,
+          is_approved: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
       }
-      console.error("Auth callback error:", error);
+
+      return NextResponse.redirect(`${origin}/${next.startsWith('/') ? next.slice(1) : next}`);
     }
-  
-    // return the user to an error page with instructions
-    return NextResponse.redirect(`${origin}/signin?error=auth-code-error`);
+    console.error("Auth callback error:", error);
   }
 
+  return NextResponse.redirect(`${origin}/signin?error=auth-code-error`);
+}

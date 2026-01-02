@@ -110,8 +110,12 @@ interface User {
   email: string;
   full_name: string | null;
   is_approved: boolean;
+  is_blocked: boolean;
+  banned_until: string | null;
   created_at: string;
+  last_sign_in_at: string | null;
   plan: string | null;
+  email_confirmed: boolean;
 }
 
 interface SystemHealth {
@@ -1977,6 +1981,7 @@ function SystemHealthDashboard() {
 function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -1995,19 +2000,29 @@ function UserManagement() {
     }
   };
 
-  const handleApprove = async (userId: string, approve: boolean) => {
-    await fetch("/api/admin/users/approve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, approve })
-    });
-    fetchUsers();
+  const handleAction = async (userId: string, action: "approve" | "revoke" | "block" | "unblock") => {
+    setActionLoading(userId);
+    try {
+      await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action })
+      });
+      await fetchUsers();
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleDelete = async (userId: string) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
-    await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
-    fetchUsers();
+    if (!confirm("Are you sure you want to permanently delete this user? This action cannot be undone.")) return;
+    setActionLoading(userId);
+    try {
+      await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+      await fetchUsers();
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   return (
@@ -2019,7 +2034,7 @@ function UserManagement() {
             User Management
           </CardTitle>
           <CardDescription className="text-white/40">
-            Manage user access, approve registrations, and view plans.
+            Manage user access, approve registrations, block users, and view plans.
           </CardDescription>
         </div>
         <Button variant="outline" size="sm" onClick={fetchUsers} className="border-white/20 text-white hover:bg-white/10">
@@ -2042,60 +2057,118 @@ function UserManagement() {
             {users.map((user) => (
               <div 
                 key={user.id} 
-                className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10"
+                className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border gap-4 ${
+                  user.is_blocked 
+                    ? "bg-red-500/5 border-red-500/20" 
+                    : "bg-white/5 border-white/10"
+                }`}
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-white font-medium">{user.email}</span>
-                    {user.is_approved ? (
-                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Approved</Badge>
+                    {user.is_blocked ? (
+                      <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                        <Shield className="w-3 h-3 mr-1" />
+                        Blocked
+                      </Badge>
+                    ) : user.is_approved ? (
+                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Approved
+                      </Badge>
                     ) : (
-                      <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Pending</Badge>
+                      <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Pending
+                      </Badge>
+                    )}
+                    {!user.email_confirmed && (
+                      <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+                        Email Unverified
+                      </Badge>
                     )}
                   </div>
-                  <div className="text-xs text-white/40">
-                    {user.full_name && <span>{user.full_name} • </span>}
-                    Joined: {new Date(user.created_at).toLocaleDateString()}
-                    {user.plan && <span> • Plan: {user.plan}</span>}
+                  <div className="text-xs text-white/40 flex flex-wrap gap-x-3">
+                    {user.full_name && <span>{user.full_name}</span>}
+                    <span>Joined: {new Date(user.created_at).toLocaleDateString()}</span>
+                    {user.last_sign_in_at && (
+                      <span>Last login: {new Date(user.last_sign_in_at).toLocaleDateString()}</span>
+                    )}
+                    {user.plan && <span>Plan: {user.plan}</span>}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {user.is_approved ? (
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => handleApprove(user.id, false)}
-                      className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10"
-                    >
-                      <UserX className="w-4 h-4" />
-                    </Button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {actionLoading === user.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-white/40" />
                   ) : (
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => handleApprove(user.id, true)}
-                      className="text-green-400 hover:text-green-300 hover:bg-green-400/10"
-                    >
-                      <UserCheck className="w-4 h-4" />
-                    </Button>
+                    <>
+                      {!user.is_blocked && (
+                        <>
+                          {user.is_approved ? (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleAction(user.id, "revoke")}
+                              className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10"
+                              title="Revoke access"
+                            >
+                              <UserX className="w-4 h-4" />
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleAction(user.id, "approve")}
+                              className="text-green-400 hover:text-green-300 hover:bg-green-400/10"
+                              title="Approve user"
+                            >
+                              <UserCheck className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      {user.is_blocked ? (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleAction(user.id, "unblock")}
+                          className="text-green-400 hover:text-green-300 hover:bg-green-400/10"
+                          title="Unblock user"
+                        >
+                          <Shield className="w-4 h-4" />
+                          <span className="ml-1 text-xs">Unblock</span>
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleAction(user.id, "block")}
+                          className="text-orange-400 hover:text-orange-300 hover:bg-orange-400/10"
+                          title="Block user"
+                        >
+                          <Shield className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleDelete(user.id)}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                        title="Delete user permanently"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </>
                   )}
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => handleDelete(user.id)}
-                      className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
   function MarketDataManager() {
     const [instruments, setInstruments] = useState<Array<{

@@ -6,6 +6,11 @@
  * - API KEY B (POPULAR): Scanner stocks, watchlists, popular instruments
  * - API KEY C (TEMP): User search, AI analysis charts
  * 
+ * LIVE-HISTORICAL DATA:
+ * - Backfills live_candles from Zerodha Historical API on startup
+ * - Maintains rolling recent history per retention policy
+ * - WebSocket aggregation for real-time candle updates
+ * 
  * Safety constraints:
  * - MAX 3000 instruments per WebSocket (Zerodha hard limit)
  * - SOFT LIMIT 2500 instruments (buffer zone)
@@ -22,6 +27,7 @@ import {
   SubscriptionTier,
   SubscriptionRequest 
 } from "./subscription-manager";
+import { BackfillService } from "./backfill-service";
 
 const ALGORITHM = "aes-256-gcm";
 const MAX_INSTRUMENTS_PER_CONNECTION = 3000;
@@ -29,6 +35,7 @@ const TICK_FLUSH_INTERVAL = 1000;
 const CANDLE_FLUSH_INTERVAL = 500;
 const HEALTH_CHECK_INTERVAL = 30000;
 const SUBSCRIPTION_REFRESH_INTERVAL = 300000;
+const BACKFILL_CHECK_INTERVAL = 3600000; // 1 hour
 
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
@@ -112,7 +119,9 @@ class MarketDataWorker {
   private candleFlushInterval: NodeJS.Timeout | null = null;
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private subscriptionRefreshInterval: NodeJS.Timeout | null = null;
+  private backfillCheckInterval: NodeJS.Timeout | null = null;
   private pendingSubscriptionRequests: SubscriptionRequest[] = [];
+  private backfillService: BackfillService | null = null;
 
     constructor() {
       this.subscriptionManager = new SubscriptionManager(supabase);
@@ -167,6 +176,16 @@ class MarketDataWorker {
 
     console.log(`[MarketDataWorker] Found ${configs.length} API key config(s)`);
 
+    // Initialize backfill service with first available config
+    if (configs.length > 0) {
+      this.backfillService = new BackfillService(
+        supabase,
+        configs[0].apiKey,
+        configs[0].accessToken
+      );
+      console.log("[MarketDataWorker] Backfill service initialized");
+    }
+
     await this.subscriptionManager.initialize(configs);
 
     for (const config of configs) {
@@ -189,8 +208,17 @@ class MarketDataWorker {
     this.startHealthCheck();
     this.startSubscriptionRefresh();
     this.startSubscriptionRequestHandler();
+    this.startBackfillChecker();
 
     await this.subscribeToCore();
+
+    // Run initial backfill for CORE instruments
+    if (this.backfillService) {
+      console.log("[MarketDataWorker] Starting initial Live-Historical backfill...");
+      this.backfillService.backfillCoreInstruments().catch((err) => {
+        console.error("[MarketDataWorker] Initial backfill failed:", err);
+      });
+    }
 
     console.log(`[MarketDataWorker] Running with ${connectedCount}/${configs.length} connections`);
     await this.logSystemHealth("worker_running", { connections: connectedCount, total: configs.length }, "info", `Market Data Worker running with ${connectedCount} connections`);
@@ -404,6 +432,13 @@ class MarketDataWorker {
       if (conn && conn.isConnected) {
         conn.ticker.subscribe([request.instrumentToken]);
         conn.ticker.setMode(conn.ticker.modeQuote, [request.instrumentToken]);
+        
+        // Queue for Live-Historical backfill
+        if (this.backfillService) {
+          this.backfillService.queueBackfill(request.instrumentToken, "5m");
+          this.backfillService.queueBackfill(request.instrumentToken, "15m");
+        }
+        
         return true;
       }
     }
@@ -493,6 +528,7 @@ class MarketDataWorker {
       { seconds: 60, label: "1m" },
       { seconds: 300, label: "5m" },
       { seconds: 900, label: "15m" },
+      { seconds: 3600, label: "1h" }, // Added 1h for Live-Historical
     ];
 
     for (const { seconds, label } of intervals) {
@@ -546,7 +582,7 @@ class MarketDataWorker {
       const keysToRemove: string[] = [];
 
       const timeframeSeconds: Record<string, number> = {
-        "1s": 1, "5s": 5, "15s": 15, "1m": 60, "5m": 300, "15m": 900
+        "1s": 1, "5s": 5, "15s": 15, "1m": 60, "5m": 300, "15m": 900, "1h": 3600
       };
 
       for (const [key, buffer] of this.candleBuffers.entries()) {
@@ -648,6 +684,32 @@ class MarketDataWorker {
     }, SUBSCRIPTION_REFRESH_INTERVAL);
   }
 
+  /**
+   * Periodically check for instruments needing Live-Historical backfill
+   */
+  private startBackfillChecker(): void {
+    this.backfillCheckInterval = setInterval(async () => {
+      if (!this.backfillService || this.isShuttingDown) return;
+
+      try {
+        // Process any queued backfill requests
+        await this.backfillService.processQueue();
+
+        // Clean up old data beyond retention
+        await this.backfillService.cleanupOldData();
+      } catch (err) {
+        console.error("[MarketDataWorker] Backfill check error:", err);
+      }
+    }, BACKFILL_CHECK_INTERVAL);
+
+    // Also run every 5 minutes for queue processing
+    setInterval(async () => {
+      if (this.backfillService && !this.isShuttingDown) {
+        await this.backfillService.processQueue();
+      }
+    }, 300000);
+  }
+
   private async isMarketDataEnabled(): Promise<boolean> {
     const { data } = await supabase
       .from("system_flags")
@@ -722,6 +784,7 @@ class MarketDataWorker {
     if (this.candleFlushInterval) clearInterval(this.candleFlushInterval);
     if (this.healthCheckInterval) clearInterval(this.healthCheckInterval);
     if (this.subscriptionRefreshInterval) clearInterval(this.subscriptionRefreshInterval);
+    if (this.backfillCheckInterval) clearInterval(this.backfillCheckInterval);
 
     await this.subscriptionManager.destroy();
 

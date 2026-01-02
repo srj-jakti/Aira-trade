@@ -6,9 +6,16 @@ import {
   serverErrorResponse,
 } from "@/lib/server/auth";
 import { aiSharedService } from "@/lib/server/ai-shared-service";
-import { getLiveCandles, getLatestTick } from "@/lib/server/market-data-engine";
+import { getCandlesForAI, validateCandleMode } from "@/lib/server/candle-service";
+import { getLatestTick } from "@/lib/server/market-data-engine";
 import { logInstrumentSearch } from "@/lib/server/dynamic-instrument-manager";
 
+/**
+ * POST /api/ai/analyze
+ * 
+ * Performs AI-powered market analysis on an instrument.
+ * Uses Live-Historical data from live_candles for proper context.
+ */
 export async function POST(request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) return unauthorizedResponse();
@@ -27,6 +34,7 @@ export async function POST(request: NextRequest) {
       return badRequestResponse("instrumentToken and tradingsymbol are required");
     }
 
+    // Log instrument search for dynamic subscription
     logInstrumentSearch(
       parseInt(instrumentToken),
       tradingsymbol,
@@ -35,14 +43,19 @@ export async function POST(request: NextRequest) {
       "ai_analysis"
     ).catch(console.error);
 
-    const candles = await getLiveCandles(
+    // SAFETY: Validate this is a LIVE mode request
+    validateCandleMode("LIVE", "ai_analysis");
+
+    // Use unified candle service with proper lookback
+    const { candles, sufficient, message } = await getCandlesForAI(
       parseInt(instrumentToken),
       timeframe,
-      200
+      200  // Request 200 candles for proper analysis
     );
 
     const latestTick = await getLatestTick(parseInt(instrumentToken));
 
+    // Handle insufficient data
     if (candles.length === 0) {
       return NextResponse.json({
         success: true,
@@ -61,9 +74,11 @@ export async function POST(request: NextRequest) {
         },
         hasData: false,
         dataSource: "LIVE",
+        dataWarning: message,
       });
     }
 
+    // Perform AI analysis
     const marketAnalysis = await aiSharedService.analyzeMarketTrend({
       symbol: tradingsymbol,
       candles,
@@ -125,6 +140,7 @@ export async function POST(request: NextRequest) {
       signalResult.reasoning = signalAnalysis.result;
     }
 
+    // Fallback analysis if AI fails
     if (!marketAnalysis.success && !signalAnalysis.success) {
       const recentCandles = candles.slice(-30);
       const prices = recentCandles.map(c => c.close);
@@ -143,7 +159,7 @@ export async function POST(request: NextRequest) {
         strength: Math.min(100, Math.abs(priceChange) * 10),
         support: minLow,
         resistance: maxHigh,
-        analysis: `Based on ${recentCandles.length} days of data: Price ${priceChange > 0 ? "up" : "down"} ${Math.abs(priceChange).toFixed(2)}%. Current: ${currentPrice.toFixed(2)}, Avg: ${avgPrice.toFixed(2)}.`,
+        analysis: `Based on ${recentCandles.length} candles of ${timeframe} data: Price ${priceChange > 0 ? "up" : "down"} ${Math.abs(priceChange).toFixed(2)}%. Current: ${currentPrice.toFixed(2)}, Avg: ${avgPrice.toFixed(2)}.`,
       };
 
       signalResult = {
@@ -165,12 +181,20 @@ export async function POST(request: NextRequest) {
       hasData: true,
       dataPoints: candles.length,
       dataSource: "LIVE",
+      dataSufficient: sufficient,
+      dataWarning: message,
       latestPrice: latestTick?.lastPrice || candles[candles.length - 1]?.close,
       aiProvider: marketAnalysis.provider || signalAnalysis.provider || "fallback",
       cached: marketAnalysis.cached || signalAnalysis.cached,
     });
   } catch (error) {
     console.error("AI Analysis error:", error);
+    
+    // Check for safety violation
+    if (error instanceof Error && error.message.includes("SAFETY VIOLATION")) {
+      return badRequestResponse(error.message);
+    }
+    
     return serverErrorResponse();
   }
 }

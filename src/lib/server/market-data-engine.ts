@@ -204,6 +204,11 @@ class MarketDataEngine {
 
 export const marketDataEngine = MarketDataEngine.getInstance();
 
+/**
+ * Fetch historical data from Zerodha API
+ * NOTE: This is for admin historical data downloads ONLY
+ * NOT for live features
+ */
 export async function fetchHistoricalData(
   instrumentToken: number,
   timeframe: string,
@@ -270,6 +275,12 @@ export async function fetchHistoricalData(
   }));
 }
 
+/**
+ * Store candles to HISTORICAL table
+ * Used for admin backtest data downloads ONLY
+ * 
+ * SAFETY: This writes to historical_candles, NOT live_candles
+ */
 export async function storeHistoricalCandles(
   instrumentToken: number,
   timeframe: string,
@@ -302,6 +313,7 @@ export async function storeHistoricalCandles(
 
   for (let i = 0; i < rows.length; i += batchSize) {
     const batch = rows.slice(i, i + batchSize);
+    // SAFETY: Writing to historical_candles for backtest use ONLY
     const { error } = await supabaseAdmin
       .from("historical_candles")
       .upsert(batch, { onConflict: "instrument_token,timeframe,timestamp" });
@@ -314,6 +326,12 @@ export async function storeHistoricalCandles(
   return inserted;
 }
 
+/**
+ * DEPRECATED: Use getCandles from candle-service.ts instead
+ * This function is kept for backward compatibility
+ * 
+ * Get historical candles from HISTORICAL table (for BACKTEST ONLY)
+ */
 export async function getHistoricalCandles(
   instrumentToken: number,
   timeframe: string,
@@ -328,6 +346,11 @@ export async function getHistoricalCandles(
   volume: number;
   oi: number;
 }>> {
+  console.warn(
+    "[DEPRECATED] getHistoricalCandles is deprecated. " +
+    "Use getCandles({ mode: 'BACKTEST' }) from candle-service.ts instead."
+  );
+
   const { data, error } = await supabaseAdmin
     .from("historical_candles")
     .select("*")
@@ -354,6 +377,11 @@ export async function getHistoricalCandles(
 
 export type DataMode = "LIVE" | "BACKTEST";
 
+/**
+ * Get live candles from LIVE table (for charts, AI, scanner, auto-trading)
+ * 
+ * NOTE: For new code, use getCandles({ mode: 'LIVE' }) from candle-service.ts
+ */
 export async function getLiveCandles(
   instrumentToken: number,
   timeframe: string,
@@ -367,6 +395,7 @@ export async function getLiveCandles(
   volume: number;
   oi: number;
 }>> {
+  // SAFETY: This function ONLY reads from live_candles
   const { data, error } = await supabaseAdmin
     .from("live_candles")
     .select("*")
@@ -472,6 +501,12 @@ export async function getLatestTicks(
   return result;
 }
 
+/**
+ * DEPRECATED: Use getCandles from candle-service.ts instead
+ * 
+ * Unified candle access with mode enforcement.
+ * This function is kept for backward compatibility.
+ */
 export async function getCandles(options: {
   instrumentToken: number;
   timeframe: string;
@@ -488,6 +523,11 @@ export async function getCandles(options: {
   volume: number;
   oi: number;
 }>> {
+  console.warn(
+    "[DEPRECATED] getCandles in market-data-engine.ts is deprecated. " +
+    "Use getCandles from candle-service.ts instead."
+  );
+
   const { instrumentToken, timeframe, mode, limit = 200, from, to } = options;
 
   if (mode === "BACKTEST") {

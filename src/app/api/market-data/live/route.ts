@@ -6,9 +6,14 @@ import {
   serverErrorResponse,
   successResponse,
 } from "@/lib/server/auth";
-import { getLiveCandles, getLatestTick } from "@/lib/server/market-data-engine";
+import { getCandles, validateCandleMode } from "@/lib/server/candle-service";
+import { getLatestTick } from "@/lib/server/market-data-engine";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+/**
+ * Generate candles from raw ticks as a fallback
+ * Only used when live_candles table is empty
+ */
 async function generateCandlesFromTicks(
   instrumentToken: number,
   timeframe: string,
@@ -89,6 +94,18 @@ async function generateCandlesFromTicks(
   return candles;
 }
 
+/**
+ * GET /api/market-data/live
+ * 
+ * Fetches live candles for charts and analysis.
+ * Supports pagination via before_timestamp for scroll-back functionality.
+ * 
+ * Query params:
+ * - instrument: Required. Instrument token
+ * - timeframe: Optional. Default "5m"
+ * - limit: Optional. Default 200, max 1000
+ * - before: Optional. ISO timestamp for pagination (fetch candles before this time)
+ */
 export async function GET(request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) return unauthorizedResponse();
@@ -96,22 +113,31 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const instrumentToken = searchParams.get("instrument");
   const timeframe = searchParams.get("timeframe") || "5m";
-  const limit = parseInt(searchParams.get("limit") || "200");
+  const limit = Math.min(parseInt(searchParams.get("limit") || "200"), 1000);
+  const beforeTimestamp = searchParams.get("before") || undefined;
 
   if (!instrumentToken) {
     return badRequestResponse("instrument parameter is required");
   }
 
   try {
-    let candles = await getLiveCandles(
-      parseInt(instrumentToken),
+    // SAFETY: Validate this is a LIVE mode request
+    validateCandleMode("LIVE", "chart_api");
+
+    // Use the unified candle service
+    const result = await getCandles({
+      instrumentToken: parseInt(instrumentToken),
       timeframe,
-      limit
-    );
+      mode: "LIVE",
+      limit,
+      beforeTimestamp,
+    });
 
     let dataSource = "LIVE";
+    let candles = result.candles;
 
-    if (candles.length === 0) {
+    // Fallback: generate from ticks if no candles
+    if (candles.length === 0 && !beforeTimestamp) {
       candles = await generateCandlesFromTicks(
         parseInt(instrumentToken),
         timeframe,
@@ -120,6 +146,7 @@ export async function GET(request: NextRequest) {
       dataSource = "LIVE_GENERATED";
     }
 
+    // Get latest tick for real-time price
     const latestTick = await getLatestTick(parseInt(instrumentToken));
 
     return successResponse({ 
@@ -140,9 +167,20 @@ export async function GET(request: NextRequest) {
       } : null,
       dataSource,
       count: candles.length,
+      hasMore: result.hasMore,
+      oldestTimestamp: result.oldestTimestamp,
+      newestTimestamp: result.newestTimestamp,
+      // Pagination helper: pass this as "before" param to get older candles
+      nextPage: result.hasMore ? result.oldestTimestamp : null,
     });
   } catch (error) {
     console.error("Error fetching live data:", error);
+    
+    // Check for safety violation
+    if (error instanceof Error && error.message.includes("SAFETY VIOLATION")) {
+      return badRequestResponse(error.message);
+    }
+    
     return serverErrorResponse();
   }
 }

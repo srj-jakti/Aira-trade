@@ -5,6 +5,10 @@ import { createDecipheriv } from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
 
+// Minimum candles required for proper evaluation
+const MIN_CANDLES_FOR_EVALUATION = 20;
+const RECOMMENDED_CANDLES = 50;
+
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key || key.length !== 64) {
@@ -68,35 +72,76 @@ export async function getStrategy(strategyId: string): Promise<Strategy | null> 
     rules: data.rules || {},
     indicators: data.indicators || {},
     instruments: data.instruments || [],
-    timeframe: data.timeframe || "5s",
+    timeframe: data.timeframe || "5m",
   };
 }
 
+/**
+ * Fetch Live-Historical candles for trading evaluation
+ * Uses live_candles table (NEVER historical_candles)
+ * 
+ * Returns sufficient recent history for proper signal evaluation
+ */
 export async function getLatestCandles(
   instruments: number[],
   timeframe: string
 ): Promise<CandleData[]> {
-  const staleThreshold = new Date(Date.now() - 60000).toISOString();
+  // Map trading engine timeframe to live_candles timeframe format
+  const tfMap: Record<string, string> = {
+    "1s": "1s",
+    "5s": "5s",
+    "15s": "15s",
+    "1m": "1m",
+    "5m": "5m",
+    "15m": "15m",
+    "1h": "1h",
+  };
   
-  const tf = timeframe === "1s" ? "1s" : timeframe === "15s" ? "15s" : "5s";
+  const tf = tfMap[timeframe] || "5m";
+  
+  // Fetch adequate history for proper evaluation
+  // We need multiple candles per instrument for indicator calculation
+  const allCandles: CandleData[] = [];
+  
+  for (const instrumentToken of instruments) {
+    const { data, error } = await supabase
+      .from("live_candles")  // ONLY live_candles - NEVER historical_candles
+      .select("instrument_token, open, high, low, close, volume, timestamp")
+      .eq("instrument_token", instrumentToken)
+      .eq("timeframe", tf)
+      .order("timestamp", { ascending: false })
+      .limit(RECOMMENDED_CANDLES);
+    
+    if (error) {
+      logger.error(`Failed to fetch candles for ${instrumentToken}:`, error.message);
+      continue;
+    }
+    
+    if (data && data.length > 0) {
+      // Map to CandleData format (most recent first)
+      const instrumentCandles = data.map(d => ({
+        instrument_token: d.instrument_token,
+        open: parseFloat(d.open),
+        high: parseFloat(d.high),
+        low: parseFloat(d.low),
+        close: parseFloat(d.close),
+        volume: parseInt(d.volume) || 0,
+        bucket_start: d.timestamp,
+      }));
+      
+      allCandles.push(...instrumentCandles);
+    }
+  }
 
-  const { data } = await supabase
-    .from("live_candles")
-    .select("instrument_token, open, high, low, close, volume, timestamp")
-    .in("instrument_token", instruments)
-    .eq("timeframe", tf)
-    .gte("timestamp", staleThreshold)
-    .order("timestamp", { ascending: false });
+  return allCandles;
+}
 
-  return (data || []).map(d => ({
-    instrument_token: d.instrument_token,
-    open: parseFloat(d.open),
-    high: parseFloat(d.high),
-    low: parseFloat(d.low),
-    close: parseFloat(d.close),
-    volume: parseInt(d.volume) || 0,
-    bucket_start: d.timestamp,
-  }));
+/**
+ * Check if we have sufficient candle data for evaluation
+ */
+export function hasSufficientData(candles: CandleData[], instrumentToken: number): boolean {
+  const instrumentCandles = candles.filter(c => c.instrument_token === instrumentToken);
+  return instrumentCandles.length >= MIN_CANDLES_FOR_EVALUATION;
 }
 
 async function getActiveAIConfig(): Promise<AIConfig | null> {
@@ -207,9 +252,30 @@ export async function evaluateWithAI(
     return evaluateWithRules(strategy, candles);
   }
 
-  const recentCandles = candles.slice(0, 30);
-  if (recentCandles.length === 0) {
-    logger.warn("No candle data available");
+  // Get candles for the first instrument with sufficient data
+  const instrumentToken = candles.length > 0 ? candles[0].instrument_token : null;
+  
+  if (!instrumentToken) {
+    logger.warn("No instrument token in candles");
+    return null;
+  }
+
+  // Check if we have sufficient Live-Historical data
+  if (!hasSufficientData(candles, instrumentToken)) {
+    logger.warn(`Insufficient Live-Historical data for ${instrumentToken} (need ${MIN_CANDLES_FOR_EVALUATION} candles)`);
+    return null;
+  }
+
+  // Get candles for this instrument, ordered newest first
+  const instrumentCandles = candles
+    .filter(c => c.instrument_token === instrumentToken)
+    .sort((a, b) => new Date(b.bucket_start).getTime() - new Date(a.bucket_start).getTime());
+
+  // Use up to 30 candles for AI context
+  const recentCandles = instrumentCandles.slice(0, 30);
+  
+  if (recentCandles.length < 2) {
+    logger.warn("Not enough candle data for analysis");
     return null;
   }
 
@@ -219,6 +285,7 @@ export async function evaluateWithAI(
     l: c.low,
     c: c.close,
     v: c.volume,
+    t: c.bucket_start,
   }));
 
   const messages = [
@@ -232,7 +299,7 @@ Do not include any other text.`,
     {
       role: "user",
       content: `Analyze this price data and generate a trading signal. Risk per trade: ${userConfig.risk_per_trade}%, Max daily loss: ${userConfig.max_daily_loss}%.
-Recent candles (O/H/L/C/V): ${JSON.stringify(candlesSummary)}
+Recent candles (newest first, O/H/L/C/V/T): ${JSON.stringify(candlesSummary)}
 Strategy: ${JSON.stringify(strategy.rules)}`,
     },
   ];
@@ -267,16 +334,31 @@ Strategy: ${JSON.stringify(strategy.rules)}`,
   }
 }
 
+/**
+ * Rule-based evaluation as fallback
+ * Uses Live-Historical candles for proper trend calculation
+ */
 function evaluateWithRules(strategy: Strategy, candles: CandleData[]): Signal | null {
   if (candles.length < 2) return null;
 
-  const latest = candles[0];
-  const previous = candles[1];
+  // Get the most recent instrument's candles
+  const instrumentToken = candles[0]?.instrument_token;
+  if (!instrumentToken) return null;
+
+  const instrumentCandles = candles
+    .filter(c => c.instrument_token === instrumentToken)
+    .sort((a, b) => new Date(b.bucket_start).getTime() - new Date(a.bucket_start).getTime());
+
+  if (instrumentCandles.length < 2) return null;
+
+  const latest = instrumentCandles[0];
+  const previous = instrumentCandles[1];
 
   if (!latest || !previous) return null;
 
   const change = (latest.close - previous.close) / previous.close;
 
+  // Require significant movement (1% minimum)
   if (Math.abs(change) < 0.01) {
     return null;
   }

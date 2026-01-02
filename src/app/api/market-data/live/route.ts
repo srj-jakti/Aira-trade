@@ -7,8 +7,126 @@ import {
   successResponse,
 } from "@/lib/server/auth";
 import { getCandles, validateCandleMode } from "@/lib/server/candle-service";
-import { getLatestTick } from "@/lib/server/market-data-engine";
+import { getLatestTick, marketDataEngine } from "@/lib/server/market-data-engine";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { decrypt } from "@/lib/server/encryption";
+
+/**
+ * Fetch candles from Zerodha Historical API
+ * Used as fallback when live_candles is empty
+ */
+async function fetchFromZerodhaAPI(
+  instrumentToken: number,
+  timeframe: string,
+  limit: number
+): Promise<Array<{
+  timestamp: Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  oi: number;
+}>> {
+  try {
+    // Get active Zerodha config
+    const config = await marketDataEngine.getActiveConfig();
+    if (!config || !config.access_token) {
+      console.log("[LiveRoute] No active Zerodha config for historical fetch");
+      return [];
+    }
+
+    const apiKey = decrypt(config.api_key);
+    const accessToken = decrypt(config.access_token);
+
+    // Map timeframe to Zerodha interval
+    const intervalMap: Record<string, string> = {
+      "1s": "minute",
+      "5s": "minute",
+      "15s": "minute",
+      "1m": "minute",
+      "3m": "3minute",
+      "5m": "5minute",
+      "15m": "15minute",
+      "30m": "30minute",
+      "1h": "60minute",
+      "day": "day",
+    };
+    
+    const interval = intervalMap[timeframe] || "5minute";
+
+    // Calculate date range based on timeframe
+    const now = new Date();
+    const daysBack = timeframe === "1h" || timeframe === "day" ? 30 : 
+                     timeframe === "15m" || timeframe === "30m" ? 10 : 5;
+    const from = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+
+    const fromStr = from.toISOString().split("T")[0];
+    const toStr = now.toISOString().split("T")[0];
+
+    console.log(`[LiveRoute] Fetching from Zerodha: ${instrumentToken} ${interval} ${fromStr} to ${toStr}`);
+
+    const response = await fetch(
+      `https://api.kite.trade/instruments/historical/${instrumentToken}/${interval}?from=${fromStr}&to=${toStr}`,
+      {
+        headers: {
+          "X-Kite-Version": "3",
+          Authorization: `token ${apiKey}:${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: response.statusText }));
+      console.error("[LiveRoute] Zerodha API error:", error);
+      return [];
+    }
+
+    const data = await response.json();
+    const candles = data.data?.candles || [];
+
+    console.log(`[LiveRoute] Got ${candles.length} candles from Zerodha`);
+
+    // Store in live_candles for future requests
+    if (candles.length > 0) {
+      const rows = candles.map((c: (string | number)[]) => ({
+        instrument_token: instrumentToken,
+        timeframe: timeframe,
+        timestamp: new Date(c[0] as string).toISOString(),
+        open: c[1] as number,
+        high: c[2] as number,
+        low: c[3] as number,
+        close: c[4] as number,
+        volume: c[5] as number,
+        oi: (c[6] as number) || 0,
+      }));
+
+      // Batch insert to live_candles
+      const batchSize = 500;
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const batch = rows.slice(i, i + batchSize);
+        await supabaseAdmin
+          .from("live_candles")
+          .upsert(batch, { onConflict: "instrument_token,timeframe,timestamp" });
+      }
+      console.log(`[LiveRoute] Stored ${rows.length} candles in live_candles`);
+    }
+
+    // Return formatted candles (limit to requested amount)
+    return candles.slice(-limit).map((c: (string | number)[]) => ({
+      timestamp: new Date(c[0] as string),
+      open: c[1] as number,
+      high: c[2] as number,
+      low: c[3] as number,
+      close: c[4] as number,
+      volume: c[5] as number,
+      oi: (c[6] as number) || 0,
+    }));
+  } catch (error) {
+    console.error("[LiveRoute] Error fetching from Zerodha:", error);
+    return [];
+  }
+}
 
 /**
  * Generate candles from raw ticks as a fallback
@@ -100,6 +218,11 @@ async function generateCandlesFromTicks(
  * Fetches live candles for charts and analysis.
  * Supports pagination via before_timestamp for scroll-back functionality.
  * 
+ * Data sources (in priority order):
+ * 1. live_candles table (primary - from WebSocket aggregation)
+ * 2. realtime_ticks table (fallback - generated from raw ticks)
+ * 3. Zerodha Historical API (fallback - when no local data)
+ * 
  * Query params:
  * - instrument: Required. Instrument token
  * - timeframe: Optional. Default "5m"
@@ -136,14 +259,29 @@ export async function GET(request: NextRequest) {
     let dataSource = "LIVE";
     let candles = result.candles;
 
-    // Fallback: generate from ticks if no candles
+    // Fallback 1: Try generating from realtime ticks
     if (candles.length === 0 && !beforeTimestamp) {
       candles = await generateCandlesFromTicks(
         parseInt(instrumentToken),
         timeframe,
         limit
       );
-      dataSource = "LIVE_GENERATED";
+      if (candles.length > 0) {
+        dataSource = "LIVE_TICKS";
+      }
+    }
+
+    // Fallback 2: Fetch from Zerodha Historical API
+    if (candles.length < 10 && !beforeTimestamp) {
+      const zerodhaCandles = await fetchFromZerodhaAPI(
+        parseInt(instrumentToken),
+        timeframe,
+        limit
+      );
+      if (zerodhaCandles.length > candles.length) {
+        candles = zerodhaCandles;
+        dataSource = "ZERODHA_HISTORICAL";
+      }
     }
 
     // Get latest tick for real-time price
@@ -168,8 +306,8 @@ export async function GET(request: NextRequest) {
       dataSource,
       count: candles.length,
       hasMore: result.hasMore,
-      oldestTimestamp: result.oldestTimestamp,
-      newestTimestamp: result.newestTimestamp,
+      oldestTimestamp: result.oldestTimestamp || (candles.length > 0 ? candles[0].timestamp.toISOString() : null),
+      newestTimestamp: result.newestTimestamp || (candles.length > 0 ? candles[candles.length - 1].timestamp.toISOString() : null),
       // Pagination helper: pass this as "before" param to get older candles
       nextPage: result.hasMore ? result.oldestTimestamp : null,
     });

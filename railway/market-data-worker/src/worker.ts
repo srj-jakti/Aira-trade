@@ -104,6 +104,10 @@ class MarketDataWorker {
   private candleBuffers: Map<string, CandleBuffer> = new Map();
   private isRunning = false;
   private isShuttingDown = false;
+  private tickCount = 0;
+  private ticksPerSecond = 0;
+  private lastTickAt: string | null = null;
+  private lastTickCountReset = Date.now();
   private tickFlushInterval: NodeJS.Timeout | null = null;
   private candleFlushInterval: NodeJS.Timeout | null = null;
   private healthCheckInterval: NodeJS.Timeout | null = null;
@@ -248,6 +252,8 @@ class MarketDataWorker {
 
   private handleTicks(ticks: KiteTickData[]): void {
     const now = new Date().toISOString();
+    this.tickCount += ticks.length;
+    this.lastTickAt = now;
 
     for (const tick of ticks) {
       this.tickBuffer.push({
@@ -349,31 +355,39 @@ class MarketDataWorker {
         const seconds = timeframeSeconds[timeframe] || 1;
         const bucketEnd = bucketStart + (seconds * 1000);
 
-        if (now >= bucketEnd) {
-          liveCandles.push({
-            instrument_token: instrumentToken,
-            timeframe: timeframe,
-            timestamp: new Date(bucketStart).toISOString(),
-            open: buffer.open,
-            high: buffer.high,
-            low: buffer.low,
-            close: buffer.close,
-            volume: buffer.volume,
-            oi: buffer.oi,
-          });
+        // Always include in flush to update live data
+        liveCandles.push({
+          instrument_token: instrumentToken,
+          timeframe: timeframe,
+          timestamp: new Date(bucketStart).toISOString(),
+          open: buffer.open,
+          high: buffer.high,
+          low: buffer.low,
+          close: buffer.close,
+          volume: buffer.volume,
+          oi: buffer.oi,
+        });
 
+        // Only remove if the bucket is fully closed
+        if (now >= bucketEnd) {
           keysToRemove.push(key);
         }
       }
 
+      // Batch remove closed buckets
       keysToRemove.forEach(k => this.candleBuffers.delete(k));
 
       if (liveCandles.length > 0) {
-        const { error } = await supabase.from("live_candles").upsert(liveCandles, { 
-          onConflict: "instrument_token,timeframe,timestamp" 
-        });
-        if (error) {
-          console.error("[MarketDataWorker] Live candles upsert error:", error.message);
+        // Use chunks to avoid hitting payload limits
+        const chunkSize = 1000;
+        for (let i = 0; i < liveCandles.length; i += chunkSize) {
+          const chunk = liveCandles.slice(i, i + chunkSize);
+          const { error } = await supabase.from("live_candles").upsert(chunk, { 
+            onConflict: "instrument_token,timeframe,timestamp" 
+          });
+          if (error) {
+            console.error("[MarketDataWorker] Live candles upsert error:", error.message);
+          }
         }
       }
     }, CANDLE_FLUSH_INTERVAL);
@@ -389,7 +403,8 @@ class MarketDataWorker {
       .from("instruments")
       .select("instrument_token, tradingsymbol, subscription_mode, subscription_priority, segment")
       .eq("is_subscribed", true)
-      .order("subscription_priority", { ascending: true, nullsFirst: false });
+      .order("subscription_priority", { ascending: true, nullsFirst: false })
+      .limit(10000); // Increased limit to fetch all subscribed instruments
 
     if (!allInstruments || allInstruments.length === 0) {
       console.log("[MarketDataWorker] No instruments to subscribe");
@@ -573,11 +588,20 @@ class MarketDataWorker {
     const connectedCount = Array.from(this.connections.values())
       .filter(c => c.isConnected).length;
 
+    const now = Date.now();
+    if (now - this.lastTickCountReset >= 1000) {
+      this.ticksPerSecond = this.tickCount;
+      this.tickCount = 0;
+      this.lastTickCountReset = now;
+    }
+
     await supabase.from("data_engine_status").upsert({
       engine_type: "market_data",
       status: this.isRunning ? "running" : "stopped",
       websocket_status: connectedCount > 0 ? "connected" : "disconnected",
       subscribed_instruments: totalSubscribed,
+      ticks_per_second: this.ticksPerSecond,
+      last_tick_at: this.lastTickAt,
       updated_at: new Date().toISOString(),
     }, { onConflict: "engine_type" });
   }

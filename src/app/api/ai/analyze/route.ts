@@ -14,7 +14,13 @@ export async function POST(request: NextRequest) {
   if (!user.authenticated) return unauthorizedResponse();
 
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      return badRequestResponse("Invalid JSON in request body");
+    }
+    
     const { instrumentToken, tradingsymbol, exchange = "NSE", timeframe = "5m" } = body;
 
     if (!instrumentToken || !tradingsymbol) {

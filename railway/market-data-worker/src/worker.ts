@@ -380,35 +380,65 @@ class MarketDataWorker {
   }
 
   private async distributeSubscriptions(): Promise<void> {
-    const { data: instruments } = await supabase
-      .from("instruments")
-      .select("instrument_token, tradingsymbol, subscription_mode")
-      .eq("is_subscribed", true);
+    const activeConnections = Array.from(this.connections.entries())
+      .filter(([_, conn]) => conn.isConnected);
 
-    if (!instruments || instruments.length === 0) {
+    const maxCapacity = activeConnections.length * MAX_INSTRUMENTS_PER_CONNECTION;
+    
+    const { data: allInstruments } = await supabase
+      .from("instruments")
+      .select("instrument_token, tradingsymbol, subscription_mode, subscription_priority, segment")
+      .eq("is_subscribed", true)
+      .order("subscription_priority", { ascending: true, nullsFirst: false });
+
+    if (!allInstruments || allInstruments.length === 0) {
       console.log("[MarketDataWorker] No instruments to subscribe");
       return;
     }
 
-    const activeConnections = Array.from(this.connections.entries())
-      .filter(([_, conn]) => conn.isConnected)
+    let instruments = allInstruments;
+    if (allInstruments.length > maxCapacity) {
+      console.log(`[MarketDataWorker] ${allInstruments.length} instruments exceed capacity (${maxCapacity}). Prioritizing...`);
+      
+      const prioritized = [
+        ...allInstruments.filter(i => i.segment === "INDICES"),
+        ...allInstruments.filter(i => i.subscription_priority === "high"),
+        ...allInstruments.filter(i => i.subscription_priority === "user_search"),
+        ...allInstruments.filter(i => i.subscription_priority === "auto" && i.segment === "NSE"),
+        ...allInstruments.filter(i => i.segment?.includes("NFO")),
+      ];
+
+      const seen = new Set<number>();
+      instruments = [];
+      for (const inst of prioritized) {
+        if (!seen.has(inst.instrument_token)) {
+          seen.add(inst.instrument_token);
+          instruments.push(inst);
+          if (instruments.length >= maxCapacity) break;
+        }
+      }
+      
+      console.log(`[MarketDataWorker] Selected ${instruments.length} priority instruments`);
+    }
+
+    const sortedConnections = activeConnections
       .sort((a, b) => a[1].subscribedTokens.size - b[1].subscribedTokens.size);
 
-    if (activeConnections.length === 0) {
+    if (sortedConnections.length === 0) {
       console.error("[MarketDataWorker] No active connections for subscription");
       return;
     }
 
-    console.log(`[MarketDataWorker] Distributing ${instruments.length} instruments across ${activeConnections.length} connections`);
+    console.log(`[MarketDataWorker] Distributing ${instruments.length} instruments across ${sortedConnections.length} connections`);
 
     let connectionIndex = 0;
 
     for (const instrument of instruments) {
       if (this.instrumentAssignments.has(instrument.instrument_token)) continue;
 
-      for (let i = 0; i < activeConnections.length; i++) {
-        const idx = (connectionIndex + i) % activeConnections.length;
-        const [configId, connection] = activeConnections[idx];
+      for (let i = 0; i < sortedConnections.length; i++) {
+        const idx = (connectionIndex + i) % sortedConnections.length;
+        const [configId, connection] = sortedConnections[idx];
 
         if (connection.subscribedTokens.size < MAX_INSTRUMENTS_PER_CONNECTION) {
           connection.ticker.subscribe([instrument.instrument_token]);
@@ -422,7 +452,7 @@ class MarketDataWorker {
           connection.ticker.setMode(mode, [instrument.instrument_token]);
           connection.subscribedTokens.add(instrument.instrument_token);
           this.instrumentAssignments.set(instrument.instrument_token, configId);
-          connectionIndex = (idx + 1) % activeConnections.length;
+          connectionIndex = (idx + 1) % sortedConnections.length;
           break;
         }
       }

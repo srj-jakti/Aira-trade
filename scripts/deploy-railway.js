@@ -1,4 +1,4 @@
-const RAILWAY_API_KEY = "e4f59994-176e-44bb-b1e2-fce6390fbe6f";
+const RAILWAY_API_KEY = "a6515712-46ff-445a-8941-d31a2047b087";
 const RAILWAY_API_URL = "https://backboard.railway.com/graphql/v2";
 
 const SUPABASE_URL = "https://fhkathpufpbkwzdfczgj.supabase.co";

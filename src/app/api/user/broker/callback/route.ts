@@ -2,57 +2,59 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { encrypt, decrypt } from "@/lib/server/encryption";
 import crypto from "crypto";
-import { getURL } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const requestToken = url.searchParams.get("request_token");
   const status = url.searchParams.get("status");
   const adminConfigId = url.searchParams.get("admin_config_id");
-  
-  const baseUrl = getURL();
+  const userIdParam = url.searchParams.get("user_id");
+
+  console.log("[Broker Callback] Received params:", {
+    status,
+    requestToken: requestToken?.substring(0, 10) + "...",
+    adminConfigId,
+    userIdParam
+  });
 
   if (status === "error" || !requestToken) {
     console.error("[Broker Callback] OAuth failed - status:", status);
-    if (adminConfigId) {
-      return renderAdminResult(false, "Authentication failed. Please try again.");
-    }
-    return NextResponse.redirect(`${baseUrl}settings?broker_error=auth_failed`);
+    return renderResult(false, "Authentication failed. Please try again.", adminConfigId ? "admin" : "user");
   }
 
   if (adminConfigId) {
     return handleAdminCallback(adminConfigId, requestToken);
   }
 
-  const userIdParam = url.searchParams.get("user_id");
-
   let userId: string | null = userIdParam;
 
   if (!userId) {
     const cookies = request.cookies;
-    const sbCookie = cookies.get("sb-fhkathpufpbkwzdfczgj-auth-token");
-    if (sbCookie) {
-      try {
-        const tokenData = JSON.parse(sbCookie.value);
-        if (tokenData?.user?.id) {
-          userId = tokenData.user.id;
-        }
-      } catch {}
+    const authCookies = [
+      "sb-fhkathpufpbkwzdfczgj-auth-token",
+      "sb-fhkathpufpbkwzdfczgj-auth-token.0",
+      "sb-fhkathpufpbkwzdfczgj-auth-token.1"
+    ];
+    
+    for (const cookieName of authCookies) {
+      const sbCookie = cookies.get(cookieName);
+      if (sbCookie) {
+        try {
+          const tokenData = JSON.parse(sbCookie.value);
+          if (tokenData?.user?.id) {
+            userId = tokenData.user.id;
+            break;
+          }
+        } catch {}
+      }
     }
   }
 
-  if (!userId) {
-    const { data: { user } } = await supabaseAdmin.auth.getUser();
-    if (user?.id) {
-      userId = user.id;
-    }
-  }
-
-  console.log("[Broker Callback] Processing for user:", userId, "request_token:", requestToken?.substring(0, 10) + "...");
+  console.log("[Broker Callback] Processing for user:", userId);
 
   if (!userId) {
     console.error("[Broker Callback] No user_id found");
-    return NextResponse.redirect(`${baseUrl}settings?broker_error=missing_user`);
+    return renderResult(false, "Session expired. Please close this window and try again from Settings.", "user");
   }
 
   try {
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
 
     if (!account || !account.api_key) {
       console.error("[Broker Callback] No broker account found for user:", userId);
-      return NextResponse.redirect(`${baseUrl}settings?broker_error=no_account`);
+      return renderResult(false, "Please save your API keys first, then try again.", "user");
     }
 
     const { data: config } = await supabaseAdmin
@@ -87,7 +89,7 @@ export async function GET(request: NextRequest) {
 
     if (!apiSecret) {
       console.error("[Broker Callback] No API secret found for user:", userId);
-      return NextResponse.redirect(`${baseUrl}settings?broker_error=no_secret`);
+      return renderResult(false, "API Secret not found. Please save your credentials again.", "user");
     }
 
     const checksum = crypto
@@ -115,7 +117,7 @@ export async function GET(request: NextRequest) {
 
     if (tokenData.status !== "success" || !tokenData.data?.access_token) {
       console.error("[Broker Callback] Token exchange failed:", tokenData.message);
-      return NextResponse.redirect(`${baseUrl}settings?broker_error=token_failed`);
+      return renderResult(false, tokenData.message || "Token exchange failed. Please try again.", "user");
     }
 
     const accessToken = tokenData.data.access_token;
@@ -123,9 +125,9 @@ export async function GET(request: NextRequest) {
 
     await supabaseAdmin
       .from("user_broker_accounts")
-        .update({
-          access_token: encrypt(accessToken),
-          user_id_broker: brokerUserId,
+      .update({
+        access_token: encrypt(accessToken),
+        user_id_broker: brokerUserId,
         is_connected: true,
         is_authorized: true,
         last_connected_at: new Date().toISOString(),
@@ -136,49 +138,10 @@ export async function GET(request: NextRequest) {
 
     console.log("[Broker Callback] Successfully connected broker for user:", userId, "broker_id:", brokerUserId);
 
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Zerodha Connected</title>
-  <style>
-    body { 
-      font-family: system-ui, sans-serif; 
-      display: flex; 
-      align-items: center; 
-      justify-content: center; 
-      min-height: 100vh; 
-      margin: 0; 
-      background: #030303; 
-      color: white;
-    }
-    .container { text-align: center; padding: 2rem; }
-    .success { color: #22c55e; font-size: 4rem; margin-bottom: 1rem; }
-    h1 { margin: 0 0 0.5rem; }
-    p { color: #888; margin: 0; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="success">✓</div>
-    <h1>Zerodha Connected!</h1>
-    <p>You can close this window now.</p>
-  </div>
-  <script>
-    if (window.opener) {
-      window.opener.postMessage({ type: 'ZERODHA_AUTH_SUCCESS' }, '*');
-      setTimeout(() => window.close(), 2000);
-    }
-  </script>
-</body>
-</html>`;
-
-    return new NextResponse(html, {
-      headers: { "Content-Type": "text/html" },
-    });
+    return renderResult(true, "Zerodha connected successfully!", "user");
   } catch (error) {
     console.error("[Broker Callback] Error:", error);
-    return NextResponse.redirect(`${baseUrl}settings?broker_error=server_error`);
+    return renderResult(false, "Server error. Please try again.", "user");
   }
 }
 
@@ -192,7 +155,7 @@ async function handleAdminCallback(configId: string, requestToken: string) {
 
     if (!config) {
       console.error("[Admin Callback] No config found for id:", configId);
-      return renderAdminResult(false, "Configuration not found.");
+      return renderResult(false, "Configuration not found.", "admin");
     }
 
     const apiKey = decrypt(config.api_key);
@@ -202,6 +165,8 @@ async function handleAdminCallback(configId: string, requestToken: string) {
       .createHash("sha256")
       .update(apiKey + requestToken + apiSecret)
       .digest("hex");
+
+    console.log("[Admin Callback] Exchanging token for config:", config.name);
 
     const tokenResp = await fetch("https://api.kite.trade/session/token", {
       method: "POST",
@@ -220,7 +185,7 @@ async function handleAdminCallback(configId: string, requestToken: string) {
 
     if (tokenData.status !== "success" || !tokenData.data?.access_token) {
       console.error("[Admin Callback] Token exchange failed:", tokenData.message);
-      return renderAdminResult(false, tokenData.message || "Token exchange failed.");
+      return renderResult(false, tokenData.message || "Token exchange failed.", "admin");
     }
 
     const accessToken = tokenData.data.access_token;
@@ -248,21 +213,23 @@ async function handleAdminCallback(configId: string, requestToken: string) {
       triggered_by: "admin_manual",
     });
 
-    console.log("[Admin Callback] Successfully authorized config:", config.id);
+    console.log("[Admin Callback] Successfully authorized config:", config.name);
 
-    return renderAdminResult(true, "Zerodha authorized successfully!");
+    return renderResult(true, "Zerodha authorized successfully!", "admin");
   } catch (error) {
     console.error("[Admin Callback] Error:", error);
-    return renderAdminResult(false, "Server error. Please try again.");
+    return renderResult(false, "Server error. Please try again.", "admin");
   }
 }
 
-function renderAdminResult(success: boolean, message: string) {
+function renderResult(success: boolean, message: string, type: "admin" | "user") {
+  const messageType = type === "admin" ? "ZERODHA_ADMIN_AUTH_SUCCESS" : "ZERODHA_AUTH_SUCCESS";
+  
   const html = `
 <!DOCTYPE html>
 <html>
 <head>
-  <title>${success ? "Zerodha Authorized" : "Authorization Failed"}</title>
+  <title>${success ? "Zerodha Connected" : "Connection Failed"}</title>
   <style>
     body { 
       font-family: system-ui, sans-serif; 
@@ -274,26 +241,30 @@ function renderAdminResult(success: boolean, message: string) {
       background: #030303; 
       color: white;
     }
-    .container { text-align: center; padding: 2rem; }
+    .container { text-align: center; padding: 2rem; max-width: 400px; }
     .icon { font-size: 4rem; margin-bottom: 1rem; }
     .success { color: #22c55e; }
     .error { color: #ef4444; }
-    h1 { margin: 0 0 0.5rem; }
-    p { color: #888; margin: 0; }
+    h1 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+    p { color: #888; margin: 0; font-size: 0.875rem; }
+    .message { margin-bottom: 1rem; }
+    .close-note { font-size: 0.75rem; opacity: 0.6; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="icon ${success ? "success" : "error"}">${success ? "✓" : "✕"}</div>
-    <h1>${success ? "Authorized!" : "Failed"}</h1>
-    <p>${message}</p>
-    <p style="margin-top: 1rem; font-size: 0.875rem;">This window will close automatically...</p>
+    <h1>${success ? "Connected!" : "Failed"}</h1>
+    <p class="message">${message}</p>
+    <p class="close-note">This window will close automatically...</p>
   </div>
   <script>
     if (window.opener) {
-      window.opener.postMessage({ type: 'ZERODHA_ADMIN_AUTH_SUCCESS', success: ${success} }, '*');
-      setTimeout(() => window.close(), 2000);
+      window.opener.postMessage({ type: '${messageType}', success: ${success} }, '*');
     }
+    setTimeout(() => {
+      window.close();
+    }, 2500);
   </script>
 </body>
 </html>`;

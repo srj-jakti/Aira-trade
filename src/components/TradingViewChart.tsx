@@ -64,6 +64,28 @@ function formatISTTime(utcTimestamp: number): string {
   });
 }
 
+/**
+ * Deduplicate and sort candle data by timestamp
+ * TradingView Lightweight Charts requires unique, ascending timestamps
+ */
+function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
+  if (data.length === 0) return [];
+  
+  // Create a map to deduplicate by timestamp (keep the latest entry for each timestamp)
+  const candleMap = new Map<number, CandleData>();
+  
+  for (const candle of data) {
+    const timestamp = Math.floor(new Date(candle.timestamp).getTime() / 1000);
+    // Keep the latest candle for each timestamp (overwrites previous)
+    candleMap.set(timestamp, candle);
+  }
+  
+  // Convert back to array and sort by timestamp ascending
+  return Array.from(candleMap.values()).sort((a, b) => 
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+}
+
 // type ChartApi = ReturnType<typeof import("lightweight-charts").createChart>;
 // type CandlestickSeriesApi = ReturnType<ChartApi["addCandlestickSeries"]>;
 // type HistogramSeriesApi = ReturnType<ChartApi["addHistogramSeries"]>;
@@ -258,9 +280,8 @@ export function TradingViewChart({
       return;
     }
 
-    const sortedData = [...data].sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
+    // Deduplicate and sort data to prevent duplicate timestamp errors
+    const sortedData = deduplicateAndSortCandles(data);
 
     const candleData = sortedData.map((d) => ({
       time: (new Date(d.timestamp).getTime() / 1000) as import("lightweight-charts").Time,
@@ -327,9 +348,8 @@ export function TradingViewChart({
       });
       indicatorSeriesRef.current.clear();
 
-      const sortedData = [...data].sort((a, b) => 
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      );
+      // Deduplicate and sort data
+      const sortedData = deduplicateAndSortCandles(data);
 
       indicators.filter(ind => ind.visible).forEach((indicator) => {
         if (!chartInstanceRef.current) return;
@@ -440,4 +460,3 @@ export function TradingViewChart({
       </div>
     );
   }
-

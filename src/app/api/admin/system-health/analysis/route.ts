@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import {
-  getAuthenticatedUser,
+  getAdminUser,
   unauthorizedResponse,
   successResponse,
   serverErrorResponse,
@@ -59,18 +59,8 @@ interface SystemHealthAnalysis {
 }
 
 export async function GET(request: NextRequest) {
-  const authResult = await getAuthenticatedUser();
-  if (!authResult.authenticated || !authResult.userId) {
-    return unauthorizedResponse();
-  }
-
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("role")
-    .eq("id", authResult.userId)
-    .single();
-
-  if (profile?.role !== "admin") {
+  const adminResult = await getAdminUser();
+  if (!adminResult.authenticated || !adminResult.isAdmin) {
     return unauthorizedResponse();
   }
 
@@ -84,18 +74,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await getAuthenticatedUser();
-  if (!authResult.authenticated || !authResult.userId) {
-    return unauthorizedResponse();
-  }
-
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("role")
-    .eq("id", authResult.userId)
-    .single();
-
-  if (profile?.role !== "admin") {
+  const adminResult = await getAdminUser();
+  if (!adminResult.authenticated || !adminResult.isAdmin) {
     return unauthorizedResponse();
   }
 

@@ -1641,59 +1641,78 @@ function SystemHealthDashboard() {
           </Card>
 
           <Card className="bg-white/5 border-white/10 lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-white text-lg flex items-center gap-2">
-                <Server className="w-5 h-5 text-purple-400" />
-                Infrastructure Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-purple-500/20 rounded-lg">
-                      <Globe className="w-5 h-5 text-purple-400" />
+              <CardHeader>
+                <CardTitle className="text-white text-lg flex items-center gap-2">
+                  <Server className="w-5 h-5 text-purple-400" />
+                  Infrastructure Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-purple-500/20 rounded-lg">
+                        <Globe className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">Vercel</p>
+                        <p className="text-white/40 text-xs">Frontend & API Routes</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-white font-medium">Vercel</p>
-                      <p className="text-white/40 text-xs">Frontend & API</p>
-                    </div>
+                    <Badge className="bg-green-500/20 text-green-400">Operational</Badge>
+                    <p className="text-xs text-white/40 mt-2">Hosts Next.js app & serverless functions</p>
                   </div>
-                  <Badge className="bg-green-500/20 text-green-400">Operational</Badge>
-                </div>
 
-                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-green-500/20 rounded-lg">
-                      <Database className="w-5 h-5 text-green-400" />
+                  <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-green-500/20 rounded-lg">
+                        <Database className="w-5 h-5 text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">Supabase</p>
+                        <p className="text-white/40 text-xs">Database & Auth & Realtime</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-white font-medium">Supabase</p>
-                      <p className="text-white/40 text-xs">Database & Auth</p>
-                    </div>
+                    <Badge className={getStatusColor(health?.database.status || "unknown")}>
+                      {health?.database.status || "Unknown"}
+                    </Badge>
+                    <p className="text-xs text-white/40 mt-2">PostgreSQL, Auth, Storage, Realtime</p>
                   </div>
-                  <Badge className={getStatusColor(health?.database.status || "unknown")}>
-                    {health?.database.status || "Unknown"}
-                  </Badge>
-                </div>
 
-                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-blue-500/20 rounded-lg">
-                      <Server className="w-5 h-5 text-blue-400" />
+                  <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-blue-500/20 rounded-lg">
+                        <Activity className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">Railway - Market Data Worker</p>
+                        <p className="text-white/40 text-xs">WebSocket & Tick Processing</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-white font-medium">Railway</p>
-                      <p className="text-white/40 text-xs">Market Data Worker</p>
-                    </div>
+                    <Badge className={(health?.zerodha.connected || 0) > 0 ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}>
+                      {(health?.zerodha.connected || 0) > 0 ? "Connected" : "Standby"}
+                    </Badge>
+                    <p className="text-xs text-white/40 mt-2">Zerodha WebSocket connection & tick data ingestion</p>
                   </div>
-                  <Badge className={(health?.zerodha.connected || 0) > 0 ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}>
-                    {(health?.zerodha.connected || 0) > 0 ? "Connected" : "Standby"}
-                  </Badge>
+
+                  <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-orange-500/20 rounded-lg">
+                        <Zap className="w-5 h-5 text-orange-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-medium">Railway - Trading Engine</p>
+                        <p className="text-white/40 text-xs">Strategy Execution & Orders</p>
+                      </div>
+                    </div>
+                    <Badge className={(health?.database.totalStrategies || 0) > 0 ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}>
+                      {(health?.database.totalStrategies || 0) > 0 ? "Active" : "Standby"}
+                    </Badge>
+                    <p className="text-xs text-white/40 mt-2">Executes trading strategies & manages orders</p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
         </div>
       )}
 

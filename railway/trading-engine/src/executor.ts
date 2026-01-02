@@ -37,7 +37,7 @@ export interface BrokerCredentials {
 }
 
 export interface Signal {
-  action: "BUY" | "SELL";
+  action: "BUY" | "SELL" | "HOLD";
   instrument: string;
   instrumentToken: number;
   price: number;
@@ -210,7 +210,7 @@ export async function executeOrder(
         body: new URLSearchParams(orderParams),
       });
 
-      const data = await response.json();
+      const data = await response.json() as { data?: { order_id?: string }; message?: string };
 
       const orderId = data.data?.order_id;
       const success = response.ok && !!orderId;
@@ -266,7 +266,7 @@ export async function fetchOrderStatus(
       },
     });
 
-    const data = await response.json();
+    const data = await response.json() as { data?: Array<{ status?: string }> };
     const orders = data.data || [];
     
     if (orders.length > 0) {

@@ -177,7 +177,7 @@ async function callAI(
       return null;
     }
 
-    const data = await response.json();
+    const data = await response.json() as { content?: Array<{ text?: string }>; choices?: Array<{ message?: { content?: string } }> };
 
     if (config.provider === "anthropic") {
       return data.content?.[0]?.text || null;

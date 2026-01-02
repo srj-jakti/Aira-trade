@@ -211,7 +211,7 @@ class MarketDataWorker {
           connection.lastHeartbeat = Date.now();
         });
 
-        ticker.on("disconnect", (code: number) => {
+        (ticker as any).on("disconnect", (code: number) => {
           console.log(`[MarketDataWorker][${config.name}] Disconnected: ${code}`);
           connection.isConnected = false;
           this.updateConfigStatus(config.id, "disconnected");

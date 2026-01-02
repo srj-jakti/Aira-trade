@@ -10,11 +10,11 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
-    "kiteconnect": "^5.1.0"
+    "kiteconnect": "^5.1.0",
+    "typescript": "^5"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "tsx": "^4.21.0",
-    "typescript": "^5"
+    "tsx": "^4.21.0"
   }
 }

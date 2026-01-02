@@ -443,11 +443,32 @@ function ZerodhaConfigManager() {
                         </div>
                       </div>
                       {config.last_error && (
-                        <div className="flex items-start gap-2 mt-2 p-2 bg-red-500/10 rounded-lg">
-                          <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                          <span className="text-red-400 text-sm">{config.last_error}</span>
-                        </div>
-                      )}
+                          <div className="flex items-start gap-2 mt-2 p-2 bg-red-500/10 rounded-lg">
+                            <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <span className="text-red-400 text-sm">
+                                {config.last_error.includes("first-time manual authorization") 
+                                  ? "API key requires first-time authorization in browser"
+                                  : config.last_error}
+                              </span>
+                              {config.last_error.includes("first-time manual authorization") && (
+                                <div className="mt-2">
+                                  <a 
+                                    href={`https://kite.trade/connect/login?v=3&api_key=${config.api_key}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-400 hover:text-blue-300 text-sm underline"
+                                  >
+                                    Click here to authorize in browser →
+                                  </a>
+                                  <p className="text-white/40 text-xs mt-1">
+                                    Log into Zerodha first, then click "Authorize" on the page
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-2 ml-4">
                       <Switch

@@ -10,7 +10,7 @@ const BASE_HEADERS = {
   "X-Kite-Version": "3",
 };
 
-const DEBUG = true; // Forced for debugging auto-login issues
+const DEBUG = false;
 
 function log(...args: unknown[]) {
   if (DEBUG) console.log(...args);
@@ -60,7 +60,7 @@ export async function performZerodhaFullLogin(config: {
   user_id: string;
   password: string;
   totp_secret: string;
-}): Promise<{ success: boolean; accessToken?: string; error?: string }> {
+}): Promise<{ success: boolean; accessToken?: string; error?: string; requiresManualAuth?: boolean; authUrl?: string }> {
   try {
     log("[Zerodha Auth] Starting login for user:", config.user_id);
     
@@ -123,7 +123,6 @@ export async function performZerodhaFullLogin(config: {
     cookies = extractCookies(twofaResp, cookies);
     log("[Zerodha Auth] Step 2 Success, Cookies count:", cookies.size);
     
-    // Visit home page once to solidify session
     log("[Zerodha Auth] Solidifying session...");
     const homeResp = await fetch("https://kite.zerodha.com/dashboard", {
       headers: {
@@ -155,8 +154,12 @@ export async function performZerodhaFullLogin(config: {
         "Accept-Language": "en-US,en;q=0.9",
         "Cache-Control": "max-age=0",
         "Connection": "keep-alive",
-        "Cookie": cookieString
+        "Cookie": cookieString,
       };
+      
+      if (enctoken && currentUrl.includes("kite.zerodha.com")) {
+        oauthHeaders["Authorization"] = `enctoken ${enctoken}`;
+      }
       
       const resp = await fetch(currentUrl, {
         method: "GET",
@@ -180,10 +183,9 @@ export async function performZerodhaFullLogin(config: {
         }
 
         currentUrl = location.startsWith("http") ? location : `https://kite.zerodha.com${location}`;
-      } 
-      else if (resp.status === 200) {
+      } else if (resp.status === 200) {
         const text = await resp.text();
-        log("[Zerodha Auth] 200 OK, text length:", text.length);
+        log("[Zerodha Auth] 200 OK, text length:", text.length, "URL:", currentUrl);
         
         const match = text.match(/[?&]request_token=([^&"'\s]+)/);
         if (match) {
@@ -192,42 +194,20 @@ export async function performZerodhaFullLogin(config: {
           break;
         }
 
-        if (text.includes("Authorize")) {
-          log("[Zerodha Auth] Found Authorize button, attempting auto-approve");
-          const sessIdMatch = currentUrl.match(/[?&]sess_id=([^&]+)/);
-          if (!sessIdMatch) {
-            log("[Zerodha Auth] sess_id not found in URL:", currentUrl);
-            break;
-          }
-          
-          const actionUrl = `https://kite.zerodha.com/connect/login?api_key=${config.api_key}&sess_id=${sessIdMatch[1]}`;
-          log("[Zerodha Auth] POST to actionUrl:", actionUrl);
-          
-          const approveResp = await fetch(actionUrl, {
-            method: "POST",
-            headers: { ...BASE_HEADERS, "Cookie": cookieMapToString(cookies) },
-            body: new URLSearchParams({ skipApi: "true" }).toString(),
-            redirect: "manual"
-          });
-          
-          log("[Zerodha Auth] Approve response status:", approveResp.status);
-          cookies = extractCookies(approveResp, cookies);
-          const loc = approveResp.headers.get("location");
-          log("[Zerodha Auth] Approve redirect loc:", loc);
-          
-          if (loc) {
-            const rtMatch = loc.match(/request_token=([^&]+)/);
-            if (rtMatch) {
-              requestToken = rtMatch[1];
-              log("[Zerodha Auth] Found request_token after approve:", requestToken);
-              break;
-            }
-            currentUrl = loc.startsWith("http") ? loc : `https://kite.zerodha.com${loc}`;
-            log("[Zerodha Auth] Following redirect after approve:", currentUrl);
-            continue; 
-          }
+        const isAuthorizePage = currentUrl.includes("/connect/authorize");
+        const hasAuthorizeButton = text.includes("Authorize");
+        log("[Zerodha Auth] isAuthorizePage:", isAuthorizePage, "hasAuthorizeButton:", hasAuthorizeButton);
+        
+        if (isAuthorizePage || hasAuthorizeButton) {
+          log("[Zerodha Auth] API key needs first-time manual authorization");
+          return { 
+            success: false, 
+            error: `API key requires first-time manual authorization. Please visit: https://kite.trade/connect/login?v=3&api_key=${config.api_key} in your browser while logged into Zerodha to authorize this app.`,
+            requiresManualAuth: true,
+            authUrl: `https://kite.trade/connect/login?v=3&api_key=${config.api_key}`
+          };
         } else {
-          log("[Zerodha Auth] No request_token or Authorize button found in 200 OK response");
+          log("[Zerodha Auth] No request_token found in 200 OK response");
           log("[Zerodha Auth] Response text snippet:", text.substring(0, 500));
         }
         break;

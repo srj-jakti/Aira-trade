@@ -80,26 +80,32 @@ export async function POST(
       });
 
       return successResponse({ success: true, status: "connected" });
-    } else {
-      await supabaseAdmin
-        .from("admin_zerodha_configs")
-        .update({
-          connection_status: "error",
-          last_error: result.error,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", configId);
+      } else {
+        await supabaseAdmin
+          .from("admin_zerodha_configs")
+          .update({
+            connection_status: "error",
+            last_error: result.error,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", configId);
 
-      await supabaseAdmin.from("zerodha_login_logs").insert({
-        config_id: configId,
-        login_type: triggeredBy === "scheduled" ? "scheduled" : "manual",
-        status: "failed",
-        error_message: result.error,
-        triggered_by: triggeredBy,
-      });
+        await supabaseAdmin.from("zerodha_login_logs").insert({
+          config_id: configId,
+          login_type: triggeredBy === "scheduled" ? "scheduled" : "manual",
+          status: "failed",
+          error_message: result.error,
+          triggered_by: triggeredBy,
+        });
 
-      return successResponse({ success: false, error: result.error, status: "error" });
-    }
+        return successResponse({ 
+          success: false, 
+          error: result.error, 
+          status: "error",
+          requiresManualAuth: result.requiresManualAuth,
+          authUrl: result.authUrl,
+        });
+      }
   } catch (error) {
     console.error("Error in zerodha login:", error);
     return serverErrorResponse();

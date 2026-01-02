@@ -279,11 +279,18 @@ class MarketDataWorker {
 
   private updateCandleBuffers(tick: KiteTickData, timestamp: string): void {
     const tickTime = new Date(timestamp).getTime();
-    const intervals = [1, 5, 15];
+    const intervals = [
+      { seconds: 1, label: "1s" },
+      { seconds: 5, label: "5s" },
+      { seconds: 15, label: "15s" },
+      { seconds: 60, label: "1m" },
+      { seconds: 300, label: "5m" },
+      { seconds: 900, label: "15m" },
+    ];
 
-    for (const interval of intervals) {
-      const bucketStart = Math.floor(tickTime / (interval * 1000)) * (interval * 1000);
-      const key = `${tick.instrument_token}:${interval}:${bucketStart}`;
+    for (const { seconds, label } of intervals) {
+      const bucketStart = Math.floor(tickTime / (seconds * 1000)) * (seconds * 1000);
+      const key = `${tick.instrument_token}:${label}:${bucketStart}`;
 
       const existing = this.candleBuffers.get(key);
 
@@ -328,34 +335,32 @@ class MarketDataWorker {
   private startCandleFlush(): void {
     this.candleFlushInterval = setInterval(async () => {
       const now = Date.now();
-      const candles1s: any[] = [];
-      const candles5s: any[] = [];
-      const candles15s: any[] = [];
+      const liveCandles: any[] = [];
       const keysToRemove: string[] = [];
 
+      const timeframeSeconds: Record<string, number> = {
+        "1s": 1, "5s": 5, "15s": 15, "1m": 60, "5m": 300, "15m": 900
+      };
+
       for (const [key, buffer] of this.candleBuffers.entries()) {
-        const [tokenStr, intervalStr, bucketStartStr] = key.split(":");
+        const [tokenStr, timeframe, bucketStartStr] = key.split(":");
         const instrumentToken = parseInt(tokenStr);
-        const interval = parseInt(intervalStr);
         const bucketStart = parseInt(bucketStartStr);
-        const bucketEnd = bucketStart + (interval * 1000);
+        const seconds = timeframeSeconds[timeframe] || 1;
+        const bucketEnd = bucketStart + (seconds * 1000);
 
         if (now >= bucketEnd) {
-          const candle = {
+          liveCandles.push({
             instrument_token: instrumentToken,
-            bucket_start: new Date(bucketStart).toISOString(),
+            timeframe: timeframe,
+            timestamp: new Date(bucketStart).toISOString(),
             open: buffer.open,
             high: buffer.high,
             low: buffer.low,
             close: buffer.close,
             volume: buffer.volume,
             oi: buffer.oi,
-            tick_count: buffer.tickCount,
-          };
-
-          if (interval === 1) candles1s.push(candle);
-          else if (interval === 5) candles5s.push(candle);
-          else if (interval === 15) candles15s.push(candle);
+          });
 
           keysToRemove.push(key);
         }
@@ -363,14 +368,13 @@ class MarketDataWorker {
 
       keysToRemove.forEach(k => this.candleBuffers.delete(k));
 
-      if (candles1s.length > 0) {
-        await supabase.from("aggregated_candles_1s").upsert(candles1s, { onConflict: "instrument_token,bucket_start" });
-      }
-      if (candles5s.length > 0) {
-        await supabase.from("aggregated_candles_5s").upsert(candles5s, { onConflict: "instrument_token,bucket_start" });
-      }
-      if (candles15s.length > 0) {
-        await supabase.from("aggregated_candles_15s").upsert(candles15s, { onConflict: "instrument_token,bucket_start" });
+      if (liveCandles.length > 0) {
+        const { error } = await supabase.from("live_candles").upsert(liveCandles, { 
+          onConflict: "instrument_token,timeframe,timestamp" 
+        });
+        if (error) {
+          console.error("[MarketDataWorker] Live candles upsert error:", error.message);
+        }
       }
     }, CANDLE_FLUSH_INTERVAL);
   }

@@ -85,31 +85,8 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
   const fetchChartData = useCallback(async (instrument: Instrument, tf: string) => {
     setIsLoadingChart(true);
     try {
-      const toDate = new Date();
-      const fromDate = new Date();
-      
-      switch (tf) {
-        case "1m":
-        case "5m":
-        case "15m":
-          fromDate.setDate(fromDate.getDate() - 5);
-          break;
-        case "1h":
-        case "4h":
-          fromDate.setDate(fromDate.getDate() - 30);
-          break;
-        case "1d":
-          fromDate.setDate(fromDate.getDate() - 180);
-          break;
-        case "1w":
-          fromDate.setFullYear(fromDate.getFullYear() - 2);
-          break;
-        default:
-          fromDate.setDate(fromDate.getDate() - 90);
-      }
-      
       const response = await fetch(
-        `/api/market-data/historical?instrument=${instrument.instrument_token}&timeframe=${tf}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}`
+        `/api/market-data/live?instrument=${instrument.instrument_token}&timeframe=${tf}&limit=200`
       );
       
       if (response.ok) {
@@ -123,7 +100,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     }
   }, []);
 
-  const fetchAnalysis = useCallback(async (instrument: Instrument) => {
+  const fetchAnalysis = useCallback(async (instrument: Instrument, tf: string) => {
     setIsLoadingAnalysis(true);
     try {
       const response = await fetch("/api/ai/analyze", {
@@ -132,7 +109,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
         body: JSON.stringify({
           instrumentToken: instrument.instrument_token,
           tradingsymbol: instrument.tradingsymbol,
-          timeframe: "1d",
+          timeframe: tf,
         }),
       });
       
@@ -186,7 +163,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
   useEffect(() => {
     if (selectedInstrument) {
       fetchChartData(selectedInstrument, timeframe);
-      fetchAnalysis(selectedInstrument);
+      fetchAnalysis(selectedInstrument, timeframe);
       fetchAnalysisOutputs(selectedInstrument);
     } else {
       setChartData([]);
@@ -199,13 +176,14 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     setTimeframe(tf);
     if (selectedInstrument) {
       fetchChartData(selectedInstrument, tf);
+      fetchAnalysis(selectedInstrument, tf);
     }
   };
 
   const handleRefresh = () => {
     if (selectedInstrument) {
       fetchChartData(selectedInstrument, timeframe);
-      fetchAnalysis(selectedInstrument);
+      fetchAnalysis(selectedInstrument, timeframe);
       fetchAnalysisOutputs(selectedInstrument);
     }
   };

@@ -6,7 +6,7 @@ import {
   serverErrorResponse,
 } from "@/lib/server/auth";
 import { aiSharedService } from "@/lib/server/ai-shared-service";
-import { getHistoricalCandles } from "@/lib/server/market-data-engine";
+import { getLiveCandles, getLatestTick } from "@/lib/server/market-data-engine";
 
 export async function POST(request: NextRequest) {
   const user = await getAuthenticatedUser();
@@ -14,22 +14,19 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { instrumentToken, tradingsymbol, timeframe = "1d" } = body;
+    const { instrumentToken, tradingsymbol, timeframe = "5m" } = body;
 
     if (!instrumentToken || !tradingsymbol) {
       return badRequestResponse("instrumentToken and tradingsymbol are required");
     }
 
-    const toDate = new Date();
-    const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() - 90);
-
-    const candles = await getHistoricalCandles(
+    const candles = await getLiveCandles(
       parseInt(instrumentToken),
       timeframe,
-      fromDate,
-      toDate
+      200
     );
+
+    const latestTick = await getLatestTick(parseInt(instrumentToken));
 
     if (candles.length === 0) {
       return NextResponse.json({
@@ -39,15 +36,16 @@ export async function POST(request: NextRequest) {
           strength: 0,
           support: null,
           resistance: null,
-          analysis: "No historical data available for this instrument. Please sync market data from the admin panel.",
+          analysis: "No live data available. Please ensure market data worker is running and connected.",
           signal: "hold",
           confidence: 0,
           entry: null,
           target: null,
           stopLoss: null,
-          reasoning: "Insufficient data for analysis",
+          reasoning: "Waiting for live market data",
         },
         hasData: false,
+        dataSource: "LIVE",
       });
     }
 
@@ -151,6 +149,8 @@ export async function POST(request: NextRequest) {
       },
       hasData: true,
       dataPoints: candles.length,
+      dataSource: "LIVE",
+      latestPrice: latestTick?.lastPrice || candles[candles.length - 1]?.close,
       aiProvider: marketAnalysis.provider || signalAnalysis.provider || "fallback",
       cached: marketAnalysis.cached || signalAnalysis.cached,
     });

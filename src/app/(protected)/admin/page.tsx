@@ -1812,8 +1812,8 @@ function UserManagement() {
                           {downloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
                           Download All Default Timeframes
                         </Button>
-                        <p className="text-[10px] text-white/30 text-center italic">
-                          * Data will auto-update daily and is optimized for strategy backtesting.
+                        <p className="text-[10px] text-yellow-400/60 text-center font-medium">
+                          This data is used ONLY for strategy backtesting. Live trading uses real-time WebSocket data.
                         </p>
                       </div>
                     </div>

@@ -352,6 +352,153 @@ export async function getHistoricalCandles(
   }));
 }
 
+export type DataMode = "LIVE" | "BACKTEST";
+
+export async function getLiveCandles(
+  instrumentToken: number,
+  timeframe: string,
+  limit: number = 200
+): Promise<Array<{
+  timestamp: Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  oi: number;
+}>> {
+  const { data, error } = await supabaseAdmin
+    .from("live_candles")
+    .select("*")
+    .eq("instrument_token", instrumentToken)
+    .eq("timeframe", timeframe)
+    .order("timestamp", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(`Failed to fetch live candles: ${error.message}`);
+  }
+
+  return (data || []).reverse().map((c) => ({
+    timestamp: new Date(c.timestamp),
+    open: parseFloat(c.open),
+    high: parseFloat(c.high),
+    low: parseFloat(c.low),
+    close: parseFloat(c.close),
+    volume: parseInt(c.volume) || 0,
+    oi: parseInt(c.oi) || 0,
+  }));
+}
+
+export async function getLatestTick(
+  instrumentToken: number
+): Promise<MarketTick | null> {
+  const { data, error } = await supabaseAdmin
+    .from("realtime_ticks")
+    .select("*")
+    .eq("instrument_token", instrumentToken)
+    .order("tick_timestamp", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return {
+    instrumentToken: data.instrument_token,
+    lastPrice: parseFloat(data.last_price),
+    lastQuantity: data.last_quantity ? parseInt(data.last_quantity) : undefined,
+    averagePrice: data.average_price ? parseFloat(data.average_price) : undefined,
+    volume: data.volume ? parseInt(data.volume) : undefined,
+    buyQuantity: data.buy_quantity ? parseInt(data.buy_quantity) : undefined,
+    sellQuantity: data.sell_quantity ? parseInt(data.sell_quantity) : undefined,
+    open: data.open ? parseFloat(data.open) : undefined,
+    high: data.high ? parseFloat(data.high) : undefined,
+    low: data.low ? parseFloat(data.low) : undefined,
+    close: data.close ? parseFloat(data.close) : undefined,
+    change: data.change ? parseFloat(data.change) : undefined,
+    changePercent: data.change_percent ? parseFloat(data.change_percent) : undefined,
+    lastTradeTime: data.last_trade_time ? new Date(data.last_trade_time) : undefined,
+    oi: data.oi ? parseInt(data.oi) : undefined,
+    oiDayHigh: data.oi_day_high ? parseInt(data.oi_day_high) : undefined,
+    oiDayLow: data.oi_day_low ? parseInt(data.oi_day_low) : undefined,
+    timestamp: new Date(data.tick_timestamp),
+  };
+}
+
+export async function getLatestTicks(
+  instrumentTokens: number[]
+): Promise<Map<number, MarketTick>> {
+  const result = new Map<number, MarketTick>();
+  
+  if (instrumentTokens.length === 0) return result;
+
+  const { data, error } = await supabaseAdmin
+    .from("realtime_ticks")
+    .select("*")
+    .in("instrument_token", instrumentTokens)
+    .order("tick_timestamp", { ascending: false });
+
+  if (error || !data) {
+    return result;
+  }
+
+  for (const row of data) {
+    if (!result.has(row.instrument_token)) {
+      result.set(row.instrument_token, {
+        instrumentToken: row.instrument_token,
+        lastPrice: parseFloat(row.last_price),
+        lastQuantity: row.last_quantity ? parseInt(row.last_quantity) : undefined,
+        averagePrice: row.average_price ? parseFloat(row.average_price) : undefined,
+        volume: row.volume ? parseInt(row.volume) : undefined,
+        buyQuantity: row.buy_quantity ? parseInt(row.buy_quantity) : undefined,
+        sellQuantity: row.sell_quantity ? parseInt(row.sell_quantity) : undefined,
+        open: row.open ? parseFloat(row.open) : undefined,
+        high: row.high ? parseFloat(row.high) : undefined,
+        low: row.low ? parseFloat(row.low) : undefined,
+        close: row.close ? parseFloat(row.close) : undefined,
+        change: row.change ? parseFloat(row.change) : undefined,
+        changePercent: row.change_percent ? parseFloat(row.change_percent) : undefined,
+        lastTradeTime: row.last_trade_time ? new Date(row.last_trade_time) : undefined,
+        oi: row.oi ? parseInt(row.oi) : undefined,
+        oiDayHigh: row.oi_day_high ? parseInt(row.oi_day_high) : undefined,
+        oiDayLow: row.oi_day_low ? parseInt(row.oi_day_low) : undefined,
+        timestamp: new Date(row.tick_timestamp),
+      });
+    }
+  }
+
+  return result;
+}
+
+export async function getCandles(options: {
+  instrumentToken: number;
+  timeframe: string;
+  mode: DataMode;
+  limit?: number;
+  from?: Date;
+  to?: Date;
+}): Promise<Array<{
+  timestamp: Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  oi: number;
+}>> {
+  const { instrumentToken, timeframe, mode, limit = 200, from, to } = options;
+
+  if (mode === "BACKTEST") {
+    const fromDate = from || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const toDate = to || new Date();
+    return getHistoricalCandles(instrumentToken, timeframe, fromDate, toDate);
+  } else {
+    return getLiveCandles(instrumentToken, timeframe, limit);
+  }
+}
+
 export async function fetchAndStoreInstruments(
   zerodhaConfig?: ZerodhaConfig
 ): Promise<number> {

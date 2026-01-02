@@ -76,20 +76,27 @@ export async function getLatestCandles(
   instruments: number[],
   timeframe: string
 ): Promise<CandleData[]> {
-  const staleThreshold = new Date(Date.now() - 30000).toISOString();
+  const staleThreshold = new Date(Date.now() - 60000).toISOString();
   
-  let tableName = "aggregated_candles_5s";
-  if (timeframe === "1s") tableName = "aggregated_candles_1s";
-  else if (timeframe === "15s") tableName = "aggregated_candles_15s";
+  const tf = timeframe === "1s" ? "1s" : timeframe === "15s" ? "15s" : "5s";
 
   const { data } = await supabase
-    .from(tableName)
-    .select("instrument_token, open, high, low, close, volume, bucket_start")
+    .from("live_candles")
+    .select("instrument_token, open, high, low, close, volume, timestamp")
     .in("instrument_token", instruments)
-    .gte("bucket_start", staleThreshold)
-    .order("bucket_start", { ascending: false });
+    .eq("timeframe", tf)
+    .gte("timestamp", staleThreshold)
+    .order("timestamp", { ascending: false });
 
-  return data || [];
+  return (data || []).map(d => ({
+    instrument_token: d.instrument_token,
+    open: parseFloat(d.open),
+    high: parseFloat(d.high),
+    low: parseFloat(d.low),
+    close: parseFloat(d.close),
+    volume: parseInt(d.volume) || 0,
+    bucket_start: d.timestamp,
+  }));
 }
 
 async function getActiveAIConfig(): Promise<AIConfig | null> {

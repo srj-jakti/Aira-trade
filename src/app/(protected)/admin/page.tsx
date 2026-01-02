@@ -80,6 +80,7 @@ interface ZerodhaConfig {
   auto_login_enabled: boolean;
   priority: number;
   is_active: boolean;
+  is_authorized: boolean;
   request_count: number;
   created_at: string;
 }
@@ -308,6 +309,16 @@ function ZerodhaConfigManager() {
     fetchConfigs();
   }, []);
 
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === "ZERODHA_ADMIN_AUTH_SUCCESS") {
+        fetchConfigs();
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
   const fetchConfigs = async () => {
     setLoading(true);
     try {
@@ -321,10 +332,33 @@ function ZerodhaConfigManager() {
     }
   };
 
-  const handleLogin = async (configId: string) => {
+  const handleManualLogin = (config: ZerodhaConfig) => {
+    const loginUrl = `https://kite.trade/connect/login?v=3&api_key=${config.api_key}&redirect_params=admin_config_id=${config.id}`;
+    const popup = window.open(
+      loginUrl,
+      "zerodha_admin_login",
+      "width=500,height=700,scrollbars=yes,resizable=yes"
+    );
+    
+    if (!popup) {
+      alert("Popup blocked. Please allow popups for this site.");
+      return;
+    }
+
+    setLoginInProgress(config.id);
+    const checkPopup = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkPopup);
+        setLoginInProgress(null);
+        fetchConfigs();
+      }
+    }, 500);
+  };
+
+  const handleAutoLogin = async (configId: string) => {
     setLoginInProgress(configId);
     try {
-      const res = await fetch(`/api/admin/zerodha-configs/${configId}/login`, {
+      await fetch(`/api/admin/zerodha-configs/${configId}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ triggeredBy: "manual" }),
@@ -411,6 +445,12 @@ function ZerodhaConfigManager() {
                         <Badge className={getStatusColor(config.connection_status)}>
                           {config.connection_status}
                         </Badge>
+                        {!config.is_authorized && (
+                          <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+                            <Globe className="w-3 h-3 mr-1" />
+                            Login Required
+                          </Badge>
+                        )}
                         {config.priority === 1 && (
                           <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
                             <Star className="w-3 h-3 mr-1" />
@@ -463,7 +503,7 @@ function ZerodhaConfigManager() {
                                   </a>
                                   <p className="text-white/40 text-xs mt-1">
                                     Log into Zerodha first, then click "Authorize" on the page
-                                  </p>
+                                   </p>
                                 </div>
                               )}
                             </div>
@@ -475,19 +515,43 @@ function ZerodhaConfigManager() {
                         checked={config.is_active}
                         onCheckedChange={(checked) => handleToggleActive(config.id, checked)}
                       />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleLogin(config.id)}
-                        disabled={loginInProgress === config.id || !config.is_active}
-                        className="border-white/20 text-white hover:bg-white/10"
-                      >
-                        {loginInProgress === config.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Power className="w-4 h-4" />
-                        )}
-                      </Button>
+                      {!config.is_authorized ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleManualLogin(config)}
+                          disabled={loginInProgress === config.id || !config.is_active}
+                          className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+                          title="First-time login required"
+                        >
+                          {loginInProgress === config.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Globe className="w-4 h-4 mr-1" />
+                              Login
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAutoLogin(config.id)}
+                          disabled={loginInProgress === config.id || !config.is_active}
+                          className="border-green-500/30 text-green-400 hover:bg-green-500/10"
+                          title="Auto login"
+                        >
+                          {loginInProgress === config.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Power className="w-4 h-4 mr-1" />
+                              Auto
+                            </>
+                          )}
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"

@@ -29,8 +29,9 @@ export async function GET() {
 
     const maskedConfigs = (configs || []).map((config) => ({
       ...config,
-      api_key: maskCredential(decrypt(config.api_key)),
+      api_key: decrypt(config.api_key),
       api_secret: maskCredential(decrypt(config.api_secret)),
+      user_id: decrypt(config.user_id),
       password: "********",
       totp_secret: "********",
       access_token: config.access_token ? maskCredential(decrypt(config.access_token)) : null,

@@ -1,4 +1,4 @@
-const RAILWAY_API_KEY = "a6515712-46ff-445a-8941-d31a2047b087";
+const RAILWAY_API_KEY = "dd2726f4-9212-46d1-afde-5cba75a3b7bc";
 const RAILWAY_API_URL = "https://backboard.railway.com/graphql/v2";
 
 const SUPABASE_URL = "https://fhkathpufpbkwzdfczgj.supabase.co";
@@ -26,11 +26,21 @@ async function railwayQuery(query, variables = {}) {
 async function main() {
   console.log("🚀 Starting Railway Deployment for AiRA Trading Platform...\n");
 
-  // Step 1: Get current user info
+  // Step 1: Get current user info and workspace
   console.log("1. Checking API connection...");
+  let workspaceId;
   try {
-    const me = await railwayQuery(`query { me { name email } }`);
-    console.log(`   ✅ Connected as: ${me.me.name} (${me.me.email})\n`);
+    // First check user and get workspace
+    const me = await railwayQuery(`query { me { name email id workspaces { id name } } }`);
+    console.log(`   ✅ Connected as: ${me.me.name || me.me.email} (${me.me.email})`);
+    
+    if (me.me.workspaces?.length > 0) {
+      workspaceId = me.me.workspaces[0].id;
+      console.log(`   📂 Using workspace: ${me.me.workspaces[0].name} (${workspaceId})\n`);
+    } else {
+      console.error("   ❌ No workspaces found. Please create a workspace on Railway first.");
+      process.exit(1);
+    }
   } catch (error) {
     console.error("   ❌ Failed to connect to Railway API:", error.message);
     process.exit(1);
@@ -41,8 +51,8 @@ async function main() {
   let projectId, environmentId;
   try {
     const projectResult = await railwayQuery(`
-      mutation projectCreate {
-        projectCreate(input: { name: "AiRA Trading Engine", description: "AI Auto-Trading Background Services" }) {
+      mutation projectCreate($input: ProjectCreateInput!) {
+        projectCreate(input: $input) {
           id
           name
           environments {
@@ -55,7 +65,13 @@ async function main() {
           }
         }
       }
-    `);
+    `, {
+      input: {
+        name: "AiRA Trading Engine",
+        description: "AI Auto-Trading Background Services",
+        workspaceId: workspaceId
+      }
+    });
     
     projectId = projectResult.projectCreate.id;
     environmentId = projectResult.projectCreate.environments.edges[0]?.node.id;

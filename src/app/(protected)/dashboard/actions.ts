@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 
 export async function getDashboardStatus() {
@@ -9,14 +10,33 @@ export async function getDashboardStatus() {
 
   if (!user) return null;
 
-  const [configRes, prefsRes] = await Promise.all([
+  const [configRes, prefsRes, engineStatusRes, recentSignalsRes] = await Promise.all([
     supabase.from("config").select("zerodha_connection_status").single(),
-    supabase.from("trading_preferences").select("auto_trading_enabled").eq("user_id", user.id).single()
+    supabase.from("trading_preferences").select("*").eq("user_id", user.id).single(),
+    supabaseAdmin.from("trading_engine_status").select("*").eq("engine_type", "trading_engine").single(),
+    supabase.from("ai_signals").select("id, signal_status, status_reason, tradingsymbol, direction, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5)
   ]);
+
+  const prefs = prefsRes.data;
+  const engineStatus = engineStatusRes.data;
 
   return {
     connectionStatus: configRes.data?.zerodha_connection_status || "disconnected",
-    autoTradingEnabled: prefsRes.data?.auto_trading_enabled || false
+    autoTradingEnabled: prefs?.auto_trading_enabled || false,
+    tradingEngine: {
+      status: engineStatus?.status || "stopped",
+      lastHeartbeat: engineStatus?.last_heartbeat,
+      activeUsers: engineStatus?.active_users || 0,
+      errorMessage: engineStatus?.error_message,
+    },
+    userTradingStatus: {
+      lastEvaluation: prefs?.last_evaluation_at,
+      nextEvaluation: prefs?.next_evaluation_at,
+      evaluationError: prefs?.evaluation_error,
+      consecutiveFailures: prefs?.consecutive_failures || 0,
+      strategyType: prefs?.strategy_type || "intraday",
+    },
+    recentSignals: recentSignalsRes.data || [],
   };
 }
 

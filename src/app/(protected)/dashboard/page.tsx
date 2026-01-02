@@ -7,7 +7,13 @@ import {
   Briefcase,
   Activity,
   History,
-  Zap
+  Zap,
+  Server,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -26,12 +32,44 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
+const SIGNAL_STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
+  PENDING: { icon: Clock, color: "text-yellow-400", label: "Pending" },
+  PENDING_EXECUTION: { icon: Loader2, color: "text-blue-400", label: "Queued" },
+  EXECUTING: { icon: Loader2, color: "text-blue-400", label: "Executing" },
+  EXECUTED: { icon: CheckCircle2, color: "text-green-400", label: "Executed" },
+  FILLED: { icon: CheckCircle2, color: "text-green-500", label: "Filled" },
+  REJECTED: { icon: XCircle, color: "text-red-400", label: "Rejected" },
+  CANCELLED: { icon: XCircle, color: "text-gray-400", label: "Cancelled" },
+  EXPIRED: { icon: Clock, color: "text-gray-500", label: "Expired" },
+  FAILED: { icon: AlertCircle, color: "text-red-500", label: "Failed" },
+};
+
 export default function Dashboard() {
   const [isAiTradingEnabled, setIsAiTradingEnabled] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
   const [loading, setLoading] = useState(true);
+  const [tradingEngine, setTradingEngine] = useState<{
+    status: string;
+    lastHeartbeat?: string;
+    activeUsers: number;
+    errorMessage?: string;
+  }>({ status: "stopped", activeUsers: 0 });
+  const [userTradingStatus, setUserTradingStatus] = useState<{
+    lastEvaluation?: string;
+    nextEvaluation?: string;
+    evaluationError?: string;
+    consecutiveFailures: number;
+    strategyType: string;
+  }>({ consecutiveFailures: 0, strategyType: "intraday" });
+  const [recentSignals, setRecentSignals] = useState<Array<{
+    id: string;
+    signal_status: string;
+    status_reason?: string;
+    tradingsymbol: string;
+    direction: string;
+    created_at: string;
+  }>>([]);
 
-  // Real data state (initially empty)
   const [balance, setBalance] = useState({ total: "0.00", available: "0.00" });
   const [pl, setPl] = useState({ total: "0.00", day: "0.00", isPositive: true });
   const [positionsSummary, setPositionsSummary] = useState({ active: 0, total: 0 });
@@ -44,10 +82,16 @@ export default function Dashboard() {
       if (status) {
         setConnectionStatus(status.connectionStatus);
         setIsAiTradingEnabled(status.autoTradingEnabled);
+        setTradingEngine(status.tradingEngine);
+        setUserTradingStatus(status.userTradingStatus);
+        setRecentSignals(status.recentSignals);
       }
       setLoading(false);
     }
     loadStatus();
+
+    const interval = setInterval(loadStatus, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleToggleAi = async (enabled: boolean) => {
@@ -57,11 +101,30 @@ export default function Dashboard() {
       toast.error(result.error);
       setIsAiTradingEnabled(!enabled);
     } else {
-      toast.success(`Execution automation ${enabled ? "enabled" : "disabled"}`);
+      toast.success(`AI Auto-Trading ${enabled ? "enabled" : "disabled"}`);
     }
   };
 
   const isConnected = connectionStatus === "connected";
+  const isEngineRunning = tradingEngine.status === "running";
+
+  const formatTime = (dateStr?: string) => {
+    if (!dateStr) return "-";
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  };
+
+  const formatRelativeTime = (dateStr?: string) => {
+    if (!dateStr) return "-";
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return `${diffSec}s ago`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    return formatTime(dateStr);
+  };
 
   if (loading) {
     return (
@@ -80,14 +143,20 @@ export default function Dashboard() {
           </div>
           <div>
             <h1 className="text-lg md:text-xl font-bold text-white tracking-tight leading-none">
-              Terminal Dashboard
+              AI Trading Dashboard
             </h1>
-            <p className="text-white/40 text-[10px] md:text-xs mt-1 font-medium">Real-time terminal monitoring and execution control</p>
+            <p className="text-white/40 text-[10px] md:text-xs mt-1 font-medium">
+              Background engine: {isEngineRunning ? (
+                <span className="text-green-400">Running</span>
+              ) : (
+                <span className="text-red-400">Stopped</span>
+              )}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3 bg-black/40 p-1 pl-3 rounded-full border border-white/5 w-fit">
           <Label htmlFor="ai-trading" className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-            Automation
+            Auto-Trading
           </Label>
           <div className="flex items-center gap-2 bg-white/5 rounded-full p-0.5 px-2 border border-white/5">
             <Switch 
@@ -106,7 +175,40 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Row */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-3"
+      >
+        <div className="flex items-center gap-3">
+          <Server className={cn("size-5", isEngineRunning ? "text-green-400" : "text-red-400")} />
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-white">Background Trading Engine</span>
+              <Badge className={cn(
+                "text-[8px] font-black",
+                isEngineRunning ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+              )}>
+                {tradingEngine.status.toUpperCase()}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-4 mt-1 text-[10px] text-white/50">
+              <span>Last heartbeat: {formatRelativeTime(tradingEngine.lastHeartbeat)}</span>
+              <span>Active users: {tradingEngine.activeUsers}</span>
+              {userTradingStatus.lastEvaluation && (
+                <span>Your last eval: {formatRelativeTime(userTradingStatus.lastEvaluation)}</span>
+              )}
+            </div>
+          </div>
+          {userTradingStatus.evaluationError && (
+            <div className="flex items-center gap-1 text-[10px] text-red-400">
+              <AlertCircle className="size-3" />
+              <span>{userTradingStatus.evaluationError}</span>
+            </div>
+          )}
+        </div>
+      </motion.div>
+
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {[
           { label: "Equity Balance", value: `₹${isConnected ? balance.total : "0.00"}`, sub: `Margin: ₹${isConnected ? balance.available : "0.00"}`, icon: Wallet, color: "text-blue-400" },
@@ -138,9 +240,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
-        {/* Active Positions - Takes 2/3 on desktop */}
         <div className="lg:col-span-2">
           <Card className="bg-white/5 border-white/10 overflow-hidden h-full">
             <CardHeader className="flex flex-row items-center justify-between bg-white/[0.02] border-b border-white/5 py-3">
@@ -205,7 +305,6 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Recent Orders - Takes 1/3 on desktop */}
         <div>
           <Card className="bg-white/5 border-white/10 h-full overflow-hidden">
             <CardHeader className="bg-white/[0.02] border-b border-white/5 py-3">
@@ -214,38 +313,48 @@ export default function Dashboard() {
                   <History className="size-3.5 text-purple-400" />
                 </div>
                 <div>
-                  <CardTitle className="text-sm font-bold text-white">Recent Logs</CardTitle>
+                  <CardTitle className="text-sm font-bold text-white">Recent AI Signals</CardTitle>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-white/5">
-                {!isConnected || recentOrders.length === 0 ? (
+                {recentSignals.length === 0 ? (
                   <div className="h-32 flex items-center justify-center text-white/20 text-xs font-medium italic">
-                    No recent activity
+                    No recent signals
                   </div>
                 ) : (
-                  recentOrders.map((order: any) => (
-                    <div key={order.id} className="p-3 hover:bg-white/[0.02] transition-colors flex items-center justify-between">
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-white tracking-tight">{order.symbol}</span>
-                          <span className={cn(
-                            "text-[8px] font-black uppercase",
-                            order.type === "BUY" ? "text-green-400" : "text-red-400"
-                          )}>{order.type}</span>
+                  recentSignals.map((signal) => {
+                    const statusConfig = SIGNAL_STATUS_CONFIG[signal.signal_status] || SIGNAL_STATUS_CONFIG.PENDING;
+                    const StatusIcon = statusConfig.icon;
+                    return (
+                      <div key={signal.id} className="p-3 hover:bg-white/[0.02] transition-colors flex items-center justify-between">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-white tracking-tight">{signal.tradingsymbol}</span>
+                            <span className={cn(
+                              "text-[8px] font-black uppercase",
+                              signal.direction === "BUY" ? "text-green-400" : "text-red-400"
+                            )}>{signal.direction}</span>
+                          </div>
+                          <span className="text-[9px] text-white/20 font-mono">{formatTime(signal.created_at)}</span>
                         </div>
-                        <span className="text-[9px] text-white/20 font-mono">{order.time}</span>
+                        <div className="text-right flex items-center gap-2">
+                          <StatusIcon className={cn("size-3.5", statusConfig.color, signal.signal_status === "EXECUTING" && "animate-spin")} />
+                          <div className="flex flex-col items-end">
+                            <span className={cn("text-[10px] font-bold", statusConfig.color)}>
+                              {statusConfig.label}
+                            </span>
+                            {signal.status_reason && (
+                              <span className="text-[8px] text-white/30 max-w-[100px] truncate">
+                                {signal.status_reason}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-xs font-mono text-white/60">₹{order.price}</div>
-                        <div className={cn(
-                          "text-[8px] font-bold mt-0.5 px-1 rounded-sm bg-white/5 inline-block",
-                          order.status === "COMPLETE" ? "text-green-400/60" : "text-white/20"
-                        )}>{order.status}</div>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </CardContent>

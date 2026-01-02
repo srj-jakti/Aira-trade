@@ -1,0 +1,19 @@
+{
+  "name": "aira-trading-engine",
+  "version": "1.0.0",
+  "description": "Railway-deployed AI trading engine for AiRA Trading Platform",
+  "main": "dist/engine.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/engine.js",
+    "dev": "tsx src/engine.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.89.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}

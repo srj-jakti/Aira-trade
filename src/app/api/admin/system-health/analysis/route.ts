@@ -6,6 +6,7 @@ import {
   serverErrorResponse,
 } from "@/lib/server/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getAIClient } from "@/lib/ai-client";
 
 interface ScalingRecommendation {
   category: "api_keys" | "vercel" | "supabase" | "railway";
@@ -79,6 +80,98 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Error analyzing system health:", error);
     return serverErrorResponse();
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const authResult = await getAuthenticatedUser();
+  if (!authResult.authenticated || !authResult.userId) {
+    return unauthorizedResponse();
+  }
+
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("role")
+    .eq("id", authResult.userId)
+    .single();
+
+  if (profile?.role !== "admin") {
+    return unauthorizedResponse();
+  }
+
+  try {
+    const body = await request.json();
+    const { health, analysis, requestAiAnalysis } = body;
+
+    if (!requestAiAnalysis) {
+      return successResponse({ aiAnalysis: null });
+    }
+
+    const aiClient = await getAIClient();
+    if (!aiClient) {
+      return successResponse({ 
+        aiAnalysis: "AI analysis is unavailable. Please configure an AI provider in Admin > AI Config." 
+      });
+    }
+
+    const systemContext = `
+SYSTEM HEALTH DATA:
+- Zerodha APIs: ${health?.zerodha?.connected || 0}/${health?.zerodha?.total || 0} connected
+- AI Providers: ${health?.ai?.active || 0}/${health?.ai?.total || 0} active
+- Database Status: ${health?.database?.status || "unknown"}
+- Total Users: ${health?.database?.totalUsers || 0}
+- Active Users (24h): ${health?.database?.activeUsers24h || 0}
+- Total Trades: ${health?.database?.totalTrades || 0}
+- Errors (24h): Zerodha=${health?.errors?.zerodhaErrors24h || 0}, AI=${health?.errors?.aiErrors24h || 0}, Auth=${health?.errors?.authErrors24h || 0}
+
+SCALING METRICS:
+- Health Score: ${analysis?.score || 0}/100
+- Overall Status: ${analysis?.overall || "unknown"}
+- API Keys: ${analysis?.metrics?.apiKeys?.active || 0}/${analysis?.metrics?.apiKeys?.needed || 3} active
+- Tiers Configured: CORE=${analysis?.metrics?.apiKeys?.tiers?.CORE}, POPULAR=${analysis?.metrics?.apiKeys?.tiers?.POPULAR}, TEMP=${analysis?.metrics?.apiKeys?.tiers?.TEMP}
+- Subscriptions: ${analysis?.metrics?.subscriptions?.total || 0} total (${analysis?.metrics?.subscriptions?.utilizationPercent || 0}% capacity)
+- By Tier: CORE=${analysis?.metrics?.subscriptions?.byTier?.CORE || 0}, POPULAR=${analysis?.metrics?.subscriptions?.byTier?.POPULAR || 0}, TEMP=${analysis?.metrics?.subscriptions?.byTier?.TEMP || 0}
+- Trading Users: ${analysis?.metrics?.users?.tradingEnabled || 0}
+- Ticks/Second: ${analysis?.metrics?.performance?.ticksPerSecond || 0}
+- Database: ${((analysis?.metrics?.database?.ticksCount || 0) / 1000000).toFixed(1)}M ticks, ${((analysis?.metrics?.database?.candlesCount || 0) / 1000).toFixed(0)}K candles
+
+CURRENT RECOMMENDATIONS:
+${analysis?.recommendations?.map((r: { severity: string; title: string; description: string }) => `- [${r.severity.toUpperCase()}] ${r.title}: ${r.description}`).join('\n') || 'None'}
+`;
+
+    const prompt = `You are a DevOps and system architecture expert analyzing an algorithmic trading platform. Based on the system health data below, provide a comprehensive analysis report.
+
+${systemContext}
+
+Provide a detailed analysis covering:
+1. **Overall System Health** - Brief assessment of the current state
+2. **Critical Issues** - Any immediate problems that need attention
+3. **Performance Analysis** - How the system is performing under current load
+4. **Scaling Recommendations** - When to upgrade Vercel (Pro/Enterprise), Supabase (Pro/Team), Railway (Pro), or add more API keys
+5. **Cost Optimization** - Ways to reduce costs without impacting performance
+6. **Security Concerns** - API key rotation, token expiry, authentication issues
+7. **Growth Projections** - Based on current user growth, when will infrastructure need scaling
+
+Keep the analysis concise but actionable. Focus on practical recommendations with specific thresholds.`;
+
+    const response = await aiClient.chat.completions.create({
+      model: aiClient.model || "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are an expert DevOps engineer specializing in algorithmic trading platforms. Provide concise, actionable analysis." },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 1500,
+      temperature: 0.7,
+    });
+
+    const aiAnalysis = response.choices[0]?.message?.content || "Unable to generate analysis.";
+
+    return successResponse({ aiAnalysis });
+  } catch (error) {
+    console.error("Error running AI analysis:", error);
+    return successResponse({ 
+      aiAnalysis: "Failed to generate AI analysis. Please check that your AI provider is configured correctly." 
+    });
   }
 }
 

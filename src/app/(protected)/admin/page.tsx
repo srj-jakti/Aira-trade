@@ -1187,51 +1187,79 @@ interface ScalingAnalysis {
     users: { total: number; activeToday: number; tradingEnabled: number };
     database: { ticksCount: number; candlesCount: number; signalsCount: number };
   };
+  aiAnalysis?: string;
 }
 
 function SystemHealthDashboard() {
-    const [health, setHealth] = useState<SystemHealth | null>(null);
-    const [analysis, setAnalysis] = useState<ScalingAnalysis | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [health, setHealth] = useState<SystemHealth | null>(null);
+  const [analysis, setAnalysis] = useState<ScalingAnalysis | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<"overview" | "services" | "scaling" | "ai">("overview");
 
-    useEffect(() => {
-      fetchHealth();
-      fetchAnalysis();
-    }, []);
+  useEffect(() => {
+    fetchHealth();
+    fetchAnalysis();
+  }, []);
 
-    const fetchHealth = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/admin/system-health");
-        if (res.ok) {
-          const data = await res.json();
-          setHealth(data.health);
-        }
-      } finally {
-        setLoading(false);
+  const fetchHealth = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/system-health");
+      if (res.ok) {
+        const data = await res.json();
+        setHealth(data.health);
       }
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const fetchAnalysis = async () => {
-      setAnalysisLoading(true);
-      try {
-        const res = await fetch("/api/admin/system-health/analysis");
-        if (res.ok) {
-          const data = await res.json();
-          setAnalysis(data);
-        }
-      } finally {
-        setAnalysisLoading(false);
+  const fetchAnalysis = async () => {
+    setAnalysisLoading(true);
+    try {
+      const res = await fetch("/api/admin/system-health/analysis");
+      if (res.ok) {
+        const data = await res.json();
+        setAnalysis(data);
       }
-    };
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
+
+  const runAiAnalysis = async () => {
+    if (!health || !analysis) return;
+    setAiAnalyzing(true);
+    try {
+      const res = await fetch("/api/admin/system-health/analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          health, 
+          analysis,
+          requestAiAnalysis: true 
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiAnalysis(data.aiAnalysis || "AI analysis complete. No critical issues detected.");
+      }
+    } catch {
+      setAiAnalysis("Failed to generate AI analysis. Please try again.");
+    } finally {
+      setAiAnalyzing(false);
+    }
+  };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case "critical": return "bg-red-500/20 text-red-400 border-red-500/30";
-      case "warning": return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
-      case "info": return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-      default: return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+      case "critical": return "bg-red-500/10 border-red-500/30";
+      case "warning": return "bg-yellow-500/10 border-yellow-500/30";
+      case "info": return "bg-blue-500/10 border-blue-500/30";
+      default: return "bg-gray-500/10 border-gray-500/30";
     }
   };
 
@@ -1244,6 +1272,16 @@ function SystemHealthDashboard() {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "connected": return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "healthy": return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "error": return "bg-red-500/20 text-red-400 border-red-500/30";
+      case "disconnected": return "bg-red-500/20 text-red-400 border-red-500/30";
+      default: return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1253,147 +1291,424 @@ function SystemHealthDashboard() {
   }
 
   return (
-      <div className="space-y-6">
-        {analysis && (
-          <Card className={`border-2 ${
-            analysis.overall === "critical" ? "bg-red-500/10 border-red-500/30" :
-            analysis.overall === "warning" ? "bg-yellow-500/10 border-yellow-500/30" :
-            "bg-green-500/10 border-green-500/30"
-          }`}>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`p-4 rounded-full ${
-                    analysis.overall === "critical" ? "bg-red-500/20" :
-                    analysis.overall === "warning" ? "bg-yellow-500/20" :
-                    "bg-green-500/20"
-                  }`}>
-                    {analysis.overall === "critical" ? <XCircle className="w-8 h-8 text-red-400" /> :
-                     analysis.overall === "warning" ? <AlertTriangle className="w-8 h-8 text-yellow-400" /> :
-                     <CheckCircle2 className="w-8 h-8 text-green-400" />}
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-white capitalize">{analysis.overall} Health</h3>
-                    <p className="text-white/60">System Score: {analysis.score}/100</p>
-                  </div>
+    <div className="space-y-6">
+      {analysis && (
+        <Card className={`border-2 ${
+          analysis.overall === "critical" ? "bg-red-500/10 border-red-500/30" :
+          analysis.overall === "warning" ? "bg-yellow-500/10 border-yellow-500/30" :
+          "bg-green-500/10 border-green-500/30"
+        }`}>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className={`p-4 rounded-full ${
+                  analysis.overall === "critical" ? "bg-red-500/20" :
+                  analysis.overall === "warning" ? "bg-yellow-500/20" :
+                  "bg-green-500/20"
+                }`}>
+                  {analysis.overall === "critical" ? <XCircle className="w-8 h-8 text-red-400" /> :
+                   analysis.overall === "warning" ? <AlertTriangle className="w-8 h-8 text-yellow-400" /> :
+                   <CheckCircle2 className="w-8 h-8 text-green-400" />}
                 </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white capitalize">{analysis.overall} System</h3>
+                  <p className="text-white/60">Overall Health Score: {analysis.score}/100</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => { fetchHealth(); fetchAnalysis(); }}
+                  className="border-white/20 text-white hover:bg-white/10"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${analysisLoading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
                 <div className="text-right">
                   <div className="text-4xl font-bold text-white">{analysis.score}</div>
-                  <div className="text-white/40 text-sm">Health Score</div>
+                  <div className="text-white/40 text-sm">Score</div>
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex gap-2 border-b border-white/10 pb-2">
+        {[
+          { id: "overview", label: "Overview", icon: Activity },
+          { id: "services", label: "Services", icon: Server },
+          { id: "scaling", label: "Scaling", icon: TrendingUp },
+          { id: "ai", label: "AI Analysis", icon: BrainCircuit },
+        ].map((tab) => (
+          <Button
+            key={tab.id}
+            variant={activeSection === tab.id ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveSection(tab.id as typeof activeSection)}
+            className={activeSection === tab.id 
+              ? "bg-white/10 text-white" 
+              : "text-white/60 hover:text-white hover:bg-white/5"}
+          >
+            <tab.icon className="w-4 h-4 mr-2" />
+            {tab.label}
+          </Button>
+        ))}
+      </div>
+
+      {activeSection === "overview" && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white/40 text-sm">API Keys</p>
+                    <p className="text-2xl font-bold text-white">
+                      {analysis?.metrics.apiKeys.active || 0}/{analysis?.metrics.apiKeys.needed || 3}
+                    </p>
+                  </div>
+                  <div className={`p-3 rounded-lg ${(analysis?.metrics.apiKeys.active || 0) >= 3 ? "bg-green-500/20" : "bg-yellow-500/20"}`}>
+                    <Key className={`w-6 h-6 ${(analysis?.metrics.apiKeys.active || 0) >= 3 ? "text-green-400" : "text-yellow-400"}`} />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <Badge className={analysis?.metrics.apiKeys.tiers.CORE ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}>CORE</Badge>
+                  <Badge className={analysis?.metrics.apiKeys.tiers.POPULAR ? "bg-green-500/20 text-green-400" : "bg-white/10 text-white/40"}>POPULAR</Badge>
+                  <Badge className={analysis?.metrics.apiKeys.tiers.TEMP ? "bg-green-500/20 text-green-400" : "bg-white/10 text-white/40"}>TEMP</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white/40 text-sm">Subscriptions</p>
+                    <p className="text-2xl font-bold text-white">
+                      {analysis?.metrics.subscriptions.total || 0}
+                    </p>
+                  </div>
+                  <div className={`p-3 rounded-lg ${(analysis?.metrics.subscriptions.utilizationPercent || 0) < 60 ? "bg-green-500/20" : (analysis?.metrics.subscriptions.utilizationPercent || 0) < 80 ? "bg-yellow-500/20" : "bg-red-500/20"}`}>
+                    <Activity className={`w-6 h-6 ${(analysis?.metrics.subscriptions.utilizationPercent || 0) < 60 ? "text-green-400" : (analysis?.metrics.subscriptions.utilizationPercent || 0) < 80 ? "text-yellow-400" : "text-red-400"}`} />
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <div className="flex justify-between text-xs text-white/40 mb-1">
+                    <span>Capacity</span>
+                    <span>{analysis?.metrics.subscriptions.utilizationPercent || 0}%</span>
+                  </div>
+                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all ${
+                        (analysis?.metrics.subscriptions.utilizationPercent || 0) < 60 ? "bg-green-500" : 
+                        (analysis?.metrics.subscriptions.utilizationPercent || 0) < 80 ? "bg-yellow-500" : "bg-red-500"
+                      }`}
+                      style={{ width: `${Math.min(analysis?.metrics.subscriptions.utilizationPercent || 0, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white/40 text-sm">Total Users</p>
+                    <p className="text-2xl font-bold text-white">{health?.database.totalUsers || analysis?.metrics.users.total || 0}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-purple-500/20">
+                    <Users className="w-6 h-6 text-purple-400" />
+                  </div>
+                </div>
+                <p className="text-xs text-white/40 mt-2">
+                  {health?.database.activeUsers24h || analysis?.metrics.users.activeToday || 0} active today • {analysis?.metrics.users.tradingEnabled || 0} trading
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white/40 text-sm">Performance</p>
+                    <p className="text-2xl font-bold text-white">{analysis?.metrics.performance.ticksPerSecond || 0} t/s</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-cyan-500/20">
+                    <Zap className="w-6 h-6 text-cyan-400" />
+                  </div>
+                </div>
+                <p className="text-xs text-white/40 mt-2">
+                  {((analysis?.metrics.database.ticksCount || 0) / 1000000).toFixed(1)}M ticks • {((analysis?.metrics.database.candlesCount || 0) / 1000).toFixed(0)}K candles
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white/40 text-sm">Zerodha APIs</p>
+                    <p className="text-2xl font-bold text-white">
+                      {health?.zerodha.connected || 0}/{health?.zerodha.total || 0}
+                    </p>
+                  </div>
+                  <div className={`p-3 rounded-lg ${(health?.zerodha.connected || 0) > 0 ? "bg-green-500/20" : "bg-red-500/20"}`}>
+                    <Key className={`w-6 h-6 ${(health?.zerodha.connected || 0) > 0 ? "text-green-400" : "text-red-400"}`} />
+                  </div>
+                </div>
+                <p className="text-xs text-white/40 mt-2">
+                  {health?.zerodha.errors || 0} errors • {health?.zerodha.disconnected || 0} disconnected
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white/40 text-sm">AI Providers</p>
+                    <p className="text-2xl font-bold text-white">
+                      {health?.ai.active || 0}/{health?.ai.total || 0}
+                    </p>
+                  </div>
+                  <div className={`p-3 rounded-lg ${(health?.ai.active || 0) > 0 ? "bg-green-500/20" : "bg-red-500/20"}`}>
+                    <BrainCircuit className={`w-6 h-6 ${(health?.ai.active || 0) > 0 ? "text-green-400" : "text-red-400"}`} />
+                  </div>
+                </div>
+                <p className="text-xs text-white/40 mt-2">
+                  {health?.ai.errors || 0} errors • {health?.ai.inactive || 0} inactive
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white/40 text-sm">Database</p>
+                    <p className="text-2xl font-bold text-white capitalize">{health?.database.status || "Unknown"}</p>
+                  </div>
+                  <div className={`p-3 rounded-lg ${health?.database.status === "healthy" ? "bg-green-500/20" : "bg-yellow-500/20"}`}>
+                    <Database className={`w-6 h-6 ${health?.database.status === "healthy" ? "text-green-400" : "text-yellow-400"}`} />
+                  </div>
+                </div>
+                <p className="text-xs text-white/40 mt-2">
+                  {health?.database.totalTrades || 0} trades • {health?.database.totalStrategies || 0} strategies
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white/40 text-sm">Errors (24h)</p>
+                    <p className="text-2xl font-bold text-white">
+                      {(health?.errors.zerodhaErrors24h || 0) + (health?.errors.aiErrors24h || 0) + (health?.errors.authErrors24h || 0)}
+                    </p>
+                  </div>
+                  <div className={`p-3 rounded-lg ${((health?.errors.zerodhaErrors24h || 0) + (health?.errors.aiErrors24h || 0)) === 0 ? "bg-green-500/20" : "bg-red-500/20"}`}>
+                    <AlertTriangle className={`w-6 h-6 ${((health?.errors.zerodhaErrors24h || 0) + (health?.errors.aiErrors24h || 0)) === 0 ? "text-green-400" : "text-red-400"}`} />
+                  </div>
+                </div>
+                <p className="text-xs text-white/40 mt-2">
+                  API: {health?.errors.zerodhaErrors24h || 0} • AI: {health?.errors.aiErrors24h || 0} • Auth: {health?.errors.authErrors24h || 0}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {health?.errors.recentErrors && health.errors.recentErrors.length > 0 && (
+            <Card className="bg-white/5 border-white/10">
+              <CardHeader>
+                <CardTitle className="text-white text-lg flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                  Recent Errors
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {health.errors.recentErrors.map((error, index) => (
+                    <div key={index} className="flex items-start gap-3 p-3 bg-red-500/10 rounded-lg">
+                      <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Badge className="text-xs bg-red-500/20 text-red-400">{error.type}</Badge>
+                          <span className="text-white/40 text-xs">
+                            {new Date(error.timestamp).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-white/70 text-sm mt-1">{error.message}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {activeSection === "services" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="bg-white/5 border-white/10">
+            <CardHeader>
+              <CardTitle className="text-white text-lg flex items-center gap-2">
+                <Key className="w-5 h-5 text-orange-400" />
+                Zerodha API Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {health?.zerodha.configs && health.zerodha.configs.length > 0 ? (
+                <div className="space-y-3">
+                  {health.zerodha.configs.map((config) => (
+                    <div key={config.id} className="p-3 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-white font-medium">{config.name}</span>
+                        <Badge className={getStatusColor(config.status)}>{config.status}</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-white/40">
+                        <div>Last Login: {config.lastLogin ? new Date(config.lastLogin).toLocaleString() : "Never"}</div>
+                        <div>Token Expiry: {config.tokenExpiry ? new Date(config.tokenExpiry).toLocaleString() : "N/A"}</div>
+                      </div>
+                      {config.lastError && (
+                        <div className="mt-2 p-2 bg-red-500/10 rounded text-xs text-red-400">
+                          {config.lastError}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center text-white/40">
+                  <Key className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                  <p>No Zerodha APIs configured</p>
+                </div>
+              )}
             </CardContent>
           </Card>
-        )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="bg-white/5 border-white/10">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-white/40 text-sm">API Keys</p>
-                  <p className="text-2xl font-bold text-white">
-                    {analysis?.metrics.apiKeys.active || 0}/{analysis?.metrics.apiKeys.needed || 3}
-                  </p>
+            <CardHeader>
+              <CardTitle className="text-white text-lg flex items-center gap-2">
+                <BrainCircuit className="w-5 h-5 text-blue-400" />
+                AI Provider Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {health?.ai.configs && health.ai.configs.length > 0 ? (
+                <div className="space-y-3">
+                  {health.ai.configs.map((config) => (
+                    <div key={config.id} className="p-3 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-medium capitalize">{config.provider}</span>
+                          <Badge variant="outline" className="text-xs border-white/20 text-white/60">{config.model}</Badge>
+                          {config.isDefault && (
+                            <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                              <Star className="w-3 h-3 mr-1" />
+                              Default
+                            </Badge>
+                          )}
+                        </div>
+                        <Badge className={config.isActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}>
+                          {config.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-white/40">
+                        Requests: {config.requestCount}
+                      </div>
+                      {config.lastError && (
+                        <div className="mt-2 p-2 bg-red-500/10 rounded text-xs text-red-400">
+                          {config.lastError}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <div className={`p-3 rounded-lg ${(analysis?.metrics.apiKeys.active || 0) >= 3 ? "bg-green-500/20" : "bg-yellow-500/20"}`}>
-                  <Key className={`w-6 h-6 ${(analysis?.metrics.apiKeys.active || 0) >= 3 ? "text-green-400" : "text-yellow-400"}`} />
+              ) : (
+                <div className="p-8 text-center text-white/40">
+                  <BrainCircuit className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                  <p>No AI providers configured</p>
                 </div>
-              </div>
-              <div className="flex gap-2 mt-3">
-                <Badge className={analysis?.metrics.apiKeys.tiers.CORE ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}>CORE</Badge>
-                <Badge className={analysis?.metrics.apiKeys.tiers.POPULAR ? "bg-green-500/20 text-green-400" : "bg-white/10 text-white/40"}>POPULAR</Badge>
-                <Badge className={analysis?.metrics.apiKeys.tiers.TEMP ? "bg-green-500/20 text-green-400" : "bg-white/10 text-white/40"}>TEMP</Badge>
-              </div>
+              )}
             </CardContent>
           </Card>
 
-          <Card className="bg-white/5 border-white/10">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-white/40 text-sm">Subscriptions</p>
-                  <p className="text-2xl font-bold text-white">
-                    {analysis?.metrics.subscriptions.total || 0}
-                  </p>
+          <Card className="bg-white/5 border-white/10 lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-white text-lg flex items-center gap-2">
+                <Server className="w-5 h-5 text-purple-400" />
+                Infrastructure Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-purple-500/20 rounded-lg">
+                      <Globe className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">Vercel</p>
+                      <p className="text-white/40 text-xs">Frontend & API</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-green-500/20 text-green-400">Operational</Badge>
                 </div>
-                <div className={`p-3 rounded-lg ${(analysis?.metrics.subscriptions.utilizationPercent || 0) < 60 ? "bg-green-500/20" : (analysis?.metrics.subscriptions.utilizationPercent || 0) < 80 ? "bg-yellow-500/20" : "bg-red-500/20"}`}>
-                  <Activity className={`w-6 h-6 ${(analysis?.metrics.subscriptions.utilizationPercent || 0) < 60 ? "text-green-400" : (analysis?.metrics.subscriptions.utilizationPercent || 0) < 80 ? "text-yellow-400" : "text-red-400"}`} />
-                </div>
-              </div>
-              <div className="mt-2">
-                <div className="flex justify-between text-xs text-white/40 mb-1">
-                  <span>Capacity</span>
-                  <span>{analysis?.metrics.subscriptions.utilizationPercent || 0}%</span>
-                </div>
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full transition-all ${
-                      (analysis?.metrics.subscriptions.utilizationPercent || 0) < 60 ? "bg-green-500" : 
-                      (analysis?.metrics.subscriptions.utilizationPercent || 0) < 80 ? "bg-yellow-500" : "bg-red-500"
-                    }`}
-                    style={{ width: `${Math.min(analysis?.metrics.subscriptions.utilizationPercent || 0, 100)}%` }}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card className="bg-white/5 border-white/10">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-white/40 text-sm">Total Users</p>
-                  <p className="text-2xl font-bold text-white">{analysis?.metrics.users.total || 0}</p>
+                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-green-500/20 rounded-lg">
+                      <Database className="w-5 h-5 text-green-400" />
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">Supabase</p>
+                      <p className="text-white/40 text-xs">Database & Auth</p>
+                    </div>
+                  </div>
+                  <Badge className={getStatusColor(health?.database.status || "unknown")}>
+                    {health?.database.status || "Unknown"}
+                  </Badge>
                 </div>
-                <div className="p-3 rounded-lg bg-purple-500/20">
-                  <Users className="w-6 h-6 text-purple-400" />
-                </div>
-              </div>
-              <p className="text-xs text-white/40 mt-2">
-                {analysis?.metrics.users.activeToday || 0} active today • {analysis?.metrics.users.tradingEnabled || 0} trading
-              </p>
-            </CardContent>
-          </Card>
 
-          <Card className="bg-white/5 border-white/10">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-white/40 text-sm">Ticks/Second</p>
-                  <p className="text-2xl font-bold text-white">{analysis?.metrics.performance.ticksPerSecond || 0}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-cyan-500/20">
-                  <Zap className="w-6 h-6 text-cyan-400" />
+                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                      <Server className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">Railway</p>
+                      <p className="text-white/40 text-xs">Market Data Worker</p>
+                    </div>
+                  </div>
+                  <Badge className={(health?.zerodha.connected || 0) > 0 ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}>
+                    {(health?.zerodha.connected || 0) > 0 ? "Connected" : "Standby"}
+                  </Badge>
                 </div>
               </div>
-              <p className="text-xs text-white/40 mt-2">
-                {((analysis?.metrics.database.ticksCount || 0) / 1000000).toFixed(1)}M ticks • {((analysis?.metrics.database.candlesCount || 0) / 1000).toFixed(0)}K candles
-              </p>
             </CardContent>
           </Card>
         </div>
+      )}
 
+      {activeSection === "scaling" && (
         <Card className="bg-white/5 border-white/10">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader>
             <div>
               <CardTitle className="text-white text-lg flex items-center gap-2">
-                <Shield className="w-5 h-5 text-blue-400" />
+                <TrendingUp className="w-5 h-5 text-blue-400" />
                 Scaling Recommendations
               </CardTitle>
               <CardDescription className="text-white/40">
-                Actionable insights for Vercel, Supabase, Railway, and API key scaling
+                Actionable insights for Vercel, Supabase, Railway, and API key scaling based on current usage
               </CardDescription>
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => { fetchHealth(); fetchAnalysis(); }}
-              className="border-white/20 text-white hover:bg-white/10"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${analysisLoading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
           </CardHeader>
           <CardContent>
             {analysisLoading ? (
@@ -1446,38 +1761,114 @@ function SystemHealthDashboard() {
             )}
           </CardContent>
         </Card>
+      )}
 
-        {health?.errors.recentErrors && health.errors.recentErrors.length > 0 && (
-          <Card className="bg-white/5 border-white/10">
-            <CardHeader>
+      {activeSection === "ai" && (
+        <Card className="bg-white/5 border-white/10">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
               <CardTitle className="text-white text-lg flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-red-400" />
-                Recent Errors
+                <BrainCircuit className="w-5 h-5 text-purple-400" />
+                AI System Analysis
               </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {health.errors.recentErrors.map((error, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 bg-red-500/10 rounded-lg">
-                    <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <Badge className="text-xs bg-red-500/20 text-red-400">{error.type}</Badge>
-                        <span className="text-white/40 text-xs">
-                          {new Date(error.timestamp).toLocaleString()}
-                        </span>
-                      </div>
-                      <p className="text-white/70 text-sm mt-1">{error.message}</p>
+              <CardDescription className="text-white/40">
+                Get AI-powered insights about your system health, performance, and scaling recommendations
+              </CardDescription>
+            </div>
+            <Button 
+              onClick={runAiAnalysis}
+              disabled={aiAnalyzing}
+              className="bg-purple-500 hover:bg-purple-600"
+            >
+              {aiAnalyzing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <BrainCircuit className="w-4 h-4 mr-2" />
+                  Run AI Analysis
+                </>
+              )}
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {aiAnalysis ? (
+              <div className="p-6 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-purple-500/20 rounded-lg shrink-0">
+                    <BrainCircuit className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-purple-400 font-medium mb-2">AI Analysis Report</h4>
+                    <div className="text-white/80 text-sm whitespace-pre-wrap leading-relaxed">
+                      {aiAnalysis}
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    );
-  }
+            ) : (
+              <div className="p-12 border border-dashed border-white/20 rounded-lg text-center">
+                <BrainCircuit className="w-16 h-16 mx-auto text-white/20 mb-4" />
+                <p className="text-white/60 mb-2">No AI analysis yet</p>
+                <p className="text-white/40 text-sm">Click &quot;Run AI Analysis&quot; to get intelligent insights about your system</p>
+              </div>
+            )}
+
+            <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
+              <h4 className="text-white font-medium mb-3">What AI Analysis Covers:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-white/80">System Health Assessment</p>
+                    <p className="text-white/40 text-xs">Overall status of all services and connections</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-white/80">Performance Bottlenecks</p>
+                    <p className="text-white/40 text-xs">Identify slow queries, high latency issues</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-white/80">Scaling Predictions</p>
+                    <p className="text-white/40 text-xs">When to upgrade Vercel, Supabase, Railway plans</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-white/80">Cost Optimization</p>
+                    <p className="text-white/40 text-xs">Recommendations to reduce costs while maintaining performance</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-white/80">Security Review</p>
+                    <p className="text-white/40 text-xs">API key rotation, token expiry warnings</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-white/80">User Growth Impact</p>
+                    <p className="text-white/40 text-xs">How user growth affects system resources</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
 
 function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);

@@ -8,7 +8,6 @@ import {
   Activity,
   History,
   Zap,
-  Server,
   Clock,
   AlertCircle,
   CheckCircle2,
@@ -106,24 +105,11 @@ export default function Dashboard() {
   };
 
   const isConnected = connectionStatus === "connected";
-  const isEngineRunning = tradingEngine.status === "running";
 
   const formatTime = (dateStr?: string) => {
     if (!dateStr) return "-";
     const date = new Date(dateStr);
     return date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  };
-
-  const formatRelativeTime = (dateStr?: string) => {
-    if (!dateStr) return "-";
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffSec = Math.floor(diffMs / 1000);
-    if (diffSec < 60) return `${diffSec}s ago`;
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin}m ago`;
-    return formatTime(dateStr);
   };
 
   if (loading) {
@@ -145,13 +131,6 @@ export default function Dashboard() {
             <h1 className="text-lg md:text-xl font-bold text-white tracking-tight leading-none">
               AI Trading Dashboard
             </h1>
-            <p className="text-white/40 text-[10px] md:text-xs mt-1 font-medium">
-              Background engine: {isEngineRunning ? (
-                <span className="text-green-400">Running</span>
-              ) : (
-                <span className="text-red-400">Stopped</span>
-              )}
-            </p>
           </div>
         </div>
         <div className="flex items-center gap-3 bg-black/40 p-1 pl-3 rounded-full border border-white/5 w-fit">
@@ -174,40 +153,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-3"
-      >
-        <div className="flex items-center gap-3">
-          <Server className={cn("size-5", isEngineRunning ? "text-green-400" : "text-red-400")} />
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-white">Background Trading Engine</span>
-              <Badge className={cn(
-                "text-[8px] font-black",
-                isEngineRunning ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-              )}>
-                {tradingEngine.status.toUpperCase()}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-4 mt-1 text-[10px] text-white/50">
-              <span>Last heartbeat: {formatRelativeTime(tradingEngine.lastHeartbeat)}</span>
-              <span>Active users: {tradingEngine.activeUsers}</span>
-              {userTradingStatus.lastEvaluation && (
-                <span>Your last eval: {formatRelativeTime(userTradingStatus.lastEvaluation)}</span>
-              )}
-            </div>
-          </div>
-          {userTradingStatus.evaluationError && (
-            <div className="flex items-center gap-1 text-[10px] text-red-400">
-              <AlertCircle className="size-3" />
-              <span>{userTradingStatus.evaluationError}</span>
-            </div>
-          )}
-        </div>
-      </motion.div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {[

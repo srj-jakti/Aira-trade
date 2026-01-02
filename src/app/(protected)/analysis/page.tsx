@@ -96,9 +96,22 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     enabled: !!selectedInstrument,
   });
 
+  const requestSubscription = useCallback(async (instrumentToken: number) => {
+    try {
+      await fetch("/api/market-data/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instrumentToken, source: "ai_analysis" }),
+      });
+    } catch (e) {
+    }
+  }, []);
+
   const fetchChartData = useCallback(async (instrument: Instrument, tf: string) => {
     setIsLoadingChart(true);
     try {
+      await requestSubscription(instrument.instrument_token);
+
       const response = await fetch(
         `/api/market-data/live?instrument=${instrument.instrument_token}&timeframe=${tf}&limit=200`
       );
@@ -112,7 +125,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     } finally {
       setIsLoadingChart(false);
     }
-  }, []);
+  }, [requestSubscription]);
 
   const fetchAnalysis = useCallback(async (instrument: Instrument, tf: string) => {
     setIsLoadingAnalysis(true);

@@ -1,19 +1,27 @@
 /**
- * MARKET DATA WORKER - Railway Deployment
- * 24/7 persistent process that manages:
- * 1. Multi-admin WebSocket connections to Zerodha
- * 2. Tick aggregation (1s/5s/15s candles)
- * 3. Instrument subscription optimization
- * 4. Admin token health monitoring
- * 5. Kill switch compliance
+ * MARKET DATA WORKER - Multi-API-Key Architecture
  * 
- * This worker ONLY handles market data.
- * It does NOT evaluate strategies, place orders, or access user-specific data.
+ * Manages multiple Zerodha API keys with tier-based subscription allocation:
+ * - API KEY A (CORE): NIFTY, BANKNIFTY, FINNIFTY, SENSEX, NIFTY50 stocks
+ * - API KEY B (POPULAR): Scanner stocks, watchlists, popular instruments
+ * - API KEY C (TEMP): User search, AI analysis charts
+ * 
+ * Safety constraints:
+ * - MAX 3000 instruments per WebSocket (Zerodha hard limit)
+ * - SOFT LIMIT 2500 instruments (buffer zone)
+ * - 1 primary + 1 fallback WebSocket per API key
+ * - Fallback WebSocket ONLY for TEMP tier under pressure
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { KiteTicker } from "kiteconnect";
 import { createDecipheriv } from "crypto";
+import { 
+  SubscriptionManager, 
+  ApiKeyConfig, 
+  SubscriptionTier,
+  SubscriptionRequest 
+} from "./subscription-manager";
 
 const ALGORITHM = "aes-256-gcm";
 const MAX_INSTRUMENTS_PER_CONNECTION = 3000;
@@ -54,23 +62,6 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 const supabase: SupabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-interface AdminConfig {
-  id: string;
-  name: string;
-  apiKey: string;
-  accessToken: string;
-  priority: number;
-}
-
-interface TickerConnection {
-  configId: string;
-  configName: string;
-  ticker: any;
-  isConnected: boolean;
-  subscribedTokens: Set<number>;
-  lastHeartbeat: number;
-}
-
 interface KiteTickData {
   instrument_token: number;
   last_price: number;
@@ -97,9 +88,18 @@ interface CandleBuffer {
   tickCount: number;
 }
 
+interface WebSocketConnection {
+  id: string;
+  apiKeyId: string;
+  ticker: any;
+  isConnected: boolean;
+  lastHeartbeat: number;
+}
+
 class MarketDataWorker {
-  private connections: Map<string, TickerConnection> = new Map();
-  private instrumentAssignments: Map<number, string> = new Map();
+  private subscriptionManager: SubscriptionManager;
+  private connections: Map<string, WebSocketConnection> = new Map();
+  private apiKeyConfigs: Map<string, ApiKeyConfig> = new Map();
   private tickBuffer: Array<Record<string, unknown>> = [];
   private candleBuffers: Map<string, CandleBuffer> = new Map();
   private isRunning = false;
@@ -112,12 +112,17 @@ class MarketDataWorker {
   private candleFlushInterval: NodeJS.Timeout | null = null;
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private subscriptionRefreshInterval: NodeJS.Timeout | null = null;
+  private pendingSubscriptionRequests: SubscriptionRequest[] = [];
+
+  constructor() {
+    this.subscriptionManager = new SubscriptionManager(supabase);
+  }
 
   async start(): Promise<void> {
-    console.log("[MarketDataWorker] Starting...");
+    console.log("[MarketDataWorker] Starting Multi-API-Key Architecture...");
     console.log(`[MarketDataWorker] Supabase URL: ${supabaseUrl}`);
 
-    await this.logSystemHealth("worker_started", { source: "market_data_worker" }, "info", "Market Data Worker started");
+    await this.logSystemHealth("worker_started", { source: "market_data_worker", architecture: "multi_api_key" }, "info", "Market Data Worker started (Multi-API-Key)");
 
     if (!(await this.isMarketDataEnabled())) {
       console.log("[MarketDataWorker] Market data disabled. Exiting.");
@@ -125,18 +130,34 @@ class MarketDataWorker {
       process.exit(0);
     }
 
-    const configs = await this.getActiveAdminConfigs();
+    const configs = await this.getApiKeyConfigs();
     
     if (configs.length === 0) {
-      console.error("[MarketDataWorker] No active admin configs found. Entering SAFE MODE.");
-      await this.enterSafeMode("No active admin Zerodha configs");
-      process.exit(1);
+      console.error("[MarketDataWorker] No API key configs found. Using legacy mode.");
+      const legacyConfigs = await this.getLegacyAdminConfigs();
+      if (legacyConfigs.length === 0) {
+        await this.enterSafeMode("No Zerodha API configs available");
+        process.exit(1);
+      }
+      for (const c of legacyConfigs) {
+        configs.push({
+          id: c.id,
+          tierAssignment: "CORE" as SubscriptionTier,
+          zerodhaConfigId: c.id,
+          apiKey: c.apiKey,
+          accessToken: c.accessToken,
+          name: c.name,
+        });
+      }
     }
 
-    console.log(`[MarketDataWorker] Found ${configs.length} admin config(s)`);
+    console.log(`[MarketDataWorker] Found ${configs.length} API key config(s)`);
+
+    await this.subscriptionManager.initialize(configs);
 
     for (const config of configs) {
-      await this.createConnection(config);
+      this.apiKeyConfigs.set(config.id, config);
+      await this.createPrimaryConnection(config);
     }
 
     const connectedCount = Array.from(this.connections.values()).filter(c => c.isConnected).length;
@@ -153,24 +174,65 @@ class MarketDataWorker {
     this.startCandleFlush();
     this.startHealthCheck();
     this.startSubscriptionRefresh();
+    this.startSubscriptionRequestHandler();
 
-    await this.distributeSubscriptions();
+    await this.subscribeToCore();
 
     console.log(`[MarketDataWorker] Running with ${connectedCount}/${configs.length} connections`);
     await this.logSystemHealth("worker_running", { connections: connectedCount, total: configs.length }, "info", `Market Data Worker running with ${connectedCount} connections`);
   }
 
-  private async getActiveAdminConfigs(): Promise<AdminConfig[]> {
+  private async getApiKeyConfigs(): Promise<ApiKeyConfig[]> {
+    const { data: apiKeyData, error: apiKeyError } = await supabase
+      .from("api_key_configs")
+      .select("id, label, tier_assignment, zerodha_config_id")
+      .eq("is_active", true);
+
+    if (apiKeyError || !apiKeyData || apiKeyData.length === 0) {
+      console.log("[MarketDataWorker] No api_key_configs found, checking legacy configs...");
+      return [];
+    }
+
+    const configs: ApiKeyConfig[] = [];
+
+    for (const akc of apiKeyData) {
+      const { data: zerodhaConfig } = await supabase
+        .from("admin_zerodha_configs")
+        .select("id, name, api_key, access_token")
+        .eq("id", akc.zerodha_config_id)
+        .eq("is_active", true)
+        .eq("connection_status", "connected")
+        .single();
+
+      if (zerodhaConfig && zerodhaConfig.access_token) {
+        try {
+          configs.push({
+            id: akc.id,
+            tierAssignment: akc.tier_assignment as SubscriptionTier,
+            zerodhaConfigId: zerodhaConfig.id,
+            apiKey: decrypt(zerodhaConfig.api_key),
+            accessToken: decrypt(zerodhaConfig.access_token),
+            name: zerodhaConfig.name,
+          });
+        } catch (e) {
+          console.error(`[MarketDataWorker] Failed to decrypt config ${akc.id}:`, e);
+        }
+      }
+    }
+
+    return configs;
+  }
+
+  private async getLegacyAdminConfigs(): Promise<{ id: string; name: string; apiKey: string; accessToken: string }[]> {
     const { data: configs, error } = await supabase
       .from("admin_zerodha_configs")
-      .select("id, name, api_key, access_token, priority")
+      .select("id, name, api_key, access_token")
       .eq("is_active", true)
       .eq("connection_status", "connected")
-      .not("access_token", "is", null)
-      .order("priority", { ascending: true });
+      .not("access_token", "is", null);
 
     if (error || !configs) {
-      console.error("[MarketDataWorker] Failed to fetch configs:", error?.message);
+      console.error("[MarketDataWorker] Failed to fetch legacy configs:", error?.message);
       return [];
     }
 
@@ -179,11 +241,21 @@ class MarketDataWorker {
       name: c.name,
       apiKey: decrypt(c.api_key),
       accessToken: decrypt(c.access_token),
-      priority: c.priority || 1,
     }));
   }
 
-  private async createConnection(config: AdminConfig): Promise<boolean> {
+  private async createPrimaryConnection(config: ApiKeyConfig): Promise<boolean> {
+    const websocketId = `${config.id}_primary`;
+    return this.createConnection(config, websocketId);
+  }
+
+  private async createFallbackConnection(config: ApiKeyConfig): Promise<boolean> {
+    const websocketId = `${config.id}_fallback`;
+    console.log(`[MarketDataWorker] Creating FALLBACK WebSocket for ${config.name}`);
+    return this.createConnection(config, websocketId);
+  }
+
+  private createConnection(config: ApiKeyConfig, websocketId: string): Promise<boolean> {
     return new Promise((resolve) => {
       try {
         const ticker = new KiteTicker({
@@ -191,22 +263,23 @@ class MarketDataWorker {
           access_token: config.accessToken,
         });
 
-        const connection: TickerConnection = {
-          configId: config.id,
-          configName: config.name,
+        const connection: WebSocketConnection = {
+          id: websocketId,
+          apiKeyId: config.id,
           ticker,
           isConnected: false,
-          subscribedTokens: new Set(),
           lastHeartbeat: Date.now(),
         };
 
         ticker.autoReconnect(true, 50, 5);
 
-        ticker.on("connect", () => {
-          console.log(`[MarketDataWorker][${config.name}] Connected`);
+        ticker.on("connect", async () => {
+          console.log(`[MarketDataWorker][${websocketId}] Connected`);
           connection.isConnected = true;
           connection.lastHeartbeat = Date.now();
-          this.updateConfigStatus(config.id, "connected");
+          this.subscriptionManager.setWebSocketConnected(websocketId, true);
+          
+          await this.resubscribeTokens(websocketId);
           resolve(true);
         });
 
@@ -216,38 +289,142 @@ class MarketDataWorker {
         });
 
         (ticker as any).on("disconnect", (code: number) => {
-          console.log(`[MarketDataWorker][${config.name}] Disconnected: ${code}`);
+          console.log(`[MarketDataWorker][${websocketId}] Disconnected: ${code}`);
           connection.isConnected = false;
-          this.updateConfigStatus(config.id, "disconnected");
-          this.handleConnectionLoss(config.id);
+          this.subscriptionManager.setWebSocketConnected(websocketId, false);
         });
 
         ticker.on("error", (error: Error) => {
-          console.error(`[MarketDataWorker][${config.name}] Error:`, error.message);
-          this.updateConfigStatus(config.id, "error", error.message);
+          console.error(`[MarketDataWorker][${websocketId}] Error:`, error.message);
         });
 
         ticker.on("noreconnect", () => {
-          console.error(`[MarketDataWorker][${config.name}] Max reconnect attempts reached`);
+          console.error(`[MarketDataWorker][${websocketId}] Max reconnect attempts reached`);
           connection.isConnected = false;
-          this.handleConnectionLoss(config.id);
+          this.subscriptionManager.setWebSocketConnected(websocketId, false);
         });
 
         ticker.connect();
-        this.connections.set(config.id, connection);
+        this.connections.set(websocketId, connection);
 
         setTimeout(() => {
           if (!connection.isConnected) {
-            console.warn(`[MarketDataWorker][${config.name}] Connection timeout`);
+            console.warn(`[MarketDataWorker][${websocketId}] Connection timeout`);
             resolve(false);
           }
         }, 30000);
 
       } catch (error) {
-        console.error(`[MarketDataWorker] Error creating connection for ${config.name}:`, error);
+        console.error(`[MarketDataWorker] Error creating connection ${websocketId}:`, error);
         resolve(false);
       }
     });
+  }
+
+  private async resubscribeTokens(websocketId: string): Promise<void> {
+    const tokens = this.subscriptionManager.getSubscribedTokensForWebSocket(websocketId);
+    const connection = this.connections.get(websocketId);
+
+    if (!connection || tokens.length === 0) return;
+
+    console.log(`[MarketDataWorker][${websocketId}] Resubscribing ${tokens.length} tokens`);
+
+    const chunks: number[][] = [];
+    for (let i = 0; i < tokens.length; i += 500) {
+      chunks.push(tokens.slice(i, i + 500));
+    }
+
+    for (const chunk of chunks) {
+      connection.ticker.subscribe(chunk);
+      connection.ticker.setMode(connection.ticker.modeQuote, chunk);
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
+
+  private async subscribeToCore(): Promise<void> {
+    console.log("[MarketDataWorker] Subscribing to CORE instruments...");
+    
+    const results = await this.subscriptionManager.subscribeCore();
+    const success = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+
+    console.log(`[MarketDataWorker] CORE subscription complete: ${success} success, ${failed} failed`);
+
+    for (const result of results) {
+      if (result.success && result.websocketId) {
+        const conn = this.connections.get(result.websocketId);
+        if (conn && conn.isConnected) {
+          conn.ticker.subscribe([result.instrumentToken]);
+          conn.ticker.setMode(conn.ticker.modeQuote, [result.instrumentToken]);
+        }
+      }
+    }
+
+    await this.updateEngineStatus();
+  }
+
+  async subscribeInstrument(request: SubscriptionRequest): Promise<boolean> {
+    const result = await this.subscriptionManager.subscribe(request);
+    
+    if (result.success && result.websocketId) {
+      let conn = this.connections.get(result.websocketId);
+
+      if (!conn && result.websocketId.endsWith("_fallback")) {
+        const config = this.apiKeyConfigs.get(result.apiKeyId!);
+        if (config) {
+          const created = await this.createFallbackConnection(config);
+          if (created) {
+            conn = this.connections.get(result.websocketId);
+          }
+        }
+      }
+
+      if (conn && conn.isConnected) {
+        conn.ticker.subscribe([request.instrumentToken]);
+        conn.ticker.setMode(conn.ticker.modeQuote, [request.instrumentToken]);
+        return true;
+      }
+    }
+
+    return result.success;
+  }
+
+  async unsubscribeInstrument(instrumentToken: number): Promise<boolean> {
+    const tokens = this.subscriptionManager.getAllSubscribedTokens();
+    const sub = tokens.includes(instrumentToken);
+    
+    if (!sub) return false;
+
+    for (const [wsId, conn] of this.connections.entries()) {
+      if (conn.isConnected) {
+        try {
+          conn.ticker.unsubscribe([instrumentToken]);
+        } catch (e) {
+        }
+      }
+    }
+
+    return await this.subscriptionManager.unsubscribe(instrumentToken);
+  }
+
+  private startSubscriptionRequestHandler(): void {
+    const channel = supabase
+      .channel("subscription_requests")
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "subscription_requests",
+      }, async (payload) => {
+        const { instrument_token, tier, source } = payload.new as any;
+        await this.subscribeInstrument({
+          instrumentToken: instrument_token,
+          tier: tier as SubscriptionTier,
+          source,
+        });
+      })
+      .subscribe();
+
+    console.log("[MarketDataWorker] Listening for subscription requests");
   }
 
   private handleTicks(ticks: KiteTickData[]): void {
@@ -256,6 +433,8 @@ class MarketDataWorker {
     this.lastTickAt = now;
 
     for (const tick of ticks) {
+      this.subscriptionManager.touchSubscription(tick.instrument_token);
+
       this.tickBuffer.push({
         instrument_token: tick.instrument_token,
         last_price: tick.last_price,
@@ -355,7 +534,6 @@ class MarketDataWorker {
         const seconds = timeframeSeconds[timeframe] || 1;
         const bucketEnd = bucketStart + (seconds * 1000);
 
-        // Always include in flush to update live data
         liveCandles.push({
           instrument_token: instrumentToken,
           timeframe: timeframe,
@@ -368,17 +546,14 @@ class MarketDataWorker {
           oi: buffer.oi,
         });
 
-        // Only remove if the bucket is fully closed
         if (now >= bucketEnd) {
           keysToRemove.push(key);
         }
       }
 
-      // Batch remove closed buckets
       keysToRemove.forEach(k => this.candleBuffers.delete(k));
 
       if (liveCandles.length > 0) {
-        // Use chunks to avoid hitting payload limits
         const chunkSize = 1000;
         for (let i = 0; i < liveCandles.length; i += chunkSize) {
           const chunk = liveCandles.slice(i, i + chunkSize);
@@ -393,123 +568,6 @@ class MarketDataWorker {
     }, CANDLE_FLUSH_INTERVAL);
   }
 
-  private async distributeSubscriptions(): Promise<void> {
-    const activeConnections = Array.from(this.connections.entries())
-      .filter(([_, conn]) => conn.isConnected);
-
-    const maxCapacity = activeConnections.length * MAX_INSTRUMENTS_PER_CONNECTION;
-    
-    const { data: allInstruments } = await supabase
-      .from("instruments")
-      .select("instrument_token, tradingsymbol, subscription_mode, subscription_priority, segment")
-      .eq("is_subscribed", true)
-      .order("subscription_priority", { ascending: true, nullsFirst: false })
-      .limit(10000); // Increased limit to fetch all subscribed instruments
-
-    if (!allInstruments || allInstruments.length === 0) {
-      console.log("[MarketDataWorker] No instruments to subscribe");
-      return;
-    }
-
-    let instruments = allInstruments;
-    if (allInstruments.length > maxCapacity) {
-      console.log(`[MarketDataWorker] ${allInstruments.length} instruments exceed capacity (${maxCapacity}). Prioritizing...`);
-      
-      const prioritized = [
-        ...allInstruments.filter(i => i.segment === "INDICES"),
-        ...allInstruments.filter(i => i.subscription_priority === "high"),
-        ...allInstruments.filter(i => i.subscription_priority === "user_search"),
-        ...allInstruments.filter(i => i.subscription_priority === "auto" && i.segment === "NSE"),
-        ...allInstruments.filter(i => i.segment?.includes("NFO")),
-      ];
-
-      const seen = new Set<number>();
-      instruments = [];
-      for (const inst of prioritized) {
-        if (!seen.has(inst.instrument_token)) {
-          seen.add(inst.instrument_token);
-          instruments.push(inst);
-          if (instruments.length >= maxCapacity) break;
-        }
-      }
-      
-      console.log(`[MarketDataWorker] Selected ${instruments.length} priority instruments`);
-    }
-
-    const sortedConnections = activeConnections
-      .sort((a, b) => a[1].subscribedTokens.size - b[1].subscribedTokens.size);
-
-    if (sortedConnections.length === 0) {
-      console.error("[MarketDataWorker] No active connections for subscription");
-      return;
-    }
-
-    console.log(`[MarketDataWorker] Distributing ${instruments.length} instruments across ${sortedConnections.length} connections`);
-
-    let connectionIndex = 0;
-
-    for (const instrument of instruments) {
-      if (this.instrumentAssignments.has(instrument.instrument_token)) continue;
-
-      for (let i = 0; i < sortedConnections.length; i++) {
-        const idx = (connectionIndex + i) % sortedConnections.length;
-        const [configId, connection] = sortedConnections[idx];
-
-        if (connection.subscribedTokens.size < MAX_INSTRUMENTS_PER_CONNECTION) {
-          connection.ticker.subscribe([instrument.instrument_token]);
-          
-          const mode = instrument.subscription_mode === "ltp"
-            ? connection.ticker.modeLTP
-            : instrument.subscription_mode === "full"
-              ? connection.ticker.modeFull
-              : connection.ticker.modeQuote;
-          
-          connection.ticker.setMode(mode, [instrument.instrument_token]);
-          connection.subscribedTokens.add(instrument.instrument_token);
-          this.instrumentAssignments.set(instrument.instrument_token, configId);
-          connectionIndex = (idx + 1) % sortedConnections.length;
-          break;
-        }
-      }
-    }
-
-    await this.updateEngineStatus();
-  }
-
-  private async handleConnectionLoss(configId: string): Promise<void> {
-    const lostConnection = this.connections.get(configId);
-    if (!lostConnection) return;
-
-    await this.logSystemHealth("connection_lost", { configId, configName: lostConnection.configName }, "warning", `Connection lost: ${lostConnection.configName}`);
-
-    const tokensToRedistribute = Array.from(lostConnection.subscribedTokens);
-    tokensToRedistribute.forEach(t => this.instrumentAssignments.delete(t));
-    lostConnection.subscribedTokens.clear();
-
-    const availableConnections = Array.from(this.connections.entries())
-      .filter(([id, conn]) => id !== configId && conn.isConnected);
-
-    if (availableConnections.length === 0) {
-      const allDown = Array.from(this.connections.values()).every(c => !c.isConnected);
-      if (allDown) {
-        await this.enterSafeMode("All admin WebSocket connections lost");
-      }
-      return;
-    }
-
-    let idx = 0;
-    for (const token of tokensToRedistribute) {
-      const [targetId, targetConn] = availableConnections[idx % availableConnections.length];
-      targetConn.ticker.subscribe([token]);
-      targetConn.ticker.setMode(targetConn.ticker.modeQuote, [token]);
-      targetConn.subscribedTokens.add(token);
-      this.instrumentAssignments.set(token, targetId);
-      idx++;
-    }
-
-    console.log(`[MarketDataWorker] Redistributed ${tokensToRedistribute.length} instruments`);
-  }
-
   private startHealthCheck(): void {
     this.healthCheckInterval = setInterval(async () => {
       if (this.isShuttingDown) return;
@@ -521,21 +579,49 @@ class MarketDataWorker {
       }
 
       const now = Date.now();
-      for (const [configId, connection] of this.connections.entries()) {
+      for (const [wsId, connection] of this.connections.entries()) {
         if (connection.isConnected && (now - connection.lastHeartbeat) > 60000) {
-          console.warn(`[MarketDataWorker] Connection ${connection.configName} appears stale`);
+          console.warn(`[MarketDataWorker] Connection ${wsId} appears stale, reconnecting...`);
           connection.ticker.disconnect();
         }
       }
 
+      for (const [apiKeyId, config] of this.apiKeyConfigs.entries()) {
+        if (this.subscriptionManager.needsFallbackWebSocket(apiKeyId)) {
+          if (!this.connections.has(`${apiKeyId}_fallback`)) {
+            await this.createFallbackConnection(config);
+          }
+        }
+      }
+
+      await this.subscriptionManager.cleanupInactiveSubscriptions();
+
       await this.updateEngineStatus();
+
+      const stats = this.subscriptionManager.getStats();
+      console.log(`[MarketDataWorker] Stats: ${stats.totalSubscriptions} subscriptions (CORE: ${stats.byTier.CORE}, POPULAR: ${stats.byTier.POPULAR}, TEMP: ${stats.byTier.TEMP})`);
     }, HEALTH_CHECK_INTERVAL);
   }
 
   private startSubscriptionRefresh(): void {
     this.subscriptionRefreshInterval = setInterval(async () => {
       if (this.isRunning && !this.isShuttingDown) {
-        await this.distributeSubscriptions();
+        const { data: popular } = await supabase
+          .from("instruments")
+          .select("instrument_token")
+          .eq("is_subscribed", true)
+          .eq("subscription_priority", "high")
+          .limit(1000);
+
+        if (popular) {
+          for (const inst of popular) {
+            await this.subscribeInstrument({
+              instrumentToken: inst.instrument_token,
+              tier: "POPULAR",
+              source: "subscription_refresh",
+            });
+          }
+        }
       }
     }, SUBSCRIPTION_REFRESH_INTERVAL);
   }
@@ -570,23 +656,9 @@ class MarketDataWorker {
     await this.logSystemHealth("safe_mode_activated", { reason, source: "market_data_worker" }, "critical", `SAFE MODE ACTIVATED: ${reason}`);
   }
 
-  private async updateConfigStatus(configId: string, status: string, error?: string): Promise<void> {
-    await supabase
-      .from("admin_zerodha_configs")
-      .update({
-        connection_status: status,
-        last_error: error || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", configId);
-  }
-
   private async updateEngineStatus(): Promise<void> {
-    const totalSubscribed = Array.from(this.connections.values())
-      .reduce((sum, c) => sum + c.subscribedTokens.size, 0);
-
-    const connectedCount = Array.from(this.connections.values())
-      .filter(c => c.isConnected).length;
+    const stats = this.subscriptionManager.getStats();
+    const connectedCount = Array.from(this.connections.values()).filter(c => c.isConnected).length;
 
     const now = Date.now();
     if (now - this.lastTickCountReset >= 1000) {
@@ -599,7 +671,7 @@ class MarketDataWorker {
       engine_type: "market_data",
       status: this.isRunning ? "running" : "stopped",
       websocket_status: connectedCount > 0 ? "connected" : "disconnected",
-      subscribed_instruments: totalSubscribed,
+      subscribed_instruments: stats.totalSubscriptions,
       ticks_per_second: this.ticksPerSecond,
       last_tick_at: this.lastTickAt,
       updated_at: new Date().toISOString(),
@@ -629,6 +701,8 @@ class MarketDataWorker {
     if (this.healthCheckInterval) clearInterval(this.healthCheckInterval);
     if (this.subscriptionRefreshInterval) clearInterval(this.subscriptionRefreshInterval);
 
+    await this.subscriptionManager.destroy();
+
     for (const [_, connection] of this.connections.entries()) {
       try {
         connection.ticker.disconnect();
@@ -638,7 +712,6 @@ class MarketDataWorker {
     }
 
     this.connections.clear();
-    this.instrumentAssignments.clear();
 
     await supabase.from("data_engine_status").upsert({
       engine_type: "market_data",
@@ -679,3 +752,5 @@ worker.start().catch((err) => {
   console.error("[MarketDataWorker] Fatal error:", err);
   process.exit(1);
 });
+
+export { worker, MarketDataWorker };

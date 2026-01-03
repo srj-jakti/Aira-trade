@@ -24,16 +24,6 @@ interface UseLiveCandlesReturn {
   dataSource: string;
 }
 
-/**
- * Hook for managing live candle data with seamless scroll-back support
- * 
- * Features:
- * - Initial data fetch from live_candles
- * - Real-time updates via Supabase Realtime
- * - Seamless scroll-back using RUNTIME_HISTORICAL mode
- * - Data is cached in live_candles for future use
- * - Memory management with max candle limit
- */
 export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesReturn {
   const { 
     instrumentToken, 
@@ -54,6 +44,24 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
   const channelRef = useRef<RealtimeChannel | null>(null);
   const supabaseRef = useRef(createClient());
   const fetchAttemptsRef = useRef(0);
+  const prevInstrumentRef = useRef<number>(instrumentToken);
+  const prevTimeframeRef = useRef<string>(timeframe);
+
+  useEffect(() => {
+    const instrumentChanged = prevInstrumentRef.current !== instrumentToken;
+    const timeframeChanged = prevTimeframeRef.current !== timeframe;
+    
+    if (instrumentChanged || timeframeChanged) {
+      setCandles([]);
+      setOldestTimestamp(null);
+      setHasMore(true);
+      setDataSource("LIVE");
+      fetchAttemptsRef.current = 0;
+      
+      prevInstrumentRef.current = instrumentToken;
+      prevTimeframeRef.current = timeframe;
+    }
+  }, [instrumentToken, timeframe]);
 
   useEffect(() => {
     if (initialData.length > 0) {
@@ -73,9 +81,12 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     (payload: RealtimePostgresInsertPayload<LiveCandle>) => {
       const newCandle = payload.new;
 
+      const normalizedTimeframe = normalizeTimeframe(timeframe);
+      const candleTimeframe = normalizeTimeframe(newCandle.timeframe);
+
       if (
         newCandle.instrument_token !== instrumentToken ||
-        newCandle.timeframe !== timeframe
+        candleTimeframe !== normalizedTimeframe
       ) {
         return;
       }
@@ -130,7 +141,12 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
       return;
     }
 
-    const channelName = `live_candles_${instrumentToken}_${timeframe}`;
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    const channelName = `live_candles_${instrumentToken}_${timeframe}_${Date.now()}`;
 
     const channel = supabase
       .channel(channelName)
@@ -169,9 +185,9 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
 
   const refetch = useCallback(async () => {
     try {
-const response = await fetch(
-          `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=500`
-        );
+      const response = await fetch(
+        `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=500`
+      );
       if (response.ok) {
         const data = await response.json();
         const newCandles = data.candles || [];
@@ -208,9 +224,9 @@ const response = await fetch(
         ? `&before=${encodeURIComponent(oldestTimestamp)}`
         : "";
       
-const response = await fetch(
-          `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=500${beforeParam}`
-        );
+      const response = await fetch(
+        `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=500${beforeParam}`
+      );
       
       if (!response.ok) {
         throw new Error("Failed to fetch older candles");
@@ -272,4 +288,18 @@ const response = await fetch(
     isLoadingMore,
     dataSource,
   };
+}
+
+function normalizeTimeframe(tf: string): string {
+  const aliases: Record<string, string> = {
+    "1d": "day",
+    "day": "day",
+    "D": "day",
+    "1w": "week",
+    "week": "week",
+    "W": "week",
+    "1M": "month",
+    "month": "month",
+  };
+  return aliases[tf] || tf;
 }

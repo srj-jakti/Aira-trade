@@ -11,6 +11,141 @@ import { getLatestTick, marketDataEngine } from "@/lib/server/market-data-engine
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt } from "@/lib/server/encryption";
 
+function normalizeTimeframe(tf: string): string {
+  const aliases: Record<string, string> = {
+    "1d": "day",
+    "day": "day",
+    "D": "day",
+    "1w": "week",
+    "week": "week",
+    "W": "week",
+    "1M": "month",
+    "month": "month",
+  };
+  return aliases[tf] || tf;
+}
+
+function getZerodhaInterval(timeframe: string): string {
+  const normalizedTf = normalizeTimeframe(timeframe);
+  const intervalMap: Record<string, string> = {
+    "1s": "minute",
+    "5s": "minute",
+    "15s": "minute",
+    "1m": "minute",
+    "3m": "3minute",
+    "5m": "5minute",
+    "15m": "15minute",
+    "30m": "30minute",
+    "1h": "60minute",
+    "day": "day",
+    "week": "day",
+    "month": "day",
+  };
+  return intervalMap[normalizedTf] || "5minute";
+}
+
+function getDaysBack(timeframe: string): number {
+  const normalizedTf = normalizeTimeframe(timeframe);
+  const daysBackMap: Record<string, number> = {
+    "1m": 60,
+    "3m": 100,
+    "5m": 100,
+    "15m": 200,
+    "30m": 400,
+    "1h": 400,
+    "day": 2000,
+    "week": 2000,
+    "month": 2000,
+  };
+  return daysBackMap[normalizedTf] || 100;
+}
+
+function aggregateToHigherTimeframe(
+  candles: Array<{
+    timestamp: Date;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+    oi: number;
+  }>,
+  targetTimeframe: string
+): Array<{
+  timestamp: Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  oi: number;
+}> {
+  if (candles.length === 0) return [];
+
+  const normalizedTf = normalizeTimeframe(targetTimeframe);
+  
+  if (normalizedTf !== "day" && normalizedTf !== "week" && normalizedTf !== "month") {
+    return candles;
+  }
+
+  const bucketMap = new Map<string, {
+    timestamp: Date;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+    oi: number;
+  }>();
+
+  for (const candle of candles) {
+    let bucketKey: string;
+    const d = new Date(candle.timestamp);
+    
+    if (normalizedTf === "day") {
+      bucketKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    } else if (normalizedTf === "week") {
+      const startOfWeek = new Date(d);
+      startOfWeek.setDate(d.getDate() - d.getDay());
+      bucketKey = `${startOfWeek.getFullYear()}-W${String(Math.ceil((startOfWeek.getDate()) / 7)).padStart(2, "0")}`;
+    } else {
+      bucketKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    const existing = bucketMap.get(bucketKey);
+    if (existing) {
+      existing.high = Math.max(existing.high, candle.high);
+      existing.low = Math.min(existing.low, candle.low);
+      existing.close = candle.close;
+      existing.volume += candle.volume;
+      existing.oi = candle.oi || existing.oi;
+    } else {
+      let bucketDate: Date;
+      if (normalizedTf === "day") {
+        bucketDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      } else if (normalizedTf === "week") {
+        const startOfWeek = new Date(d);
+        startOfWeek.setDate(d.getDate() - d.getDay());
+        bucketDate = startOfWeek;
+      } else {
+        bucketDate = new Date(d.getFullYear(), d.getMonth(), 1);
+      }
+      
+      bucketMap.set(bucketKey, {
+        timestamp: bucketDate,
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close,
+        volume: candle.volume,
+        oi: candle.oi,
+      });
+    }
+  }
+
+  return Array.from(bucketMap.values()).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+}
+
 async function fetchFromZerodhaAPI(
   instrumentToken: number,
   timeframe: string,
@@ -33,40 +168,15 @@ async function fetchFromZerodhaAPI(
 
     const apiKey = decrypt(config.api_key);
     const accessToken = decrypt(config.access_token);
-
-    const intervalMap: Record<string, string> = {
-      "1s": "minute",
-      "5s": "minute",
-      "15s": "minute",
-      "1m": "minute",
-      "3m": "3minute",
-      "5m": "5minute",
-      "15m": "15minute",
-      "30m": "30minute",
-      "1h": "60minute",
-      "day": "day",
-    };
+    const interval = getZerodhaInterval(timeframe);
+    const daysBack = getDaysBack(timeframe);
     
-    const interval = intervalMap[timeframe] || "5minute";
-
-    const daysBackMap: Record<string, number> = {
-      "1m": 60,
-      "3m": 100,
-      "5m": 100,
-      "15m": 200,
-      "30m": 400,
-      "1h": 400,
-      "day": 2000,
-    };
-    
-    const daysBack = daysBackMap[timeframe] || 100;
     const now = new Date();
     const from = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
-
     const fromStr = from.toISOString().split("T")[0];
     const toStr = now.toISOString().split("T")[0];
 
-    console.log(`[LiveRoute] Fetching from Zerodha: ${instrumentToken} ${interval} ${fromStr} to ${toStr}`);
+    console.log(`[LiveRoute] Fetching from Zerodha: token=${instrumentToken} interval=${interval} timeframe=${timeframe} from=${fromStr} to=${toStr}`);
 
     const response = await fetch(
       `https://api.kite.trade/instruments/historical/${instrumentToken}/${interval}?from=${fromStr}&to=${toStr}`,
@@ -85,21 +195,38 @@ async function fetchFromZerodhaAPI(
     }
 
     const data = await response.json();
-    const candles = data.data?.candles || [];
+    const rawCandles = data.data?.candles || [];
 
-    console.log(`[LiveRoute] Got ${candles.length} candles from Zerodha`);
+    console.log(`[LiveRoute] Got ${rawCandles.length} raw candles from Zerodha`);
+
+    let candles = rawCandles.map((c: (string | number)[]) => ({
+      timestamp: new Date(c[0] as string),
+      open: c[1] as number,
+      high: c[2] as number,
+      low: c[3] as number,
+      close: c[4] as number,
+      volume: c[5] as number,
+      oi: (c[6] as number) || 0,
+    }));
+
+    const normalizedTf = normalizeTimeframe(timeframe);
+    if (normalizedTf === "week" || normalizedTf === "month") {
+      candles = aggregateToHigherTimeframe(candles, timeframe);
+      console.log(`[LiveRoute] Aggregated to ${candles.length} ${normalizedTf} candles`);
+    }
 
     if (candles.length > 0) {
-      const rows = candles.map((c: (string | number)[]) => ({
+      const storeTf = normalizeTimeframe(timeframe);
+      const rows = candles.map((c: { timestamp: Date; open: number; high: number; low: number; close: number; volume: number; oi: number }) => ({
         instrument_token: instrumentToken,
-        timeframe: timeframe,
-        timestamp: new Date(c[0] as string).toISOString(),
-        open: c[1] as number,
-        high: c[2] as number,
-        low: c[3] as number,
-        close: c[4] as number,
-        volume: c[5] as number,
-        oi: (c[6] as number) || 0,
+        timeframe: storeTf,
+        timestamp: c.timestamp.toISOString(),
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+        volume: c.volume,
+        oi: c.oi,
       }));
 
       const batchSize = 500;
@@ -109,18 +236,10 @@ async function fetchFromZerodhaAPI(
           .from("live_candles")
           .upsert(batch, { onConflict: "instrument_token,timeframe,timestamp" });
       }
-      console.log(`[LiveRoute] Stored ${rows.length} candles in live_candles`);
+      console.log(`[LiveRoute] Stored ${rows.length} candles in live_candles with timeframe=${storeTf}`);
     }
 
-    return candles.slice(-limit).map((c: (string | number)[]) => ({
-      timestamp: new Date(c[0] as string),
-      open: c[1] as number,
-      high: c[2] as number,
-      low: c[3] as number,
-      close: c[4] as number,
-      volume: c[5] as number,
-      oi: (c[6] as number) || 0,
-    }));
+    return candles.slice(-limit);
   } catch (error) {
     console.error("[LiveRoute] Error fetching from Zerodha:", error);
     return [];
@@ -213,13 +332,16 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams;
   const instrumentToken = searchParams.get("instrument") || searchParams.get("instrumentToken");
-  const timeframe = searchParams.get("timeframe") || "5m";
+  const rawTimeframe = searchParams.get("timeframe") || "5m";
+  const timeframe = normalizeTimeframe(rawTimeframe);
   const limit = Math.min(parseInt(searchParams.get("limit") || "500"), 5000);
   const beforeTimestamp = searchParams.get("before") || undefined;
 
   if (!instrumentToken) {
     return badRequestResponse("instrument parameter is required");
   }
+
+  console.log(`[LiveRoute] Request: instrument=${instrumentToken} rawTf=${rawTimeframe} normalizedTf=${timeframe} limit=${limit}`);
 
   try {
     validateCandleMode("LIVE", "chart_api");
@@ -236,11 +358,13 @@ export async function GET(request: NextRequest) {
     let candles = result.candles;
     let hasMore = result.hasMore;
 
+    console.log(`[LiveRoute] Got ${candles.length} candles from live_candles for timeframe=${timeframe}`);
+
     if (candles.length < limit && !beforeTimestamp) {
       console.log(`[LiveRoute] Only ${candles.length} candles in live_candles, fetching from Zerodha...`);
       const zerodhaCandles = await fetchFromZerodhaAPI(
         parseInt(instrumentToken),
-        timeframe,
+        rawTimeframe,
         limit
       );
       if (zerodhaCandles.length > candles.length) {
@@ -280,6 +404,8 @@ export async function GET(request: NextRequest) {
 
     const latestTick = await getLatestTick(parseInt(instrumentToken));
 
+    console.log(`[LiveRoute] Returning ${candles.length} candles from ${dataSource}`);
+
     return successResponse({ 
       candles: candles.map(c => ({
         timestamp: c.timestamp.toISOString(),
@@ -297,10 +423,11 @@ export async function GET(request: NextRequest) {
         changePercent: latestTick.changePercent,
       } : null,
       dataSource,
+      timeframe,
       count: candles.length,
       hasMore,
-      oldestTimestamp: result.oldestTimestamp || (candles.length > 0 ? candles[0].timestamp.toISOString() : null),
-      newestTimestamp: result.newestTimestamp || (candles.length > 0 ? candles[candles.length - 1].timestamp.toISOString() : null),
+      oldestTimestamp: candles.length > 0 ? candles[0].timestamp.toISOString() : null,
+      newestTimestamp: candles.length > 0 ? candles[candles.length - 1].timestamp.toISOString() : null,
       nextPage: hasMore ? (candles.length > 0 ? candles[0].timestamp.toISOString() : null) : null,
     });
   } catch (error) {

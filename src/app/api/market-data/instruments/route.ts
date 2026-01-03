@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
     let query = supabaseAdmin
       .from("instruments")
       .select("instrument_token, tradingsymbol, name, exchange, segment, instrument_type, lot_size, tick_size, is_subscribed, expiry, strike")
-      .limit(200);
+      .limit(500);
 
     if (search) {
       const searchLower = search.toLowerCase();
@@ -168,7 +168,10 @@ export async function GET(request: NextRequest) {
     }
 
     const searchLower = search.toLowerCase();
-    const sortedInstruments = (instruments || [])
+    
+    const deduplicatedInstruments = deduplicateWithNSEPreference(instruments || []);
+    
+    const sortedInstruments = deduplicatedInstruments
       .map((inst) => ({
         ...inst,
         priority: getInstrumentPriority(inst as Instrument, searchLower),
@@ -182,4 +185,31 @@ export async function GET(request: NextRequest) {
     console.error("Error searching instruments:", error);
     return serverErrorResponse();
   }
+}
+
+function deduplicateWithNSEPreference(instruments: Instrument[]): Instrument[] {
+  const symbolMap = new Map<string, Instrument>();
+  
+  for (const inst of instruments) {
+    const category = classifyInstrument(inst);
+    
+    if (category !== "EQUITY") {
+      const key = `${inst.tradingsymbol}_${inst.exchange}_${inst.segment}`;
+      if (!symbolMap.has(key)) {
+        symbolMap.set(key, inst);
+      }
+      continue;
+    }
+    
+    const key = inst.tradingsymbol;
+    const existing = symbolMap.get(key);
+    
+    if (!existing) {
+      symbolMap.set(key, inst);
+    } else if (inst.exchange === "NSE" && existing.exchange !== "NSE") {
+      symbolMap.set(key, inst);
+    }
+  }
+  
+  return Array.from(symbolMap.values());
 }

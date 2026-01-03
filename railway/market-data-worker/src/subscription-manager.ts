@@ -175,17 +175,35 @@ export class SubscriptionManager {
 
   async getCoreInstruments(): Promise<number[]> {
     const coreTokens: number[] = [...NIFTY50_TOKENS];
+    const addedSymbols = new Set<string>();
 
-    const { data: stocks } = await this.supabase
+    const { data: nseStocks } = await this.supabase
       .from("instruments")
-      .select("instrument_token")
+      .select("instrument_token, tradingsymbol")
       .in("tradingsymbol", NIFTY50_STOCKS)
       .eq("exchange", "NSE")
       .eq("segment", "NSE");
 
-    if (stocks) {
-      for (const stock of stocks) {
+    if (nseStocks) {
+      for (const stock of nseStocks) {
         coreTokens.push(stock.instrument_token);
+        addedSymbols.add(stock.tradingsymbol);
+      }
+    }
+
+    const { data: bseStocks } = await this.supabase
+      .from("instruments")
+      .select("instrument_token, tradingsymbol")
+      .in("tradingsymbol", NIFTY50_STOCKS)
+      .eq("exchange", "BSE")
+      .eq("segment", "BSE");
+
+    if (bseStocks) {
+      for (const stock of bseStocks) {
+        if (!addedSymbols.has(stock.tradingsymbol)) {
+          coreTokens.push(stock.instrument_token);
+          addedSymbols.add(stock.tradingsymbol);
+        }
       }
     }
 
@@ -225,7 +243,7 @@ export class SubscriptionManager {
       }
     }
 
-    console.log(`[SubscriptionManager] Core instruments: ${coreTokens.length} (including index options for next 2 weeks)`);
+    console.log(`[SubscriptionManager] Core instruments: ${coreTokens.length} (NSE preferred, including index options for next 2 weeks)`);
     return coreTokens;
   }
 

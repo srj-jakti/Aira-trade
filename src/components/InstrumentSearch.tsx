@@ -97,21 +97,21 @@ export function InstrumentSearch({
       return;
     }
 
-    debounceRef.current = setTimeout(async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch(`/api/market-data/instruments?search=${encodeURIComponent(query)}&limit=30`);
-        if (response.ok) {
-          const data = await response.json();
-          setResults(data.instruments || []);
-          setIsOpen(true);
+      debounceRef.current = setTimeout(async () => {
+        setIsLoading(true);
+        try {
+          const response = await fetch(`/api/market-data/instruments?search=${encodeURIComponent(query)}&limit=50`);
+          if (response.ok) {
+            const data = await response.json();
+            setResults(data.instruments || []);
+            setIsOpen(true);
+          }
+        } catch (error) {
+          console.error("Search error:", error);
+        } finally {
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error("Search error:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 250);
+      }, 250);
 
     return () => {
       if (debounceRef.current) {

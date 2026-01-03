@@ -32,11 +32,18 @@ export async function GET() {
 
     const { data: subscriptions } = await supabaseAdmin
       .from("subscriptions")
-      .select("user_id, plan_name");
+      .select("user_id, plan_id, plan_name, status, current_period_end, is_admin_grant, granted_by, grant_reason");
+
+    const { data: adminUsers } = await supabaseAdmin
+      .from("admin_users")
+      .select("id");
+
+    const adminUserIds = new Set(adminUsers?.map(a => a.id) || []);
 
     const users = authUsers.map((authUser) => {
       const profile = profiles?.find((p) => p.id === authUser.id);
-      const subscription = subscriptions?.find((s) => s.user_id === authUser.id);
+      const subscription = subscriptions?.find((s) => s.user_id === authUser.id && s.status === "active");
+      const isAdminUser = adminUserIds.has(authUser.id);
       
       return {
         id: authUser.id,
@@ -47,7 +54,11 @@ export async function GET() {
         banned_until: authUser.banned_until || null,
         created_at: authUser.created_at,
         last_sign_in_at: authUser.last_sign_in_at || null,
-        plan: subscription?.plan_name || null,
+        plan: subscription?.plan_name || (isAdminUser ? "ADMIN" : null),
+        plan_id: subscription?.plan_id || (isAdminUser ? "admin" : null),
+        plan_expires: subscription?.current_period_end || null,
+        is_admin_grant: subscription?.is_admin_grant || isAdminUser,
+        is_admin: isAdminUser,
         email_confirmed: !!authUser.email_confirmed_at,
       };
     });

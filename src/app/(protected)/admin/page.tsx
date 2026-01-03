@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { 
+import {
   Database, 
   Key, 
   BrainCircuit, 
@@ -115,6 +115,10 @@ interface User {
   created_at: string;
   last_sign_in_at: string | null;
   plan: string | null;
+  plan_id: string | null;
+  plan_expires: string | null;
+  is_admin_grant: boolean;
+  is_admin: boolean;
   email_confirmed: boolean;
 }
 
@@ -1982,6 +1986,9 @@ function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [planDialogUser, setPlanDialogUser] = useState<User | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState("basic");
+  const [selectedDuration, setSelectedDuration] = useState("1_month");
 
   useEffect(() => {
     fetchUsers();
@@ -2025,8 +2032,61 @@ function UserManagement() {
     }
   };
 
+  const handleAssignPlan = async () => {
+    if (!planDialogUser) return;
+    setActionLoading(planDialogUser.id);
+    try {
+      const res = await fetch(`/api/admin/users/${planDialogUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "assign_plan", 
+          plan: selectedPlan, 
+          duration: selectedDuration 
+        })
+      });
+      if (res.ok) {
+        setPlanDialogUser(null);
+        await fetchUsers();
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRevokePlan = async (userId: string) => {
+    if (!confirm("Are you sure you want to revoke this user's plan?")) return;
+    setActionLoading(userId);
+    try {
+      await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "revoke_plan" })
+      });
+      await fetchUsers();
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const PLANS = [
+    { value: "basic", label: "Basic" },
+    { value: "pro", label: "Pro" },
+    { value: "elite", label: "Elite" },
+    { value: "admin", label: "Admin (Full Access)" },
+  ];
+
+  const DURATIONS = [
+    { value: "1_month", label: "1 Month" },
+    { value: "3_months", label: "3 Months" },
+    { value: "6_months", label: "6 Months" },
+    { value: "1_year", label: "1 Year" },
+    { value: "lifetime", label: "Lifetime" },
+  ];
+
   return (
-    <Card className="bg-white/5 border-white/10">
+    <>
+      <Card className="bg-white/5 border-white/10">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-white text-lg flex items-center gap-2">
@@ -2063,110 +2123,228 @@ function UserManagement() {
                     : "bg-white/5 border-white/10"
                 }`}
               >
-                <div className="space-y-1 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-white font-medium">{user.email}</span>
-                    {user.is_blocked ? (
-                      <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
-                        <Shield className="w-3 h-3 mr-1" />
-                        Blocked
-                      </Badge>
-                    ) : user.is_approved ? (
-                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Approved
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-                        <Clock className="w-3 h-3 mr-1" />
-                        Pending
-                      </Badge>
-                    )}
-                    {!user.email_confirmed && (
-                      <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
-                        Email Unverified
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-xs text-white/40 flex flex-wrap gap-x-3">
-                    {user.full_name && <span>{user.full_name}</span>}
-                    <span>Joined: {new Date(user.created_at).toLocaleDateString()}</span>
-                    {user.last_sign_in_at && (
-                      <span>Last login: {new Date(user.last_sign_in_at).toLocaleDateString()}</span>
-                    )}
-                    {user.plan && <span>Plan: {user.plan}</span>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {actionLoading === user.id ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-white/40" />
-                  ) : (
-                    <>
-                      {!user.is_blocked && (
-                        <>
-                          {user.is_approved ? (
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleAction(user.id, "revoke")}
-                              className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10"
-                              title="Revoke access"
-                            >
-                              <UserX className="w-4 h-4" />
-                            </Button>
-                          ) : (
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleAction(user.id, "approve")}
-                              className="text-green-400 hover:text-green-300 hover:bg-green-400/10"
-                              title="Approve user"
-                            >
-                              <UserCheck className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </>
+<div className="space-y-1 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-white font-medium">{user.email}</span>
+                      {user.is_admin && (
+                        <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                          <Shield className="w-3 h-3 mr-1" />
+                          Admin
+                        </Badge>
                       )}
                       {user.is_blocked ? (
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleAction(user.id, "unblock")}
-                          className="text-green-400 hover:text-green-300 hover:bg-green-400/10"
-                          title="Unblock user"
-                        >
-                          <Shield className="w-4 h-4" />
-                          <span className="ml-1 text-xs">Unblock</span>
-                        </Button>
+                        <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                          <Shield className="w-3 h-3 mr-1" />
+                          Blocked
+                        </Badge>
+                      ) : user.is_approved ? (
+                        <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Approved
+                        </Badge>
                       ) : (
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleAction(user.id, "block")}
-                          className="text-orange-400 hover:text-orange-300 hover:bg-orange-400/10"
-                          title="Block user"
-                        >
-                          <Shield className="w-4 h-4" />
-                        </Button>
+                        <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Pending
+                        </Badge>
                       )}
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleDelete(user.id)}
-                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                        title="Delete user permanently"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </>
-                  )}
-                </div>
+                      {user.plan && !user.is_admin && (
+                        <Badge className={`${
+                          user.plan === "ELITE" ? "bg-purple-500/20 text-purple-400 border-purple-500/30" :
+                          user.plan === "PRO" ? "bg-blue-500/20 text-blue-400 border-blue-500/30" :
+                          "bg-green-500/20 text-green-400 border-green-500/30"
+                        }`}>
+                          <Star className="w-3 h-3 mr-1" />
+                          {user.plan}
+                        </Badge>
+                      )}
+                      {!user.email_confirmed && (
+                        <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+                          Email Unverified
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-xs text-white/40 flex flex-wrap gap-x-3">
+                      {user.full_name && <span>{user.full_name}</span>}
+                      <span>Joined: {new Date(user.created_at).toLocaleDateString()}</span>
+                      {user.last_sign_in_at && (
+                        <span>Last login: {new Date(user.last_sign_in_at).toLocaleDateString()}</span>
+                      )}
+                      {user.plan_expires && (
+                        <span className="text-cyan-400">Expires: {new Date(user.plan_expires).toLocaleDateString()}</span>
+                      )}
+                      {user.is_admin_grant && user.plan && !user.is_admin && (
+                        <span className="text-purple-400">Admin Granted</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {actionLoading === user.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-white/40" />
+                    ) : (
+                      <>
+                        {!user.is_admin && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setPlanDialogUser(user);
+                              setSelectedPlan(user.plan_id || "basic");
+                              setSelectedDuration("1_month");
+                            }}
+                            className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                            title="Assign plan"
+                          >
+                            <Star className="w-4 h-4 mr-1" />
+                            Plan
+                          </Button>
+                        )}
+                        {user.is_admin_grant && user.plan && !user.is_admin && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleRevokePlan(user.id)}
+                            className="text-orange-400 hover:text-orange-300 hover:bg-orange-400/10"
+                            title="Revoke plan"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {!user.is_blocked && !user.is_admin && (
+                          <>
+                            {user.is_approved ? (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleAction(user.id, "revoke")}
+                                className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10"
+                                title="Revoke access"
+                              >
+                                <UserX className="w-4 h-4" />
+                              </Button>
+                            ) : (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleAction(user.id, "approve")}
+                                className="text-green-400 hover:text-green-300 hover:bg-green-400/10"
+                                title="Approve user"
+                              >
+                                <UserCheck className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {!user.is_admin && (user.is_blocked ? (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleAction(user.id, "unblock")}
+                            className="text-green-400 hover:text-green-300 hover:bg-green-400/10"
+                            title="Unblock user"
+                          >
+                            <Shield className="w-4 h-4" />
+                            <span className="ml-1 text-xs">Unblock</span>
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleAction(user.id, "block")}
+                            className="text-orange-400 hover:text-orange-300 hover:bg-orange-400/10"
+                            title="Block user"
+                          >
+                            <Shield className="w-4 h-4" />
+                          </Button>
+                        ))}
+                        {!user.is_admin && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDelete(user.id)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                            title="Delete user permanently"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
               </div>
             ))}
           </div>
         )}
       </CardContent>
     </Card>
+
+    <Dialog open={!!planDialogUser} onOpenChange={(o) => !o && setPlanDialogUser(null)}>
+      <DialogContent className="bg-[#0a0a0a] border-white/10 text-white max-w-md">
+        <DialogHeader>
+          <DialogTitle>Assign Plan</DialogTitle>
+          <DialogDescription className="text-white/50">
+            Assign a subscription plan to {planDialogUser?.email}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <Label className="text-white/60">Plan</Label>
+            <Select value={selectedPlan} onValueChange={setSelectedPlan}>
+              <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1a] border-white/10">
+                {PLANS.map((plan) => (
+                  <SelectItem key={plan.value} value={plan.value}>
+                    {plan.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-white/60">Duration</Label>
+            <Select value={selectedDuration} onValueChange={setSelectedDuration}>
+              <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1a] border-white/10">
+                {DURATIONS.map((dur) => (
+                  <SelectItem key={dur.value} value={dur.value}>
+                    {dur.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {selectedPlan === "admin" && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-sm text-red-400">
+                Admin plan grants full access to all features including the admin panel.
+              </p>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setPlanDialogUser(null)} className="border-white/20 text-white hover:bg-white/10">
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleAssignPlan}
+            disabled={actionLoading === planDialogUser?.id}
+            className="bg-purple-500 hover:bg-purple-600"
+          >
+            {actionLoading === planDialogUser?.id ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Star className="w-4 h-4 mr-2" />
+            )}
+            Assign Plan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>
   );
 }
 

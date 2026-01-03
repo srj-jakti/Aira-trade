@@ -10,6 +10,27 @@ import {
 import { uuidSchema } from "@/lib/validations";
 import { logAudit } from "@/lib/server/audit";
 
+const VALID_PLANS = ["basic", "pro", "elite", "admin"];
+const VALID_DURATIONS = ["1_month", "3_months", "6_months", "1_year", "lifetime"];
+
+function getDurationEndDate(duration: string): Date | null {
+  const now = new Date();
+  switch (duration) {
+    case "1_month":
+      return new Date(now.setMonth(now.getMonth() + 1));
+    case "3_months":
+      return new Date(now.setMonth(now.getMonth() + 3));
+    case "6_months":
+      return new Date(now.setMonth(now.getMonth() + 6));
+    case "1_year":
+      return new Date(now.setFullYear(now.getFullYear() + 1));
+    case "lifetime":
+      return null;
+    default:
+      return new Date(now.setMonth(now.getMonth() + 1));
+  }
+}
+
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ userId: string }> }
@@ -93,7 +114,90 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const { action } = body;
+    const { action, plan, duration, reason } = body;
+
+    if (action === "assign_plan") {
+      if (!plan || !VALID_PLANS.includes(plan)) {
+        return badRequestResponse("Invalid plan");
+      }
+      if (!duration || !VALID_DURATIONS.includes(duration)) {
+        return badRequestResponse("Invalid duration");
+      }
+
+      const endDate = getDurationEndDate(duration);
+      const now = new Date().toISOString();
+
+      await supabaseAdmin
+        .from("subscriptions")
+        .delete()
+        .eq("user_id", userId)
+        .eq("is_admin_grant", true);
+
+      const { error } = await supabaseAdmin
+        .from("subscriptions")
+        .insert({
+          user_id: userId,
+          plan_id: plan,
+          plan_name: plan.toUpperCase(),
+          status: "active",
+          current_period_start: now,
+          current_period_end: endDate?.toISOString() || null,
+          is_admin_grant: true,
+          granted_by: admin.userId,
+          grant_reason: reason || `Admin granted ${plan} plan`,
+          created_at: now,
+          updated_at: now,
+        });
+
+      if (error) {
+        console.error("Error assigning plan:", error);
+        return serverErrorResponse();
+      }
+
+      await supabaseAdmin
+        .from("profiles")
+        .upsert({
+          id: userId,
+          is_approved: true,
+          approved_at: now,
+          approved_by: admin.userId,
+        }, { onConflict: "id" });
+
+      await logAudit({
+        user_id: admin.userId!,
+        action: "admin_plan_assigned",
+        target_table: "subscriptions",
+        target_id: userId,
+        details: { plan, duration, reason },
+      });
+
+      return successResponse({ 
+        success: true, 
+        message: `${plan.toUpperCase()} plan assigned for ${duration.replace("_", " ")}` 
+      });
+    }
+
+    if (action === "revoke_plan") {
+      const { error } = await supabaseAdmin
+        .from("subscriptions")
+        .delete()
+        .eq("user_id", userId)
+        .eq("is_admin_grant", true);
+
+      if (error) {
+        console.error("Error revoking plan:", error);
+        return serverErrorResponse();
+      }
+
+      await logAudit({
+        user_id: admin.userId!,
+        action: "admin_plan_revoked",
+        target_table: "subscriptions",
+        target_id: userId,
+      });
+
+      return successResponse({ success: true, message: "Plan revoked" });
+    }
 
     if (action === "block") {
       const banDuration = "876000h";

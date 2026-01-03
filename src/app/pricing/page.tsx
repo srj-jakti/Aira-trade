@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-const plans = [
+export const plans = [
   {
     id: "basic",
     name: "BASIC",
@@ -34,6 +34,7 @@ const plans = [
       { text: "Background automation", included: false },
     ],
     popular: false,
+    visible: true,
   },
   {
     id: "pro",
@@ -59,6 +60,7 @@ const plans = [
       { text: "Continuous background automation", included: false },
     ],
     popular: true,
+    visible: true,
   },
   {
     id: "elite",
@@ -83,6 +85,29 @@ const plans = [
       { text: "Early access to new features", included: true },
     ],
     popular: false,
+    visible: true,
+  },
+  {
+    id: "admin",
+    name: "ADMIN",
+    subtitle: "Full Platform Access",
+    price: 0,
+    period: "month",
+    description: "Full administrative access to all platform features including admin panel.",
+    sebiLabel: "Internal admin access only.",
+    icon: Crown,
+    color: "red",
+    features: [
+      { text: "Everything in ELITE", included: true },
+      { text: "Admin Panel Access", included: true },
+      { text: "User Management", included: true },
+      { text: "System Configuration", included: true },
+      { text: "All API Configurations", included: true },
+      { text: "Strategy Approval", included: true },
+      { text: "Full System Control", included: true },
+    ],
+    popular: false,
+    visible: false,
   },
 ];
 
@@ -147,8 +172,8 @@ export default function PricingPage() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 lg:gap-8 mb-12">
-          {plans.map((plan, index) => (
+<div className="grid md:grid-cols-3 gap-6 lg:gap-8 mb-12">
+            {plans.filter(p => p.visible !== false).map((plan, index) => (
             <motion.div
               key={plan.id}
               initial={{ opacity: 0, y: 20 }}

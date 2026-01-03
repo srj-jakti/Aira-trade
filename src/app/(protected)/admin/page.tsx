@@ -221,11 +221,169 @@ export default function AdminPage() {
     checkAdmin();
   }, [router]);
 
-  if (isAdmin === null) {
+    if (isAdmin === null) {
+      return (
+        <div className="flex items-center justify-center h-full bg-[#030303]">
+          <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
+        </div>
+      );
+    }
+
     return (
-      <div className="flex items-center justify-center h-full bg-[#030303]">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#030303]">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center gap-4 mb-6">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/settings")}
+              className="text-white/60 hover:text-white hover:bg-white/10"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
+              <p className="text-white/40 text-sm">System configuration and management</p>
+            </div>
+          </div>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <TabsList className="bg-white/5 border border-white/10 p-1 rounded-xl w-full flex-wrap justify-start gap-1">
+              <TabsTrigger 
+                value="zerodha" 
+                className="flex items-center gap-2 px-3 py-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm"
+              >
+                <Key className="w-4 h-4" />
+                <span className="hidden sm:inline">APIs</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="ai" 
+                className="flex items-center gap-2 px-3 py-1.5 data-[state=active]:bg-purple-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm"
+              >
+                <BrainCircuit className="w-4 h-4" />
+                <span className="hidden sm:inline">AI</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="users" 
+                className="flex items-center gap-2 px-3 py-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm"
+              >
+                <Users className="w-4 h-4" />
+                <span className="hidden sm:inline">Users</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="market-data" 
+                className="flex items-center gap-2 px-3 py-1.5 data-[state=active]:bg-cyan-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm"
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span className="hidden sm:inline">Data</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="subscriptions" 
+                className="flex items-center gap-2 px-3 py-1.5 data-[state=active]:bg-pink-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm"
+              >
+                <Activity className="w-4 h-4" />
+                <span className="hidden sm:inline">Subs</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="strategies" 
+                className="flex items-center gap-2 px-3 py-1.5 data-[state=active]:bg-yellow-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm"
+              >
+                <Target className="w-4 h-4" />
+                <span className="hidden sm:inline">Strategies</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="health" 
+                className="flex items-center gap-2 px-3 py-1.5 data-[state=active]:bg-red-500 data-[state=active]:text-white rounded-lg transition-all text-xs md:text-sm"
+              >
+                <Activity className="w-4 h-4" />
+                <span className="hidden sm:inline">Health</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="zerodha" className="mt-0">
+              <ZerodhaManager />
+            </TabsContent>
+
+            <TabsContent value="ai" className="mt-0">
+              <AIManager />
+            </TabsContent>
+
+            <TabsContent value="users" className="mt-0">
+              <UserManager />
+            </TabsContent>
+
+            <TabsContent value="market-data" className="mt-0">
+              <MarketDataManager />
+            </TabsContent>
+
+            <TabsContent value="subscriptions" className="mt-0">
+              <SubscriptionManager />
+            </TabsContent>
+
+            <TabsContent value="strategies" className="mt-0">
+              <StrategyManager />
+            </TabsContent>
+
+            <TabsContent value="health" className="mt-0">
+              <SystemHealthManager />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
+    );
+}
+
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(' ');
+}
+
+function ZerodhaManager() {
+  return (
+    <Card className="bg-white/5 border-white/10">
+      <CardContent className="pt-6">
+        <p className="text-white/60">Zerodha API management coming soon...</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AIManager() {
+  return (
+    <Card className="bg-white/5 border-white/10">
+      <CardContent className="pt-6">
+        <p className="text-white/60">AI configuration management coming soon...</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function UserManager() {
+  return (
+    <Card className="bg-white/5 border-white/10">
+      <CardContent className="pt-6">
+        <p className="text-white/60">User management coming soon...</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MarketDataManager() {
+  return (
+    <Card className="bg-white/5 border-white/10">
+      <CardContent className="pt-6">
+        <p className="text-white/60">Market data management coming soon...</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SystemHealthManager() {
+  return (
+    <Card className="bg-white/5 border-white/10">
+      <CardContent className="pt-6">
+        <p className="text-white/60">System health monitoring coming soon...</p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -428,6 +586,40 @@ function SubscriptionManager() {
   );
 }
 
+interface AdminStrategy {
+  id: number;
+  name: string;
+  description: string;
+  visibility: "public" | "invite_only" | "private";
+  admin_approved: boolean;
+  created_at: string;
+  raw_input?: string;
+  buy_entry_logic?: unknown;
+  buy_stop_loss?: unknown;
+  buy_target?: unknown;
+  sell_entry_logic?: unknown;
+  sell_stop_loss?: unknown;
+  sell_target?: unknown;
+  hold_logic?: unknown;
+  creator?: {
+    username?: string;
+    email?: string;
+  };
+  stats?: {
+    win_rate?: number;
+    net_pnl_percentage?: number;
+  };
+}
+
+interface BacktestResult {
+  timeframe: string;
+  total_trades: number;
+  win_rate: number;
+  net_pnl_percentage: number;
+  max_drawdown_percentage: number;
+}
+
+function StrategyManager() {
   const [strategies, setStrategies] = useState<AdminStrategy[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStrategy, setSelectedStrategy] = useState<AdminStrategy | null>(null);

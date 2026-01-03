@@ -2184,22 +2184,12 @@ function UserManagement() {
                           Admin
                         </Badge>
                       )}
-                      {user.is_blocked ? (
-                        <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
-                          <Shield className="w-3 h-3 mr-1" />
-                          Blocked
-                        </Badge>
-                      ) : user.is_approved ? (
-                        <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
-                          Approved
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-                          <Clock className="w-3 h-3 mr-1" />
-                          Pending
-                        </Badge>
-                      )}
+                        {user.is_blocked && (
+                          <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                            <Shield className="w-3 h-3 mr-1" />
+                            Blocked
+                          </Badge>
+                        )}
                       {user.plan && !user.is_admin && (
                         <Badge className={`${
                           user.plan === "ELITE" ? "bg-purple-500/20 text-purple-400 border-purple-500/30" :
@@ -2262,32 +2252,7 @@ function UserManagement() {
                             <XCircle className="w-4 h-4" />
                           </Button>
                         )}
-                        {!user.is_blocked && !user.is_admin && (
-                          <>
-                            {user.is_approved ? (
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleAction(user.id, "revoke")}
-                                className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10"
-                                title="Revoke access"
-                              >
-                                <UserX className="w-4 h-4" />
-                              </Button>
-                            ) : (
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleAction(user.id, "approve")}
-                                className="text-green-400 hover:text-green-300 hover:bg-green-400/10"
-                                title="Approve user"
-                              >
-                                <UserCheck className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </>
-                        )}
-                        {!user.is_admin && (user.is_blocked ? (
+                          {!user.is_admin && (user.is_blocked ? (
                           <Button 
                             variant="ghost" 
                             size="sm"

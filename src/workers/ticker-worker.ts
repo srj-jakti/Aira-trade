@@ -284,7 +284,7 @@ class UnifiedTickerWorker {
 
   private updateCandleBuffers(tick: KiteTickData, timestamp: string): void {
     const tickTime = new Date(timestamp).getTime();
-    const intervals = [1, 5, 15];
+    const intervals = [1, 5, 15, 60, 300, 900]; // Added 1m, 5m, 15m
 
     for (const interval of intervals) {
       const bucketStart = Math.floor(tickTime / (interval * 1000)) * (interval * 1000);
@@ -336,7 +336,14 @@ class UnifiedTickerWorker {
       const candles1s: any[] = [];
       const candles5s: any[] = [];
       const candles15s: any[] = [];
+      const liveCandles: any[] = []; // For live_candles table
       const keysToRemove: string[] = [];
+
+      const timeframeMap: Record<number, string> = {
+        60: "1m",
+        300: "5m",
+        900: "15m"
+      };
 
       for (const [key, buffer] of this.candleBuffers.entries()) {
         const [tokenStr, intervalStr, bucketStartStr] = key.split(":");
@@ -362,6 +369,22 @@ class UnifiedTickerWorker {
           else if (interval === 5) candles5s.push(candle);
           else if (interval === 15) candles15s.push(candle);
 
+          // Map to live_candles
+          if (timeframeMap[interval]) {
+            liveCandles.push({
+              instrument_token: instrumentToken,
+              timeframe: timeframeMap[interval],
+              timestamp: new Date(bucketStart).toISOString(),
+              open: buffer.open,
+              high: buffer.high,
+              low: buffer.low,
+              close: buffer.close,
+              volume: buffer.volume,
+              oi: buffer.oi,
+              updated_at: new Date().toISOString()
+            });
+          }
+
           keysToRemove.push(key);
         }
       }
@@ -377,6 +400,9 @@ class UnifiedTickerWorker {
       }
       if (candles15s.length > 0) {
         await supabase.from("aggregated_candles_15s").upsert(candles15s, { onConflict: "instrument_token,bucket_start" });
+      }
+      if (liveCandles.length > 0) {
+        await supabase.from("live_candles").upsert(liveCandles, { onConflict: "instrument_token,timeframe,timestamp" });
       }
     }, CANDLE_FLUSH_INTERVAL);
   }

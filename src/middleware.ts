@@ -35,12 +35,14 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   
-  // Define public paths that don't require authentication
-  const publicPaths = ["/", "/signin", "/signup", "/forgot-password", "/reset-password"];
-  const isPublicPath = 
-    publicPaths.includes(pathname) || 
-    pathname.startsWith("/auth/") ||
-    pathname === "/favicon.ico";
+    // Define public paths that don't require authentication
+    const publicPaths = ["/", "/signin", "/signup", "/forgot-password", "/reset-password"];
+    const isPublicPath = 
+      publicPaths.includes(pathname) || 
+      pathname.startsWith("/auth/") ||
+      pathname.startsWith("/api/cron/") || // Allow cron jobs
+      pathname.startsWith("/api/admin/system-health/") || // Allow health checks
+      pathname === "/favicon.ico";
 
   // Redirect to dashboard if logged in and trying to access auth pages or landing page
   if (user && (

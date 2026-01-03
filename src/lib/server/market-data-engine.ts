@@ -385,7 +385,7 @@ export type DataMode = "LIVE" | "BACKTEST";
 export async function getLiveCandles(
   instrumentToken: number,
   timeframe: string,
-  limit: number = 200
+  limit: number = 500
 ): Promise<Array<{
   timestamp: Date;
   open: number;
@@ -528,7 +528,7 @@ export async function getCandles(options: {
     "Use getCandles from candle-service.ts instead."
   );
 
-  const { instrumentToken, timeframe, mode, limit = 200, from, to } = options;
+  const { instrumentToken, timeframe, mode, limit = 500, from, to } = options;
 
   if (mode === "BACKTEST") {
     const fromDate = from || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);

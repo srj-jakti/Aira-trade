@@ -1,5 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { airaBrain } from "./aira-brain";
+import { aiSharedService } from "./ai-shared-service";
+import { marketDataEngine } from "./market-data-engine";
+import { decrypt } from "./encryption";
 
 export interface StrategyLogic {
   conditions: string[];
@@ -65,15 +67,19 @@ export interface Candle {
   volume: number;
 }
 
-  const TIMEFRAME_LOOKBACK: Record<string, { days: number; label: string }> = {
-    "1m": { days: 30, label: "30 Days" },
-    "3m": { days: 60, label: "60 Days" },
-    "5m": { days: 90, label: "3 Months" },
-    "15m": { days: 90, label: "3 Months" },
-    "30m": { days: 180, label: "6 Months" },
-    "1h": { days: 365, label: "1 Year" },
-    "day": { days: 1825, label: "5 Years" },
-  };
+const TIMEFRAME_LOOKBACK: Record<string, { days: number; label: string }> = {
+  "1m": { days: 60, label: "60 Days" },
+  "3m": { days: 100, label: "100 Days" },
+  "5m": { days: 100, label: "100 Days" },
+  "15m": { days: 200, label: "200 Days" },
+  "30m": { days: 400, label: "400 Days" },
+  "1h": { days: 400, label: "400 Days" },
+  "day": { days: 2000, label: "5 Years" },
+  "3minute": { days: 100, label: "100 Days" },
+  "5minute": { days: 100, label: "100 Days" },
+  "15minute": { days: 200, label: "200 Days" },
+  "60minute": { days: 400, label: "400 Days" },
+};
 
 function normalizeTimeframe(tf: string): string {
   const aliases: Record<string, string> = {
@@ -1366,6 +1372,100 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
     }
   }
 
+  private async fetchCandlesFromZerodha(
+    instrumentToken: number,
+    timeframe: string,
+    fromDate: Date,
+    toDate: Date,
+    zerodhaConfigId?: string
+  ): Promise<Candle[]> {
+    try {
+      let config = null;
+      if (zerodhaConfigId) {
+        const { data } = await supabaseAdmin
+          .from("admin_zerodha_configs")
+          .select("*")
+          .eq("id", zerodhaConfigId)
+          .single();
+        config = data;
+      } else {
+        config = await marketDataEngine.getActiveConfig();
+      }
+
+      if (!config || !config.access_token) {
+        console.log("[StrategyService] No valid Zerodha config found", zerodhaConfigId ? `for ID ${zerodhaConfigId}` : "");
+        return [];
+      }
+
+      const apiKey = decrypt(config.api_key);
+      const accessToken = decrypt(config.access_token);
+      const interval = getZerodhaInterval(timeframe);
+      const fromStr = fromDate.toISOString().split("T")[0];
+      const toStr = toDate.toISOString().split("T")[0];
+
+      console.log(`[StrategyService] Fetching from Zerodha: ${instrumentToken} ${interval} from ${fromStr} to ${toStr}`);
+
+      const response = await fetch(
+        `https://api.kite.trade/instruments/historical/${instrumentToken}/${interval}?from=${fromStr}&to=${toStr}`,
+        {
+          headers: {
+            "X-Kite-Version": "3",
+            Authorization: `token ${apiKey}:${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: response.statusText }));
+        console.error("[StrategyService] Zerodha API error:", error);
+        return [];
+      }
+
+      const data = await response.json();
+      const rawCandles = data.data?.candles || [];
+
+      console.log(`[StrategyService] Got ${rawCandles.length} candles from Zerodha`);
+
+      const candles: Candle[] = rawCandles.map((c: (string | number)[]) => ({
+        timestamp: c[0] as string,
+        open: c[1] as number,
+        high: c[2] as number,
+        low: c[3] as number,
+        close: c[4] as number,
+        volume: c[5] as number,
+      }));
+
+      if (candles.length > 0) {
+        const normalizedTf = normalizeTimeframe(timeframe);
+        const rows = candles.map(c => ({
+          instrument_token: instrumentToken,
+          timeframe: normalizedTf,
+          timestamp: new Date(c.timestamp).toISOString(),
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+          volume: c.volume,
+          oi: 0,
+        }));
+
+        const batchSize = 500;
+        for (let i = 0; i < rows.length; i += batchSize) {
+          const batch = rows.slice(i, i + batchSize);
+          await supabaseAdmin
+            .from("live_candles")
+            .upsert(batch, { onConflict: "instrument_token,timeframe,timestamp" });
+        }
+        console.log(`[StrategyService] Cached ${rows.length} candles in live_candles`);
+      }
+
+      return candles;
+    } catch (error) {
+      console.error("[StrategyService] Error fetching from Zerodha:", error);
+      return [];
+    }
+  }
+
   async runBacktest(
     strategy: StructuredStrategy,
     instrumentTokens: number[],
@@ -1390,78 +1490,56 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
     const to = toDate || now;
     const normalizedTf = normalizeTimeframe(timeframe);
 
-    // Sanitize strategy before running backtest
-    if (strategy.executable_strategy) {
-      strategy.executable_strategy = this.sanitizeExecutableStrategy(strategy.executable_strategy);
-    }
-
     let allCandles: Candle[] = [];
-    let dataSource = "historical_candles";
-
-    const { getCandles } = await import("./candle-service");
+    let dataSource = "live_candles";
 
     for (const instrumentToken of instrumentTokens) {
-      console.log(`[StrategyService] Requesting candles from CandleService for ${instrumentToken} ${normalizedTf}`);
-      
-      const result = await getCandles({
-        instrumentToken,
-        timeframe: normalizedTf,
-        mode: "BACKTEST",
-        fromDate: from,
-        toDate: to,
-      });
+      const { data: liveCandles, error } = await supabaseAdmin
+        .from("live_candles")
+        .select("*")
+        .eq("instrument_token", instrumentToken)
+        .eq("timeframe", normalizedTf)
+        .gte("timestamp", from.toISOString())
+        .lte("timestamp", to.toISOString())
+        .order("timestamp", { ascending: true });
 
-      if (result.candles && result.candles.length > 0) {
-        const candles: Candle[] = result.candles.map(c => ({
-          timestamp: c.timestamp.toISOString(),
-          open: c.open,
-          high: c.high,
-          low: c.low,
-          close: c.close,
-          volume: c.volume,
+      let candles: Candle[] = [];
+
+      if (!error && liveCandles && liveCandles.length > 0) {
+        candles = liveCandles.map(c => ({
+          timestamp: c.timestamp,
+          open: parseFloat(c.open),
+          high: parseFloat(c.high),
+          low: parseFloat(c.low),
+          close: parseFloat(c.close),
+          volume: parseInt(c.volume) || 0,
         }));
-        
-        console.log(`[StrategyService] Received ${candles.length} candles from ${result.source}`);
-        // IMPORTANT: Process each instrument separately or ensure they don't interleave in a way that breaks indicators
-        // For backtesting, it's best to run per-instrument and aggregate results
-        const instrumentResult = this.executeBacktest(strategy, candles, capital / instrumentTokens.length);
-        
-        if (allCandles.length === 0) {
-          // Initialize with first instrument's aggregated result structure
-          (this as any).aggregatedResult = { ...instrumentResult, trade_log: [...instrumentResult.trade_log] };
-        } else {
-          // Merge results
-          const agg = (this as any).aggregatedResult;
-          agg.total_trades += instrumentResult.total_trades;
-          agg.buy_count += instrumentResult.buy_count;
-          agg.sell_count += instrumentResult.sell_count;
-          agg.hold_count += instrumentResult.hold_count;
-          agg.net_pnl += instrumentResult.net_pnl;
-          agg.net_pnl_percentage = (agg.net_pnl / capital) * 100;
-          agg.trade_log = [...agg.trade_log, ...instrumentResult.trade_log].sort((a, b) => 
-            new Date(a.entry_time).getTime() - new Date(b.entry_time).getTime()
-          );
-          // Simplified Win Rate merge
-          const totalWins = (agg.win_rate * (agg.total_trades - instrumentResult.total_trades) / 100) + 
-                          (instrumentResult.win_rate * instrumentResult.total_trades / 100);
-          agg.win_rate = agg.total_trades > 0 ? (totalWins / agg.total_trades) * 100 : 0;
-          agg.max_drawdown = Math.max(agg.max_drawdown, instrumentResult.max_drawdown);
+        console.log(`[StrategyService] Found ${candles.length} candles in live_candles for ${instrumentToken}`);
+      }
+
+        if (candles.length < 50) {
+          console.log(`[StrategyService] Insufficient data in live_candles (${candles.length}), fetching from Zerodha...`);
+          const zerodhaCandles = await this.fetchCandlesFromZerodha(instrumentToken, timeframe, from, to, zerodhaConfigId);
+          if (zerodhaCandles.length > candles.length) {
+            candles = zerodhaCandles;
+            dataSource = "zerodha_api";
+          }
         }
 
-        allCandles = allCandles.concat(candles);
-        dataSource = result.source;
-      }
+
+      allCandles = allCandles.concat(candles);
     }
 
     if (allCandles.length === 0) {
-      throw new Error("No data available for backtesting. We tried to fetch it automatically but failed. This could be due to invalid instrument tokens or market holidays.");
+      throw new Error("No data available for backtesting. Please ensure market data is available.");
     }
 
-    const finalResult = (this as any).aggregatedResult || this.executeBacktest(strategy, allCandles, capital);
-    delete (this as any).aggregatedResult;
+    allCandles.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    const result = this.executeBacktest(strategy, allCandles, capital);
     
     return {
-      ...finalResult,
+      ...result,
       data_source: dataSource,
       candle_count: allCandles.length,
       date_range: {
@@ -1800,7 +1878,6 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
       data_source: "pending",
       candle_count: 0,
       date_range: { from: "", to: "" },
-      evaluation_logs: evaluationLogs.slice(0, 50),
     };
   }
 

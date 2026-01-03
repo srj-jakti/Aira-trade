@@ -173,17 +173,35 @@ export class SubscriptionManager {
 
   async getCoreInstruments(): Promise<number[]> {
     const coreTokens: number[] = [...NIFTY50_TOKENS];
+    const addedSymbols = new Set<string>();
 
-    const { data: stocks } = await this.supabase
+    const { data: nseStocks } = await this.supabase
       .from("instruments")
-      .select("instrument_token")
+      .select("instrument_token, tradingsymbol")
       .in("tradingsymbol", NIFTY50_STOCKS)
       .eq("exchange", "NSE")
       .eq("segment", "NSE");
 
-    if (stocks) {
-      for (const stock of stocks) {
+    if (nseStocks) {
+      for (const stock of nseStocks) {
         coreTokens.push(stock.instrument_token);
+        addedSymbols.add(stock.tradingsymbol);
+      }
+    }
+
+    const { data: bseStocks } = await this.supabase
+      .from("instruments")
+      .select("instrument_token, tradingsymbol")
+      .in("tradingsymbol", NIFTY50_STOCKS)
+      .eq("exchange", "BSE")
+      .eq("segment", "BSE");
+
+    if (bseStocks) {
+      for (const stock of bseStocks) {
+        if (!addedSymbols.has(stock.tradingsymbol)) {
+          coreTokens.push(stock.instrument_token);
+          addedSymbols.add(stock.tradingsymbol);
+        }
       }
     }
 
@@ -200,7 +218,30 @@ export class SubscriptionManager {
       }
     }
 
-    console.log(`[SubscriptionManager] Core instruments: ${coreTokens.length}`);
+    const today = new Date();
+    const maxExpiry = new Date(today);
+    maxExpiry.setDate(maxExpiry.getDate() + 14);
+    
+    for (const underlying of INDEX_UNDERLYING_NAMES) {
+      const { data: indexOptions } = await this.supabase
+        .from("instruments")
+        .select("instrument_token, expiry, strike")
+        .or(`tradingsymbol.like.${underlying}%`)
+        .in("instrument_type", ["CE", "PE"])
+        .gte("expiry", today.toISOString().split("T")[0])
+        .lte("expiry", maxExpiry.toISOString().split("T")[0])
+        .limit(200);
+
+      if (indexOptions) {
+        for (const opt of indexOptions) {
+          if (!coreTokens.includes(opt.instrument_token)) {
+            coreTokens.push(opt.instrument_token);
+          }
+        }
+      }
+    }
+
+    console.log(`[SubscriptionManager] Core instruments: ${coreTokens.length} (NSE preferred, including index options for next 2 weeks)`);
     return coreTokens;
   }
 

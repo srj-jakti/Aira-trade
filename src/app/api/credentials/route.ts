@@ -29,7 +29,7 @@ export async function GET() {
       return serverErrorResponse();
     }
 
-    if (!data?.config) {
+    if (!data?.preferences) {
       return successResponse({ credentials: {} });
     }
 
@@ -43,7 +43,7 @@ export async function GET() {
           const decrypted = decrypt(value);
           masked[key] = maskCredential(decrypted);
         } catch {
-          masked[key] = '****';
+          masked[key] = maskCredential(value);
         }
       }
     }

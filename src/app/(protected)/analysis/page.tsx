@@ -113,9 +113,9 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     try {
       await requestSubscription(instrument.instrument_token);
 
-      const response = await fetch(
-        `/api/market-data/live?instrument=${instrument.instrument_token}&timeframe=${tf}&limit=200`
-      );
+const response = await fetch(
+          `/api/market-data/live?instrument=${instrument.instrument_token}&timeframe=${tf}&limit=500`
+        );
       
       if (response.ok) {
         const data = await response.json();

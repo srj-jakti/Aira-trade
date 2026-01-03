@@ -24,15 +24,6 @@ interface UseLiveCandlesReturn {
   dataSource: string;
 }
 
-/**
- * Hook for managing live candle data with scroll-back support
- * 
- * Features:
- * - Initial data fetch from live_candles
- * - Real-time updates via Supabase Realtime
- * - Scroll-back pagination for historical context
- * - Memory management with max candle limit
- */
 export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesReturn {
   const { 
     instrumentToken, 
@@ -52,6 +43,25 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
   
   const channelRef = useRef<RealtimeChannel | null>(null);
   const supabaseRef = useRef(createClient());
+  const fetchAttemptsRef = useRef(0);
+  const prevInstrumentRef = useRef<number>(instrumentToken);
+  const prevTimeframeRef = useRef<string>(timeframe);
+
+  useEffect(() => {
+    const instrumentChanged = prevInstrumentRef.current !== instrumentToken;
+    const timeframeChanged = prevTimeframeRef.current !== timeframe;
+    
+    if (instrumentChanged || timeframeChanged) {
+      setCandles([]);
+      setOldestTimestamp(null);
+      setHasMore(true);
+      setDataSource("LIVE");
+      fetchAttemptsRef.current = 0;
+      
+      prevInstrumentRef.current = instrumentToken;
+      prevTimeframeRef.current = timeframe;
+    }
+  }, [instrumentToken, timeframe]);
 
   // Initialize with provided data
   useEffect(() => {
@@ -72,9 +82,12 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     (payload: RealtimePostgresInsertPayload<LiveCandle>) => {
       const newCandle = payload.new;
 
+      const normalizedTimeframe = normalizeTimeframe(timeframe);
+      const candleTimeframe = normalizeTimeframe(newCandle.timeframe);
+
       if (
         newCandle.instrument_token !== instrumentToken ||
-        newCandle.timeframe !== timeframe
+        candleTimeframe !== normalizedTimeframe
       ) {
         return;
       }
@@ -134,7 +147,12 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
       return;
     }
 
-    const channelName = `live_candles_${instrumentToken}_${timeframe}`;
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    const channelName = `live_candles_${instrumentToken}_${timeframe}_${Date.now()}`;
 
     const channel = supabase
       .channel(channelName)
@@ -177,7 +195,7 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
   const refetch = useCallback(async () => {
     try {
       const response = await fetch(
-        `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=200`
+        `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=500`
       );
       if (response.ok) {
         const data = await response.json();
@@ -208,7 +226,7 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     
     try {
       const response = await fetch(
-        `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=200&before=${oldestTimestamp}`
+        `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=500${beforeParam}`
       );
       
       if (!response.ok) {
@@ -273,4 +291,18 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     isLoadingMore,
     dataSource,
   };
+}
+
+function normalizeTimeframe(tf: string): string {
+  const aliases: Record<string, string> = {
+    "1d": "day",
+    "day": "day",
+    "D": "day",
+    "1w": "week",
+    "week": "week",
+    "W": "week",
+    "1M": "month",
+    "month": "month",
+  };
+  return aliases[tf] || tf;
 }

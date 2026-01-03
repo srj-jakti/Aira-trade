@@ -12,7 +12,9 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
-  Loader2
+  Loader2,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -31,18 +33,6 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { usePrices } from "@/hooks/useMarketData";
-
-const SIGNAL_STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
-  PENDING: { icon: Clock, color: "text-yellow-400", label: "Pending" },
-  PENDING_EXECUTION: { icon: Loader2, color: "text-blue-400", label: "Queued" },
-  EXECUTING: { icon: Loader2, color: "text-blue-400", label: "Executing" },
-  EXECUTED: { icon: CheckCircle2, color: "text-green-400", label: "Executed" },
-  FILLED: { icon: CheckCircle2, color: "text-green-500", label: "Filled" },
-  REJECTED: { icon: XCircle, color: "text-red-400", label: "Rejected" },
-  CANCELLED: { icon: XCircle, color: "text-gray-400", label: "Cancelled" },
-  EXPIRED: { icon: Clock, color: "text-gray-500", label: "Expired" },
-  FAILED: { icon: AlertCircle, color: "text-red-500", label: "Failed" },
-};
 
 const SIGNAL_STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
   PENDING: { icon: Clock, color: "text-yellow-400", label: "Pending" },
@@ -103,12 +93,21 @@ export default function Dashboard() {
     async function loadStatus() {
       const status = await getDashboardStatus();
       if (status) {
-        setConnectionStatus(status.connectionStatus);
-        setIsAiTradingEnabled(status.autoTradingEnabled);
-        setTradingEngine(status.tradingEngine);
-        setUserTradingStatus(status.userTradingStatus);
-        setRecentSignals(status.recentSignals);
-      }
+          setConnectionStatus(status.connectionStatus);
+          setIsAiTradingEnabled(status.autoTradingEnabled);
+          setIsPaperTradingEnabled(status.paperTradingEnabled);
+          setTradingEngine(status.tradingEngine);
+          setUserTradingStatus(status.userTradingStatus);
+          setRecentSignals(status.recentSignals);
+          setBalance(status.balance);
+          setPl(status.pl);
+          setActivePositions(status.activePositions);
+          setRecentOrders(status.recentOrders);
+          setPositionsSummary({
+            active: status.activePositions.length,
+            total: status.recentOrders.filter((o: any) => o.status === "FILLED").length
+          });
+        }
       setLoading(false);
     }
     loadStatus();
@@ -125,6 +124,17 @@ export default function Dashboard() {
       setIsAiTradingEnabled(!enabled);
     } else {
       toast.success(`AI Auto-Trading ${enabled ? "enabled" : "disabled"}`);
+    }
+  };
+
+  const handleTogglePaper = async (enabled: boolean) => {
+    setIsPaperTradingEnabled(enabled);
+    const result = await togglePaperTrading(enabled);
+    if (result.error) {
+      toast.error(result.error);
+      setIsPaperTradingEnabled(!enabled);
+    } else {
+      toast.success(`Paper Trading ${enabled ? "enabled" : "disabled"}`);
     }
   };
 
@@ -165,31 +175,31 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <div>
-            <h1 className="text-lg md:text-xl font-bold text-white tracking-tight leading-none">
-              AI Trading Dashboard
-            </h1>
+          <div className="flex flex-wrap items-center gap-2 md:gap-3 bg-black/40 p-1 px-2 rounded-2xl border border-white/5 w-fit">
+            <div className="flex items-center gap-2 bg-white/5 rounded-xl p-1 px-3 border border-white/5">
+              <Label htmlFor="paper-trading" className="text-[10px] font-bold text-white/40 uppercase tracking-widest cursor-pointer">
+                Paper Mode
+              </Label>
+              <Switch 
+                id="paper-trading" 
+                checked={isPaperTradingEnabled}
+                onCheckedChange={handleTogglePaper}
+                className="scale-75 data-[state=checked]:bg-yellow-500"
+              />
+            </div>
+            
+            <div className="flex items-center gap-2 bg-white/5 rounded-xl p-1 px-3 border border-white/5">
+              <Label htmlFor="ai-trading" className="text-[10px] font-bold text-white/40 uppercase tracking-widest cursor-pointer">
+                Auto-Trading
+              </Label>
+              <Switch 
+                id="ai-trading" 
+                checked={isAiTradingEnabled}
+                onCheckedChange={handleToggleAi}
+                className="scale-75"
+              />
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3 bg-black/40 p-1 pl-3 rounded-full border border-white/5 w-fit">
-          <Label htmlFor="ai-trading" className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-            Auto-Trading
-          </Label>
-          <div className="flex items-center gap-2 bg-white/5 rounded-full p-0.5 px-2 border border-white/5">
-            <Switch 
-              id="ai-trading" 
-              checked={isAiTradingEnabled}
-              onCheckedChange={handleToggleAi}
-              className="scale-75"
-            />
-            <span className={cn(
-              "text-[9px] font-black px-1.5 py-0.5 rounded-full",
-              isAiTradingEnabled ? "bg-primary/20 text-primary" : "bg-white/5 text-white/20"
-            )}>
-              {isAiTradingEnabled ? "ACTIVE" : "OFF"}
-            </span>
-          </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">

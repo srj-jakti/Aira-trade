@@ -37,7 +37,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ScannerSettingsForm } from "../settings/ScannerSettingsForm";
 import { cn } from "@/lib/utils";
-import { useMultipleLatestPrices } from "@/hooks/use-realtime-ticks";
+import { usePrices } from "@/hooks/useMarketData";
 
 interface AnalysisOutput {
   id: string;
@@ -67,7 +67,7 @@ export default function ScannerPage() {
     [currentOutputs]
   );
 
-  const { prices: livePrices, isConnected: isPricesConnected, getPrice } = useMultipleLatestPrices(
+  const { prices: livePrices, isConnected: isPricesConnected, getPrice } = usePrices(
     instrumentTokens,
     instrumentTokens.length > 0
   );

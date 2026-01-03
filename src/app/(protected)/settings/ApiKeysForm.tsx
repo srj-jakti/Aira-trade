@@ -7,10 +7,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Key, ShieldCheck, CheckCircle2, XCircle, ExternalLink, Globe, Copy, Check } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 function ApiKeysFormContent() {
-  const supabase = createClient();
   const [copied, setCopied] = useState(false);
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   const redirectUrl = `${baseUrl}/api/user/broker/callback`;
@@ -149,28 +147,18 @@ function ApiKeysFormContent() {
     setConnecting(true);
 
     try {
-      const [credsRes, { data: { user } }] = await Promise.all([
-        fetch("/api/credentials"),
-        supabase.auth.getUser()
-      ]);
-      
-      if (!credsRes.ok) throw new Error("Failed to get credentials");
-      
-      const credsData = await credsRes.json();
-      const rawApiKey = credsData.raw?.zerodha_api_key;
-      
-      if (!rawApiKey) {
-        toast.error("API Key not found. Please re-enter your credentials.");
-        setConnecting(false);
-        return;
+      const response = await fetch("/api/user/broker/oauth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to initiate connection");
       }
 
-      const userId = user?.id || "";
+      const { loginUrl } = await response.json();
 
-      const loginUrl = userId 
-        ? `https://kite.trade/connect/login?v=3&api_key=${rawApiKey}&redirect_params=user_id%3D${userId}`
-        : `https://kite.trade/connect/login?v=3&api_key=${rawApiKey}`;
-      
       const popup = window.open(
         loginUrl,
         "zerodha_login",

@@ -12,15 +12,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json().catch(() => ({}));
-    const { userInput, referenceInstrument, mode } = body as {
+    const { userInput, referenceInstrument } = body as {
       userInput?: string;
       referenceInstrument?: string;
-      mode?: "traditional" | "neural";
     };
 
-    const response = mode === "neural" 
-      ? await aiSharedService.generateNeuralStrategyIdea(userInput, referenceInstrument)
-      : await aiSharedService.generateStrategyIdea(userInput, referenceInstrument);
+    const response = await aiSharedService.generateStrategyIdea(
+      userInput,
+      referenceInstrument
+    );
 
     if (!response.success) {
       return NextResponse.json(

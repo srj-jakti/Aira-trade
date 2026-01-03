@@ -147,59 +147,6 @@ async function loginUserAccount(account: {
   }
 }
 
-async function runAutoLogin(triggerType: string) {
-  console.log("[Auto-Login Cron] Starting auto-login, trigger:", triggerType);
-
-  const { data: adminConfigs } = await supabaseAdmin
-    .from("admin_zerodha_configs")
-    .select("*")
-    .eq("is_active", true)
-    .eq("auto_login_enabled", true);
-
-  const adminResults = [];
-  for (const config of adminConfigs || []) {
-    const result = await loginAdminConfig(config, triggerType);
-    adminResults.push(result);
-  }
-
-  const { data: userAccounts } = await supabaseAdmin
-    .from("user_broker_accounts")
-    .select("*")
-    .eq("is_active", true)
-    .not("totp_secret", "is", null);
-
-  const userResults = [];
-  for (const account of userAccounts || []) {
-    const result = await loginUserAccount(account);
-    userResults.push(result);
-  }
-
-  const totalProcessed = adminResults.length + userResults.length;
-  const totalSuccess = adminResults.filter(r => r.success).length + userResults.filter(r => r.success).length;
-
-  zerodhaService.clearCache();
-
-  // Trigger instrument sync after successful login
-  if (totalSuccess > 0) {
-    console.log("[Auto-Login Cron] Triggering instrument sync...");
-    try {
-      await fetchAndStoreInstruments();
-      console.log("[Auto-Login Cron] Instrument sync completed successfully");
-    } catch (syncError) {
-      console.error("[Auto-Login Cron] Instrument sync failed:", syncError);
-    }
-  }
-
-  await supabaseAdmin.from("system_health_logs").insert({
-    metric_type: "zerodha_auto_login",
-    metric_value: { adminResults, userResults, totalSuccess, totalProcessed },
-    severity: totalSuccess === totalProcessed ? "info" : "warning",
-    message: `Auto-login completed for ${totalSuccess}/${totalProcessed} accounts`,
-  });
-
-  return { adminResults, userResults, totalProcessed, totalSuccess };
-}
-
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
@@ -222,12 +169,49 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const { triggerType = "scheduled" } = body;
 
-    const result = await runAutoLogin(triggerType);
+    console.log("[Auto-Login Cron] Starting auto-login, trigger:", triggerType);
+
+    // 1. Process Admin Configs (Master)
+    const { data: adminConfigs } = await supabaseAdmin
+      .from("admin_zerodha_configs")
+      .select("*")
+      .eq("is_active", true)
+      .eq("auto_login_enabled", true);
+
+    const adminResults = [];
+    for (const config of adminConfigs || []) {
+      const result = await loginAdminConfig(config, triggerType);
+      adminResults.push(result);
+    }
+
+    // 2. Process User Accounts
+    const { data: userAccounts } = await supabaseAdmin
+      .from("user_broker_accounts")
+      .select("*")
+      .eq("is_active", true)
+      .not("totp_secret", "is", null);
+
+    const userResults = [];
+    for (const account of userAccounts || []) {
+      const result = await loginUserAccount(account);
+      userResults.push(result);
+    }
+
+    const totalProcessed = adminResults.length + userResults.length;
+    const totalSuccess = adminResults.filter(r => r.success).length + userResults.filter(r => r.success).length;
+
+    await supabaseAdmin.from("system_health_logs").insert({
+      metric_type: "zerodha_auto_login",
+      metric_value: { adminResults, userResults, totalSuccess, totalProcessed },
+      severity: totalSuccess === totalProcessed ? "info" : "warning",
+      message: `Auto-login completed for ${totalSuccess}/${totalProcessed} accounts`,
+    });
 
     return successResponse({ 
       success: true, 
-      ...result,
-      message: `Processed ${result.totalProcessed} accounts`
+      adminResults,
+      userResults,
+      message: `Processed ${totalProcessed} accounts`
     });
   } catch (error) {
     console.error("[Auto-Login Cron] Error:", error);

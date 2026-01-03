@@ -199,7 +199,29 @@ export async function refreshDynamicSubscriptions(): Promise<{
       }
     }
 
-    const uniqueTokens = [...new Set(subscriptionQueue)].slice(0, 2500);
+    // Add Top Liquid Stocks to reach the discussed ~1750 limit if needed
+    const TARGET_LIMIT = 1750;
+    if (subscriptionQueue.length < TARGET_LIMIT) {
+      const remaining = TARGET_LIMIT - subscriptionQueue.length;
+      const { data: topStocks } = await supabaseAdmin
+        .from("instruments")
+        .select("instrument_token")
+        .eq("exchange", "NSE")
+        .eq("instrument_type", "EQ")
+        .order("lot_size", { ascending: false }) // Using lot_size as a proxy or we can use another metric if available
+        .limit(remaining);
+
+      if (topStocks) {
+        for (const stock of topStocks) {
+          if (!subscriptionQueue.includes(stock.instrument_token)) {
+            subscriptionQueue.push(stock.instrument_token);
+            stats.other++;
+          }
+        }
+      }
+    }
+
+    const uniqueTokens = [...new Set(subscriptionQueue)].slice(0, TARGET_LIMIT);
     stats.totalSubscribed = uniqueTokens.length;
 
     const batchSize = 500;

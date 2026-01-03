@@ -272,14 +272,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (candles.length < 10 && !beforeTimestamp) {
-      const zerodhaCandles = await fetchFromZerodhaAPI(
-        parseInt(instrumentToken),
-        timeframe,
-        limit
-      );
-      if (zerodhaCandles.length > candles.length) {
-        candles = zerodhaCandles;
-        dataSource = "ZERODHA_HISTORICAL";
+      try {
+        const zerodhaCandles = await fetchFromZerodhaAPI(
+          parseInt(instrumentToken),
+          timeframe,
+          limit
+        );
+        if (zerodhaCandles.length > candles.length) {
+          candles = zerodhaCandles;
+          dataSource = "ZERODHA_HISTORICAL";
+        }
+      } catch (err) {
+        console.error("[LiveRoute] Zerodha fallback failed:", err);
       }
     }
 

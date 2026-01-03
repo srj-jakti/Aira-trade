@@ -22,46 +22,60 @@ export async function GET(request: NextRequest) {
   try {
     const { data: subscriptions, error } = await supabaseAdmin
       .from("instrument_subscriptions")
-      .select(`
-        instrument_token,
-        priority,
-        api_key_id,
-        instruments:instruments!inner(
-          tradingsymbol,
-          name,
-          exchange,
-          segment,
-          instrument_type
-        )
-      `)
+      .select("*")
       .order("priority", { ascending: true });
 
     if (error) {
-      console.error("[AdminSubscriptions] Error fetching subscriptions:", error);
+      console.error("[AdminSubscriptions] Error fetching subscriptions:", JSON.stringify(error, null, 2));
       return serverErrorResponse();
     }
 
+    // Fetch instrument details for subscriptions
+    let subscriptionsWithInstruments: any[] = [];
+    if (subscriptions && subscriptions.length > 0) {
+      const tokens = subscriptions.map(s => s.instrument_token);
+      const { data: instruments } = await supabaseAdmin
+        .from("instruments")
+        .select("instrument_token, tradingsymbol, name, exchange, segment, instrument_type")
+        .in("instrument_token", tokens);
+
+      const instrumentMap = new Map(instruments?.map(i => [i.instrument_token, i]) || []);
+      subscriptionsWithInstruments = subscriptions.map(sub => ({
+        ...sub,
+        instruments: instrumentMap.get(sub.instrument_token) || null
+      }));
+    }
+
     // Also fetch pending requests
-    const { data: requests } = await supabaseAdmin
+    const { data: requests, error: reqError } = await supabaseAdmin
       .from("subscription_requests")
-      .select(`
-        id,
-        instrument_token,
-        tier,
-        status,
-        created_at,
-        instruments:instruments!inner(
-          tradingsymbol,
-          name,
-          exchange
-        )
-      `)
+      .select("*")
       .eq("status", "pending")
       .order("created_at", { ascending: false });
 
+    if (reqError) {
+      console.error("[AdminSubscriptions] Error fetching requests:", JSON.stringify(reqError, null, 2));
+    }
+
+    // Fetch instrument details for pending requests
+    let requestsWithInstruments: any[] = [];
+    if (requests && requests.length > 0) {
+      const tokens = requests.map(r => r.instrument_token);
+      const { data: instruments } = await supabaseAdmin
+        .from("instruments")
+        .select("instrument_token, tradingsymbol, name, exchange")
+        .in("instrument_token", tokens);
+
+      const instrumentMap = new Map(instruments?.map(i => [i.instrument_token, i]) || []);
+      requestsWithInstruments = requests.map(req => ({
+        ...req,
+        instruments: instrumentMap.get(req.instrument_token) || null
+      }));
+    }
+
     return successResponse({
-      subscriptions: subscriptions || [],
-      pendingRequests: requests || [],
+      subscriptions: subscriptionsWithInstruments,
+      pendingRequests: requestsWithInstruments,
     });
   } catch (error) {
     console.error("[AdminSubscriptions] Unexpected error:", error);

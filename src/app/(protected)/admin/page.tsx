@@ -2208,12 +2208,12 @@ function UserManagement() {
                     </div>
                     <div className="text-xs text-white/40 flex flex-wrap gap-x-3">
                       {user.full_name && <span>{user.full_name}</span>}
-                      <span>Joined: {new Date(user.created_at).toLocaleDateString()}</span>
+                      <span>Joined: {new Date(user.created_at).toLocaleDateString('en-GB')}</span>
                       {user.last_sign_in_at && (
-                        <span>Last login: {new Date(user.last_sign_in_at).toLocaleDateString()}</span>
+                        <span>Last login: {new Date(user.last_sign_in_at).toLocaleDateString('en-GB')}</span>
                       )}
                       {user.plan_expires && (
-                        <span className="text-cyan-400">Expires: {new Date(user.plan_expires).toLocaleDateString()}</span>
+                        <span className="text-cyan-400">Expires: {new Date(user.plan_expires).toLocaleDateString('en-GB')}</span>
                       )}
                       {user.is_admin_grant && user.plan && !user.is_admin && (
                         <span className="text-purple-400">Admin Granted</span>

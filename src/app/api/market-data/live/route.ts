@@ -221,13 +221,14 @@ async function generateCandlesFromTicks(
  * Data sources (in priority order):
  * 1. live_candles table (primary - from WebSocket aggregation)
  * 2. realtime_ticks table (fallback - generated from raw ticks)
- * 3. Zerodha Historical API (fallback - when no local data)
+ * 3. Zerodha Historical API via RUNTIME_HISTORICAL mode (for deep scroll-back)
  * 
  * Query params:
  * - instrument: Required. Instrument token
  * - timeframe: Optional. Default "5m"
  * - limit: Optional. Default 200, max 1000
  * - before: Optional. ISO timestamp for pagination (fetch candles before this time)
+ * - mode: Optional. "live" or "runtime_historical" (default: auto-detect)
  */
 export async function GET(request: NextRequest) {
   const user = await getAuthenticatedUser();
@@ -238,16 +239,15 @@ export async function GET(request: NextRequest) {
   const timeframe = searchParams.get("timeframe") || "5m";
   const limit = Math.min(parseInt(searchParams.get("limit") || "200"), 1000);
   const beforeTimestamp = searchParams.get("before") || undefined;
+  const requestedMode = searchParams.get("mode") || "auto";
 
   if (!instrumentToken) {
     return badRequestResponse("instrument parameter is required");
   }
 
   try {
-    // SAFETY: Validate this is a LIVE mode request
     validateCandleMode("LIVE", "chart_api");
 
-    // Use the unified candle service
     const result = await getCandles({
       instrumentToken: parseInt(instrumentToken),
       timeframe,
@@ -258,8 +258,8 @@ export async function GET(request: NextRequest) {
 
     let dataSource = "LIVE";
     let candles = result.candles;
+    let hasMore = result.hasMore;
 
-    // Fallback 1: Try generating from realtime ticks
     if (candles.length === 0 && !beforeTimestamp) {
       candles = await generateCandlesFromTicks(
         parseInt(instrumentToken),
@@ -271,7 +271,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fallback 2: Fetch from Zerodha Historical API
     if (candles.length < 10 && !beforeTimestamp) {
       const zerodhaCandles = await fetchFromZerodhaAPI(
         parseInt(instrumentToken),
@@ -284,7 +283,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get latest tick for real-time price
+    if (candles.length === 0 && beforeTimestamp) {
+      console.log(`[LiveRoute] No live candles before ${beforeTimestamp}, fetching runtime historical`);
+      const runtimeResult = await getCandles({
+        instrumentToken: parseInt(instrumentToken),
+        timeframe,
+        mode: "RUNTIME_HISTORICAL",
+        limit,
+        beforeTimestamp,
+      });
+      
+      if (runtimeResult.candles.length > 0) {
+        candles = runtimeResult.candles;
+        dataSource = "RUNTIME_HISTORICAL";
+        hasMore = runtimeResult.hasMore;
+      }
+    }
+
     const latestTick = await getLatestTick(parseInt(instrumentToken));
 
     return successResponse({ 
@@ -305,16 +320,14 @@ export async function GET(request: NextRequest) {
       } : null,
       dataSource,
       count: candles.length,
-      hasMore: result.hasMore,
+      hasMore,
       oldestTimestamp: result.oldestTimestamp || (candles.length > 0 ? candles[0].timestamp.toISOString() : null),
       newestTimestamp: result.newestTimestamp || (candles.length > 0 ? candles[candles.length - 1].timestamp.toISOString() : null),
-      // Pagination helper: pass this as "before" param to get older candles
-      nextPage: result.hasMore ? result.oldestTimestamp : null,
+      nextPage: hasMore ? (candles.length > 0 ? candles[0].timestamp.toISOString() : null) : null,
     });
   } catch (error) {
     console.error("Error fetching live data:", error);
     
-    // Check for safety violation
     if (error instanceof Error && error.message.includes("SAFETY VIOLATION")) {
       return badRequestResponse(error.message);
     }

@@ -85,6 +85,8 @@ const NIFTY50_TOKENS = [
   265, // SENSEX
 ];
 
+const INDEX_UNDERLYING_NAMES = ["NIFTY", "BANKNIFTY", "FINNIFTY", "SENSEX"];
+
 const NIFTY50_STOCKS = [
   "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
   "HINDUNILVR", "ITC", "SBIN", "BHARTIARTL", "KOTAKBANK",
@@ -200,7 +202,30 @@ export class SubscriptionManager {
       }
     }
 
-    console.log(`[SubscriptionManager] Core instruments: ${coreTokens.length}`);
+    const today = new Date();
+    const maxExpiry = new Date(today);
+    maxExpiry.setDate(maxExpiry.getDate() + 14);
+    
+    for (const underlying of INDEX_UNDERLYING_NAMES) {
+      const { data: indexOptions } = await this.supabase
+        .from("instruments")
+        .select("instrument_token, expiry, strike")
+        .or(`tradingsymbol.like.${underlying}%`)
+        .in("instrument_type", ["CE", "PE"])
+        .gte("expiry", today.toISOString().split("T")[0])
+        .lte("expiry", maxExpiry.toISOString().split("T")[0])
+        .limit(200);
+
+      if (indexOptions) {
+        for (const opt of indexOptions) {
+          if (!coreTokens.includes(opt.instrument_token)) {
+            coreTokens.push(opt.instrument_token);
+          }
+        }
+      }
+    }
+
+    console.log(`[SubscriptionManager] Core instruments: ${coreTokens.length} (including index options for next 2 weeks)`);
     return coreTokens;
   }
 

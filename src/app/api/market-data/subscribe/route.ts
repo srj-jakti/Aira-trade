@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     return unauthorizedResponse();
   }
 
-  const rateCheck = checkRateLimit(user.user.id);
+  const rateCheck = checkRateLimit(user.userId!);
   if (!rateCheck.allowed) {
     return new Response(
       JSON.stringify({ 
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       const { count: userTempCount } = await supabaseAdmin
         .from("subscription_requests")
         .select("*", { count: "exact", head: true })
-        .eq("source", `user_${user.user.id}`)
+        .eq("source", `user_${user.userId}`)
         .eq("tier", "TEMP")
         .gte("created_at", new Date(Date.now() - 3600000).toISOString());
 
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
       .insert({
         instrument_token: instrumentToken,
         tier,
-        source: `${source}_user_${user.user.id}`,
+        source: `${source}_user_${user.userId}`,
         status: "pending",
       });
 

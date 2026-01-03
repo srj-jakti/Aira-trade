@@ -136,22 +136,23 @@ export function InstrumentSearch({
 
   const groupedResults = results.reduce((acc, instrument) => {
     const seg = instrument.segment?.toLowerCase() || "";
+    const type = instrument.instrument_type;
     let group = "Other";
     
     if (seg === "indices") group = "Indices";
-    else if (seg.includes("nfo-opt") || seg.includes("bfo-opt")) group = "Options (F&O)";
-    else if (seg.includes("nfo-fut") || seg.includes("bfo-fut")) group = "Futures";
+    else if (instrument.exchange === "NSE" && seg === "nse" && type === "EQ") group = "NSE Equity";
+    else if (instrument.exchange === "BSE" && seg === "bse" && type === "EQ") group = "BSE Equity";
+    else if (seg.includes("nfo-fut") || seg.includes("bfo-fut") || seg.includes("mcx-fut")) group = "Futures";
+    else if (seg.includes("nfo-opt") || seg.includes("bfo-opt") || type === "CE" || type === "PE") group = "Options (F&O)";
     else if (seg.includes("cds")) group = "Currency";
     else if (instrument.exchange === "MCX") group = "Commodities";
-    else if (instrument.exchange === "NSE" && seg === "nse") group = "NSE Equity";
-    else if (instrument.exchange === "BSE" && seg === "bse") group = "BSE Equity";
     
     if (!acc[group]) acc[group] = [];
     acc[group].push(instrument);
     return acc;
   }, {} as Record<string, Instrument[]>);
 
-  const groupOrder = ["Indices", "NSE Equity", "BSE Equity", "Options (F&O)", "Futures", "Currency", "Commodities", "Other"];
+  const groupOrder = ["Indices", "NSE Equity", "BSE Equity", "Futures", "Options (F&O)", "Currency", "Commodities", "Other"];
   const sortedGroups = Object.entries(groupedResults).sort(
     (a, b) => groupOrder.indexOf(a[0]) - groupOrder.indexOf(b[0])
   );

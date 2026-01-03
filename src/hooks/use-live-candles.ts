@@ -25,12 +25,13 @@ interface UseLiveCandlesReturn {
 }
 
 /**
- * Hook for managing live candle data with scroll-back support
+ * Hook for managing live candle data with seamless scroll-back support
  * 
  * Features:
  * - Initial data fetch from live_candles
  * - Real-time updates via Supabase Realtime
- * - Scroll-back pagination for historical context
+ * - Seamless scroll-back using RUNTIME_HISTORICAL mode
+ * - Data is cached in live_candles for future use
  * - Memory management with max candle limit
  */
 export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesReturn {
@@ -39,7 +40,7 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     timeframe, 
     initialData = [], 
     enabled = true,
-    maxCandles = 3000  // Memory limit
+    maxCandles = 5000
   } = options;
   
   const [candles, setCandles] = useState<CandleData[]>(initialData);
@@ -52,22 +53,22 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
   
   const channelRef = useRef<RealtimeChannel | null>(null);
   const supabaseRef = useRef(createClient());
+  const fetchAttemptsRef = useRef(0);
 
-  // Initialize with provided data
   useEffect(() => {
     if (initialData.length > 0) {
       setCandles(initialData);
-      // Set oldest timestamp for pagination
       const sorted = [...initialData].sort(
         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
       if (sorted.length > 0) {
         setOldestTimestamp(sorted[0].timestamp);
       }
+      setHasMore(true);
+      fetchAttemptsRef.current = 0;
     }
   }, [initialData]);
 
-  // Handle new candle from realtime subscription
   const handleNewCandle = useCallback(
     (payload: RealtimePostgresInsertPayload<LiveCandle>) => {
       const newCandle = payload.new;
@@ -96,20 +97,16 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
         let updated: CandleData[];
         
         if (existingIndex !== -1) {
-          // Update existing candle
           updated = [...prev];
           updated[existingIndex] = candleData;
         } else {
-          // Add new candle
           updated = [...prev, candleData].sort(
             (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
           );
         }
 
-        // Memory management: trim oldest if exceeding limit
         if (updated.length > maxCandles) {
           updated = updated.slice(-maxCandles);
-          // Update oldest timestamp after trim
           if (updated.length > 0) {
             setOldestTimestamp(updated[0].timestamp);
           }
@@ -121,7 +118,6 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     [instrumentToken, timeframe, maxCandles]
   );
 
-  // Setup realtime subscription
   useEffect(() => {
     const supabase = supabaseRef.current;
 
@@ -171,9 +167,6 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     };
   }, [enabled, instrumentToken, timeframe, handleNewCandle]);
 
-  /**
-   * Fetch fresh data (replaces all candles)
-   */
   const refetch = useCallback(async () => {
     try {
       const response = await fetch(
@@ -185,6 +178,7 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
         setCandles(newCandles);
         setDataSource(data.dataSource || "LIVE");
         setHasMore(data.hasMore ?? true);
+        fetchAttemptsRef.current = 0;
         
         if (newCandles.length > 0) {
           setOldestTimestamp(data.oldestTimestamp || newCandles[0].timestamp);
@@ -195,20 +189,27 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     }
   }, [instrumentToken, timeframe]);
 
-  /**
-   * Fetch older candles (scroll-back / pagination)
-   * Returns true if more data was loaded, false if no more data
-   */
   const fetchOlder = useCallback(async (): Promise<boolean> => {
-    if (!hasMore || isLoadingMore || !oldestTimestamp) {
+    if (!hasMore || isLoadingMore) {
+      return false;
+    }
+
+    if (fetchAttemptsRef.current >= 5) {
+      console.log("[useLiveCandles] Max fetch attempts reached, stopping");
+      setHasMore(false);
       return false;
     }
 
     setIsLoadingMore(true);
+    fetchAttemptsRef.current++;
     
     try {
+      const beforeParam = oldestTimestamp 
+        ? `&before=${encodeURIComponent(oldestTimestamp)}`
+        : "";
+      
       const response = await fetch(
-        `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=200&before=${oldestTimestamp}`
+        `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=200${beforeParam}`
       );
       
       if (!response.ok) {
@@ -223,11 +224,11 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
         return false;
       }
 
+      setDataSource(data.dataSource || "LIVE");
+      
       setCandles((prev) => {
-        // Prepend older candles
         const combined = [...olderCandles, ...prev];
         
-        // Remove duplicates by timestamp
         const uniqueMap = new Map<string, CandleData>();
         for (const candle of combined) {
           uniqueMap.set(candle.timestamp, candle);
@@ -237,7 +238,6 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
           (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
 
-        // Memory management: trim newest if exceeding limit
         if (unique.length > maxCandles) {
           unique = unique.slice(0, maxCandles);
         }
@@ -245,7 +245,6 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
         return unique;
       });
 
-      // Update pagination state
       setHasMore(data.hasMore ?? false);
       if (data.oldestTimestamp) {
         setOldestTimestamp(data.oldestTimestamp);

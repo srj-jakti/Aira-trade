@@ -21,92 +21,93 @@ interface Instrument {
   strike: number | null;
 }
 
-function getInstrumentPriority(instrument: Instrument, searchLower: string): number {
-  const symbol = instrument.tradingsymbol.toLowerCase();
+type InstrumentCategory = "INDEX" | "EQUITY" | "FUTURE" | "OPTION" | "CURRENCY" | "COMMODITY" | "OTHER";
+
+const INDEX_NAMES = ["NIFTY 50", "NIFTY BANK", "BANKNIFTY", "FINNIFTY", "SENSEX", "NIFTY", "MIDCPNIFTY"];
+
+function classifyInstrument(instrument: Instrument): InstrumentCategory {
   const segment = instrument.segment?.toLowerCase() || "";
   const exchange = instrument.exchange;
-  const instrumentType = instrument.instrument_type;
+  const type = instrument.instrument_type;
+
+  if (segment === "indices" || INDEX_NAMES.includes(instrument.tradingsymbol)) return "INDEX";
+  if (segment.includes("nfo-opt") || segment.includes("bfo-opt") || type === "CE" || type === "PE") return "OPTION";
+  if (segment.includes("nfo-fut") || segment.includes("bfo-fut") || segment.includes("mcx-fut")) return "FUTURE";
+  if (segment.includes("cds")) return "CURRENCY";
+  if (exchange === "MCX") return "COMMODITY";
+  if ((exchange === "NSE" || exchange === "BSE") && (segment === "nse" || segment === "bse") && type === "EQ") return "EQUITY";
   
-  const isExactMatch = symbol === searchLower;
-  const startsWithSearch = symbol.startsWith(searchLower);
+  return "OTHER";
+}
+
+function getInstrumentPriority(instrument: Instrument, searchLower: string): number {
+  const symbol = instrument.tradingsymbol.toLowerCase();
+  const name = instrument.name?.toLowerCase() || "";
+  const category = classifyInstrument(instrument);
+  
+  const isExactMatch = symbol === searchLower || name === searchLower;
+  const startsWithSearch = symbol.startsWith(searchLower) || name.startsWith(searchLower);
+  const containsSearch = symbol.includes(searchLower) || name.includes(searchLower);
   
   const hasStrikeInSearch = /\d{4,}/.test(searchLower);
-  const hasOptionIndicator = searchLower.includes("ce") || searchLower.includes("pe");
+  const hasOptionIndicator = /\s*(ce|pe)$/i.test(searchLower) || searchLower.includes(" ce") || searchLower.includes(" pe");
   const isCurrencySearch = /usd|eur|gbp|jpy|inr|currency/i.test(searchLower);
   const isCommoditySearch = /gold|silver|crude|natural|copper|zinc|alumin|mcx/i.test(searchLower);
   
   let priority = 1000;
-
+  
   if (hasStrikeInSearch || hasOptionIndicator) {
-    if (segment.includes("nfo-opt")) {
-      priority = isExactMatch ? 1 : startsWithSearch ? 5 : 20;
-      if (instrumentType === "CE" && searchLower.includes("ce")) priority -= 2;
-      if (instrumentType === "PE" && searchLower.includes("pe")) priority -= 2;
-    } else if (segment.includes("bfo-opt")) {
-      priority = isExactMatch ? 10 : startsWithSearch ? 15 : 30;
-    } else if (segment.includes("nfo-fut")) {
-      priority = startsWithSearch ? 25 : 40;
+    if (category === "OPTION") {
+      priority = isExactMatch ? 1 : startsWithSearch ? 5 : containsSearch ? 15 : 30;
+      if (instrument.instrument_type === "CE" && searchLower.includes("ce")) priority -= 2;
+      if (instrument.instrument_type === "PE" && searchLower.includes("pe")) priority -= 2;
+    } else if (category === "FUTURE") {
+      priority = startsWithSearch ? 40 : 50;
+    } else if (category === "EQUITY" || category === "INDEX") {
+      priority = isExactMatch ? 60 : 70;
     }
     return priority;
   }
 
   if (isCurrencySearch) {
-    if (segment.includes("cds")) {
+    if (category === "CURRENCY") {
       priority = isExactMatch ? 1 : startsWithSearch ? 5 : 15;
-    } else if (exchange === "NSE" || exchange === "BSE") {
-      priority = 100;
     }
     return priority;
   }
 
   if (isCommoditySearch) {
-    if (exchange === "MCX") {
+    if (category === "COMMODITY") {
       priority = isExactMatch ? 1 : startsWithSearch ? 5 : 15;
     }
     return priority;
   }
 
-  if (segment === "indices") {
-    if (exchange === "NSE" || exchange === "NSEIX") {
-      priority = isExactMatch ? 1 : startsWithSearch ? 3 : 10;
-    } else if (exchange === "BSE") {
-      priority = isExactMatch ? 5 : startsWithSearch ? 8 : 15;
-    } else if (exchange === "MCX") {
-      priority = isExactMatch ? 12 : startsWithSearch ? 15 : 25;
-    } else {
-      priority = 30;
-    }
-    return priority;
-  }
-
-  if (exchange === "NSE" && segment === "NSE" && instrumentType === "EQ") {
-    priority = isExactMatch ? 20 : startsWithSearch ? 25 : 40;
-    return priority;
-  }
-
-  if (exchange === "BSE" && segment === "BSE" && instrumentType === "EQ") {
-    priority = isExactMatch ? 50 : startsWithSearch ? 55 : 70;
-    return priority;
-  }
-
-  if (segment?.includes("nfo-fut")) {
-    priority = isExactMatch ? 80 : startsWithSearch ? 85 : 100;
-    return priority;
-  }
-
-  if (segment?.includes("nfo-opt")) {
-    priority = isExactMatch ? 110 : startsWithSearch ? 115 : 130;
-    return priority;
-  }
-
-  if (exchange === "MCX") {
-    priority = isExactMatch ? 140 : startsWithSearch ? 145 : 160;
-    return priority;
-  }
-
-  if (segment?.includes("cds")) {
-    priority = isExactMatch ? 170 : startsWithSearch ? 175 : 190;
-    return priority;
+  switch (category) {
+    case "INDEX":
+      priority = isExactMatch ? 1 : startsWithSearch ? 5 : containsSearch ? 15 : 100;
+      break;
+    case "EQUITY":
+      if (instrument.exchange === "NSE") {
+        priority = isExactMatch ? 10 : startsWithSearch ? 20 : containsSearch ? 30 : 110;
+      } else {
+        priority = isExactMatch ? 40 : startsWithSearch ? 50 : containsSearch ? 60 : 120;
+      }
+      break;
+    case "FUTURE":
+      priority = isExactMatch ? 70 : startsWithSearch ? 80 : containsSearch ? 90 : 130;
+      break;
+    case "OPTION":
+      priority = isExactMatch ? 200 : startsWithSearch ? 250 : containsSearch ? 300 : 400;
+      break;
+    case "CURRENCY":
+      priority = isExactMatch ? 140 : startsWithSearch ? 150 : containsSearch ? 160 : 180;
+      break;
+    case "COMMODITY":
+      priority = isExactMatch ? 160 : startsWithSearch ? 170 : containsSearch ? 175 : 190;
+      break;
+    default:
+      priority = 500;
   }
 
   return priority;

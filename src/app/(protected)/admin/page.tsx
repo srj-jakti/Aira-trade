@@ -711,15 +711,14 @@ function ZerodhaConfigDialog({
                 </p>
                 <div className="flex items-center gap-2 p-2 bg-black/30 rounded border border-white/10">
                   <code className="text-green-400 text-xs flex-1 break-all">{redirectUrl}</code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(redirectUrl)}
-                    className="text-white/60 hover:text-white h-7 px-2"
-                  >
-                    <Download className="w-3 h-3 mr-1" />
-                    Copy
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(redirectUrl)}
+                      className="text-white/60 hover:text-white h-7 px-2"
+                    >
+                      Copy
+                    </Button>
                 </div>
               </div>
             </div>

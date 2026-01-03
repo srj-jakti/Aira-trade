@@ -8,13 +8,15 @@ import { logger } from "./utils/logger";
 import { setupGracefulShutdown, getShutdownFlag } from "./utils/shutdown";
 import { isRateLimited, isOrderRateLimited, incrementRateLimit } from "./rate-limiter";
 import {
-  getBrokerCredentials,
-  isTokenExpired,
-  markTokenExpired,
-  executeOrder,
-  executePaperOrder,
-  fetchOrderStatus,
+getBrokerCredentials,
+isTokenExpired,
+markTokenExpired,
+executeOrder,
+executePaperOrder,
+fetchOrderStatus,
+closePosition,
 } from "./executor";
+
 import {
   createSignal,
   updateSignalStatus,
@@ -438,19 +440,87 @@ async function monitorPositions(tableName: "user_positions" | "paper_positions")
         else if (currentPrice <= position.target_price) exitReason = "TARGET_HIT";
       }
 
-      if (exitReason) {
-        await supabase
-          .from(tableName)
-          .update({
-            status: "CLOSED",
-            exit_price: currentPrice,
-            exit_reason: exitReason,
-            closed_at: new Date().toISOString(),
-          })
-          .eq("id", position.id);
+        if (exitReason) {
+          if (tableName === "user_positions") {
+            try {
+              const broker = await getBrokerCredentials(position.user_id);
+              if (broker) {
+                const closeResult = await closePosition(
+                  position.user_id,
+                  broker,
+                  {
+                    tradingsymbol: position.tradingsymbol,
+                    quantity: position.quantity,
+                    position_type: position.position_type,
+                  },
+                  exitReason
+                );
+                
+                if (!closeResult.success) {
+                  logger.error(`[LIVE] Failed to execute broker exit for ${position.id}: ${closeResult.error}`);
+                  continue; 
+                }
 
-        logger.info(`${tableName === 'paper_positions' ? 'Paper' : 'Live'} position ${position.id} closed: ${exitReason}`);
-      }
+                // Update ai_signals for P&L tracking
+                const { data: latestSignal } = await supabase
+                  .from("ai_signals")
+                  .select("id")
+                  .eq("user_id", position.user_id)
+                  .eq("tradingsymbol", position.tradingsymbol)
+                  .eq("signal_status", "EXECUTED")
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .single();
+
+                if (latestSignal) {
+                  await supabase.from("ai_signals").update({
+                    exit_price: currentPrice,
+                    exit_at: new Date().toISOString(),
+                    pnl: pnl,
+                    signal_status: "CLOSED",
+                    status_reason: exitReason
+                  }).eq("id", latestSignal.id);
+                }
+              } else {
+                logger.error(`[LIVE] No broker credentials to close position ${position.id}`);
+                continue;
+              }
+            } catch (err) {
+              logger.error(`[LIVE] Error during position exit for ${position.id}`, err);
+              continue;
+            }
+          } else {
+            // Paper Trade History
+            await supabase.from("paper_trade_history").insert({
+              user_id: position.user_id,
+              strategy_id: position.strategy_id,
+              instrument_token: position.instrument_token,
+              tradingsymbol: position.tradingsymbol,
+              transaction_type: position.position_type === "LONG" ? "SELL" : "BUY",
+              quantity: position.quantity,
+              entry_price: position.entry_price,
+              exit_price: currentPrice,
+              pnl: pnl,
+              pnl_percent: pnlPercent,
+              entry_at: position.created_at,
+              exit_at: new Date().toISOString(),
+              exit_reason: exitReason
+            });
+          }
+
+          await supabase
+            .from(tableName)
+            .update({
+              status: "CLOSED",
+              exit_price: currentPrice,
+              exit_reason: exitReason,
+              closed_at: new Date().toISOString(),
+            })
+            .eq("id", position.id);
+
+          logger.info(`[${tableName === 'paper_positions' ? 'PAPER' : 'LIVE'}] Position ${position.id} closed: ${exitReason} | P&L: ${pnl.toFixed(2)}`);
+        }
+
     }
 }
 

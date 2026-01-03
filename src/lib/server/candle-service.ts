@@ -8,8 +8,6 @@
  * - LIVE mode: Uses live_candles table (for charts, AI, scanner, auto-trading)
  * - RUNTIME_HISTORICAL mode: Fetches from Zerodha Historical API on-demand for deep scroll-back
  * - BACKTEST mode: Uses historical_candles table (for backtesting ONLY)
- * 
- * NEVER mix BACKTEST with LIVE/RUNTIME_HISTORICAL - strict separation enforced with errors.
  */
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -31,9 +29,9 @@ export interface GetCandlesOptions {
   timeframe: string;
   mode: CandleMode;
   limit?: number;
-  beforeTimestamp?: string;  // For pagination (fetch older candles)
-  fromDate?: Date;           // For BACKTEST mode date range
-  toDate?: Date;             // For BACKTEST mode date range
+  beforeTimestamp?: string;
+  fromDate?: Date;
+  toDate?: Date;
 }
 
 export interface GetCandlesResult {
@@ -45,26 +43,19 @@ export interface GetCandlesResult {
   source: string;
 }
 
-/**
- * LIVE-HISTORICAL RETENTION POLICY
- * Defines how much recent data must always be available in live_candles
- */
 export const LIVE_HISTORICAL_RETENTION: Record<string, { days: number; label: string }> = {
   "1s": { days: 1, label: "1 Day" },
   "5s": { days: 1, label: "1 Day" },
   "15s": { days: 2, label: "2 Days" },
-  "1m": { days: 5, label: "5 Days" },
-  "3m": { days: 3, label: "3 Days" },
-  "5m": { days: 5, label: "5 Days" },
-  "15m": { days: 10, label: "10 Days" },
-  "1h": { days: 30, label: "30 Days" },
-  "60m": { days: 30, label: "30 Days" },
+  "1m": { days: 60, label: "60 Days" },
+  "3m": { days: 100, label: "100 Days" },
+  "5m": { days: 100, label: "100 Days" },
+  "15m": { days: 200, label: "200 Days" },
+  "1h": { days: 400, label: "400 Days" },
+  "60m": { days: 400, label: "400 Days" },
+  "day": { days: 2000, label: "5+ Years" },
 };
 
-/**
- * BACKTEST COVERAGE (separate from live)
- * Defines historical data depth for backtesting
- */
 export const BACKTEST_COVERAGE: Record<string, { months: number; label: string }> = {
   "3minute": { months: 1, label: "1 Month" },
   "5minute": { months: 3, label: "3 Months" },
@@ -73,18 +64,12 @@ export const BACKTEST_COVERAGE: Record<string, { months: number; label: string }
   "day": { months: 36, label: "3 Years" },
 };
 
-/**
- * UNIFIED CANDLE ACCESS FUNCTION
- * 
- * This is the ONLY function that should be used to fetch candles.
- * It enforces strict mode separation and provides pagination.
- */
 export async function getCandles(options: GetCandlesOptions): Promise<GetCandlesResult> {
   const {
     instrumentToken,
     timeframe,
     mode,
-    limit = 200,
+    limit = 500,
     beforeTimestamp,
     fromDate,
     toDate,
@@ -103,26 +88,19 @@ export async function getCandles(options: GetCandlesOptions): Promise<GetCandles
   }
 }
 
-/**
- * LIVE MODE: Fetches from live_candles table
- * Used by: Charts, AI Analysis, Scanner, Auto-Trading
- */
 async function getLiveModeCandles(
   instrumentToken: number,
   timeframe: string,
   limit: number,
   beforeTimestamp?: string
 ): Promise<GetCandlesResult> {
-  // SAFETY GUARD: Prevent accidental historical_candles access
-  // This query ONLY touches live_candles
-
   let query = supabaseAdmin
     .from("live_candles")
     .select("*")
     .eq("instrument_token", instrumentToken)
     .eq("timeframe", timeframe)
     .order("timestamp", { ascending: false })
-    .limit(limit + 1); // Fetch one extra to check hasMore
+    .limit(limit + 1);
 
   if (beforeTimestamp) {
     query = query.lt("timestamp", beforeTimestamp);
@@ -137,7 +115,6 @@ async function getLiveModeCandles(
   const hasMore = (data?.length || 0) > limit;
   const candles = (data || []).slice(0, limit);
 
-  // Return oldest first (ascending order for charts)
   const sortedCandles = candles.reverse().map((c) => ({
     timestamp: new Date(c.timestamp),
     open: parseFloat(c.open),
@@ -158,13 +135,6 @@ async function getLiveModeCandles(
   };
 }
 
-/**
- * RUNTIME_HISTORICAL MODE: Fetches from Zerodha Historical API on-demand
- * Used by: Charts (scroll-back), AI Analysis (deep context)
- * 
- * This does NOT use admin-saved historical_candles table.
- * Data is fetched dynamically and cached in live_candles for future requests.
- */
 async function getRuntimeHistoricalCandles(
   instrumentToken: number,
   timeframe: string,
@@ -205,17 +175,17 @@ async function getRuntimeHistoricalCandles(
   const interval = intervalMap[timeframe] || "5minute";
 
   const daysBack: Record<string, number> = {
-    "1m": 30,
-    "3m": 60,
+    "1m": 60,
+    "3m": 100,
     "5m": 100,
     "15m": 200,
-    "30m": 200,
+    "30m": 400,
     "1h": 400,
     "day": 2000,
   };
 
   const toDate = beforeTimestamp ? new Date(beforeTimestamp) : new Date();
-  const lookbackDays = daysBack[timeframe] || 60;
+  const lookbackDays = daysBack[timeframe] || 100;
   const fromDate = new Date(toDate.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
 
   const fromStr = fromDate.toISOString().split("T")[0];
@@ -314,19 +284,12 @@ async function getRuntimeHistoricalCandles(
   }
 }
 
-/**
- * BACKTEST MODE: Fetches from historical_candles table
- * Used by: Backtesting ONLY
- */
 async function getBacktestModeCandles(
   instrumentToken: number,
   timeframe: string,
   fromDate?: Date,
   toDate?: Date
 ): Promise<GetCandlesResult> {
-  // SAFETY GUARD: Prevent accidental live_candles access
-  // This query ONLY touches historical_candles
-
   const coverage = BACKTEST_COVERAGE[timeframe];
   const defaultFromDate = new Date();
   defaultFromDate.setMonth(defaultFromDate.getMonth() - (coverage?.months || 12));
@@ -367,14 +330,10 @@ async function getBacktestModeCandles(
   };
 }
 
-/**
- * Get candles for AI Analysis with proper lookback
- * Ensures sufficient context for accurate analysis
- */
 export async function getCandlesForAI(
   instrumentToken: number,
   timeframe: string,
-  minCandles: number = 200
+  minCandles: number = 500
 ): Promise<{ candles: CandleData[]; sufficient: boolean; message?: string }> {
   const result = await getCandles({
     instrumentToken,
@@ -383,7 +342,7 @@ export async function getCandlesForAI(
     limit: minCandles,
   });
 
-  const sufficient = result.candles.length >= minCandles * 0.8; // 80% threshold
+  const sufficient = result.candles.length >= minCandles * 0.8;
 
   return {
     candles: result.candles,
@@ -394,14 +353,10 @@ export async function getCandlesForAI(
   };
 }
 
-/**
- * Get candles for Trading Engine evaluation
- * Returns recent candles for signal generation
- */
 export async function getCandlesForTrading(
   instrumentToken: number,
   timeframe: string,
-  lookbackCandles: number = 50
+  lookbackCandles: number = 100
 ): Promise<{ candles: CandleData[]; sufficient: boolean }> {
   const result = await getCandles({
     instrumentToken,
@@ -412,14 +367,10 @@ export async function getCandlesForTrading(
 
   return {
     candles: result.candles,
-    sufficient: result.candles.length >= lookbackCandles * 0.5, // 50% minimum for trading
+    sufficient: result.candles.length >= lookbackCandles * 0.5,
   };
 }
 
-/**
- * Check live data coverage for an instrument
- * Used by market data worker to determine backfill needs
- */
 export async function checkLiveCoverage(
   instrumentToken: number,
   timeframe: string
@@ -468,11 +419,6 @@ export async function checkLiveCoverage(
   };
 }
 
-/**
- * SAFETY: Validate that we never mix modes incorrectly
- * LIVE and RUNTIME_HISTORICAL can be used together for charts/AI
- * BACKTEST must only be used for backtesting
- */
 export function validateCandleMode(
   requestedMode: CandleMode,
   component: string

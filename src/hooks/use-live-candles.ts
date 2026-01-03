@@ -169,9 +169,9 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
 
   const refetch = useCallback(async () => {
     try {
-      const response = await fetch(
-        `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=200`
-      );
+const response = await fetch(
+          `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=500`
+        );
       if (response.ok) {
         const data = await response.json();
         const newCandles = data.candles || [];
@@ -208,9 +208,9 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
         ? `&before=${encodeURIComponent(oldestTimestamp)}`
         : "";
       
-      const response = await fetch(
-        `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=200${beforeParam}`
-      );
+const response = await fetch(
+          `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=500${beforeParam}`
+        );
       
       if (!response.ok) {
         throw new Error("Failed to fetch older candles");

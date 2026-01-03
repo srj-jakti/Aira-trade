@@ -6,7 +6,6 @@
  * 2. Tick aggregation (1s/5s/15s candles)
  * 3. Instrument subscription optimization
  * 4. Admin token health monitoring
- * 5. Kill switch compliance
  */
 
 import "dotenv/config";
@@ -14,7 +13,6 @@ import { createClient } from "@supabase/supabase-js";
 import { KiteTicker } from "kiteconnect";
 import { createCipheriv, createDecipheriv } from "crypto";
 
-// ================== CONFIGURATION ==================
 const ALGORITHM = "aes-256-gcm";
 const MAX_INSTRUMENTS_PER_CONNECTION = 3000;
 const TICK_FLUSH_INTERVAL = 1000;
@@ -48,7 +46,6 @@ function isMarketHours(): { isOpen: boolean; reason: string } {
   return { isOpen: true, reason: "Market is open" };
 }
 
-// ================== ENCRYPTION ==================
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key || key.length !== 64) {
@@ -71,7 +68,6 @@ function decrypt(ciphertext: string): string {
   return decrypted;
 }
 
-// ================== SUPABASE ==================
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -82,7 +78,6 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// ================== TYPES ==================
 interface AdminConfig {
   id: string;
   name: string;
@@ -126,7 +121,6 @@ interface CandleBuffer {
   tickCount: number;
 }
 
-// ================== MAIN WORKER CLASS ==================
 class UnifiedTickerWorker {
   private connections: Map<string, TickerConnection> = new Map();
   private instrumentAssignments: Map<number, string> = new Map();
@@ -141,7 +135,6 @@ class UnifiedTickerWorker {
   async start(): Promise<void> {
     console.log("[Worker] Starting Unified Ticker Worker...");
 
-    // Check market hours
     const marketStatus = isMarketHours();
     if (!marketStatus.isOpen) {
       console.log(`[Worker] ${marketStatus.reason}`);
@@ -151,24 +144,22 @@ class UnifiedTickerWorker {
       return;
     }
 
-    // Check kill switches
     if (!(await this.isMarketDataEnabled())) {
       console.log("[Worker] Market data disabled. Exiting.");
       process.exit(0);
     }
 
-    // Get active admin configs
     const configs = await this.getActiveAdminConfigs();
     
     if (configs.length === 0) {
-      console.error("[Worker] No active admin configs found. Entering SAFE MODE.");
-      await this.enterSafeMode("No active admin Zerodha configs");
-      process.exit(1);
+      console.error("[Worker] No active admin configs found.");
+      await this.updateEngineStatusOffline("No active admin configs");
+      this.waitForMarketOpen();
+      return;
     }
 
     console.log(`[Worker] Found ${configs.length} admin config(s)`);
 
-    // Create connections
     for (const config of configs) {
       await this.createConnection(config);
     }
@@ -183,20 +174,19 @@ class UnifiedTickerWorker {
         this.waitForMarketOpen();
         return;
       }
-      console.error("[Worker] All connections failed during market hours. Entering SAFE MODE.");
-      await this.enterSafeMode("All admin WebSocket connections failed");
-      process.exit(1);
+      console.error("[Worker] All connections failed during market hours. Retrying in 60s...");
+      await this.updateEngineStatusOffline("Connection failed - retrying");
+      setTimeout(() => this.start(), 60000);
+      return;
     }
 
     this.isRunning = true;
 
-    // Start background jobs
     this.startTickFlush();
     this.startCandleFlush();
     this.startHealthCheck();
     this.startSubscriptionRefresh();
 
-    // Initial subscription distribution
     await this.distributeSubscriptions();
 
     console.log(`[Worker] Running with ${connectedCount}/${configs.length} connections`);
@@ -320,7 +310,6 @@ class UnifiedTickerWorker {
     const now = new Date().toISOString();
 
     for (const tick of ticks) {
-      // Add to raw tick buffer
       this.tickBuffer.push({
         instrument_token: tick.instrument_token,
         last_price: tick.last_price,
@@ -344,14 +333,13 @@ class UnifiedTickerWorker {
         tick_timestamp: now,
       });
 
-      // Add to candle buffers
       this.updateCandleBuffers(tick, now);
     }
   }
 
   private updateCandleBuffers(tick: KiteTickData, timestamp: string): void {
     const tickTime = new Date(timestamp).getTime();
-    const intervals = [1, 5, 15, 60, 300, 900]; // Added 1m, 5m, 15m
+    const intervals = [1, 5, 15, 60, 300, 900];
 
     for (const interval of intervals) {
       const bucketStart = Math.floor(tickTime / (interval * 1000)) * (interval * 1000);
@@ -403,7 +391,7 @@ class UnifiedTickerWorker {
       const candles1s: any[] = [];
       const candles5s: any[] = [];
       const candles15s: any[] = [];
-      const liveCandles: any[] = []; // For live_candles table
+      const liveCandles: any[] = [];
       const keysToRemove: string[] = [];
 
       const timeframeMap: Record<number, string> = {
@@ -436,7 +424,6 @@ class UnifiedTickerWorker {
           else if (interval === 5) candles5s.push(candle);
           else if (interval === 15) candles15s.push(candle);
 
-          // Map to live_candles
           if (timeframeMap[interval]) {
             liveCandles.push({
               instrument_token: instrumentToken,
@@ -458,7 +445,6 @@ class UnifiedTickerWorker {
 
       keysToRemove.forEach(k => this.candleBuffers.delete(k));
 
-      // Insert candles
       if (candles1s.length > 0) {
         await supabase.from("aggregated_candles_1s").upsert(candles1s, { onConflict: "instrument_token,bucket_start" });
       }
@@ -538,14 +524,10 @@ class UnifiedTickerWorker {
       .filter(([id, conn]) => id !== configId && conn.isConnected);
 
     if (availableConnections.length === 0) {
-      const allDown = Array.from(this.connections.values()).every(c => !c.isConnected);
-      if (allDown) {
-        await this.enterSafeMode("All admin WebSocket connections lost");
-      }
+      console.warn("[Worker] All connections lost. Waiting for reconnect...");
       return;
     }
 
-    // Redistribute
     let idx = 0;
     for (const token of tokensToRedistribute) {
       const [targetId, targetConn] = availableConnections[idx % availableConnections.length];
@@ -561,14 +543,12 @@ class UnifiedTickerWorker {
 
   private startHealthCheck(): void {
     this.healthCheckInterval = setInterval(async () => {
-      // Check kill switch
       if (!(await this.isMarketDataEnabled())) {
         console.log("[Worker] Market data disabled. Shutting down.");
         await this.shutdown();
         process.exit(0);
       }
 
-      // Check stale connections
       const now = Date.now();
       for (const [configId, connection] of this.connections.entries()) {
         if (connection.isConnected && (now - connection.lastHeartbeat) > 60000) {
@@ -593,7 +573,7 @@ class UnifiedTickerWorker {
     const { data } = await supabase
       .from("system_flags")
       .select("flag_value")
-      .in("flag_name", ["DISABLE_MARKET_DATA", "SAFE_MODE", "MAINTENANCE_MODE"]);
+      .in("flag_name", ["DISABLE_MARKET_DATA", "MAINTENANCE_MODE"]);
 
     if (!data) return true;
 
@@ -603,25 +583,6 @@ class UnifiedTickerWorker {
       }
     }
     return true;
-  }
-
-  private async enterSafeMode(reason: string): Promise<void> {
-    console.error(`[Worker] ENTERING SAFE MODE: ${reason}`);
-    
-    await supabase.from("system_flags").upsert({
-      flag_name: "SAFE_MODE",
-      flag_value: true,
-      updated_at: new Date().toISOString(),
-      updated_by: "ticker_worker",
-      reason,
-    }, { onConflict: "flag_name" });
-
-    await supabase.from("system_health_logs").insert({
-      metric_type: "safe_mode_activated",
-      metric_value: { reason, source: "ticker_worker" },
-      severity: "critical",
-      message: `SAFE MODE ACTIVATED: ${reason}`,
-    });
   }
 
   private async updateConfigStatus(configId: string, status: string, error?: string): Promise<void> {
@@ -678,7 +639,6 @@ class UnifiedTickerWorker {
   }
 }
 
-// ================== MAIN ==================
 const worker = new UnifiedTickerWorker();
 
 process.on("SIGINT", async () => {

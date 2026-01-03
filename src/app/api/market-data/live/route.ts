@@ -11,10 +11,6 @@ import { getLatestTick, marketDataEngine } from "@/lib/server/market-data-engine
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt } from "@/lib/server/encryption";
 
-/**
- * Fetch candles from Zerodha Historical API
- * Used as fallback when live_candles is empty
- */
 async function fetchFromZerodhaAPI(
   instrumentToken: number,
   timeframe: string,
@@ -29,7 +25,6 @@ async function fetchFromZerodhaAPI(
   oi: number;
 }>> {
   try {
-    // Get active Zerodha config
     const config = await marketDataEngine.getActiveConfig();
     if (!config || !config.access_token) {
       console.log("[LiveRoute] No active Zerodha config for historical fetch");
@@ -39,7 +34,6 @@ async function fetchFromZerodhaAPI(
     const apiKey = decrypt(config.api_key);
     const accessToken = decrypt(config.access_token);
 
-    // Map timeframe to Zerodha interval
     const intervalMap: Record<string, string> = {
       "1s": "minute",
       "5s": "minute",
@@ -55,10 +49,18 @@ async function fetchFromZerodhaAPI(
     
     const interval = intervalMap[timeframe] || "5minute";
 
-    // Calculate date range based on timeframe
+    const daysBackMap: Record<string, number> = {
+      "1m": 60,
+      "3m": 100,
+      "5m": 100,
+      "15m": 200,
+      "30m": 400,
+      "1h": 400,
+      "day": 2000,
+    };
+    
+    const daysBack = daysBackMap[timeframe] || 100;
     const now = new Date();
-    const daysBack = timeframe === "1h" || timeframe === "day" ? 30 : 
-                     timeframe === "15m" || timeframe === "30m" ? 10 : 5;
     const from = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
 
     const fromStr = from.toISOString().split("T")[0];
@@ -87,7 +89,6 @@ async function fetchFromZerodhaAPI(
 
     console.log(`[LiveRoute] Got ${candles.length} candles from Zerodha`);
 
-    // Store in live_candles for future requests
     if (candles.length > 0) {
       const rows = candles.map((c: (string | number)[]) => ({
         instrument_token: instrumentToken,
@@ -101,7 +102,6 @@ async function fetchFromZerodhaAPI(
         oi: (c[6] as number) || 0,
       }));
 
-      // Batch insert to live_candles
       const batchSize = 500;
       for (let i = 0; i < rows.length; i += batchSize) {
         const batch = rows.slice(i, i + batchSize);
@@ -112,7 +112,6 @@ async function fetchFromZerodhaAPI(
       console.log(`[LiveRoute] Stored ${rows.length} candles in live_candles`);
     }
 
-    // Return formatted candles (limit to requested amount)
     return candles.slice(-limit).map((c: (string | number)[]) => ({
       timestamp: new Date(c[0] as string),
       open: c[1] as number,
@@ -128,10 +127,6 @@ async function fetchFromZerodhaAPI(
   }
 }
 
-/**
- * Generate candles from raw ticks as a fallback
- * Only used when live_candles table is empty
- */
 async function generateCandlesFromTicks(
   instrumentToken: number,
   timeframe: string,
@@ -159,7 +154,7 @@ async function generateCandlesFromTicks(
     .eq("instrument_token", instrumentToken)
     .gte("tick_timestamp", since.toISOString())
     .order("tick_timestamp", { ascending: true })
-    .limit(5000);
+    .limit(10000);
   
   if (error || !ticks || ticks.length === 0) {
     return [];
@@ -212,34 +207,15 @@ async function generateCandlesFromTicks(
   return candles;
 }
 
-/**
- * GET /api/market-data/live
- * 
- * Fetches live candles for charts and analysis.
- * Supports pagination via before_timestamp for scroll-back functionality.
- * 
- * Data sources (in priority order):
- * 1. live_candles table (primary - from WebSocket aggregation)
- * 2. realtime_ticks table (fallback - generated from raw ticks)
- * 3. Zerodha Historical API via RUNTIME_HISTORICAL mode (for deep scroll-back)
- * 
- * Query params:
- * - instrument: Required. Instrument token
- * - timeframe: Optional. Default "5m"
- * - limit: Optional. Default 200, max 1000
- * - before: Optional. ISO timestamp for pagination (fetch candles before this time)
- * - mode: Optional. "live" or "runtime_historical" (default: auto-detect)
- */
 export async function GET(request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) return unauthorizedResponse();
 
   const searchParams = request.nextUrl.searchParams;
-  const instrumentToken = searchParams.get("instrument");
+  const instrumentToken = searchParams.get("instrument") || searchParams.get("instrumentToken");
   const timeframe = searchParams.get("timeframe") || "5m";
-  const limit = Math.min(parseInt(searchParams.get("limit") || "200"), 1000);
+  const limit = Math.min(parseInt(searchParams.get("limit") || "500"), 5000);
   const beforeTimestamp = searchParams.get("before") || undefined;
-  const requestedMode = searchParams.get("mode") || "auto";
 
   if (!instrumentToken) {
     return badRequestResponse("instrument parameter is required");
@@ -260,18 +236,8 @@ export async function GET(request: NextRequest) {
     let candles = result.candles;
     let hasMore = result.hasMore;
 
-    if (candles.length === 0 && !beforeTimestamp) {
-      candles = await generateCandlesFromTicks(
-        parseInt(instrumentToken),
-        timeframe,
-        limit
-      );
-      if (candles.length > 0) {
-        dataSource = "LIVE_TICKS";
-      }
-    }
-
-    if (candles.length < 10 && !beforeTimestamp) {
+    if (candles.length < limit && !beforeTimestamp) {
+      console.log(`[LiveRoute] Only ${candles.length} candles in live_candles, fetching from Zerodha...`);
       const zerodhaCandles = await fetchFromZerodhaAPI(
         parseInt(instrumentToken),
         timeframe,
@@ -280,6 +246,18 @@ export async function GET(request: NextRequest) {
       if (zerodhaCandles.length > candles.length) {
         candles = zerodhaCandles;
         dataSource = "ZERODHA_HISTORICAL";
+        hasMore = zerodhaCandles.length >= limit;
+      }
+    }
+
+    if (candles.length === 0 && !beforeTimestamp) {
+      candles = await generateCandlesFromTicks(
+        parseInt(instrumentToken),
+        timeframe,
+        limit
+      );
+      if (candles.length > 0) {
+        dataSource = "LIVE_TICKS";
       }
     }
 
@@ -327,11 +305,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error fetching live data:", error);
-    
-    if (error instanceof Error && error.message.includes("SAFETY VIOLATION")) {
-      return badRequestResponse(error.message);
-    }
-    
     return serverErrorResponse();
   }
 }

@@ -9,7 +9,6 @@ export interface SystemFlags {
   DISABLE_MARKET_DATA: boolean;
   DISABLE_SCANNER: boolean;
   DISABLE_TRADING: boolean;
-  SAFE_MODE: boolean;
   MAINTENANCE_MODE: boolean;
 }
 
@@ -17,7 +16,6 @@ const DEFAULT_FLAGS: SystemFlags = {
   DISABLE_MARKET_DATA: false,
   DISABLE_SCANNER: false,
   DISABLE_TRADING: false,
-  SAFE_MODE: false,
   MAINTENANCE_MODE: false,
 };
 
@@ -25,7 +23,7 @@ class KillSwitchManager {
   private static instance: KillSwitchManager;
   private flags: SystemFlags = { ...DEFAULT_FLAGS };
   private lastRefresh: number = 0;
-  private refreshInterval: number = 5000; // Check every 5 seconds
+  private refreshInterval: number = 5000;
   private isInitialized: boolean = false;
 
   private constructor() {}
@@ -54,7 +52,6 @@ class KillSwitchManager {
         return;
       }
 
-      // Update flags from database
       for (const row of data || []) {
         const flagName = row.flag_name as keyof SystemFlags;
         if (flagName in DEFAULT_FLAGS) {
@@ -76,22 +73,17 @@ class KillSwitchManager {
 
   async isMarketDataEnabled(): Promise<boolean> {
     await this.ensureFresh();
-    return !this.flags.DISABLE_MARKET_DATA && !this.flags.SAFE_MODE && !this.flags.MAINTENANCE_MODE;
+    return !this.flags.DISABLE_MARKET_DATA && !this.flags.MAINTENANCE_MODE;
   }
 
   async isScannerEnabled(): Promise<boolean> {
     await this.ensureFresh();
-    return !this.flags.DISABLE_SCANNER && !this.flags.SAFE_MODE && !this.flags.MAINTENANCE_MODE;
+    return !this.flags.DISABLE_SCANNER && !this.flags.MAINTENANCE_MODE;
   }
 
   async isTradingEnabled(): Promise<boolean> {
     await this.ensureFresh();
-    return !this.flags.DISABLE_TRADING && !this.flags.SAFE_MODE && !this.flags.MAINTENANCE_MODE;
-  }
-
-  async isInSafeMode(): Promise<boolean> {
-    await this.ensureFresh();
-    return this.flags.SAFE_MODE;
+    return !this.flags.DISABLE_TRADING && !this.flags.MAINTENANCE_MODE;
   }
 
   async isInMaintenanceMode(): Promise<boolean> {
@@ -118,7 +110,6 @@ class KillSwitchManager {
 
       this.flags[flagName] = value;
 
-      // Log the change
       await supabaseAdmin.from("system_health_logs").insert({
         metric_type: "kill_switch_change",
         metric_value: { flag: flagName, value, reason },
@@ -132,16 +123,6 @@ class KillSwitchManager {
       console.error("[KillSwitch] setFlag error:", error);
       return false;
     }
-  }
-
-  async enableSafeMode(reason: string): Promise<void> {
-    console.error(`[KillSwitch] ENTERING SAFE MODE: ${reason}`);
-    await this.setFlag("SAFE_MODE", true, reason);
-  }
-
-  async disableSafeMode(): Promise<void> {
-    console.log("[KillSwitch] Exiting safe mode");
-    await this.setFlag("SAFE_MODE", false, "Manual exit from safe mode");
   }
 
   async disableAllTrading(reason: string): Promise<void> {
@@ -170,14 +151,13 @@ class KillSwitchManager {
     return {
       flags: { ...this.flags },
       lastRefresh: this.lastRefresh,
-      isHealthy: !this.flags.SAFE_MODE && !this.flags.MAINTENANCE_MODE,
+      isHealthy: !this.flags.MAINTENANCE_MODE,
     };
   }
 }
 
 export const killSwitchManager = KillSwitchManager.getInstance();
 
-// Middleware helper for API routes
 export async function checkKillSwitch(
   type: "market_data" | "scanner" | "trading"
 ): Promise<{ allowed: boolean; reason?: string }> {
@@ -185,10 +165,6 @@ export async function checkKillSwitch(
 
   if (status.flags.MAINTENANCE_MODE) {
     return { allowed: false, reason: "System is in maintenance mode" };
-  }
-
-  if (status.flags.SAFE_MODE) {
-    return { allowed: false, reason: "System is in safe mode - all operations halted" };
   }
 
   switch (type) {
@@ -210,11 +186,6 @@ export async function checkKillSwitch(
   }
 
   return { allowed: true };
-}
-
-// Emergency functions for immediate use
-export async function emergencyStopAll(reason: string): Promise<void> {
-  await killSwitchManager.enableSafeMode(reason);
 }
 
 export async function emergencyStopTrading(reason: string): Promise<void> {

@@ -277,12 +277,24 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     instrumentToken: number,
     timeframe: string,
     fromDate: Date,
-    toDate: Date
+    toDate: Date,
+    zerodhaConfigId?: string
   ): Promise<Candle[]> {
     try {
-      const config = await marketDataEngine.getActiveConfig();
+      let config = null;
+      if (zerodhaConfigId) {
+        const { data } = await supabaseAdmin
+          .from("admin_zerodha_configs")
+          .select("*")
+          .eq("id", zerodhaConfigId)
+          .single();
+        config = data;
+      } else {
+        config = await marketDataEngine.getActiveConfig();
+      }
+
       if (!config || !config.access_token) {
-        console.log("[StrategyService] No active Zerodha config");
+        console.log("[StrategyService] No valid Zerodha config found", zerodhaConfigId ? `for ID ${zerodhaConfigId}` : "");
         return [];
       }
 
@@ -361,7 +373,8 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     timeframe: string,
     capital: number = 100000,
     fromDate?: Date,
-    toDate?: Date
+    toDate?: Date,
+    zerodhaConfigId?: string
   ): Promise<BacktestResult> {
     if (instrumentTokens.length === 0) {
       throw new Error("At least one instrument is required for backtesting");
@@ -405,14 +418,15 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
         console.log(`[StrategyService] Found ${candles.length} candles in live_candles for ${instrumentToken}`);
       }
 
-      if (candles.length < 50) {
-        console.log(`[StrategyService] Insufficient data in live_candles (${candles.length}), fetching from Zerodha...`);
-        const zerodhaCandles = await this.fetchCandlesFromZerodha(instrumentToken, timeframe, from, to);
-        if (zerodhaCandles.length > candles.length) {
-          candles = zerodhaCandles;
-          dataSource = "zerodha_api";
+        if (candles.length < 50) {
+          console.log(`[StrategyService] Insufficient data in live_candles (${candles.length}), fetching from Zerodha...`);
+          const zerodhaCandles = await this.fetchCandlesFromZerodha(instrumentToken, timeframe, from, to, zerodhaConfigId);
+          if (zerodhaCandles.length > candles.length) {
+            candles = zerodhaCandles;
+            dataSource = "zerodha_api";
+          }
         }
-      }
+
 
       allCandles = allCandles.concat(candles);
     }

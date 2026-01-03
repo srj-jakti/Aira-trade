@@ -352,6 +352,7 @@ function CreateStrategyTab() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [selectedTf, setSelectedTf] = useState("15m");
   const [showToolbox, setShowToolbox] = useState(false);
   const [referenceInstrument, setReferenceInstrument] = useState("");
   const [refInstrumentSearch, setRefInstrumentSearch] = useState("");
@@ -469,6 +470,7 @@ function CreateStrategyTab() {
           capital: 100000,
           fromDate: fromDate || undefined,
           toDate: toDate || undefined,
+          zerodhaConfigId: "b9b6056a-29ca-4327-9d6c-3fbb7b80f223", // Using ACCOUNT 3 as requested
         }),
       });
       if (res.ok) {
@@ -861,28 +863,37 @@ function CreateStrategyTab() {
                     Leave dates empty to use maximum available data based on timeframe
                   </p>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {TIMEFRAMES.map((tf) => (
-                      <Button
-                        key={tf.value}
-                        variant="outline"
-                        onClick={() => runBacktest(tf.value)}
-                        disabled={backtesting}
-                        className={`border-white/10 text-white hover:bg-white/5 ${
-                          backtestResults[tf.value] ? "border-green-500/50" : ""
-                        }`}
-                      >
-                        {backtesting ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : backtestResults[tf.value] ? (
-                          <Check className="w-4 h-4 mr-2 text-green-400" />
-                        ) : (
-                          <Play className="w-4 h-4 mr-2" />
-                        )}
-                        {tf.label}
-                      </Button>
-                    ))}
-                  </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {TIMEFRAMES.map((tf) => (
+                        <Button
+                          key={tf.value}
+                          variant="outline"
+                          onClick={() => setSelectedTf(tf.value)}
+                          className={`border-white/10 text-white transition-all ${
+                            selectedTf === tf.value 
+                              ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.2)]" 
+                              : "hover:bg-white/5"
+                          }`}
+                        >
+                          {selectedTf === tf.value && <Check className="w-4 h-4 mr-2" />}
+                          {tf.label}
+                        </Button>
+                      ))}
+                    </div>
+
+                    <Button
+                      onClick={() => runBacktest(selectedTf)}
+                      disabled={backtesting}
+                      className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold h-12 text-lg shadow-[0_0_20px_rgba(6,182,212,0.3)]"
+                    >
+                      {backtesting ? (
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      ) : (
+                        <Play className="w-5 h-5 mr-2 fill-current" />
+                      )}
+                      Backtest Now
+                    </Button>
+
                 </>
               )}
 

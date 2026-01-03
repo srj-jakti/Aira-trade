@@ -69,7 +69,7 @@ export async function POST(
 
     const result = await strategyService.runBacktest(
       structuredStrategy,
-      testInstrumentToken,
+      [testInstrumentToken],
       timeframe,
       100000
     );

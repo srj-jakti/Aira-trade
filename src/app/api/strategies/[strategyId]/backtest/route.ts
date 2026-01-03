@@ -25,7 +25,8 @@ export async function POST(
       timeframe, 
       capital,
       fromDate,
-      toDate
+      toDate,
+      zerodhaConfigId
     } = body;
 
     if (!strategy || !timeframe) {
@@ -56,7 +57,8 @@ export async function POST(
       timeframe,
       capital || 100000,
       from,
-      to
+      to,
+      zerodhaConfigId
     );
 
     if (strategyId !== "preview") {

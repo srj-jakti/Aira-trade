@@ -26,7 +26,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { getDashboardStatus, toggleAiTrading } from "./actions";
+import { getDashboardStatus, toggleAiTrading, togglePaperTrading } from "./actions";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,7 @@ const SIGNAL_STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: s
 
 export default function Dashboard() {
   const [isAiTradingEnabled, setIsAiTradingEnabled] = useState(false);
+  const [isPaperTradingEnabled, setIsPaperTradingEnabled] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
   const [loading, setLoading] = useState(true);
   const [tradingEngine, setTradingEngine] = useState<{
@@ -79,12 +80,21 @@ export default function Dashboard() {
     async function loadStatus() {
       const status = await getDashboardStatus();
       if (status) {
-        setConnectionStatus(status.connectionStatus);
-        setIsAiTradingEnabled(status.autoTradingEnabled);
-        setTradingEngine(status.tradingEngine);
-        setUserTradingStatus(status.userTradingStatus);
-        setRecentSignals(status.recentSignals);
-      }
+          setConnectionStatus(status.connectionStatus);
+          setIsAiTradingEnabled(status.autoTradingEnabled);
+          setIsPaperTradingEnabled(status.paperTradingEnabled);
+          setTradingEngine(status.tradingEngine);
+          setUserTradingStatus(status.userTradingStatus);
+          setRecentSignals(status.recentSignals);
+          setBalance(status.balance);
+          setPl(status.pl);
+          setActivePositions(status.activePositions);
+          setRecentOrders(status.recentOrders);
+          setPositionsSummary({
+            active: status.activePositions.length,
+            total: status.recentOrders.filter((o: any) => o.status === "FILLED").length
+          });
+        }
       setLoading(false);
     }
     loadStatus();
@@ -101,6 +111,17 @@ export default function Dashboard() {
       setIsAiTradingEnabled(!enabled);
     } else {
       toast.success(`AI Auto-Trading ${enabled ? "enabled" : "disabled"}`);
+    }
+  };
+
+  const handleTogglePaper = async (enabled: boolean) => {
+    setIsPaperTradingEnabled(enabled);
+    const result = await togglePaperTrading(enabled);
+    if (result.error) {
+      toast.error(result.error);
+      setIsPaperTradingEnabled(!enabled);
+    } else {
+      toast.success(`Paper Trading ${enabled ? "enabled" : "disabled"}`);
     }
   };
 
@@ -123,35 +144,49 @@ export default function Dashboard() {
   return (
     <div className="p-3 md:p-6 space-y-3 md:space-y-4 max-w-[1600px] mx-auto animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gradient-to-br from-white/10 to-transparent p-3 md:p-4 rounded-2xl border border-white/10 shadow-2xl">
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-lg shadow-primary/5">
-            <Zap className={cn("size-5 transition-colors", isAiTradingEnabled ? "text-primary fill-primary" : "text-white/20")} />
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-lg shadow-primary/5">
+              <Zap className={cn("size-5 transition-colors", isAiTradingEnabled ? "text-primary fill-primary" : "text-white/20")} />
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg md:text-xl font-bold text-white tracking-tight leading-none">
+                  AI Trading Dashboard
+                </h1>
+                <Badge variant={isPaperTradingEnabled ? "secondary" : "default"} className={cn(
+                  "text-[9px] font-black px-2 py-0.5",
+                  isPaperTradingEnabled ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" : "bg-green-500/10 text-green-500 border-green-500/20"
+                )}>
+                  {isPaperTradingEnabled ? "PAPER MODE" : "LIVE MODE"}
+                </Badge>
+              </div>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg md:text-xl font-bold text-white tracking-tight leading-none">
-              AI Trading Dashboard
-            </h1>
+          <div className="flex flex-wrap items-center gap-2 md:gap-3 bg-black/40 p-1 px-2 rounded-2xl border border-white/5 w-fit">
+            <div className="flex items-center gap-2 bg-white/5 rounded-xl p-1 px-3 border border-white/5">
+              <Label htmlFor="paper-trading" className="text-[10px] font-bold text-white/40 uppercase tracking-widest cursor-pointer">
+                Paper Mode
+              </Label>
+              <Switch 
+                id="paper-trading" 
+                checked={isPaperTradingEnabled}
+                onCheckedChange={handleTogglePaper}
+                className="scale-75 data-[state=checked]:bg-yellow-500"
+              />
+            </div>
+            
+            <div className="flex items-center gap-2 bg-white/5 rounded-xl p-1 px-3 border border-white/5">
+              <Label htmlFor="ai-trading" className="text-[10px] font-bold text-white/40 uppercase tracking-widest cursor-pointer">
+                Auto-Trading
+              </Label>
+              <Switch 
+                id="ai-trading" 
+                checked={isAiTradingEnabled}
+                onCheckedChange={handleToggleAi}
+                className="scale-75"
+              />
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3 bg-black/40 p-1 pl-3 rounded-full border border-white/5 w-fit">
-          <Label htmlFor="ai-trading" className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-            Auto-Trading
-          </Label>
-          <div className="flex items-center gap-2 bg-white/5 rounded-full p-0.5 px-2 border border-white/5">
-            <Switch 
-              id="ai-trading" 
-              checked={isAiTradingEnabled}
-              onCheckedChange={handleToggleAi}
-              className="scale-75"
-            />
-            <span className={cn(
-              "text-[9px] font-black px-1.5 py-0.5 rounded-full",
-              isAiTradingEnabled ? "bg-primary/20 text-primary" : "bg-white/5 text-white/20"
-            )}>
-              {isAiTradingEnabled ? "ACTIVE" : "OFF"}
-            </span>
-          </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">

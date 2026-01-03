@@ -45,69 +45,72 @@ function getInstrumentPriority(instrument: Instrument, searchLower: string): num
   const name = instrument.name?.toLowerCase() || "";
   const category = classifyInstrument(instrument);
   
-  const isExactMatch = symbol === searchLower || name === searchLower;
+  const isExactSymbol = symbol === searchLower;
+  const isExactName = name === searchLower;
   const startsWithSearch = symbol.startsWith(searchLower) || name.startsWith(searchLower);
   const containsSearch = symbol.includes(searchLower) || name.includes(searchLower);
   
   const hasStrikeInSearch = /\d{4,}/.test(searchLower);
   const hasOptionIndicator = /\s*(ce|pe)$/i.test(searchLower) || searchLower.includes(" ce") || searchLower.includes(" pe");
-  const isCurrencySearch = /usd|eur|gbp|jpy|inr|currency/i.test(searchLower);
-  const isCommoditySearch = /gold|silver|crude|natural|copper|zinc|alumin|mcx/i.test(searchLower);
   
   let priority = 1000;
   
-  if (hasStrikeInSearch || hasOptionIndicator) {
+  // 1. Exact matches are top tier
+  if (isExactSymbol) priority = 0;
+  else if (isExactName) priority = 1;
+  
+  // 2. Index priority (Kite puts Indices first often)
+  if (category === "INDEX") {
+    if (priority > 1) {
+      priority = startsWithSearch ? 5 : containsSearch ? 15 : 100;
+    }
+  } 
+  // 3. Option/Strike search
+  else if (hasStrikeInSearch || hasOptionIndicator) {
     if (category === "OPTION") {
-      priority = isExactMatch ? 1 : startsWithSearch ? 5 : containsSearch ? 15 : 30;
+      priority = startsWithSearch ? 10 : containsSearch ? 20 : 50;
+      // Bonus for correct option type match
       if (instrument.instrument_type === "CE" && searchLower.includes("ce")) priority -= 2;
       if (instrument.instrument_type === "PE" && searchLower.includes("pe")) priority -= 2;
     } else if (category === "FUTURE") {
-      priority = startsWithSearch ? 40 : 50;
-    } else if (category === "EQUITY" || category === "INDEX") {
-      priority = isExactMatch ? 60 : 70;
+      priority = startsWithSearch ? 40 : 60;
+    } else {
+      priority = startsWithSearch ? 70 : 80;
     }
-    return priority;
+  }
+  // 4. Default categories
+  else {
+    switch (category) {
+      case "EQUITY":
+        if (instrument.exchange === "NSE") {
+          priority = Math.min(priority, startsWithSearch ? 20 : containsSearch ? 30 : 110);
+        } else {
+          priority = Math.min(priority, startsWithSearch ? 40 : containsSearch ? 50 : 120);
+        }
+        break;
+      case "FUTURE":
+        priority = Math.min(priority, startsWithSearch ? 70 : containsSearch ? 90 : 130);
+        break;
+      case "OPTION":
+        priority = Math.min(priority, startsWithSearch ? 200 : containsSearch ? 300 : 400);
+        break;
+      case "CURRENCY":
+        priority = Math.min(priority, startsWithSearch ? 140 : containsSearch ? 160 : 180);
+        break;
+      case "COMMODITY":
+        priority = Math.min(priority, startsWithSearch ? 160 : containsSearch ? 175 : 190);
+        break;
+    }
   }
 
-  if (isCurrencySearch) {
-    if (category === "CURRENCY") {
-      priority = isExactMatch ? 1 : startsWithSearch ? 5 : 15;
+  // Adjust for expiry proximity for F&O
+  if (instrument.expiry && (category === "FUTURE" || category === "OPTION")) {
+    const expiryDate = new Date(instrument.expiry).getTime();
+    const now = Date.now();
+    const daysToExpiry = (expiryDate - now) / (1000 * 60 * 60 * 24);
+    if (daysToExpiry >= 0 && daysToExpiry < 40) {
+      priority -= 5; // Favor current month
     }
-    return priority;
-  }
-
-  if (isCommoditySearch) {
-    if (category === "COMMODITY") {
-      priority = isExactMatch ? 1 : startsWithSearch ? 5 : 15;
-    }
-    return priority;
-  }
-
-  switch (category) {
-    case "INDEX":
-      priority = isExactMatch ? 1 : startsWithSearch ? 5 : containsSearch ? 15 : 100;
-      break;
-    case "EQUITY":
-      if (instrument.exchange === "NSE") {
-        priority = isExactMatch ? 10 : startsWithSearch ? 20 : containsSearch ? 30 : 110;
-      } else {
-        priority = isExactMatch ? 40 : startsWithSearch ? 50 : containsSearch ? 60 : 120;
-      }
-      break;
-    case "FUTURE":
-      priority = isExactMatch ? 70 : startsWithSearch ? 80 : containsSearch ? 90 : 130;
-      break;
-    case "OPTION":
-      priority = isExactMatch ? 200 : startsWithSearch ? 250 : containsSearch ? 300 : 400;
-      break;
-    case "CURRENCY":
-      priority = isExactMatch ? 140 : startsWithSearch ? 150 : containsSearch ? 160 : 180;
-      break;
-    case "COMMODITY":
-      priority = isExactMatch ? 160 : startsWithSearch ? 170 : containsSearch ? 175 : 190;
-      break;
-    default:
-      priority = 500;
   }
 
   return priority;

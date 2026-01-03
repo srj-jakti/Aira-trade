@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Search, X, Loader2, TrendingUp, Building2, Globe, Coins, Factory } from "lucide-react";
+import { Search, X, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -25,48 +25,50 @@ interface InstrumentSearchProps {
   className?: string;
 }
 
-function getSegmentIcon(segment: string | null, exchange: string) {
-  const seg = segment?.toLowerCase() || "";
-  if (seg === "indices") return <TrendingUp className="w-3.5 h-3.5 text-yellow-400" />;
-  if (seg.includes("nfo") || seg.includes("bfo")) return <Coins className="w-3.5 h-3.5 text-purple-400" />;
-  if (seg.includes("cds")) return <Globe className="w-3.5 h-3.5 text-cyan-400" />;
-  if (exchange === "MCX") return <Factory className="w-3.5 h-3.5 text-orange-400" />;
-  return <Building2 className="w-3.5 h-3.5 text-blue-400" />;
-}
-
 function getSegmentLabel(segment: string | null, exchange: string, instrumentType: string | null) {
   const seg = segment?.toLowerCase() || "";
   if (seg === "indices") return "INDEX";
-  if (seg.includes("nfo-opt") || seg.includes("bfo-opt")) return instrumentType === "CE" ? "CALL" : instrumentType === "PE" ? "PUT" : "OPT";
-  if (seg.includes("nfo-fut") || seg.includes("bfo-fut") || seg.includes("mcx-fut")) return "FUT";
-  if (seg.includes("cds")) return "CURRENCY";
-  if (exchange === "MCX") return "COMMODITY";
-  if (exchange === "NSE" || exchange === "BSE") return "EQUITY";
+  if (seg.includes("opt")) return instrumentType || "OPT";
+  if (seg.includes("fut")) return "FUT";
+  if (exchange === "NSE" || exchange === "BSE") return "EQ";
   return exchange;
 }
 
-function getSegmentColor(segment: string | null, exchange: string) {
+function getLabelColor(segment: string | null, exchange: string, instrumentType: string | null) {
   const seg = segment?.toLowerCase() || "";
-  if (seg === "indices") return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
-  if (seg.includes("nfo-opt") || seg.includes("bfo-opt")) return "bg-purple-500/20 text-purple-400 border-purple-500/30";
-  if (seg.includes("nfo-fut") || seg.includes("bfo-fut")) return "bg-indigo-500/20 text-indigo-400 border-indigo-500/30";
-  if (seg.includes("cds")) return "bg-cyan-500/20 text-cyan-400 border-cyan-500/30";
-  if (exchange === "MCX") return "bg-orange-500/20 text-orange-400 border-orange-500/30";
-  if (exchange === "NSE") return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-  if (exchange === "BSE") return "bg-red-500/20 text-red-400 border-red-500/30";
-  return "bg-white/10 text-white/60 border-white/20";
+  if (seg === "indices") return "text-yellow-500 bg-yellow-500/10";
+  if (instrumentType === "CE") return "text-green-500 bg-green-500/10";
+  if (instrumentType === "PE") return "text-red-500 bg-red-500/10";
+  if (seg.includes("fut")) return "text-blue-500 bg-blue-500/10";
+  return "text-zinc-400 bg-zinc-800";
 }
 
 function formatExpiry(expiry: string | null) {
   if (!expiry) return null;
   const date = new Date(expiry);
-  return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+  return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }).toUpperCase();
+}
+
+function HighlightedText({ text, highlight }: { text: string; highlight: string }) {
+  if (!highlight.trim()) return <span>{text}</span>;
+  const parts = text.split(new RegExp(`(${highlight})`, "gi"));
+  return (
+    <span>
+      {parts.map((part, i) => 
+        part.toLowerCase() === highlight.toLowerCase() ? (
+          <span key={i} className="text-orange-500 font-bold">{part}</span>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </span>
+  );
 }
 
 export function InstrumentSearch({
   onSelect,
   selectedInstrument,
-  placeholder = "Search (e.g. NIFTY 50, RELIANCE, NIFTY 26000 CE, USDINR)...",
+  placeholder = "Search (e.g. NIFTY 50, RELIANCE, NIFTY 26000 CE)...",
   className,
 }: InstrumentSearchProps) {
   const [query, setQuery] = useState("");
@@ -97,21 +99,21 @@ export function InstrumentSearch({
       return;
     }
 
-      debounceRef.current = setTimeout(async () => {
-        setIsLoading(true);
-        try {
-          const response = await fetch(`/api/market-data/instruments?search=${encodeURIComponent(query)}&limit=50`);
-          if (response.ok) {
-            const data = await response.json();
-            setResults(data.instruments || []);
-            setIsOpen(true);
-          }
-        } catch (error) {
-          console.error("Search error:", error);
-        } finally {
-          setIsLoading(false);
+    debounceRef.current = setTimeout(async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`/api/market-data/instruments?search=${encodeURIComponent(query)}&limit=50`);
+        if (response.ok) {
+          const data = await response.json();
+          setResults(data.instruments || []);
+          setIsOpen(true);
         }
-      }, 250);
+      } catch (error) {
+        console.error("Search error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 200);
 
     return () => {
       if (debounceRef.current) {
@@ -134,35 +136,12 @@ export function InstrumentSearch({
     onSelect(null as unknown as Instrument);
   };
 
-  const groupedResults = results.reduce((acc, instrument) => {
-    const seg = instrument.segment?.toLowerCase() || "";
-    const type = instrument.instrument_type;
-    let group = "Other";
-    
-    if (seg === "indices") group = "Indices";
-    else if (instrument.exchange === "NSE" && seg === "nse" && type === "EQ") group = "NSE Equity";
-    else if (instrument.exchange === "BSE" && seg === "bse" && type === "EQ") group = "BSE Equity";
-    else if (seg.includes("nfo-fut") || seg.includes("bfo-fut") || seg.includes("mcx-fut")) group = "Futures";
-    else if (seg.includes("nfo-opt") || seg.includes("bfo-opt") || type === "CE" || type === "PE") group = "Options (F&O)";
-    else if (seg.includes("cds")) group = "Currency";
-    else if (instrument.exchange === "MCX") group = "Commodities";
-    
-    if (!acc[group]) acc[group] = [];
-    acc[group].push(instrument);
-    return acc;
-  }, {} as Record<string, Instrument[]>);
-
-  const groupOrder = ["Indices", "NSE Equity", "BSE Equity", "Futures", "Options (F&O)", "Currency", "Commodities", "Other"];
-  const sortedGroups = Object.entries(groupedResults).sort(
-    (a, b) => groupOrder.indexOf(a[0]) - groupOrder.indexOf(b[0])
-  );
-
   return (
     <div ref={containerRef} className={cn("relative", className)}>
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
         <Input
-          value={selectedInstrument ? `${selectedInstrument.tradingsymbol} - ${selectedInstrument.name || selectedInstrument.exchange}` : query}
+          value={selectedInstrument ? selectedInstrument.tradingsymbol : query}
           onChange={(e) => {
             if (selectedInstrument) {
               onSelect(null as unknown as Instrument);
@@ -173,12 +152,12 @@ export function InstrumentSearch({
             if (results.length > 0) setIsOpen(true);
           }}
           placeholder={placeholder}
-          className="pl-10 pr-10 bg-white/5 border-white/10 h-10 md:h-12 text-white placeholder:text-white/30 text-sm md:text-base"
+          className="pl-10 pr-10 bg-zinc-900 border-zinc-800 h-11 text-zinc-100 placeholder:text-zinc-600 focus:ring-1 focus:ring-orange-500/20"
         />
         {(query || selectedInstrument) && (
           <button
             onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/60"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
           </button>
@@ -186,52 +165,51 @@ export function InstrumentSearch({
       </div>
 
       {isOpen && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-zinc-900/95 backdrop-blur-md border border-white/10 rounded-lg shadow-2xl max-h-[400px] overflow-y-auto">
-          {sortedGroups.map(([group, instruments]) => (
-            <div key={group}>
-              <div className="sticky top-0 px-3 py-1.5 text-xs font-semibold text-white/40 bg-zinc-900/95 backdrop-blur-md border-b border-white/5 uppercase tracking-wider">
-                {group}
-              </div>
-              {instruments.map((instrument) => (
-                <button
-                  key={instrument.instrument_token}
-                  onClick={() => handleSelect(instrument)}
-                  className="w-full px-3 py-2.5 text-left hover:bg-white/5 flex items-center gap-3 border-b border-white/5 last:border-0 transition-colors"
-                >
-                  {getSegmentIcon(instrument.segment, instrument.exchange)}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-white truncate">{instrument.tradingsymbol}</span>
-                      {instrument.strike && (
-                        <span className="text-xs text-white/40">@{instrument.strike}</span>
-                      )}
-                    </div>
-                    <div className="text-xs text-white/40 truncate">
-                      {instrument.name || "—"}
-                      {instrument.expiry && (
-                        <span className="ml-1.5 text-white/30">Exp: {formatExpiry(instrument.expiry)}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    <span className={cn(
-                      "text-[10px] font-medium px-1.5 py-0.5 rounded border",
-                      getSegmentColor(instrument.segment, instrument.exchange)
-                    )}>
-                      {getSegmentLabel(instrument.segment, instrument.exchange, instrument.instrument_type)}
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-zinc-950 border border-zinc-800 rounded shadow-2xl max-h-[440px] overflow-y-auto">
+          {results.map((instrument) => {
+            const label = getSegmentLabel(instrument.segment, instrument.exchange, instrument.instrument_type);
+            const labelColor = getLabelColor(instrument.segment, instrument.exchange, instrument.instrument_type);
+            const expiry = formatExpiry(instrument.expiry || null);
+
+            return (
+              <button
+                key={instrument.instrument_token}
+                onClick={() => handleSelect(instrument)}
+                className="w-full px-4 py-3 text-left hover:bg-zinc-900 flex items-center justify-between border-b border-zinc-900 last:border-0 transition-colors group"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="font-bold text-zinc-100 text-sm tracking-tight">
+                      <HighlightedText text={instrument.tradingsymbol} highlight={query} />
                     </span>
-                    <span className="text-[10px] text-white/30">{instrument.exchange}</span>
+                    <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", labelColor)}>
+                      {label}
+                    </span>
+                    {expiry && (
+                      <span className="text-[10px] text-zinc-500 font-medium">{expiry}</span>
+                    )}
                   </div>
-                </button>
-              ))}
-            </div>
-          ))}
+                  <div className="text-xs text-zinc-500 truncate font-medium">
+                    <HighlightedText text={instrument.name || instrument.tradingsymbol} highlight={query} />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 ml-4">
+                  <span className={cn(
+                    "text-[10px] font-bold tracking-widest",
+                    instrument.exchange === "NSE" ? "text-blue-500/60" : "text-red-500/60"
+                  )}>
+                    {instrument.exchange}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
       {isOpen && results.length === 0 && query.length >= 2 && !isLoading && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-zinc-900/95 backdrop-blur-md border border-white/10 rounded-lg shadow-xl p-4 text-center text-white/50 text-sm">
-          No instruments found for "{query}"
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-zinc-950 border border-zinc-800 rounded shadow-xl p-4 text-center text-zinc-500 text-sm">
+          No matches found for "<span className="text-zinc-300">{query}</span>"
         </div>
       )}
     </div>

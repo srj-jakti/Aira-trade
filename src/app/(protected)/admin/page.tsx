@@ -160,6 +160,25 @@ interface SystemHealth {
     totalTrades: number;
     totalStrategies: number;
   };
+  workers?: {
+    marketData: {
+      status: string;
+      lastHeartbeat: string | null;
+      websocketStatus: string | null;
+      subscribedInstruments: number | null;
+      ticksPerSecond: number | null;
+      lastTickAt: string | null;
+      isOnline: boolean;
+    } | null;
+    tradingEngine: {
+      status: string;
+      lastHeartbeat: string | null;
+      activeUsers: number | null;
+      errorMessage: string | null;
+      startedAt: string | null;
+      isOnline: boolean;
+    } | null;
+  };
   errors: {
     zerodhaErrors24h: number;
     aiErrors24h: number;
@@ -1773,37 +1792,86 @@ function SystemHealthDashboard() {
                     <p className="text-xs text-white/40 mt-2">PostgreSQL, Auth, Storage, Realtime</p>
                   </div>
 
-                  <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 bg-blue-500/20 rounded-lg">
-                        <Activity className="w-5 h-5 text-blue-400" />
+<div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`p-2 rounded-lg ${health?.workers?.marketData?.isOnline ? "bg-green-500/20" : "bg-red-500/20"}`}>
+                          <Activity className={`w-5 h-5 ${health?.workers?.marketData?.isOnline ? "text-green-400" : "text-red-400"}`} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-white font-medium">Railway - Market Data Worker</p>
+                          <p className="text-white/40 text-xs">WebSocket & Tick Processing</p>
+                        </div>
+                        {health?.workers?.marketData?.isOnline && (
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                            <span className="text-green-400 text-xs">LIVE</span>
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <p className="text-white font-medium">Railway - Market Data Worker</p>
-                        <p className="text-white/40 text-xs">WebSocket & Tick Processing</p>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className={health?.workers?.marketData?.isOnline ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}>
+                          {health?.workers?.marketData?.isOnline ? "Online" : "Offline"}
+                        </Badge>
+                        {health?.workers?.marketData?.websocketStatus && (
+                          <Badge className={health?.workers?.marketData?.websocketStatus === "connected" ? "bg-blue-500/20 text-blue-400" : "bg-yellow-500/20 text-yellow-400"}>
+                            WS: {health.workers.marketData.websocketStatus}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-white/40 mt-2">
+                        <div>Instruments: {health?.workers?.marketData?.subscribedInstruments ?? 0}</div>
+                        <div>Ticks/s: {health?.workers?.marketData?.ticksPerSecond ?? 0}</div>
+                        <div className="col-span-2">
+                          Heartbeat: {health?.workers?.marketData?.lastHeartbeat 
+                            ? new Date(health.workers.marketData.lastHeartbeat).toLocaleString('en-GB')
+                            : "Never"}
+                        </div>
                       </div>
                     </div>
-                    <Badge className={(health?.zerodha.connected || 0) > 0 ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}>
-                      {(health?.zerodha.connected || 0) > 0 ? "Connected" : "Standby"}
-                    </Badge>
-                    <p className="text-xs text-white/40 mt-2">Zerodha WebSocket connection & tick data ingestion</p>
-                  </div>
 
-                  <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 bg-orange-500/20 rounded-lg">
-                        <Zap className="w-5 h-5 text-orange-400" />
+                    <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`p-2 rounded-lg ${health?.workers?.tradingEngine?.isOnline ? "bg-green-500/20" : "bg-red-500/20"}`}>
+                          <Zap className={`w-5 h-5 ${health?.workers?.tradingEngine?.isOnline ? "text-green-400" : "text-red-400"}`} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-white font-medium">Railway - Trading Engine</p>
+                          <p className="text-white/40 text-xs">Strategy Execution & Orders</p>
+                        </div>
+                        {health?.workers?.tradingEngine?.isOnline && (
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                            <span className="text-green-400 text-xs">LIVE</span>
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <p className="text-white font-medium">Railway - Trading Engine</p>
-                        <p className="text-white/40 text-xs">Strategy Execution & Orders</p>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className={health?.workers?.tradingEngine?.isOnline ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}>
+                          {health?.workers?.tradingEngine?.isOnline ? "Online" : "Offline"}
+                        </Badge>
+                        {health?.workers?.tradingEngine?.activeUsers !== null && health?.workers?.tradingEngine?.activeUsers !== undefined && (
+                          <Badge className="bg-purple-500/20 text-purple-400">
+                            {health.workers.tradingEngine.activeUsers} users
+                          </Badge>
+                        )}
                       </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-white/40 mt-2">
+                        <div>Status: {health?.workers?.tradingEngine?.status ?? "unknown"}</div>
+                        <div>Started: {health?.workers?.tradingEngine?.startedAt 
+                          ? new Date(health.workers.tradingEngine.startedAt).toLocaleString('en-GB')
+                          : "Never"}</div>
+                        <div className="col-span-2">
+                          Heartbeat: {health?.workers?.tradingEngine?.lastHeartbeat 
+                            ? new Date(health.workers.tradingEngine.lastHeartbeat).toLocaleString('en-GB')
+                            : "Never"}
+                        </div>
+                      </div>
+                      {health?.workers?.tradingEngine?.errorMessage && (
+                        <div className="mt-2 p-2 bg-red-500/10 rounded text-xs text-red-400">
+                          {health.workers.tradingEngine.errorMessage}
+                        </div>
+                      )}
                     </div>
-                    <Badge className={(health?.database.totalStrategies || 0) > 0 ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}>
-                      {(health?.database.totalStrategies || 0) > 0 ? "Active" : "Standby"}
-                    </Badge>
-                    <p className="text-xs text-white/40 mt-2">Executes trading strategies & manages orders</p>
-                  </div>
                 </div>
               </CardContent>
             </Card>

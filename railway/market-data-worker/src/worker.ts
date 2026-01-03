@@ -813,27 +813,84 @@ class MarketDataWorker {
 
 const worker = new MarketDataWorker();
 
-process.on("SIGINT", async () => {
-  console.log("[MarketDataWorker] Received SIGINT");
+let isShuttingDown = false;
+
+function getShutdownFlag(): boolean {
+  return isShuttingDown;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function cleanup(): Promise<void> {
+  console.log("[MarketDataWorker] Running cleanup...");
   await worker.shutdown();
-  process.exit(0);
-});
+}
 
-process.on("SIGTERM", async () => {
-  console.log("[MarketDataWorker] Received SIGTERM");
-  await worker.shutdown();
-  process.exit(0);
-});
+function setupGracefulShutdown(): void {
+  const shutdown = async (signal: string) => {
+    if (isShuttingDown) return;
+    
+    console.log(`[MarketDataWorker] Received ${signal}, initiating graceful shutdown...`);
+    isShuttingDown = true;
+    
+    try {
+      await cleanup();
+      console.log("[MarketDataWorker] Shutdown complete");
+      process.exit(0);
+    } catch (error) {
+      console.error("[MarketDataWorker] Error during shutdown:", error);
+      process.exit(1);
+    }
+  };
 
-process.on("uncaughtException", (err) => {
-  console.error("[MarketDataWorker] Uncaught exception:", err);
-});
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 
-process.on("unhandledRejection", (err) => {
-  console.error("[MarketDataWorker] Unhandled rejection:", err);
-});
+  process.on("uncaughtException", (err) => {
+    console.error("[MarketDataWorker] Uncaught exception:", err);
+  });
 
-worker.start().catch((err) => {
+  process.on("unhandledRejection", (err) => {
+    console.error("[MarketDataWorker] Unhandled rejection:", err);
+  });
+}
+
+async function heartbeatLoop(): Promise<void> {
+  console.log("[MarketDataWorker] Starting heartbeat loop...");
+  
+  while (!getShutdownFlag()) {
+    try {
+      await supabase.from("data_engine_status").upsert({
+        engine_type: "market_data",
+        last_heartbeat: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "engine_type" });
+      
+      await sleep(30000);
+    } catch (error) {
+      console.error("[MarketDataWorker] Heartbeat error:", error);
+      await sleep(10000);
+    }
+  }
+}
+
+async function main(): Promise<void> {
+  console.log("[MarketDataWorker] Starting Market Data Worker (24/7 Persistent Mode)...");
+  
+  setupGracefulShutdown();
+  
+  await worker.start();
+  
+  console.log("[MarketDataWorker] Worker initialized, entering persistent mode...");
+  
+  await Promise.all([
+    heartbeatLoop(),
+  ]);
+}
+
+main().catch((err) => {
   console.error("[MarketDataWorker] Fatal error:", err);
   process.exit(1);
 });

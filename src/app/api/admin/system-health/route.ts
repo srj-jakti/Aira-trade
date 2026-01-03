@@ -67,26 +67,27 @@ export async function GET() {
   if (!admin.isAdmin) return forbiddenResponse("Admin access required");
 
   try {
-    const [zerodhaConfigs, aiConfigs, userCount, tradeCount, strategyCount, healthLogs, loginLogs, engineStatus] = await Promise.all([
-      supabaseAdmin.from("admin_zerodha_configs").select("*").order("priority"),
-      supabaseAdmin.from("admin_ai_configs").select("*").order("priority"),
-      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
-      supabaseAdmin.from("trade_history").select("id", { count: "exact", head: true }),
-      supabaseAdmin.from("strategies").select("id", { count: "exact", head: true }),
-      supabaseAdmin
-        .from("system_health_logs")
-        .select("*")
-        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabaseAdmin
-        .from("zerodha_login_logs")
-        .select("*")
-        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        .order("created_at", { ascending: false })
-        .limit(50),
-      supabaseAdmin.from("data_engine_status").select("*"),
-    ]);
+const [zerodhaConfigs, aiConfigs, userCount, tradeCount, strategyCount, healthLogs, loginLogs, engineStatus, tradingEngineStatus] = await Promise.all([
+        supabaseAdmin.from("admin_zerodha_configs").select("*").order("priority"),
+        supabaseAdmin.from("admin_ai_configs").select("*").order("priority"),
+        supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
+        supabaseAdmin.from("trade_history").select("id", { count: "exact", head: true }),
+        supabaseAdmin.from("strategies").select("id", { count: "exact", head: true }),
+        supabaseAdmin
+          .from("system_health_logs")
+          .select("*")
+          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabaseAdmin
+          .from("zerodha_login_logs")
+          .select("*")
+          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(50),
+        supabaseAdmin.from("data_engine_status").select("*").eq("engine_type", "market_data").single(),
+        supabaseAdmin.from("trading_engine_status").select("*").eq("engine_type", "trading_engine").single(),
+      ]);
 
     const zerodhaData = zerodhaConfigs.data || [];
     const aiData = aiConfigs.data || [];
@@ -139,13 +140,38 @@ export async function GET() {
         avgResponseTime: 0,
         errorRate: 0,
       },
-      engines: (engineStatus.data || []).map(e => ({
-        type: e.engine_type,
-        last_instrument_sync_at: e.last_instrument_sync_at,
-        auto_sync_instruments: e.auto_sync_instruments,
-        status: e.status,
-        last_run_at: e.last_run_at
-      })),
+engines: (engineStatus.data || []).map(e => ({
+          type: e.engine_type,
+          last_instrument_sync_at: e.last_instrument_sync_at,
+          auto_sync_instruments: e.auto_sync_instruments,
+          status: e.status,
+          last_run_at: e.last_run_at
+        })),
+        workers: {
+          marketData: engineStatus.data ? {
+            status: engineStatus.data.status || "unknown",
+            lastHeartbeat: engineStatus.data.last_heartbeat || engineStatus.data.updated_at,
+            websocketStatus: engineStatus.data.websocket_status,
+            subscribedInstruments: engineStatus.data.subscribed_instruments,
+            ticksPerSecond: engineStatus.data.ticks_per_second,
+            lastTickAt: engineStatus.data.last_tick_at,
+            isOnline: engineStatus.data.last_heartbeat 
+              ? (Date.now() - new Date(engineStatus.data.last_heartbeat).getTime()) < 120000
+              : engineStatus.data.updated_at 
+                ? (Date.now() - new Date(engineStatus.data.updated_at).getTime()) < 120000
+                : false,
+          } : null,
+          tradingEngine: tradingEngineStatus.data ? {
+            status: tradingEngineStatus.data.status || "unknown",
+            lastHeartbeat: tradingEngineStatus.data.last_heartbeat,
+            activeUsers: tradingEngineStatus.data.active_users,
+            errorMessage: tradingEngineStatus.data.error_message,
+            startedAt: tradingEngineStatus.data.started_at,
+            isOnline: tradingEngineStatus.data.last_heartbeat 
+              ? (Date.now() - new Date(tradingEngineStatus.data.last_heartbeat).getTime()) < 120000
+              : false,
+          } : null,
+        },
       errors: {
         zerodhaErrors24h: failedLogins,
         aiErrors24h: (healthLogs.data || []).filter((l) => l.metric_type === "ai_error").length,

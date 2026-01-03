@@ -98,6 +98,10 @@ export function serverErrorResponse(message = "Internal server error") {
   return Response.json({ error: message }, { status: 500 });
 }
 
+export function errorResponse(message: string, status = 500) {
+  return Response.json({ error: message }, { status });
+}
+
 export function successResponse<T>(data: T, status = 200) {
   return Response.json(data, { status });
 }

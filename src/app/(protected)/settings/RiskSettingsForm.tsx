@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Loader2, TrendingUp, TrendingDown, Target, AlertTriangle, Info } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Target, AlertTriangle, Info, RotateCcw, FileText } from "lucide-react";
+import { resetPaperBalance, togglePaperTrading } from "@/app/(protected)/dashboard/actions";
 
 const SEGMENTS = [
   { id: "equity", label: "Equity" },
@@ -20,7 +21,9 @@ const SEGMENTS = [
 export function RiskSettingsForm() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resettingPaper, setResettingPaper] = useState(false);
   const [automationConsent, setAutomationConsent] = useState(false);
+  const [paperTradingEnabled, setPaperTradingEnabled] = useState(false);
   const [settings, setSettings] = useState({
     auto_trading_enabled: false,
     preferred_markets: [] as string[],
@@ -43,6 +46,7 @@ export function RiskSettingsForm() {
               daily_loss_limit: data.settings.daily_loss_limit?.toString() || "",
               max_allocation_per_trade: data.settings.max_allocation_per_trade?.toString() || ""
             });
+            setPaperTradingEnabled(data.settings.paper_trading_enabled || false);
             if (data.settings.auto_trading_enabled) {
               setAutomationConsent(true);
             }
@@ -122,6 +126,31 @@ export function RiskSettingsForm() {
     }
   };
 
+  const handlePaperTradingToggle = async (checked: boolean) => {
+    setPaperTradingEnabled(checked);
+    const result = await togglePaperTrading(checked);
+    if (result.error) {
+      setPaperTradingEnabled(!checked);
+      toast.error(result.error);
+    } else {
+      toast.success(checked ? "Paper trading enabled" : "Paper trading disabled");
+    }
+  };
+
+  const handleResetPaperBalance = async () => {
+    if (!confirm("This will delete all paper orders, positions, and trade history. Your virtual balance will be reset to ₹10,00,000. Continue?")) {
+      return;
+    }
+    setResettingPaper(true);
+    const result = await resetPaperBalance();
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Paper balance reset to ₹10,00,000");
+    }
+    setResettingPaper(false);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -164,17 +193,56 @@ export function RiskSettingsForm() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
-        <div className="space-y-0.5">
-          <Label className="text-base text-white">Execution Automation (User-Configured)</Label>
-          <p className="text-xs text-white/40">Allow system to execute your configured rules automatically.</p>
+        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
+          <div className="space-y-0.5">
+            <Label className="text-base text-white">Execution Automation (User-Configured)</Label>
+            <p className="text-xs text-white/40">Allow system to execute your configured rules automatically.</p>
+          </div>
+          <Switch 
+            checked={settings.auto_trading_enabled}
+            onCheckedChange={handleTradingToggle}
+            disabled={!automationConsent}
+          />
         </div>
-        <Switch 
-          checked={settings.auto_trading_enabled}
-          onCheckedChange={handleTradingToggle}
-          disabled={!automationConsent}
-        />
-      </div>
+
+        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <FileText className="w-5 h-5 text-blue-400" />
+              <div className="space-y-0.5">
+                <Label className="text-base text-white">Paper Trading Mode</Label>
+                <p className="text-xs text-white/40">Practice with virtual ₹10,00,000 balance. No real money involved.</p>
+              </div>
+            </div>
+            <Switch 
+              checked={paperTradingEnabled}
+              onCheckedChange={handlePaperTradingToggle}
+            />
+          </div>
+          
+          {paperTradingEnabled && (
+            <div className="pt-3 border-t border-blue-500/20">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleResetPaperBalance}
+                disabled={resettingPaper}
+                className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
+              >
+                {resettingPaper ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                )}
+                Reset Paper Balance
+              </Button>
+              <p className="text-xs text-blue-300/50 mt-2">
+                Clears all paper orders, positions, and history. Resets virtual balance to ₹10,00,000.
+              </p>
+            </div>
+          )}
+        </div>
 
       <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-start gap-2">
         <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />

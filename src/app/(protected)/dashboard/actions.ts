@@ -128,3 +128,24 @@ export async function togglePaperTrading(enabled: boolean) {
   revalidatePath("/dashboard");
   return { success: true };
 }
+
+export async function resetPaperBalance() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Not authenticated" };
+
+  try {
+    await Promise.all([
+      supabase.from("paper_orders").delete().eq("user_id", user.id),
+      supabase.from("paper_positions").delete().eq("user_id", user.id),
+      supabase.from("paper_trade_history").delete().eq("user_id", user.id),
+    ]);
+
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error) {
+    console.error("Error resetting paper balance:", error);
+    return { error: "Failed to reset paper balance" };
+  }
+}

@@ -29,27 +29,24 @@ export async function GET() {
     }
 
     if (!data?.preferences) {
-      return successResponse({ credentials: {}, raw: {} });
+      return successResponse({ credentials: {} });
     }
 
     const prefs = data.preferences as Record<string, string>;
     const masked: Record<string, string> = {};
-    const raw: Record<string, string> = {};
 
     for (const [key, value] of Object.entries(prefs)) {
       if (value && typeof value === "string" && (key.includes("_key") || key.includes("_secret") || key.includes("_token"))) {
         try {
           const decrypted = decrypt(value);
           masked[key] = maskCredential(decrypted);
-          raw[key] = decrypted;
         } catch {
           masked[key] = maskCredential(value);
-          raw[key] = value;
         }
       }
     }
 
-    return successResponse({ credentials: masked, raw });
+    return successResponse({ credentials: masked });
   } catch {
     return serverErrorResponse();
   }

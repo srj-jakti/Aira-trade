@@ -3,9 +3,11 @@ import {
   getAuthenticatedUser,
   unauthorizedResponse,
   badRequestResponse,
+  serverErrorResponse,
   successResponse,
 } from "@/lib/server/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { decrypt } from "@/lib/server/encryption";
 import { getURL } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
@@ -13,17 +15,29 @@ export async function POST(request: NextRequest) {
   if (!user.authenticated || !user.userId) return unauthorizedResponse();
 
   try {
-    const body = await request.json();
-    const { apiKey } = body;
+    const { data: configData, error: configError } = await supabaseAdmin
+      .from("user_config")
+      .select("preferences")
+      .eq("user_id", user.userId)
+      .single();
 
-    if (!apiKey) {
-      return badRequestResponse("API Key is required");
+    if (configError || !configData?.preferences) {
+      return badRequestResponse("Please save your API keys first");
     }
 
-    const baseUrl = getURL();
-    const redirectUrl = `${baseUrl}api/user/broker/callback`;
+    const prefs = configData.preferences as Record<string, string>;
+    const encryptedApiKey = prefs.zerodha_api_key;
 
-    const loginUrl = `https://kite.trade/connect/login?v=3&api_key=${apiKey}&redirect_params=user_id=${user.userId}`;
+    if (!encryptedApiKey) {
+      return badRequestResponse("API Key not found. Please save your credentials first.");
+    }
+
+    let apiKey: string;
+    try {
+      apiKey = decrypt(encryptedApiKey);
+    } catch {
+      return badRequestResponse("Invalid API Key. Please re-enter your credentials.");
+    }
 
     await supabaseAdmin
       .from("user_broker_accounts")
@@ -35,13 +49,14 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
 
+    const loginUrl = `https://kite.trade/connect/login?v=3&api_key=${apiKey}&redirect_params=user_id=${user.userId}`;
+
     return successResponse({ 
       loginUrl,
-      redirectUrl,
       message: "Open the login URL in a popup to authenticate with Zerodha"
     });
   } catch (error) {
     console.error("Error initiating OAuth:", error);
-    return badRequestResponse("Failed to initiate OAuth flow");
+    return serverErrorResponse();
   }
 }

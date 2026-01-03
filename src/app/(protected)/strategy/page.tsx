@@ -325,6 +325,7 @@ function CreateStrategyTab() {
   const [step, setStep] = useState<"input" | "review" | "backtest" | "improve" | "save">("input");
   const [rawInput, setRawInput] = useState("");
   const [formatting, setFormatting] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [strategy, setStrategy] = useState<StructuredStrategy | null>(null);
   const [backtestResults, setBacktestResults] = useState<Record<string, BacktestResult>>({});
   const [selectedTimeframes, setSelectedTimeframes] = useState<string[]>([]);
@@ -390,6 +391,26 @@ function CreateStrategyTab() {
       alert("Error formatting strategy");
     } finally {
       setFormatting(false);
+    }
+  };
+
+  const generateStrategy = async () => {
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/ai/generate-strategy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRawInput(data.strategy);
+      } else {
+        alert("Failed to generate strategy. Please try again.");
+      }
+    } catch {
+      alert("Error generating strategy");
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -541,20 +562,33 @@ function CreateStrategyTab() {
               onChange={(e) => setRawInput(e.target.value)}
               className="min-h-[200px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none"
             />
-            <div className="flex justify-end">
-              <Button
-                onClick={formatStrategy}
-                disabled={!rawInput.trim() || formatting}
-                className="bg-cyan-500 hover:bg-cyan-600"
-              >
-                {formatting ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4 mr-2" />
-                )}
-                Format with AI
-              </Button>
-            </div>
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={generateStrategy}
+                  disabled={generating || formatting}
+                  className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
+                >
+                  {generating ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 mr-2" />
+                  )}
+                  AI Generation
+                </Button>
+                <Button
+                  onClick={formatStrategy}
+                  disabled={!rawInput.trim() || formatting || generating}
+                  className="bg-cyan-500 hover:bg-cyan-600"
+                >
+                  {formatting ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Zap className="w-4 h-4 mr-2" />
+                  )}
+                  Format with AI
+                </Button>
+              </div>
           </CardContent>
         </Card>
       )}

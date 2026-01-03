@@ -440,6 +440,26 @@ class AISharedService {
     return this.executeAnalysis("trading_signal", messages, { cacheTTL: 15 });
   }
 
+  async generateStrategyIdea(): Promise<AIAnalysisResult> {
+    const messages = [
+      {
+        role: "system",
+        content: `You are an expert algorithmic trading strategy developer. Your goal is to generate a highly profitable, robust, and detailed intraday trading strategy.
+        The strategy should include specific indicators, entry conditions, exit conditions (stop loss, target, trailing SL), and any risk management rules.
+        Focus on strategies for liquid instruments like NIFTY, BANKNIFTY, or top blue-chip stocks.
+        
+        Respond with a clear, concise description of the strategy in plain English that a user can understand. 
+        Start immediately with the strategy details. Avoid preamble like "Here is a strategy...".`,
+      },
+      {
+        role: "user",
+        content: "Generate a highly profitable intraday trading strategy for liquid Indian markets.",
+      },
+    ];
+
+    return this.executeAnalysis("strategy_generation", messages, { cacheTTL: 3600 }); // Cache for 1 hour
+  }
+
   async evaluateStrategy(
     strategyRules: unknown,
     backtestResults: unknown

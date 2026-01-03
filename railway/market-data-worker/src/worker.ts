@@ -859,18 +859,54 @@ function setupGracefulShutdown(): void {
 
 async function heartbeatLoop(): Promise<void> {
   console.log("[MarketDataWorker] Starting heartbeat loop...");
+  console.log("[MarketDataWorker] Market Data Worker ONLINE and heartbeat active");
+  
+  let consecutiveFailures = 0;
+  const MAX_CONSECUTIVE_FAILURES = 3;
   
   while (!getShutdownFlag()) {
     try {
-      await supabase.from("data_engine_status").upsert({
+      const { error } = await supabase.from("data_engine_status").upsert({
         engine_type: "market_data",
         last_heartbeat: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }, { onConflict: "engine_type" });
       
+      if (error) {
+        throw error;
+      }
+      
+      consecutiveFailures = 0;
       await sleep(30000);
     } catch (error) {
-      console.error("[MarketDataWorker] Heartbeat error:", error);
+      consecutiveFailures++;
+      console.error(`[MarketDataWorker] Heartbeat error (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}):`, error);
+      
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        console.error("[MarketDataWorker] CRITICAL: Heartbeat failed 3 consecutive times. Triggering SAFE_MODE...");
+        
+        try {
+          await supabase.from("system_flags").upsert({
+            flag_name: "SAFE_MODE",
+            flag_value: true,
+            updated_at: new Date().toISOString(),
+            updated_by: "market_data_worker",
+            reason: "Heartbeat failed 3 consecutive times - database connectivity issue",
+          }, { onConflict: "flag_name" });
+          
+          await supabase.from("system_health_logs").insert({
+            metric_type: "heartbeat_failure",
+            metric_value: { consecutive_failures: consecutiveFailures, source: "market_data_worker" },
+            severity: "critical",
+            message: "Market Data Worker heartbeat failed 3 times - SAFE_MODE activated",
+          });
+        } catch (alertErr) {
+          console.error("[MarketDataWorker] Failed to alert admin:", alertErr);
+        }
+        
+        consecutiveFailures = 0;
+      }
+      
       await sleep(10000);
     }
   }

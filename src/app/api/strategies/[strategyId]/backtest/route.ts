@@ -18,17 +18,45 @@ export async function POST(
   try {
     const { strategyId } = await params;
     const body = await request.json();
-    const { strategy, instrumentToken, timeframe, capital } = body;
+    const { 
+      strategy, 
+      instrumentToken,
+      instrumentTokens,
+      timeframe, 
+      capital,
+      fromDate,
+      toDate
+    } = body;
 
-    if (!strategy || !instrumentToken || !timeframe) {
-      return badRequestResponse("Missing required fields: strategy, instrumentToken, timeframe");
+    if (!strategy || !timeframe) {
+      return badRequestResponse("Missing required fields: strategy, timeframe");
     }
+
+    let tokens: number[] = [];
+    if (instrumentTokens && Array.isArray(instrumentTokens)) {
+      tokens = instrumentTokens.map((t: number | string) => typeof t === "string" ? parseInt(t) : t);
+    } else if (instrumentToken) {
+      tokens = [typeof instrumentToken === "string" ? parseInt(instrumentToken) : instrumentToken];
+    }
+
+    if (tokens.length === 0) {
+      return badRequestResponse("At least one instrument is required");
+    }
+
+    if (tokens.length > 2) {
+      return badRequestResponse("Maximum 2 instruments allowed per backtest");
+    }
+
+    const from = fromDate ? new Date(fromDate) : undefined;
+    const to = toDate ? new Date(toDate) : undefined;
 
     const result = await strategyService.runBacktest(
       strategy,
-      instrumentToken,
+      tokens,
       timeframe,
-      capital || 100000
+      capital || 100000,
+      from,
+      to
     );
 
     if (strategyId !== "preview") {
@@ -36,7 +64,7 @@ export async function POST(
       await strategyService.saveBacktestResult(
         id,
         1,
-        instrumentToken,
+        tokens,
         timeframe,
         result,
         strategy

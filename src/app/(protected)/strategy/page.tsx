@@ -127,11 +127,10 @@ interface Strategy {
 }
 
 const TIMEFRAMES = [
-  { value: "3minute", label: "3 Min", coverage: "1 Month" },
-  { value: "5minute", label: "5 Min", coverage: "3 Months" },
-  { value: "15minute", label: "15 Min", coverage: "6 Months" },
-  { value: "60minute", label: "1 Hour", coverage: "1 Year" },
-  { value: "day", label: "Daily", coverage: "3 Years" },
+  { value: "5m", label: "5 Min", coverage: "100 Days" },
+  { value: "15m", label: "15 Min", coverage: "200 Days" },
+  { value: "1h", label: "1 Hour", coverage: "400 Days" },
+  { value: "day", label: "Daily", coverage: "5 Years" },
 ];
 
 export default function StrategyPage() {
@@ -329,7 +328,7 @@ function CreateStrategyTab() {
   const [strategy, setStrategy] = useState<StructuredStrategy | null>(null);
   const [backtestResults, setBacktestResults] = useState<Record<string, BacktestResult>>({});
   const [selectedTimeframes, setSelectedTimeframes] = useState<string[]>([]);
-  const [selectedInstrument, setSelectedInstrument] = useState<number | null>(null);
+  const [selectedInstruments, setSelectedInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string}>>([]);
   const [instrumentSearch, setInstrumentSearch] = useState("");
   const [instruments, setInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
   const [backtesting, setBacktesting] = useState(false);
@@ -339,18 +338,37 @@ function CreateStrategyTab() {
   const [saving, setSaving] = useState(false);
   const [visibility, setVisibility] = useState<"private" | "public" | "invite_only">("private");
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const searchInstruments = useCallback(async (query: string) => {
     if (query.length < 2) {
       setInstruments([]);
       return;
     }
-    const res = await fetch(`/api/admin/market-data/instruments?search=${encodeURIComponent(query)}&limit=10`);
+    const res = await fetch(`/api/market-data/instruments?search=${encodeURIComponent(query)}&limit=10`);
     if (res.ok) {
       const data = await res.json();
       setInstruments(data.instruments || []);
     }
   }, []);
+
+  const addInstrument = (inst: {instrument_token: number; tradingsymbol: string; name: string}) => {
+    if (selectedInstruments.length >= 2) {
+      alert("Maximum 2 instruments allowed per backtest");
+      return;
+    }
+    if (selectedInstruments.some(i => i.instrument_token === inst.instrument_token)) {
+      return;
+    }
+    setSelectedInstruments(prev => [...prev, { instrument_token: inst.instrument_token, tradingsymbol: inst.tradingsymbol }]);
+    setInstrumentSearch("");
+    setInstruments([]);
+  };
+
+  const removeInstrument = (token: number) => {
+    setSelectedInstruments(prev => prev.filter(i => i.instrument_token !== token));
+  };
 
   const formatStrategy = async () => {
     if (!rawInput.trim()) return;
@@ -376,7 +394,7 @@ function CreateStrategyTab() {
   };
 
   const runBacktest = async (timeframe: string) => {
-    if (!strategy || !selectedInstrument) return;
+    if (!strategy || selectedInstruments.length === 0) return;
     setBacktesting(true);
     try {
       const res = await fetch("/api/strategies/preview/backtest", {
@@ -384,9 +402,11 @@ function CreateStrategyTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           strategy,
-          instrumentToken: selectedInstrument,
+          instrumentTokens: selectedInstruments.map(i => i.instrument_token),
           timeframe,
           capital: 100000,
+          fromDate: fromDate || undefined,
+          toDate: toDate || undefined,
         }),
       });
       if (res.ok) {
@@ -463,9 +483,11 @@ function CreateStrategyTab() {
     setStrategy(null);
     setBacktestResults({});
     setSelectedTimeframes([]);
-    setSelectedInstrument(null);
+    setSelectedInstruments([]);
     setImprovementNotes("");
     setImprovementCount(0);
+    setFromDate("");
+    setToDate("");
   };
 
   return (
@@ -618,7 +640,20 @@ function CreateStrategyTab() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="relative">
-                <Label className="text-white/60 mb-2 block">Select Instrument</Label>
+                <Label className="text-white/60 mb-2 block">Select Instruments (max 2)</Label>
+                {selectedInstruments.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {selectedInstruments.map((inst) => (
+                      <Badge 
+                        key={inst.instrument_token} 
+                        className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 cursor-pointer hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30"
+                        onClick={() => removeInstrument(inst.instrument_token)}
+                      >
+                        {inst.tradingsymbol} ×
+                      </Badge>
+                    ))}
+                  </div>
+                )}
                 <Input
                   placeholder="Search by symbol (e.g., NIFTY, SBIN)..."
                   value={instrumentSearch}
@@ -627,6 +662,7 @@ function CreateStrategyTab() {
                     searchInstruments(e.target.value);
                   }}
                   className="bg-white/5 border-white/10 text-white"
+                  disabled={selectedInstruments.length >= 2}
                 />
                 {instruments.length > 0 && (
                   <div className="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl max-h-48 overflow-y-auto">
@@ -634,11 +670,7 @@ function CreateStrategyTab() {
                       <button
                         key={inst.instrument_token}
                         className="w-full text-left px-4 py-2 hover:bg-white/5 text-white text-sm"
-                        onClick={() => {
-                          setSelectedInstrument(inst.instrument_token);
-                          setInstrumentSearch(inst.tradingsymbol);
-                          setInstruments([]);
-                        }}
+                        onClick={() => addInstrument(inst)}
                       >
                         {inst.tradingsymbol} - {inst.name}
                       </button>
@@ -647,29 +679,55 @@ function CreateStrategyTab() {
                 )}
               </div>
 
-              {selectedInstrument && (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                  {TIMEFRAMES.map((tf) => (
-                    <Button
-                      key={tf.value}
-                      variant="outline"
-                      onClick={() => runBacktest(tf.value)}
-                      disabled={backtesting}
-                      className={`border-white/10 text-white hover:bg-white/5 ${
-                        backtestResults[tf.value] ? "border-green-500/50" : ""
-                      }`}
-                    >
-                      {backtesting ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : backtestResults[tf.value] ? (
-                        <Check className="w-4 h-4 mr-2 text-green-400" />
-                      ) : (
-                        <Play className="w-4 h-4 mr-2" />
-                      )}
-                      {tf.label}
-                    </Button>
-                  ))}
-                </div>
+              {selectedInstruments.length > 0 && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-white/60 mb-2 block">From Date (optional)</Label>
+                      <Input
+                        type="date"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                        className="bg-white/5 border-white/10 text-white"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-white/60 mb-2 block">To Date (optional)</Label>
+                      <Input
+                        type="date"
+                        value={toDate}
+                        onChange={(e) => setToDate(e.target.value)}
+                        className="bg-white/5 border-white/10 text-white"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-white/40 text-xs">
+                    Leave dates empty to use maximum available data based on timeframe
+                  </p>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {TIMEFRAMES.map((tf) => (
+                      <Button
+                        key={tf.value}
+                        variant="outline"
+                        onClick={() => runBacktest(tf.value)}
+                        disabled={backtesting}
+                        className={`border-white/10 text-white hover:bg-white/5 ${
+                          backtestResults[tf.value] ? "border-green-500/50" : ""
+                        }`}
+                      >
+                        {backtesting ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : backtestResults[tf.value] ? (
+                          <Check className="w-4 h-4 mr-2 text-green-400" />
+                        ) : (
+                          <Play className="w-4 h-4 mr-2" />
+                        )}
+                        {tf.label}
+                      </Button>
+                    ))}
+                  </div>
+                </>
               )}
 
               {Object.keys(backtestResults).length > 0 && (

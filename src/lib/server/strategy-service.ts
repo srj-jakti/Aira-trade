@@ -1,5 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { aiSharedService } from "./ai-shared-service";
+import { marketDataEngine } from "./market-data-engine";
+import { decrypt } from "./encryption";
 
 export interface StrategyLogic {
   conditions: string[];
@@ -35,6 +37,9 @@ export interface BacktestResult {
   max_drawdown: number;
   max_drawdown_percentage: number;
   trade_log: TradeEntry[];
+  data_source: string;
+  candle_count: number;
+  date_range: { from: string; to: string };
 }
 
 export interface TradeEntry {
@@ -59,13 +64,48 @@ export interface Candle {
   volume: number;
 }
 
-const TIMEFRAME_COVERAGE: Record<string, { months: number; label: string }> = {
-  "3minute": { months: 1, label: "1 Month" },
-  "5minute": { months: 3, label: "3 Months" },
-  "15minute": { months: 6, label: "6 Months" },
-  "60minute": { months: 12, label: "1 Year" },
-  "day": { months: 36, label: "3 Years" },
+const TIMEFRAME_LOOKBACK: Record<string, { days: number; label: string }> = {
+  "1m": { days: 60, label: "60 Days" },
+  "3m": { days: 100, label: "100 Days" },
+  "5m": { days: 100, label: "100 Days" },
+  "15m": { days: 200, label: "200 Days" },
+  "30m": { days: 400, label: "400 Days" },
+  "1h": { days: 400, label: "400 Days" },
+  "day": { days: 2000, label: "5 Years" },
+  "3minute": { days: 100, label: "100 Days" },
+  "5minute": { days: 100, label: "100 Days" },
+  "15minute": { days: 200, label: "200 Days" },
+  "60minute": { days: 400, label: "400 Days" },
 };
+
+function normalizeTimeframe(tf: string): string {
+  const aliases: Record<string, string> = {
+    "1d": "day",
+    "day": "day",
+    "D": "day",
+    "1w": "week",
+    "week": "week",
+    "3minute": "3m",
+    "5minute": "5m",
+    "15minute": "15m",
+    "60minute": "1h",
+  };
+  return aliases[tf] || tf;
+}
+
+function getZerodhaInterval(timeframe: string): string {
+  const intervalMap: Record<string, string> = {
+    "1m": "minute",
+    "3m": "3minute",
+    "5m": "5minute",
+    "15m": "15minute",
+    "30m": "30minute",
+    "1h": "60minute",
+    "day": "day",
+  };
+  const normalized = normalizeTimeframe(timeframe);
+  return intervalMap[normalized] || "5minute";
+}
 
 class StrategyService {
   private static instance: StrategyService;
@@ -233,33 +273,167 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     }
   }
 
-  async runBacktest(
-    strategy: StructuredStrategy,
+  private async fetchCandlesFromZerodha(
     instrumentToken: number,
     timeframe: string,
-    capital: number = 100000
+    fromDate: Date,
+    toDate: Date
+  ): Promise<Candle[]> {
+    try {
+      const config = await marketDataEngine.getActiveConfig();
+      if (!config || !config.access_token) {
+        console.log("[StrategyService] No active Zerodha config");
+        return [];
+      }
+
+      const apiKey = decrypt(config.api_key);
+      const accessToken = decrypt(config.access_token);
+      const interval = getZerodhaInterval(timeframe);
+      const fromStr = fromDate.toISOString().split("T")[0];
+      const toStr = toDate.toISOString().split("T")[0];
+
+      console.log(`[StrategyService] Fetching from Zerodha: ${instrumentToken} ${interval} from ${fromStr} to ${toStr}`);
+
+      const response = await fetch(
+        `https://api.kite.trade/instruments/historical/${instrumentToken}/${interval}?from=${fromStr}&to=${toStr}`,
+        {
+          headers: {
+            "X-Kite-Version": "3",
+            Authorization: `token ${apiKey}:${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: response.statusText }));
+        console.error("[StrategyService] Zerodha API error:", error);
+        return [];
+      }
+
+      const data = await response.json();
+      const rawCandles = data.data?.candles || [];
+
+      console.log(`[StrategyService] Got ${rawCandles.length} candles from Zerodha`);
+
+      const candles: Candle[] = rawCandles.map((c: (string | number)[]) => ({
+        timestamp: c[0] as string,
+        open: c[1] as number,
+        high: c[2] as number,
+        low: c[3] as number,
+        close: c[4] as number,
+        volume: c[5] as number,
+      }));
+
+      if (candles.length > 0) {
+        const normalizedTf = normalizeTimeframe(timeframe);
+        const rows = candles.map(c => ({
+          instrument_token: instrumentToken,
+          timeframe: normalizedTf,
+          timestamp: new Date(c.timestamp).toISOString(),
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+          volume: c.volume,
+          oi: 0,
+        }));
+
+        const batchSize = 500;
+        for (let i = 0; i < rows.length; i += batchSize) {
+          const batch = rows.slice(i, i + batchSize);
+          await supabaseAdmin
+            .from("live_candles")
+            .upsert(batch, { onConflict: "instrument_token,timeframe,timestamp" });
+        }
+        console.log(`[StrategyService] Cached ${rows.length} candles in live_candles`);
+      }
+
+      return candles;
+    } catch (error) {
+      console.error("[StrategyService] Error fetching from Zerodha:", error);
+      return [];
+    }
+  }
+
+  async runBacktest(
+    strategy: StructuredStrategy,
+    instrumentTokens: number[],
+    timeframe: string,
+    capital: number = 100000,
+    fromDate?: Date,
+    toDate?: Date
   ): Promise<BacktestResult> {
-    const coverage = TIMEFRAME_COVERAGE[timeframe];
-    if (!coverage) {
-      throw new Error(`Invalid timeframe: ${timeframe}`);
+    if (instrumentTokens.length === 0) {
+      throw new Error("At least one instrument is required for backtesting");
+    }
+    if (instrumentTokens.length > 2) {
+      throw new Error("Maximum 2 instruments allowed per backtest");
     }
 
-    const fromDate = new Date();
-    fromDate.setMonth(fromDate.getMonth() - coverage.months);
+    const lookback = TIMEFRAME_LOOKBACK[timeframe] || TIMEFRAME_LOOKBACK[normalizeTimeframe(timeframe)] || { days: 100 };
+    const now = new Date();
+    const defaultFrom = new Date(now.getTime() - lookback.days * 24 * 60 * 60 * 1000);
+    
+    const from = fromDate || defaultFrom;
+    const to = toDate || now;
+    const normalizedTf = normalizeTimeframe(timeframe);
 
-    const { data: candles, error } = await supabaseAdmin
-      .from("historical_candles")
-      .select("*")
-      .eq("instrument_token", instrumentToken)
-      .eq("timeframe", timeframe)
-      .gte("timestamp", fromDate.toISOString())
-      .order("timestamp", { ascending: true });
+    let allCandles: Candle[] = [];
+    let dataSource = "live_candles";
 
-    if (error || !candles || candles.length === 0) {
-      throw new Error("No historical data available for backtesting");
+    for (const instrumentToken of instrumentTokens) {
+      const { data: liveCandles, error } = await supabaseAdmin
+        .from("live_candles")
+        .select("*")
+        .eq("instrument_token", instrumentToken)
+        .eq("timeframe", normalizedTf)
+        .gte("timestamp", from.toISOString())
+        .lte("timestamp", to.toISOString())
+        .order("timestamp", { ascending: true });
+
+      let candles: Candle[] = [];
+
+      if (!error && liveCandles && liveCandles.length > 0) {
+        candles = liveCandles.map(c => ({
+          timestamp: c.timestamp,
+          open: parseFloat(c.open),
+          high: parseFloat(c.high),
+          low: parseFloat(c.low),
+          close: parseFloat(c.close),
+          volume: parseInt(c.volume) || 0,
+        }));
+        console.log(`[StrategyService] Found ${candles.length} candles in live_candles for ${instrumentToken}`);
+      }
+
+      if (candles.length < 50) {
+        console.log(`[StrategyService] Insufficient data in live_candles (${candles.length}), fetching from Zerodha...`);
+        const zerodhaCandles = await this.fetchCandlesFromZerodha(instrumentToken, timeframe, from, to);
+        if (zerodhaCandles.length > candles.length) {
+          candles = zerodhaCandles;
+          dataSource = "zerodha_api";
+        }
+      }
+
+      allCandles = allCandles.concat(candles);
     }
 
-    return this.executeBacktest(strategy, candles, capital);
+    if (allCandles.length === 0) {
+      throw new Error("No data available for backtesting. Please ensure market data is available.");
+    }
+
+    allCandles.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    const result = this.executeBacktest(strategy, allCandles, capital);
+    
+    return {
+      ...result,
+      data_source: dataSource,
+      candle_count: allCandles.length,
+      date_range: {
+        from: allCandles[0]?.timestamp || from.toISOString(),
+        to: allCandles[allCandles.length - 1]?.timestamp || to.toISOString(),
+      },
+    };
   }
 
   private executeBacktest(
@@ -519,12 +693,15 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
       max_drawdown: maxDrawdown,
       max_drawdown_percentage: (maxDrawdown / peakBalance) * 100,
       trade_log: trades,
+      data_source: "pending",
+      candle_count: 0,
+      date_range: { from: "", to: "" },
     };
   }
 
   async getAvailableTimeframes(instrumentToken: number): Promise<string[]> {
     const { data } = await supabaseAdmin
-      .from("historical_candles")
+      .from("live_candles")
       .select("timeframe")
       .eq("instrument_token", instrumentToken)
       .limit(1000);
@@ -576,7 +753,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
   async saveBacktestResult(
     strategyId: number,
     version: number,
-    instrumentToken: number,
+    instrumentTokens: number[],
     timeframe: string,
     result: BacktestResult,
     strategySnapshot: StructuredStrategy
@@ -584,7 +761,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     await supabaseAdmin.from("strategy_backtests").insert({
       strategy_id: strategyId,
       strategy_version: version,
-      instrument_token: instrumentToken,
+      instrument_token: instrumentTokens[0],
       timeframe,
       ...result,
       strategy_snapshot: strategySnapshot,

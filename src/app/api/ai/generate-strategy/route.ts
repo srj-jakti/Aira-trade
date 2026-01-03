@@ -6,17 +6,21 @@ import {
 } from "@/lib/server/auth";
 import { aiSharedService } from "@/lib/server/ai-shared-service";
 
-/**
- * POST /api/ai/generate-strategy
- * 
- * Generates a profitable intraday strategy using AI.
- */
 export async function POST(request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) return unauthorizedResponse();
 
   try {
-    const response = await aiSharedService.generateStrategyIdea();
+    const body = await request.json().catch(() => ({}));
+    const { userInput, referenceInstrument } = body as {
+      userInput?: string;
+      referenceInstrument?: string;
+    };
+
+    const response = await aiSharedService.generateStrategyIdea(
+      userInput,
+      referenceInstrument
+    );
 
     if (!response.success) {
       return NextResponse.json(
@@ -29,6 +33,7 @@ export async function POST(request: NextRequest) {
       success: true,
       strategy: response.result,
       provider: response.provider,
+      cached: response.cached,
     });
   } catch (error) {
     console.error("AI Strategy Generation error:", error);

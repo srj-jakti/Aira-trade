@@ -29,6 +29,8 @@ import {
   EyeOff,
   Users,
   Calendar,
+  Link2,
+  Wrench,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -59,6 +61,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { TradingToolbox } from "@/components/trading-toolbox";
+import { TradingTool } from "@/lib/trading-tools";
 
 interface StrategyLogic {
   conditions: string[];
@@ -341,6 +352,10 @@ function CreateStrategyTab() {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [showToolbox, setShowToolbox] = useState(false);
+  const [referenceInstrument, setReferenceInstrument] = useState("");
+  const [refInstrumentSearch, setRefInstrumentSearch] = useState("");
+  const [refInstruments, setRefInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
 
   const searchInstruments = useCallback(async (query: string) => {
     if (query.length < 2) {
@@ -353,6 +368,28 @@ function CreateStrategyTab() {
       setInstruments(data.instruments || []);
     }
   }, []);
+
+  const searchRefInstruments = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setRefInstruments([]);
+      return;
+    }
+    const res = await fetch(`/api/market-data/instruments?search=${encodeURIComponent(query)}&limit=10`);
+    if (res.ok) {
+      const data = await res.json();
+      setRefInstruments(data.instruments || []);
+    }
+  }, []);
+
+  const handleInsertTool = (tool: TradingTool) => {
+    const toolText = `Use ${tool.name} (${tool.shortName})`;
+    setRawInput((prev) => {
+      if (prev.trim()) {
+        return prev + "\n" + toolText;
+      }
+      return toolText;
+    });
+  };
 
   const addInstrument = (inst: {instrument_token: number; tradingsymbol: string; name: string}) => {
     if (selectedInstruments.length >= 2) {
@@ -400,6 +437,10 @@ function CreateStrategyTab() {
       const res = await fetch("/api/ai/generate-strategy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userInput: rawInput.trim() || undefined,
+          referenceInstrument: referenceInstrument || undefined,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -509,6 +550,7 @@ function CreateStrategyTab() {
     setImprovementCount(0);
     setFromDate("");
     setToDate("");
+    setReferenceInstrument("");
   };
 
   return (
@@ -545,24 +587,99 @@ function CreateStrategyTab() {
       </div>
 
       {step === "input" && (
-        <Card className="bg-white/5 border-white/10">
-          <CardHeader>
-            <CardTitle className="text-white text-lg flex items-center gap-2">
-              <Bot className="w-5 h-5 text-cyan-400" />
-              Describe Your Strategy
-            </CardTitle>
-            <CardDescription className="text-white/40">
-              Write your trading idea in any form - even incomplete or unclear. Our AI will convert it into a complete, executable strategy.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Textarea
-              placeholder="Example: Buy when RSI is low and price is above 20 SMA. Use 2% stop loss and 4% target. Avoid trading during high volatility..."
-              value={rawInput}
-              onChange={(e) => setRawInput(e.target.value)}
-              className="min-h-[200px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none"
-            />
-              <div className="flex justify-end gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="bg-white/5 border-white/10 lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-white text-lg flex items-center gap-2">
+                <Bot className="w-5 h-5 text-cyan-400" />
+                Describe Your Strategy
+              </CardTitle>
+              <CardDescription className="text-white/40">
+                Write your trading idea in any form - even incomplete or unclear. Our AI will convert it into a complete, executable strategy.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea
+                placeholder="Example: Buy when RSI is low and price is above 20 SMA. Use 2% stop loss and 4% target. Avoid trading during high volatility..."
+                value={rawInput}
+                onChange={(e) => setRawInput(e.target.value)}
+                className="min-h-[200px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none"
+              />
+
+              <div className="p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
+                <Label className="text-white/60 text-sm mb-2 flex items-center gap-2">
+                  <Link2 className="w-4 h-4" />
+                  Reference Instrument (Optional)
+                </Label>
+                <p className="text-white/40 text-xs mb-2">
+                  For options/futures trading, reference index price for entry signals
+                </p>
+                <div className="relative">
+                  {referenceInstrument ? (
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
+                        {referenceInstrument}
+                      </Badge>
+                      <button
+                        onClick={() => setReferenceInstrument("")}
+                        className="text-white/40 hover:text-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <Input
+                        placeholder="Search index (e.g., NIFTY 50, BANKNIFTY)..."
+                        value={refInstrumentSearch}
+                        onChange={(e) => {
+                          setRefInstrumentSearch(e.target.value);
+                          searchRefInstruments(e.target.value);
+                        }}
+                        className="bg-white/5 border-white/10 text-white h-9 text-sm"
+                      />
+                      {refInstruments.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl max-h-32 overflow-y-auto">
+                          {refInstruments.map((inst) => (
+                            <button
+                              key={inst.instrument_token}
+                              className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-white text-sm"
+                              onClick={() => {
+                                setReferenceInstrument(inst.tradingsymbol);
+                                setRefInstrumentSearch("");
+                                setRefInstruments([]);
+                              }}
+                            >
+                              {inst.tradingsymbol}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-3">
+                <Sheet open={showToolbox} onOpenChange={setShowToolbox}>
+                  <SheetTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="border-white/10 text-white/60 hover:bg-white/5 lg:hidden"
+                    >
+                      <Wrench className="w-4 h-4 mr-2" />
+                      Toolbox
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="bg-slate-900 border-slate-700 w-80">
+                    <SheetHeader>
+                      <SheetTitle className="text-white">Trading Toolbox</SheetTitle>
+                    </SheetHeader>
+                    <div className="mt-4">
+                      <TradingToolbox onInsertTool={handleInsertTool} />
+                    </div>
+                  </SheetContent>
+                </Sheet>
                 <Button
                   variant="outline"
                   onClick={generateStrategy}
@@ -589,8 +706,13 @@ function CreateStrategyTab() {
                   Format with AI
                 </Button>
               </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <div className="hidden lg:block">
+            <TradingToolbox onInsertTool={handleInsertTool} />
+          </div>
+        </div>
       )}
 
       {(step === "review" || step === "backtest" || step === "improve") && strategy && (

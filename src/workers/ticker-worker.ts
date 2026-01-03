@@ -21,6 +21,32 @@ const TICK_FLUSH_INTERVAL = 1000;
 const CANDLE_FLUSH_INTERVAL = 500;
 const HEALTH_CHECK_INTERVAL = 30000;
 const SUBSCRIPTION_REFRESH_INTERVAL = 300000;
+const CONNECTION_TIMEOUT = 15000;
+
+function isMarketHours(): { isOpen: boolean; reason: string } {
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istTime = new Date(now.getTime() + istOffset);
+  const day = istTime.getUTCDay();
+  const hours = istTime.getUTCHours();
+  const minutes = istTime.getUTCMinutes();
+  const timeInMinutes = hours * 60 + minutes;
+  
+  if (day === 0) return { isOpen: false, reason: "Sunday - Market closed" };
+  if (day === 6) return { isOpen: false, reason: "Saturday - Market closed" };
+  
+  const preMarketStart = 9 * 60;
+  const marketClose = 15 * 60 + 30;
+  
+  if (timeInMinutes < preMarketStart) {
+    return { isOpen: false, reason: `Pre-market hours (opens at 9:00 AM IST)` };
+  }
+  if (timeInMinutes > marketClose) {
+    return { isOpen: false, reason: `After-market hours (closed at 3:30 PM IST)` };
+  }
+  
+  return { isOpen: true, reason: "Market is open" };
+}
 
 // ================== ENCRYPTION ==================
 function getEncryptionKey(): Buffer {
@@ -115,6 +141,16 @@ class UnifiedTickerWorker {
   async start(): Promise<void> {
     console.log("[Worker] Starting Unified Ticker Worker...");
 
+    // Check market hours
+    const marketStatus = isMarketHours();
+    if (!marketStatus.isOpen) {
+      console.log(`[Worker] ${marketStatus.reason}`);
+      console.log("[Worker] Worker will stay idle and retry when market opens.");
+      await this.updateEngineStatusOffline(marketStatus.reason);
+      this.waitForMarketOpen();
+      return;
+    }
+
     // Check kill switches
     if (!(await this.isMarketDataEnabled())) {
       console.log("[Worker] Market data disabled. Exiting.");
@@ -140,7 +176,14 @@ class UnifiedTickerWorker {
     const connectedCount = Array.from(this.connections.values()).filter(c => c.isConnected).length;
     
     if (connectedCount === 0) {
-      console.error("[Worker] All connections failed. Entering SAFE MODE.");
+      const marketCheck = isMarketHours();
+      if (!marketCheck.isOpen) {
+        console.log(`[Worker] Connections failed but market is closed: ${marketCheck.reason}`);
+        await this.updateEngineStatusOffline(marketCheck.reason);
+        this.waitForMarketOpen();
+        return;
+      }
+      console.error("[Worker] All connections failed during market hours. Entering SAFE MODE.");
       await this.enterSafeMode("All admin WebSocket connections failed");
       process.exit(1);
     }
@@ -240,13 +283,37 @@ class UnifiedTickerWorker {
             console.warn(`[Worker][${config.name}] Connection timeout`);
             resolve(false);
           }
-        }, 30000);
+        }, CONNECTION_TIMEOUT);
 
       } catch (error) {
         console.error(`[Worker] Error creating connection for ${config.name}:`, error);
         resolve(false);
       }
     });
+  }
+
+  private waitForMarketOpen(): void {
+    console.log("[Worker] Waiting for market to open...");
+    const checkInterval = setInterval(async () => {
+      const status = isMarketHours();
+      if (status.isOpen) {
+        console.log("[Worker] Market is now open! Starting connections...");
+        clearInterval(checkInterval);
+        await this.start();
+      }
+    }, 60000);
+  }
+
+  private async updateEngineStatusOffline(reason: string): Promise<void> {
+    await supabase.from("data_engine_status").upsert({
+      engine_type: "market_data",
+      status: "idle",
+      websocket_status: "market_closed",
+      subscribed_instruments: 0,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "engine_type" });
+    
+    console.log(`[Worker] Engine status: idle (${reason})`);
   }
 
   private handleTicks(ticks: KiteTickData[]): void {

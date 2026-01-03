@@ -39,110 +39,73 @@ interface TradingPreference {
   max_trades_per_day: number;
   priority_score: number;
   paper_trading_enabled: boolean;
+  daily_profit_limit: number;
+  daily_loss_limit: number;
+  daily_pnl_realized: number;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function calculateNextEvaluation(strategyType: string): Date {
-  const now = new Date();
-  switch (strategyType) {
-    case "scalping":
-      return new Date(now.getTime() + 5 * 1000);
-    case "intraday":
-      return new Date(now.getTime() + 30 * 1000);
-    case "swing":
-      return new Date(now.getTime() + 5 * 60 * 1000);
-    default:
-      return new Date(now.getTime() + 30 * 1000);
-  }
-}
-
-async function acquireExecutionLock(userId: string): Promise<boolean> {
-  const { data, error } = await supabase
+// NEW: Check if user's daily quota is already hit
+async function checkDailyQuotaHit(userId: string): Promise<{ hit: boolean; reason?: string }> {
+  const { data } = await supabase
     .from("trading_preferences")
-    .update({
-      execution_lock: true,
-      execution_started_at: new Date().toISOString(),
-    })
+    .select("daily_profit_limit, daily_loss_limit, daily_pnl_realized")
     .eq("user_id", userId)
-    .eq("execution_lock", false)
-    .eq("auto_trading_enabled", true)
-    .select("user_id");
+    .single();
 
-  if (error) {
-    logger.error("Failed to acquire lock", error);
-    return false;
+  if (!data) return { hit: false };
+
+  const { daily_profit_limit, daily_loss_limit, daily_pnl_realized } = data;
+
+  const realizedPnL = parseFloat(daily_pnl_realized as unknown as string) || 0;
+  const profitLimit = parseFloat(daily_profit_limit as unknown as string) || 0;
+  const lossLimit = parseFloat(daily_loss_limit as unknown as string) || 0;
+
+  // Check profit target hit
+  if (profitLimit > 0 && realizedPnL >= profitLimit) {
+    return { hit: true, reason: `Daily profit target of ₹${profitLimit} reached` };
   }
 
-  return (data?.length || 0) > 0;
-}
-
-async function releaseExecutionLock(
-  userId: string,
-  nextEvaluationAt: Date,
-  error?: string
-): Promise<void> {
-  const update: Record<string, unknown> = {
-    execution_lock: false,
-    execution_started_at: null,
-    last_evaluation_at: new Date().toISOString(),
-    next_evaluation_at: nextEvaluationAt.toISOString(),
-    evaluation_error: error || null,
-  };
-
-  if (error) {
-    const { data } = await supabase
-      .from("trading_preferences")
-      .select("consecutive_failures")
-      .eq("user_id", userId)
-      .single();
-    update.consecutive_failures = ((data?.consecutive_failures || 0) + 1);
-  } else {
-    update.consecutive_failures = 0;
+  // Check loss limit hit
+  if (lossLimit > 0 && realizedPnL <= -lossLimit) {
+    return { hit: true, reason: `Daily loss limit of ₹${lossLimit} reached` };
   }
 
-  await supabase.from("trading_preferences").update(update).eq("user_id", userId);
+  return { hit: false };
 }
 
-async function releaseStaleLocks(): Promise<number> {
-  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-
-  const { data, error } = await supabase
-    .from("trading_preferences")
-    .update({
-      execution_lock: false,
-      execution_started_at: null,
-      evaluation_error: "Lock released due to timeout (possible crash)",
-    })
-    .eq("execution_lock", true)
-    .lt("execution_started_at", fiveMinutesAgo)
-    .select("user_id");
-
-  if (error) {
-    logger.error("Failed to release stale locks", error);
-    return 0;
-  }
-
-  return data?.length || 0;
-}
-
-async function disableAutoTrading(userId: string, reason: string): Promise<void> {
+// NEW: Auto-disable function when quota hit
+async function autoDisableOnQuotaHit(userId: string, reason: string): Promise<void> {
   await supabase
     .from("trading_preferences")
     .update({
       auto_trading_enabled: false,
+      daily_quota_hit_at: new Date().toISOString(),
+      daily_quota_reason: reason,
       evaluation_error: reason,
       execution_lock: false,
     })
     .eq("user_id", userId);
 
-  logger.warn(`Disabled auto-trading for user ${userId}: ${reason}`);
+  logger.warn(`[QUOTA HIT] Auto-trading disabled for ${userId}: ${reason}`);
+  
+  // Log audit event - using standard supabase call since we don't have logAudit utility in engine
+  await supabase.from("audit_logs").insert({
+    user_id: userId,
+    action: "trading_auto_disabled",
+    target_table: "trading_preferences",
+    metadata: { reason, triggered_by: "daily_quota_limit" },
+  });
 }
 
 async function processUser(user: TradingPreference): Promise<void> {
   const { user_id } = user;
+
+  // FIRST: Check if daily quota already hit
+  const quotaCheck = await checkDailyQuotaHit(user_id);
+  if (quotaCheck.hit) {
+    await autoDisableOnQuotaHit(user_id, quotaCheck.reason!);
+    return; // Skip this user entirely
+  }
 
   const acquired = await acquireExecutionLock(user_id);
   if (!acquired) {
@@ -508,18 +471,29 @@ async function monitorPositions(tableName: "user_positions" | "paper_positions")
             });
           }
 
-          await supabase
-            .from(tableName)
-            .update({
-              status: "CLOSED",
-              exit_price: currentPrice,
-              exit_reason: exitReason,
-              closed_at: new Date().toISOString(),
-            })
-            .eq("id", position.id);
+            await supabase
+              .from(tableName)
+              .update({
+                status: "CLOSED",
+                exit_price: currentPrice,
+                exit_reason: exitReason,
+                closed_at: new Date().toISOString(),
+              })
+              .eq("id", position.id);
 
-          logger.info(`[${tableName === 'paper_positions' ? 'PAPER' : 'LIVE'}] Position ${position.id} closed: ${exitReason} | P&L: ${pnl.toFixed(2)}`);
-        }
+            // NEW: Update daily PnL and check quota
+            await supabase.rpc("increment_daily_pnl", {
+              user_id_val: position.user_id,
+              pnl_val: pnl,
+            });
+
+            const quotaCheck = await checkDailyQuotaHit(position.user_id);
+            if (quotaCheck.hit) {
+              await autoDisableOnQuotaHit(position.user_id, quotaCheck.reason!);
+            }
+
+            logger.info(`[${tableName === 'paper_positions' ? 'PAPER' : 'LIVE'}] Position ${position.id} closed: ${exitReason} | P&L: ${pnl.toFixed(2)}`);
+          }
 
     }
 }

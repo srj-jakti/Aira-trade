@@ -147,11 +147,17 @@ class MarketDataWorker {
 
     await this.logSystemHealth("worker_started", { source: "market_data_worker", architecture: "multi_api_key" }, "info", "Market Data Worker started (Multi-API-Key)");
 
-    if (!(await this.isMarketDataEnabled())) {
-      console.log("[MarketDataWorker] Market data disabled. Exiting.");
-      await this.logSystemHealth("worker_disabled", { reason: "kill_switch" }, "warning", "Market data disabled by kill switch");
-      process.exit(0);
+    while (!(await this.isMarketDataEnabled())) {
+      console.log("[MarketDataWorker] Market data disabled. Waiting for enable signal (polling every 30s)...");
+      await this.logSystemHealth("worker_waiting", { reason: "disabled" }, "info", "Market data disabled - worker waiting for enable");
+      await new Promise(resolve => setTimeout(resolve, 30000));
+      if (getShutdownFlag()) {
+        console.log("[MarketDataWorker] Shutdown requested while waiting.");
+        return;
+      }
     }
+    
+    console.log("[MarketDataWorker] Market data enabled. Proceeding with initialization...");
 
     const configs = await this.getApiKeyConfigs();
     
@@ -631,9 +637,15 @@ class MarketDataWorker {
       if (this.isShuttingDown) return;
 
       if (!(await this.isMarketDataEnabled())) {
-        console.log("[MarketDataWorker] Market data disabled. Shutting down.");
-        await this.shutdown();
-        process.exit(0);
+        console.log("[MarketDataWorker] Market data disabled. Pausing operations (will resume when re-enabled)...");
+        this.isRunning = false;
+        await this.updateEngineStatus();
+        return;
+      }
+      
+      if (!this.isRunning) {
+        console.log("[MarketDataWorker] Market data re-enabled. Resuming operations...");
+        this.isRunning = true;
       }
 
       const now = Date.now();

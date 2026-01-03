@@ -118,22 +118,8 @@ export class BackfillService {
     }
 
     const oldest = new Date(data[0].timestamp);
-    const newest = newestData?.[0] ? new Date(newestData[0].timestamp) : new Date(0);
+    const newest = newestData?.[0] ? new Date(newestData[0].timestamp) : new Date();
     const coverageDays = (newest.getTime() - oldest.getTime()) / (1000 * 60 * 60 * 24);
-
-    // Check for gaps: 
-    // 1. If we don't have enough total days
-    // 2. If the newest data is too old (e.g., more than 1 hour old during market hours)
-    // 3. If the oldest data isn't old enough (we need more history)
-    
-    const now = new Date();
-    const isMarketHours = now.getUTCHours() >= 3 && now.getUTCHours() <= 10; // Simple IST check: 9:15 AM - 3:30 PM is roughly 3:45 - 10:00 UTC
-    const newestIsOld = (now.getTime() - newest.getTime()) > (1000 * 60 * 60); // More than 1 hour old
-    
-    const needsBackfill = 
-      coverageDays < retention.days * 0.8 || 
-      (isMarketHours && newestIsOld) ||
-      oldest > new Date(now.getTime() - (retention.days * 24 * 60 * 60 * 1000));
 
     return {
       hasData: true,
@@ -141,7 +127,7 @@ export class BackfillService {
       newestTimestamp: newest,
       coverageDays,
       requiredDays: retention.days,
-      needsBackfill,
+      needsBackfill: coverageDays < retention.days * 0.8, // 80% threshold
     };
   }
 
@@ -418,19 +404,7 @@ export class BackfillService {
    * Clean up old data beyond retention policy
    */
   async cleanupOldData(): Promise<void> {
-    console.log("[BackfillService] Cleaning up old market data (ticks & candles)...");
-
-    try {
-      // Call the SQL function for unified pruning
-      const { error: pruneError } = await this.supabase.rpc("prune_old_market_data");
-      if (pruneError) {
-        console.error("[BackfillService] SQL Pruning error:", pruneError.message);
-      } else {
-        console.log("[BackfillService] SQL Pruning successful");
-      }
-    } catch (err) {
-      console.error("[BackfillService] Pruning RPC failed:", err);
-    }
+    console.log("[BackfillService] Cleaning up old live_candles data...");
 
     for (const [timeframe, retention] of Object.entries(LIVE_HISTORICAL_RETENTION)) {
       const cutoffDate = new Date();

@@ -1,26 +1,26 @@
 /**
  * TRADING ENGINE - Railway Deployment
  * 24/7 persistent background AI auto-trading service
+ * 
+ * This engine:
+ * - Runs independently of browser/UI
+ * - Evaluates strategies for all users with auto_trading_enabled
+ * - Executes trades via Zerodha API
+ * - Manages execution locks to prevent duplicate trades
+ * - Handles token refresh, position monitoring, and cleanup
  */
 
 import { supabase } from "./utils/supabase";
 import { logger } from "./utils/logger";
-import { redis, REDIS_KEYS } from "./utils/redis";
 import { setupGracefulShutdown, getShutdownFlag } from "./utils/shutdown";
 import { isRateLimited, isOrderRateLimited, incrementRateLimit } from "./rate-limiter";
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 import {
-getBrokerCredentials,
-isTokenExpired,
-markTokenExpired,
-executeOrder,
-executePaperOrder,
-fetchOrderStatus,
-closePosition,
+  getBrokerCredentials,
+  isTokenExpired,
+  markTokenExpired,
+  executeOrder,
+  fetchOrderStatus,
 } from "./executor";
-
 import {
   createSignal,
   updateSignalStatus,
@@ -42,74 +42,110 @@ interface TradingPreference {
   max_daily_loss: number;
   max_trades_per_day: number;
   priority_score: number;
-  paper_trading_enabled: boolean;
-  daily_profit_limit: number;
-  daily_loss_limit: number;
-  daily_pnl_realized: number;
 }
 
-// NEW: Check if user's daily quota is already hit
-async function checkDailyQuotaHit(userId: string): Promise<{ hit: boolean; reason?: string }> {
-  const { data } = await supabase
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function calculateNextEvaluation(strategyType: string): Date {
+  const now = new Date();
+  switch (strategyType) {
+    case "scalping":
+      return new Date(now.getTime() + 5 * 1000);
+    case "intraday":
+      return new Date(now.getTime() + 30 * 1000);
+    case "swing":
+      return new Date(now.getTime() + 5 * 60 * 1000);
+    default:
+      return new Date(now.getTime() + 30 * 1000);
+  }
+}
+
+async function acquireExecutionLock(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
     .from("trading_preferences")
-    .select("daily_profit_limit, daily_loss_limit, daily_pnl_realized")
+    .update({
+      execution_lock: true,
+      execution_started_at: new Date().toISOString(),
+    })
     .eq("user_id", userId)
-    .single();
+    .eq("execution_lock", false)
+    .eq("auto_trading_enabled", true)
+    .select("user_id");
 
-  if (!data) return { hit: false };
-
-  const { daily_profit_limit, daily_loss_limit, daily_pnl_realized } = data;
-
-  const realizedPnL = parseFloat(daily_pnl_realized as unknown as string) || 0;
-  const profitLimit = parseFloat(daily_profit_limit as unknown as string) || 0;
-  const lossLimit = parseFloat(daily_loss_limit as unknown as string) || 0;
-
-  // Check profit target hit
-  if (profitLimit > 0 && realizedPnL >= profitLimit) {
-    return { hit: true, reason: `Daily profit target of ₹${profitLimit} reached` };
+  if (error) {
+    logger.error("Failed to acquire lock", error);
+    return false;
   }
 
-  // Check loss limit hit
-  if (lossLimit > 0 && realizedPnL <= -lossLimit) {
-    return { hit: true, reason: `Daily loss limit of ₹${lossLimit} reached` };
-  }
-
-  return { hit: false };
+  return (data?.length || 0) > 0;
 }
 
-// NEW: Auto-disable function when quota hit
-async function autoDisableOnQuotaHit(userId: string, reason: string): Promise<void> {
+async function releaseExecutionLock(
+  userId: string,
+  nextEvaluationAt: Date,
+  error?: string
+): Promise<void> {
+  const update: Record<string, unknown> = {
+    execution_lock: false,
+    execution_started_at: null,
+    last_evaluation_at: new Date().toISOString(),
+    next_evaluation_at: nextEvaluationAt.toISOString(),
+    evaluation_error: error || null,
+  };
+
+  if (error) {
+    const { data } = await supabase
+      .from("trading_preferences")
+      .select("consecutive_failures")
+      .eq("user_id", userId)
+      .single();
+    update.consecutive_failures = ((data?.consecutive_failures || 0) + 1);
+  } else {
+    update.consecutive_failures = 0;
+  }
+
+  await supabase.from("trading_preferences").update(update).eq("user_id", userId);
+}
+
+async function releaseStaleLocks(): Promise<number> {
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from("trading_preferences")
+    .update({
+      execution_lock: false,
+      execution_started_at: null,
+      evaluation_error: "Lock released due to timeout (possible crash)",
+    })
+    .eq("execution_lock", true)
+    .lt("execution_started_at", fiveMinutesAgo)
+    .select("user_id");
+
+  if (error) {
+    logger.error("Failed to release stale locks", error);
+    return 0;
+  }
+
+  return data?.length || 0;
+}
+
+async function disableAutoTrading(userId: string, reason: string): Promise<void> {
   await supabase
     .from("trading_preferences")
     .update({
       auto_trading_enabled: false,
-      daily_quota_hit_at: new Date().toISOString(),
-      daily_quota_reason: reason,
       evaluation_error: reason,
       execution_lock: false,
     })
     .eq("user_id", userId);
 
-  logger.warn(`[QUOTA HIT] Auto-trading disabled for ${userId}: ${reason}`);
-  
-  // Log audit event - using standard supabase call since we don't have logAudit utility in engine
-  await supabase.from("audit_logs").insert({
-    user_id: userId,
-    action: "trading_auto_disabled",
-    target_table: "trading_preferences",
-    metadata: { reason, triggered_by: "daily_quota_limit" },
-  });
+  logger.warn(`Disabled auto-trading for user ${userId}: ${reason}`);
 }
 
 async function processUser(user: TradingPreference): Promise<void> {
   const { user_id } = user;
-
-  // FIRST: Check if daily quota already hit
-  const quotaCheck = await checkDailyQuotaHit(user_id);
-  if (quotaCheck.hit) {
-    await autoDisableOnQuotaHit(user_id, quotaCheck.reason!);
-    return; // Skip this user entirely
-  }
 
   const acquired = await acquireExecutionLock(user_id);
   if (!acquired) {
@@ -128,19 +164,16 @@ async function processUser(user: TradingPreference): Promise<void> {
 
     await incrementRateLimit(user_id, "evaluation");
 
-    let broker = null;
-    if (!user.paper_trading_enabled) {
-      broker = await getBrokerCredentials(user_id);
-      if (!broker || !broker.access_token) {
-        evaluationError = "No valid broker token";
-        return;
-      }
+    const broker = await getBrokerCredentials(user_id);
+    if (!broker || !broker.access_token) {
+      evaluationError = "No valid broker token";
+      return;
+    }
 
-      if (isTokenExpired(broker.token_expires_at)) {
-        evaluationError = "Broker token expired";
-        await markTokenExpired(user_id);
-        return;
-      }
+    if (isTokenExpired(broker.token_expires_at)) {
+      evaluationError = "Broker token expired";
+      await markTokenExpired(user_id);
+      return;
     }
 
     if (!user.strategy_id) {
@@ -165,24 +198,9 @@ async function processUser(user: TradingPreference): Promise<void> {
       return;
     }
 
-    // NEW: Check Aira Brain Volatility Health
-    const { data: heartbeat } = await supabase
-      .from("brain_heartbeats")
-      .select("volatility_level")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (heartbeat && heartbeat.volatility_level === 'extreme') {
-      logger.warn(`[HEALTH] Extreme volatility detected by Aira Brain. Blocking trades for ${user_id}`);
-      return;
-    }
-
     const signal = await evaluateWithAI(strategy, candles, {
       risk_per_trade: user.risk_per_trade || 1,
       max_daily_loss: user.max_daily_loss || 1000,
-      user_id: user_id,
-      capital_used: user.daily_pnl_realized || 0 // Use PnL as a proxy for capital state if needed
     });
 
     if (signal && signal.action !== "HOLD") {
@@ -210,24 +228,21 @@ async function processUser(user: TradingPreference): Promise<void> {
         return;
       }
 
-      await updateSignalStatus(signalId, "EXECUTING", "Placing order");
+      await updateSignalStatus(signalId, "EXECUTING", "Placing order with broker");
 
       try {
-        let orderResult;
-        const config = {
+        const orderResult = await executeOrder(
           user_id,
-          risk_per_trade: user.risk_per_trade || 1,
-          max_daily_loss: user.max_daily_loss || 1000,
-          max_trades_per_day: user.max_trades_per_day || 10,
-        };
-
-        if (user.paper_trading_enabled) {
-          orderResult = await executePaperOrder(user_id, signal, config, strategy.id);
-        } else if (broker) {
-          orderResult = await executeOrder(user_id, broker, signal, config, strategy.id);
-        } else {
-          throw new Error("No broker credentials for live trade");
-        }
+          broker,
+          signal,
+          {
+            user_id,
+            risk_per_trade: user.risk_per_trade || 1,
+            max_daily_loss: user.max_daily_loss || 1000,
+            max_trades_per_day: user.max_trades_per_day || 10,
+          },
+          strategy.id
+        );
 
         await updateSignalStatus(
           signalId,
@@ -237,7 +252,7 @@ async function processUser(user: TradingPreference): Promise<void> {
         );
 
         await incrementRateLimit(user_id, "order");
-        logger.info(`${user.paper_trading_enabled ? 'Paper' : 'Live'} trade executed for user ${user_id}: ${orderResult.order_id}`);
+        logger.info(`Trade executed for user ${user_id}: ${orderResult.order_id}`);
       } catch (execError) {
         const errorMsg = execError instanceof Error ? execError.message : "Unknown error";
         await updateSignalStatus(signalId, "FAILED", errorMsg);
@@ -268,8 +283,7 @@ async function evaluationLoop(): Promise<void> {
           risk_per_trade:max_allocation_per_trade,
           max_daily_loss:daily_loss_limit,
           max_trades_per_day:daily_profit_limit,
-          priority_score,
-          paper_trading_enabled
+          priority_score
         `)
         .eq("auto_trading_enabled", true)
         .eq("execution_lock", false)
@@ -365,197 +379,12 @@ async function orderSyncLoop(): Promise<void> {
         }
       }
 
-      await sleep(1000); // 1 second for faster order sync
+      await sleep(30 * 1000);
     } catch (error) {
       logger.error("Order sync loop error", error);
-      await sleep(5000);
+      await sleep(60 * 1000);
     }
   }
-}
-
-async function monitorPositions(tableName: "user_positions" | "paper_positions"): Promise<void> {
-    const { data: positions } = await supabase
-      .from(tableName)
-      .select(`
-        id, user_id, instrument_token, tradingsymbol, quantity,
-        entry_price, stop_loss, target_price, position_type
-      `)
-      .eq("status", "OPEN")
-      .limit(100);
-
-    for (const position of positions || []) {
-      if (getShutdownFlag()) break;
-
-      // Redis-First Price Fetch
-      let currentPrice: number | null = null;
-      try {
-        const cachedTick = await redis.get(REDIS_KEYS.LATEST_TICK(position.instrument_token));
-        if (cachedTick) {
-          const parsed = JSON.parse(cachedTick);
-          currentPrice = parsed.price;
-          logger.debug(`[Redis] Using cached price for ${position.tradingsymbol}: ${currentPrice}`);
-        }
-      } catch (err) {
-        logger.error(`[Redis] Error fetching price for ${position.instrument_token}`, err);
-      }
-
-        // Supabase Fallback
-        if (currentPrice === null) {
-          const { data: tick } = await supabase
-            .from("realtime_ticks")
-            .select("last_price")
-            .eq("instrument_token", position.instrument_token)
-            .order("tick_timestamp", { ascending: false })
-            .limit(1)
-            .single();
-          
-          if (tick) {
-            currentPrice = tick.last_price;
-            logger.debug(`[Supabase] Using DB price for ${position.tradingsymbol}: ${currentPrice}`);
-          }
-        }
-
-        if (currentPrice === null) continue;
-
-        // NEW: Trailing Stop Loss Logic
-        let stopLoss = position.stop_loss;
-        const trailingSlPct = 0.5; // Example: 0.5% trailing SL
-
-        if (position.position_type === "LONG") {
-            const potentialNewSl = currentPrice * (1 - trailingSlPct / 100);
-            if (potentialNewSl > stopLoss) {
-                stopLoss = potentialNewSl;
-                await supabase.from(tableName).update({ stop_loss: stopLoss }).eq("id", position.id);
-                logger.info(`[TRAILING SL] Updated LONG SL for ${position.tradingsymbol} to ${stopLoss.toFixed(2)}`);
-            }
-        } else {
-            const potentialNewSl = currentPrice * (1 + trailingSlPct / 100);
-            if (potentialNewSl < stopLoss) {
-                stopLoss = potentialNewSl;
-                await supabase.from(tableName).update({ stop_loss: stopLoss }).eq("id", position.id);
-                logger.info(`[TRAILING SL] Updated SHORT SL for ${position.tradingsymbol} to ${stopLoss.toFixed(2)}`);
-            }
-        }
-
-        const pnl =
-          position.position_type === "LONG"
-            ? (currentPrice - position.entry_price) * position.quantity
-            : (position.entry_price - currentPrice) * position.quantity;
-
-      const pnlPercent = (pnl / (position.entry_price * position.quantity)) * 100;
-
-      await supabase
-        .from(tableName)
-        .update({
-          current_price: currentPrice,
-          unrealized_pnl: pnl,
-          unrealized_pnl_percent: pnlPercent,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", position.id);
-
-      let exitReason: string | null = null;
-      if (position.position_type === "LONG") {
-        if (currentPrice <= position.stop_loss) exitReason = "STOP_LOSS_HIT";
-        else if (currentPrice >= position.target_price) exitReason = "TARGET_HIT";
-      } else {
-        if (currentPrice >= position.stop_loss) exitReason = "STOP_LOSS_HIT";
-        else if (currentPrice <= position.target_price) exitReason = "TARGET_HIT";
-      }
-
-        if (exitReason) {
-          if (tableName === "user_positions") {
-            try {
-              const broker = await getBrokerCredentials(position.user_id);
-              if (broker) {
-                const closeResult = await closePosition(
-                  position.user_id,
-                  broker,
-                  {
-                    tradingsymbol: position.tradingsymbol,
-                    quantity: position.quantity,
-                    position_type: position.position_type,
-                  },
-                  exitReason
-                );
-                
-                if (!closeResult.success) {
-                  logger.error(`[LIVE] Failed to execute broker exit for ${position.id}: ${closeResult.error}`);
-                  continue; 
-                }
-
-                // Update ai_signals for P&L tracking
-                const { data: latestSignal } = await supabase
-                  .from("ai_signals")
-                  .select("id")
-                  .eq("user_id", position.user_id)
-                  .eq("tradingsymbol", position.tradingsymbol)
-                  .eq("signal_status", "EXECUTED")
-                  .order("created_at", { ascending: false })
-                  .limit(1)
-                  .single();
-
-                if (latestSignal) {
-                  await supabase.from("ai_signals").update({
-                    exit_price: currentPrice,
-                    exit_at: new Date().toISOString(),
-                    pnl: pnl,
-                    signal_status: "CLOSED",
-                    status_reason: exitReason
-                  }).eq("id", latestSignal.id);
-                }
-              } else {
-                logger.error(`[LIVE] No broker credentials to close position ${position.id}`);
-                continue;
-              }
-            } catch (err) {
-              logger.error(`[LIVE] Error during position exit for ${position.id}`, err);
-              continue;
-            }
-          } else {
-            // Paper Trade History
-            await supabase.from("paper_trade_history").insert({
-              user_id: position.user_id,
-              strategy_id: position.strategy_id,
-              instrument_token: position.instrument_token,
-              tradingsymbol: position.tradingsymbol,
-              transaction_type: position.position_type === "LONG" ? "SELL" : "BUY",
-              quantity: position.quantity,
-              entry_price: position.entry_price,
-              exit_price: currentPrice,
-              pnl: pnl,
-              pnl_percent: pnlPercent,
-              entry_at: position.created_at,
-              exit_at: new Date().toISOString(),
-              exit_reason: exitReason
-            });
-          }
-
-            await supabase
-              .from(tableName)
-              .update({
-                status: "CLOSED",
-                exit_price: currentPrice,
-                exit_reason: exitReason,
-                closed_at: new Date().toISOString(),
-              })
-              .eq("id", position.id);
-
-            // NEW: Update daily PnL and check quota
-            await supabase.rpc("increment_daily_pnl", {
-              user_id_val: position.user_id,
-              pnl_val: pnl,
-            });
-
-            const quotaCheck = await checkDailyQuotaHit(position.user_id);
-            if (quotaCheck.hit) {
-              await autoDisableOnQuotaHit(position.user_id, quotaCheck.reason!);
-            }
-
-            logger.info(`[${tableName === 'paper_positions' ? 'PAPER' : 'LIVE'}] Position ${position.id} closed: ${exitReason} | P&L: ${pnl.toFixed(2)}`);
-          }
-
-    }
 }
 
 async function positionMonitorLoop(): Promise<void> {
@@ -563,12 +392,73 @@ async function positionMonitorLoop(): Promise<void> {
 
   while (!getShutdownFlag()) {
     try {
-      await monitorPositions("user_positions");
-      await monitorPositions("paper_positions");
-      await sleep(1000); // 1 second for faster position monitoring
+      const { data: positions } = await supabase
+        .from("user_positions")
+        .select(`
+          id, user_id, instrument_token, tradingsymbol, quantity,
+          entry_price, stop_loss, target_price, position_type
+        `)
+        .eq("status", "OPEN")
+        .limit(100);
+
+      for (const position of positions || []) {
+        if (getShutdownFlag()) break;
+
+        const { data: tick } = await supabase
+          .from("realtime_ticks")
+          .select("last_price")
+          .eq("instrument_token", position.instrument_token)
+          .order("tick_timestamp", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!tick) continue;
+
+        const currentPrice = tick.last_price;
+        const pnl =
+          position.position_type === "LONG"
+            ? (currentPrice - position.entry_price) * position.quantity
+            : (position.entry_price - currentPrice) * position.quantity;
+        const pnlPercent = (pnl / (position.entry_price * position.quantity)) * 100;
+
+        await supabase
+          .from("user_positions")
+          .update({
+            current_price: currentPrice,
+            unrealized_pnl: pnl,
+            unrealized_pnl_percent: pnlPercent,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", position.id);
+
+        let exitReason: string | null = null;
+        if (position.position_type === "LONG") {
+          if (currentPrice <= position.stop_loss) exitReason = "STOP_LOSS_HIT";
+          else if (currentPrice >= position.target_price) exitReason = "TARGET_HIT";
+        } else {
+          if (currentPrice >= position.stop_loss) exitReason = "STOP_LOSS_HIT";
+          else if (currentPrice <= position.target_price) exitReason = "TARGET_HIT";
+        }
+
+        if (exitReason) {
+          await supabase
+            .from("user_positions")
+            .update({
+              status: "CLOSED",
+              exit_price: currentPrice,
+              exit_reason: exitReason,
+              closed_at: new Date().toISOString(),
+            })
+            .eq("id", position.id);
+
+          logger.info(`Position ${position.id} closed: ${exitReason}`);
+        }
+      }
+
+      await sleep(10 * 1000);
     } catch (error) {
       logger.error("Position monitor loop error", error);
-      await sleep(5000);
+      await sleep(30 * 1000);
     }
   }
 }
@@ -580,13 +470,12 @@ async function priorityUpdateLoop(): Promise<void> {
     try {
       await supabase.from("trading_preferences").update({ priority_score: 0 });
 
-      const { data: livePos } = await supabase.from("user_positions").select("user_id").eq("status", "OPEN");
-      const { data: paperPos } = await supabase.from("paper_positions").select("user_id").eq("status", "OPEN");
+      const { data: usersWithPositions } = await supabase
+        .from("user_positions")
+        .select("user_id")
+        .eq("status", "OPEN");
 
-      const userIds = [...new Set([
-        ...(livePos || []).map((u) => u.user_id),
-        ...(paperPos || []).map((u) => u.user_id)
-      ])];
+      const userIds = [...new Set((usersWithPositions || []).map((u) => u.user_id))];
 
       if (userIds.length > 0) {
         for (const userId of userIds) {
@@ -597,22 +486,13 @@ async function priorityUpdateLoop(): Promise<void> {
         }
       }
 
-      const { data: liveUrgent } = await supabase
+      const { data: urgentPositions } = await supabase
         .from("user_positions")
         .select("user_id")
         .eq("status", "OPEN")
         .lt("unrealized_pnl_percent", -2);
 
-      const { data: paperUrgent } = await supabase
-        .from("paper_positions")
-        .select("user_id")
-        .eq("status", "OPEN")
-        .lt("unrealized_pnl_percent", -2);
-
-      const urgentUserIds = [...new Set([
-        ...(liveUrgent || []).map((u) => u.user_id),
-        ...(paperUrgent || []).map((u) => u.user_id)
-      ])];
+      const urgentUserIds = [...new Set((urgentPositions || []).map((u) => u.user_id))];
 
       if (urgentUserIds.length > 0) {
         for (const userId of urgentUserIds) {
@@ -665,85 +545,6 @@ async function cleanupLoop(): Promise<void> {
   }
 }
 
-async function processScannerUser(user: any): Promise<void> {
-  const { user_id, strategy_id } = user;
-
-  try {
-    if (!strategy_id) return;
-
-    const strategy = await getStrategy(strategy_id);
-    if (!strategy) return;
-
-    const instruments = strategy.instruments.length > 0 
-      ? strategy.instruments 
-      : [256265]; // NIFTY 50 default
-
-    const candles = await getLatestCandles(instruments, strategy.timeframe);
-    if (candles.length === 0) return;
-
-    const signal = await evaluateWithAI(strategy, candles, {
-      risk_per_trade: user.risk_per_trade || 1,
-      max_daily_loss: user.max_daily_loss || 1000,
-      user_id: user_id,
-      capital_used: 0
-    });
-
-    if (signal && signal.action !== "HOLD") {
-      // Check for duplicate signals in last 5 minutes
-      const { data: existing } = await supabase
-        .from("ai_signals")
-        .select("id")
-        .eq("user_id", user_id)
-        .eq("strategy_id", strategy_id)
-        .eq("tradingsymbol", signal.instrument)
-        .eq("signal_type", "SCANNER")
-        .gt("created_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
-        .limit(1);
-
-      if (existing && existing.length > 0) {
-        logger.debug(`Duplicate scanner signal for ${user_id} on ${signal.instrument}, skipping`);
-        return;
-      }
-
-      await createSignal(user_id, strategy.id, signal, "PENDING", "SCANNER");
-      logger.info(`[SCANNER] New signal for ${user_id}: ${signal.action} ${signal.instrument}`);
-    }
-  } catch (error) {
-    logger.error(`Error in processScannerUser for ${user_id}:`, error);
-  }
-}
-
-async function scannerLoop(): Promise<void> {
-  logger.info("Starting scanner loop...");
-
-  while (!getShutdownFlag()) {
-    try {
-      const { data: users, error } = await supabase
-        .from("trading_preferences")
-        .select(`
-          user_id,
-          strategy_id,
-          strategy_type,
-          is_scanner_active
-        `)
-        .eq("is_scanner_active", true)
-        .limit(20);
-
-      if (error) throw error;
-
-      for (const user of users || []) {
-        if (getShutdownFlag()) break;
-        await processScannerUser(user);
-      }
-
-      await sleep(15000); // Scan every 15 seconds
-    } catch (error) {
-      logger.error("Scanner loop error", error);
-      await sleep(30000);
-    }
-  }
-}
-
 async function updateEngineStatus(status: string, errorMessage?: string): Promise<void> {
   const { data: activeUsers } = await supabase
     .from("trading_preferences")
@@ -769,67 +570,6 @@ async function cleanup(): Promise<void> {
   await updateEngineStatus("stopped");
 }
 
-async function autoSquareOffLoop(): Promise<void> {
-  logger.info("Starting auto-squareoff loop...");
-
-  while (!getShutdownFlag()) {
-    try {
-      const now = new Date();
-      const currentHour = now.getUTCHours();
-      const currentMinute = now.getUTCMinutes();
-
-      // 3:15 PM IST = 9:45 AM UTC
-      // Run between 9:45 AM UTC and 10:00 AM UTC
-      if (currentHour === 9 && currentMinute >= 45 && currentMinute < 60) {
-        logger.info("[SQUAREOFF] Starting end-of-day squareoff...");
-
-        // Square off Live Positions
-        const { data: livePositions } = await supabase
-          .from("user_positions")
-          .select("*")
-          .eq("status", "OPEN");
-
-        for (const pos of livePositions || []) {
-          const broker = await getBrokerCredentials(pos.user_id);
-          if (broker) {
-            await closePosition(pos.user_id, broker, {
-              tradingsymbol: pos.tradingsymbol,
-              quantity: pos.quantity,
-              position_type: pos.position_type
-            }, "AUTO_SQUAREOFF");
-          }
-          
-          await supabase.from("user_positions").update({
-            status: "CLOSED",
-            exit_reason: "AUTO_SQUAREOFF",
-            closed_at: new Date().toISOString()
-          }).eq("id", pos.id);
-        }
-
-        // Square off Paper Positions
-        await supabase
-          .from("paper_positions")
-          .update({
-            status: "CLOSED",
-            exit_reason: "AUTO_SQUAREOFF",
-            closed_at: new Date().toISOString()
-          })
-          .eq("status", "OPEN");
-
-        logger.info("[SQUAREOFF] End-of-day squareoff completed");
-        
-        // Wait for 15 minutes to avoid re-triggering in the same window
-        await sleep(15 * 60 * 1000);
-      }
-
-      await sleep(60000); // Check every minute
-    } catch (error) {
-      logger.error("Auto-squareoff loop error", error);
-      await sleep(60000);
-    }
-  }
-}
-
 async function main(): Promise<void> {
   logger.info("Trading Engine starting...");
 
@@ -840,29 +580,14 @@ async function main(): Promise<void> {
 
   await updateEngineStatus("running");
 
-  // NEW: Heartbeat loop for trading engine
-  const heartbeatInterval = setInterval(async () => {
-    if (getShutdownFlag()) {
-      clearInterval(heartbeatInterval);
-      return;
-    }
-    try {
-      await updateEngineStatus("running");
-    } catch (err) {
-      logger.error("Heartbeat error", err);
-    }
-  }, 30000);
-
-    await Promise.all([
-      evaluationLoop(),
-      scannerLoop(),
-      tokenRefreshLoop(),
-      orderSyncLoop(),
-      positionMonitorLoop(),
-      priorityUpdateLoop(),
-      cleanupLoop(),
-      autoSquareOffLoop(),
-    ]);
+  await Promise.all([
+    evaluationLoop(),
+    tokenRefreshLoop(),
+    orderSyncLoop(),
+    positionMonitorLoop(),
+    priorityUpdateLoop(),
+    cleanupLoop(),
+  ]);
 }
 
 main().catch((err) => {

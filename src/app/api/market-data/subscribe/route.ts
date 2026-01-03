@@ -40,80 +40,7 @@ export async function POST(request: NextRequest) {
     return unauthorizedResponse();
   }
 
-  const rateCheck = checkRateLimit(user.userId!);
-  if (!rateCheck.allowed) {
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: "Rate limit exceeded. Please wait before making more requests.",
-        retryAfter: 60
-      }),
-      { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "60" } }
-    );
-  }
-
-  try {
-    const body = await request.json();
-    const { instrumentToken, instrumentTokens, source = "user_request" } = body;
-
-    const tokens: number[] = instrumentTokens 
-      ? (Array.isArray(instrumentTokens) ? instrumentTokens : [instrumentTokens])
-      : (instrumentToken ? [instrumentToken] : []);
-
-    if (tokens.length === 0) {
-      return badRequestResponse("Valid instrumentToken or instrumentTokens array is required");
-    }
-
-    if (tokens.length > 100) {
-      return badRequestResponse("Maximum 100 instruments per request");
-    }
-
-    const results: { token: number; status: string }[] = [];
-
-    for (const token of tokens) {
-      if (typeof token !== "number") continue;
-
-      const { data: existing } = await supabaseAdmin
-        .from("instruments")
-        .select("instrument_token, is_subscribed")
-        .eq("instrument_token", token)
-        .single();
-
-      if (existing?.is_subscribed) {
-        results.push({ token, status: "already_subscribed" });
-        continue;
-      }
-
-      if (existing) {
-        await supabaseAdmin
-          .from("instruments")
-          .update({ is_subscribed: true, subscription_mode: "quote" })
-          .eq("instrument_token", token);
-        results.push({ token, status: "subscribed" });
-      } else {
-        results.push({ token, status: "not_found" });
-      }
-    }
-
-    return successResponse({ 
-      success: true, 
-      results,
-      remaining: rateCheck.remaining,
-    });
-
-  } catch (error) {
-    console.error("Error processing subscription request:", error);
-    return serverErrorResponse();
-  }
-}
-
-export async function POST_LEGACY(request: NextRequest) {
-  const user = await getAuthenticatedUser();
-  if (!user.authenticated) {
-    return unauthorizedResponse();
-  }
-
-  const rateCheck = checkRateLimit(user.userId!);
+  const rateCheck = checkRateLimit(user.user.id);
   if (!rateCheck.allowed) {
     return new Response(
       JSON.stringify({ 
@@ -164,7 +91,7 @@ export async function POST_LEGACY(request: NextRequest) {
       const { count: userTempCount } = await supabaseAdmin
         .from("subscription_requests")
         .select("*", { count: "exact", head: true })
-        .eq("source", `user_${user.userId}`)
+        .eq("source", `user_${user.user.id}`)
         .eq("tier", "TEMP")
         .gte("created_at", new Date(Date.now() - 3600000).toISOString());
 
@@ -217,7 +144,7 @@ export async function POST_LEGACY(request: NextRequest) {
       .insert({
         instrument_token: instrumentToken,
         tier,
-        source: `${source}_user_${user.userId}`,
+        source: `${source}_user_${user.user.id}`,
         status: "pending",
       });
 

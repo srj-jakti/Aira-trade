@@ -1,177 +1,205 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { marketDataEngine } from "./market-data-engine";
 
-/**
- * PRODUCTION-GRADE DYNAMIC INSTRUMENT MANAGER
- * 
- * Logic:
- * 1. Equity Stocks (~750): Unique companies from NIFTY 500 & BSE 500 (NSE preferred).
- * 2. Indices Options (200): 5 indices x (20 CE + 20 PE) near ATM.
- * 3. Futures (~210): Index futures + NSE F&O stocks futures.
- * 4. Currency (164): 4 pairs x (20 CE + 20 PE + 1 Fut).
- */
-
-const KEY_INDICES = [
-  { symbol: "NIFTY 50", name: "NIFTY", token: 256265 },
-  { symbol: "NIFTY BANK", name: "BANKNIFTY", token: 260105 },
-  { symbol: "NIFTY FIN SERVICE", name: "FINNIFTY", token: 257801 },
-  { symbol: "SENSEX", name: "SENSEX", token: 265 },
-  { symbol: "BANKEX", name: "BANKEX", token: 274441 }
+const NIFTY_50_STOCKS = [
+  "ADANIENT", "ADANIPORTS", "APOLLOHOSP", "ASIANPAINT", "AXISBANK",
+  "BAJAJ-AUTO", "BAJFINANCE", "BAJAJFINSV", "BEL", "BPCL",
+  "BHARTIARTL", "BRITANNIA", "CIPLA", "COALINDIA", "DRREDDY",
+  "EICHERMOT", "GRASIM", "HCLTECH", "HDFCBANK", "HDFCLIFE",
+  "HEROMOTOCO", "HINDALCO", "HINDUNILVR", "ICICIBANK", "ITC",
+  "INDUSINDBK", "INFY", "JSWSTEEL", "KOTAKBANK", "LT",
+  "M&M", "MARUTI", "NTPC", "NESTLEIND", "ONGC",
+  "POWERGRID", "RELIANCE", "SBILIFE", "SHRIRAMFIN", "SBIN",
+  "SUNPHARMA", "TCS", "TATACONSUM", "TATAMOTORS", "TATASTEEL",
+  "TECHM", "TITAN", "TRENT", "ULTRACEMCO", "WIPRO"
 ];
 
-const CURRENCY_PAIRS = ["USDINR", "EURINR", "GBPINR", "JPYINR"];
+const KEY_INDICES = [
+  "NIFTY 50", "NIFTY BANK", "NIFTY FIN SERVICE", "NIFTY IT",
+  "NIFTY AUTO", "NIFTY PHARMA", "NIFTY METAL", "NIFTY REALTY",
+  "NIFTY ENERGY", "NIFTY FMCG", "NIFTY PSE", "NIFTY MIDCAP 50",
+  "NIFTY NEXT 50", "NIFTY INFRA", "INDIA VIX"
+];
+
+const ACTIVE_FNO_STOCKS = [
+  "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "SBIN", "BHARTIARTL",
+  "AXISBANK", "KOTAKBANK", "LT", "ITC", "WIPRO", "HCLTECH", "TECHM",
+  "MARUTI", "TATAMOTORS", "M&M", "BAJFINANCE", "BAJAJFINSV", "SUNPHARMA",
+  "DRREDDY", "CIPLA", "TATASTEEL", "JSWSTEEL", "HINDALCO", "TITAN",
+  "POWERGRID", "NTPC", "ONGC", "COALINDIA", "ADANIENT", "ADANIPORTS",
+  "DIVISLAB", "APOLLOHOSP", "GRASIM", "ULTRACEMCO", "NESTLEIND", "BRITANNIA",
+  "HINDUNILVR", "ASIANPAINT", "TATACONSUM", "EICHERMOT", "INDUSINDBK",
+  "VEDL", "TATAPOWER", "ZOMATO", "PAYTM", "DMART", "IRCTC", "HAL"
+];
 
 export interface SubscriptionStats {
   totalSubscribed: number;
-  equity: number;
-  indexOptions: number;
-  futures: number;
-  currency: number;
+  indices: number;
+  nifty50Stocks: number;
+  nfoOptions: number;
+  searchedInstruments: number;
   other: number;
 }
 
-/**
- * Main function to refresh all dynamic subscriptions based on production rules.
- */
 export async function refreshDynamicSubscriptions(): Promise<{
   success: boolean;
   stats: SubscriptionStats;
   message: string;
 }> {
-  console.log("[DynamicInstrumentManager] Starting PRODUCTION-GRADE subscription refresh...");
+  console.log("[DynamicInstrumentManager] Starting subscription refresh...");
 
   const stats: SubscriptionStats = {
     totalSubscribed: 0,
-    equity: 0,
-    indexOptions: 0,
-    futures: 0,
-    currency: 0,
+    indices: 0,
+    nifty50Stocks: 0,
+    nfoOptions: 0,
+    searchedInstruments: 0,
     other: 0,
   };
 
   try {
-    // 1. Reset all subscriptions
     await supabaseAdmin
       .from("instruments")
       .update({ is_subscribed: false, subscription_priority: null, updated_at: new Date().toISOString() })
       .eq("is_subscribed", true);
 
-    const subscriptionQueue = new Set<number>();
+    const subscriptionQueue: number[] = [];
 
-    // --- SEGMENT 1: EQUITY STOCKS (~750) ---
-    // Fetch unique companies, preferring NSE
-    const { data: nseStocks } = await supabaseAdmin
+    const { data: indices } = await supabaseAdmin
       .from("instruments")
-      .select("instrument_token, tradingsymbol, name")
+      .select("instrument_token")
+      .eq("segment", "INDICES")
+      .in("exchange", ["NSE", "BSE"])
+      .in("tradingsymbol", KEY_INDICES);
+
+    if (indices) {
+      for (const idx of indices) {
+        subscriptionQueue.push(idx.instrument_token);
+      }
+      stats.indices = indices.length;
+    }
+
+    const { data: allIndices } = await supabaseAdmin
+      .from("instruments")
+      .select("instrument_token")
+      .eq("segment", "INDICES")
+      .eq("exchange", "NSE");
+
+    if (allIndices) {
+      for (const idx of allIndices) {
+        if (!subscriptionQueue.includes(idx.instrument_token)) {
+          subscriptionQueue.push(idx.instrument_token);
+          stats.indices++;
+        }
+      }
+    }
+
+    const { data: nifty50 } = await supabaseAdmin
+      .from("instruments")
+      .select("instrument_token")
       .eq("exchange", "NSE")
       .eq("instrument_type", "EQ")
-      .order("lot_size", { ascending: false }) // Proxy for liquidity
-      .limit(800);
+      .in("tradingsymbol", NIFTY_50_STOCKS);
 
-    if (nseStocks) {
-      const symbols = new Set();
-      for (const stock of nseStocks) {
-        if (!symbols.has(stock.tradingsymbol)) {
-          subscriptionQueue.add(stock.instrument_token);
-          symbols.add(stock.tradingsymbol);
-          stats.equity++;
-        }
+    if (nifty50) {
+      for (const stock of nifty50) {
+        subscriptionQueue.push(stock.instrument_token);
       }
+      stats.nifty50Stocks = nifty50.length;
     }
 
-    // --- SEGMENT 2: INDEX OPTIONS (200) ---
-    // 5 Indices x 40 contracts
-    for (const idx of KEY_INDICES) {
-      // Add the index itself
-      subscriptionQueue.add(idx.token);
-      
-      const latestTick = await marketDataEngine.getLatestTick(idx.token);
-      const atmPrice = latestTick?.lastPrice || 0;
-
-      // Fetch near-ATM options for current week
-      const { data: options } = await supabaseAdmin
-        .from("instruments")
-        .select("instrument_token, strike, instrument_type")
-        .eq("segment", idx.token > 1000 ? "BFO-OPT" : "NFO-OPT")
-        .eq("name", idx.name)
-        .order("expiry", { ascending: true })
-        .limit(200); // Buffer to filter
-
-      if (options && options.length > 0) {
-        // Filter to 20 CE and 20 PE near ATM
-        const uniqueStrikes = [...new Set(options.map(o => Number(o.strike)))].sort((a, b) => a - b);
-        let atmIndex = uniqueStrikes.findIndex(s => s >= atmPrice);
-        if (atmIndex === -1) atmIndex = Math.floor(uniqueStrikes.length / 2);
-
-        const targetStrikes = uniqueStrikes.slice(Math.max(0, atmIndex - 20), atmIndex + 20);
-        
-        let count = 0;
-        for (const opt of options) {
-          if (targetStrikes.includes(Number(opt.strike))) {
-            subscriptionQueue.add(opt.instrument_token);
-            count++;
-          }
-        }
-        stats.indexOptions += count;
-      }
-    }
-
-    // --- SEGMENT 3: FUTURES (~210) ---
-    // Index Futures + Top NSE F&O Stock Futures
-    const today = new Date().toISOString().split("T")[0];
-    const { data: futs } = await supabaseAdmin
+    const { data: fnoStocks } = await supabaseAdmin
       .from("instruments")
-      .select("instrument_token, name")
+      .select("instrument_token")
+      .eq("exchange", "NSE")
+      .eq("instrument_type", "EQ")
+      .in("tradingsymbol", ACTIVE_FNO_STOCKS);
+
+    if (fnoStocks) {
+      for (const stock of fnoStocks) {
+        if (!subscriptionQueue.includes(stock.instrument_token)) {
+          subscriptionQueue.push(stock.instrument_token);
+          stats.other++;
+        }
+      }
+    }
+
+    const today = new Date();
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+    const { data: niftyFutures } = await supabaseAdmin
+      .from("instruments")
+      .select("instrument_token")
       .eq("segment", "NFO-FUT")
-      .gte("expiry", today)
-      .order("expiry", { ascending: true });
+      .in("name", ["NIFTY", "BANKNIFTY", "FINNIFTY"])
+      .gte("expiry", today.toISOString().split("T")[0])
+      .lte("expiry", nextMonth.toISOString().split("T")[0]);
 
-    if (futs) {
-      const addedNames = new Set();
-      for (const fut of futs) {
-        if (!addedNames.has(fut.name)) {
-          subscriptionQueue.add(fut.instrument_token);
-          addedNames.add(fut.name);
-          stats.futures++;
+    if (niftyFutures) {
+      for (const fut of niftyFutures) {
+        subscriptionQueue.push(fut.instrument_token);
+        stats.nfoOptions++;
+      }
+    }
+
+    const currentWeekEnd = new Date(today);
+    currentWeekEnd.setDate(currentWeekEnd.getDate() + 7);
+
+    const { data: niftyOptions } = await supabaseAdmin
+      .from("instruments")
+      .select("instrument_token, strike, instrument_type")
+      .eq("segment", "NFO-OPT")
+      .in("name", ["NIFTY", "BANKNIFTY"])
+      .gte("expiry", today.toISOString().split("T")[0])
+      .lte("expiry", currentWeekEnd.toISOString().split("T")[0])
+      .order("strike", { ascending: true });
+
+    if (niftyOptions && niftyOptions.length > 0) {
+      const strikes = [...new Set(niftyOptions.map(o => o.strike))].sort((a, b) => Number(a) - Number(b));
+      const midIndex = Math.floor(strikes.length / 2);
+      const atmStrikes = strikes.slice(Math.max(0, midIndex - 15), midIndex + 15);
+
+      for (const opt of niftyOptions) {
+        if (atmStrikes.includes(opt.strike)) {
+          subscriptionQueue.push(opt.instrument_token);
+          stats.nfoOptions++;
         }
       }
     }
 
-    // --- SEGMENT 4: CURRENCY (164) ---
-    // 4 Pairs x 41 contracts
-    for (const pair of CURRENCY_PAIRS) {
-      const { data: cds } = await supabaseAdmin
-        .from("instruments")
-        .select("instrument_token, strike, instrument_type, segment")
-        .eq("name", pair)
-        .gte("expiry", today)
-        .order("expiry", { ascending: true });
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      if (cds) {
-        // 1 Future
-        const fut = cds.find(c => c.segment === "CDS-FUT");
-        if (fut) {
-          subscriptionQueue.add(fut.instrument_token);
-          stats.currency++;
-        }
+    const { data: searchedInstruments } = await supabaseAdmin
+      .from("instrument_interest_log")
+      .select("instrument_token")
+      .gte("created_at", sevenDaysAgo);
 
-        // 20 CE + 20 PE Options
-        const opts = cds.filter(c => c.segment === "CDS-OPT");
-        const uniqueStrikes = [...new Set(opts.map(o => Number(o.strike)))].sort((a, b) => a - b);
-        const mid = Math.floor(uniqueStrikes.length / 2);
-        const targetStrikes = uniqueStrikes.slice(Math.max(0, mid - 20), mid + 20);
-
-        for (const opt of opts) {
-          if (targetStrikes.includes(Number(opt.strike))) {
-            subscriptionQueue.add(opt.instrument_token);
-            stats.currency++;
-          }
+    if (searchedInstruments) {
+      const searchedTokens = [...new Set(searchedInstruments.map(s => s.instrument_token))];
+      for (const token of searchedTokens) {
+        if (!subscriptionQueue.includes(token)) {
+          subscriptionQueue.push(token);
+          stats.searchedInstruments++;
         }
       }
     }
 
-    // Apply subscriptions in batches
-    const uniqueTokens = Array.from(subscriptionQueue);
+    const { data: aiSearchLogs } = await supabaseAdmin
+      .from("instrument_search_logs")
+      .select("instrument_token")
+      .gte("created_at", sevenDaysAgo);
+
+    if (aiSearchLogs) {
+      const aiTokens = [...new Set(aiSearchLogs.map(s => s.instrument_token))];
+      for (const token of aiTokens) {
+        if (!subscriptionQueue.includes(token)) {
+          subscriptionQueue.push(token);
+          stats.searchedInstruments++;
+        }
+      }
+    }
+
+    const uniqueTokens = [...new Set(subscriptionQueue)].slice(0, 2500);
     stats.totalSubscribed = uniqueTokens.length;
 
     const batchSize = 500;
@@ -188,10 +216,12 @@ export async function refreshDynamicSubscriptions(): Promise<{
         .in("instrument_token", batch);
     }
 
+    console.log(`[DynamicInstrumentManager] Subscribed ${stats.totalSubscribed} instruments`);
+
     return {
       success: true,
       stats,
-      message: `Production-grade refresh complete. Subscribed ${stats.totalSubscribed} instruments.`,
+      message: `Subscribed ${stats.totalSubscribed} instruments: ${stats.indices} indices, ${stats.nifty50Stocks} NIFTY50 stocks, ${stats.nfoOptions} NFO, ${stats.searchedInstruments} searched`,
     };
   } catch (error) {
     console.error("[DynamicInstrumentManager] Error:", error);
@@ -219,7 +249,13 @@ export async function logInstrumentSearch(
       search_type: searchType,
     });
 
-    // Mark as subscribed if it's a valid search
+    await supabaseAdmin.from("instrument_interest_log").insert({
+      instrument_token: instrumentToken,
+      interest_type: searchType,
+      user_id: userId || null,
+      weight: searchType === "ai_analysis" ? 5 : 2,
+    });
+
     const { data: instrument } = await supabaseAdmin
       .from("instruments")
       .select("is_subscribed")
@@ -242,40 +278,28 @@ export async function logInstrumentSearch(
   }
 }
 
-export async function getSubscriptionStats(): Promise<SubscriptionStats> {
+export async function getSubscriptionStats(): Promise<SubscriptionStats & { lastRefresh?: string }> {
   const { data: subscribed } = await supabaseAdmin
     .from("instruments")
-    .select("instrument_token, segment, instrument_type, exchange")
+    .select("instrument_token, segment, instrument_type, subscription_priority")
     .eq("is_subscribed", true);
 
-  const stats: SubscriptionStats = {
+  const stats: SubscriptionStats & { lastRefresh?: string } = {
     totalSubscribed: 0,
-    equity: 0,
-    indexOptions: 0,
-    futures: 0,
-    currency: 0,
+    indices: 0,
+    nifty50Stocks: 0,
+    nfoOptions: 0,
+    searchedInstruments: 0,
     other: 0,
   };
 
   if (subscribed) {
     stats.totalSubscribed = subscribed.length;
-    
-    for (const inst of subscribed) {
-      const seg = inst.segment || "";
-      const type = inst.instrument_type || "";
-      
-      if (type === "EQ" && (inst.exchange === "NSE" || inst.exchange === "BSE")) {
-        stats.equity++;
-      } else if (seg.includes("-OPT") && !seg.includes("CDS")) {
-        stats.indexOptions++;
-      } else if (seg.includes("-FUT") && !seg.includes("CDS")) {
-        stats.futures++;
-      } else if (seg.includes("CDS")) {
-        stats.currency++;
-      } else {
-        stats.other++;
-      }
-    }
+    stats.indices = subscribed.filter(s => s.segment === "INDICES").length;
+    stats.nifty50Stocks = subscribed.filter(s => s.segment === "NSE" && s.instrument_type === "EQ").length;
+    stats.nfoOptions = subscribed.filter(s => s.segment?.includes("NFO")).length;
+    stats.searchedInstruments = subscribed.filter(s => s.subscription_priority === "user_search").length;
+    stats.other = stats.totalSubscribed - stats.indices - stats.nifty50Stocks - stats.nfoOptions;
   }
 
   return stats;

@@ -3,14 +3,9 @@
  * Manages tiered instrument subscriptions across multiple API keys
  * 
  * Tiers:
- * - CORE: Always subscribed (indices, NIFTY50, ATM options) - NEVER cleaned
- * - SCANNER: Fixed instruments for Scanner + AI Auto-Trading - NEVER cleaned while active strategies exist
- * - TEMP: User on-demand instruments (Strategy/Analysis pages) - 5-min inactivity cleanup
- * 
- * API Key Assignment:
- * - API Key A (CORE): Indices, NIFTY50, index options
- * - API Key B (SCANNER): Strategy instruments, scanner instruments  
- * - API Key C (TEMP): User on-demand requests
+ * - CORE: Always subscribed (indices, NIFTY50, ATM options)
+ * - POPULAR: Scanner/watchlist instruments (15-min inactivity cleanup)
+ * - TEMP: User search/chart instruments (5-min inactivity cleanup)
  * 
  * Limits:
  * - MAX 3000 instruments per WebSocket (Zerodha hard limit)
@@ -19,21 +14,18 @@
  * 
  * CRITICAL RULES:
  * - Instrument tokens are GLOBALLY UNIQUE (one token = one socket)
- * - Priority: CORE > SCANNER > TEMP (higher tier never overridden)
- * - CORE and SCANNER tiers: NEVER auto-cleanup
- * - TEMP tier: 5-min inactivity cleanup
+ * - Priority: CORE > POPULAR > TEMP (higher tier never overridden)
  * - Fallback WebSocket is EPHEMERAL - destroyed when load drops
  * - Resubscribe in priority order on reconnect
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
 
-export type SubscriptionTier = "CORE" | "SCANNER" | "TEMP" | "POPULAR";
+export type SubscriptionTier = "CORE" | "POPULAR" | "TEMP";
 
 const TIER_PRIORITY: Record<SubscriptionTier, number> = {
   CORE: 3,
-  SCANNER: 2,
-  POPULAR: 2, // Legacy - maps to SCANNER
+  POPULAR: 2,
   TEMP: 1,
 };
 
@@ -67,9 +59,6 @@ export interface SubscriptionRequest {
   instrumentToken: number;
   tier: SubscriptionTier;
   source: string;
-  sourceId?: string;
-  userId?: string;
-  neverCleanup?: boolean;
 }
 
 export interface SubscriptionResult {
@@ -85,7 +74,8 @@ export interface SubscriptionResult {
 const MAX_INSTRUMENTS_PER_WS = 3000;
 const SOFT_LIMIT = 2500;
 const FALLBACK_DESTROY_THRESHOLD = 500;
-const TEMP_CLEANUP_MS = 5 * 60 * 1000; // 5 minutes for TEMP tier only
+const POPULAR_CLEANUP_MS = 15 * 60 * 1000;
+const TEMP_CLEANUP_MS = 5 * 60 * 1000;
 const FALLBACK_MAX_AGE_MS = 30 * 60 * 1000;
 
 const NIFTY50_TOKENS = [
@@ -94,8 +84,6 @@ const NIFTY50_TOKENS = [
   257801, // FINNIFTY
   265, // SENSEX
 ];
-
-const INDEX_UNDERLYING_NAMES = ["NIFTY", "BANKNIFTY", "FINNIFTY", "SENSEX"];
 
 const NIFTY50_STOCKS = [
   "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
@@ -150,7 +138,7 @@ export class SubscriptionManager {
     this.startCleanupTimer();
     this.startFallbackMonitor();
 
-    console.log(`[SubscriptionManager] Initialized. Tiers: CORE=${this.tierToApiKey.get("CORE")}, SCANNER=${this.tierToApiKey.get("SCANNER") || this.tierToApiKey.get("POPULAR")}, TEMP=${this.tierToApiKey.get("TEMP")}`);
+    console.log(`[SubscriptionManager] Initialized. Tiers: CORE=${this.tierToApiKey.get("CORE")}, POPULAR=${this.tierToApiKey.get("POPULAR")}, TEMP=${this.tierToApiKey.get("TEMP")}`);
   }
 
   private async loadExistingSubscriptions(): Promise<void> {
@@ -185,35 +173,17 @@ export class SubscriptionManager {
 
   async getCoreInstruments(): Promise<number[]> {
     const coreTokens: number[] = [...NIFTY50_TOKENS];
-    const addedSymbols = new Set<string>();
 
-    const { data: nseStocks } = await this.supabase
+    const { data: stocks } = await this.supabase
       .from("instruments")
-      .select("instrument_token, tradingsymbol")
+      .select("instrument_token")
       .in("tradingsymbol", NIFTY50_STOCKS)
       .eq("exchange", "NSE")
       .eq("segment", "NSE");
 
-    if (nseStocks) {
-      for (const stock of nseStocks) {
+    if (stocks) {
+      for (const stock of stocks) {
         coreTokens.push(stock.instrument_token);
-        addedSymbols.add(stock.tradingsymbol);
-      }
-    }
-
-    const { data: bseStocks } = await this.supabase
-      .from("instruments")
-      .select("instrument_token, tradingsymbol")
-      .in("tradingsymbol", NIFTY50_STOCKS)
-      .eq("exchange", "BSE")
-      .eq("segment", "BSE");
-
-    if (bseStocks) {
-      for (const stock of bseStocks) {
-        if (!addedSymbols.has(stock.tradingsymbol)) {
-          coreTokens.push(stock.instrument_token);
-          addedSymbols.add(stock.tradingsymbol);
-        }
       }
     }
 
@@ -230,30 +200,7 @@ export class SubscriptionManager {
       }
     }
 
-    const today = new Date();
-    const maxExpiry = new Date(today);
-    maxExpiry.setDate(maxExpiry.getDate() + 14);
-    
-    for (const underlying of INDEX_UNDERLYING_NAMES) {
-      const { data: indexOptions } = await this.supabase
-        .from("instruments")
-        .select("instrument_token, expiry, strike")
-        .or(`tradingsymbol.like.${underlying}%`)
-        .in("instrument_type", ["CE", "PE"])
-        .gte("expiry", today.toISOString().split("T")[0])
-        .lte("expiry", maxExpiry.toISOString().split("T")[0])
-        .limit(200);
-
-      if (indexOptions) {
-        for (const opt of indexOptions) {
-          if (!coreTokens.includes(opt.instrument_token)) {
-            coreTokens.push(opt.instrument_token);
-          }
-        }
-      }
-    }
-
-    console.log(`[SubscriptionManager] Core instruments: ${coreTokens.length} (NSE preferred, including index options for next 2 weeks)`);
+    console.log(`[SubscriptionManager] Core instruments: ${coreTokens.length}`);
     return coreTokens;
   }
 
@@ -274,15 +221,12 @@ export class SubscriptionManager {
   }
 
   async subscribe(request: SubscriptionRequest): Promise<SubscriptionResult> {
-    const { instrumentToken, tier, source, sourceId, userId, neverCleanup } = request;
-    
-    // Map POPULAR to SCANNER for backward compatibility
-    const effectiveTier = tier === "POPULAR" ? "SCANNER" : tier;
+    const { instrumentToken, tier, source } = request;
 
     const existing = this.subscriptions.get(instrumentToken);
     if (existing) {
       const existingPriority = TIER_PRIORITY[existing.tier];
-      const requestPriority = TIER_PRIORITY[effectiveTier];
+      const requestPriority = TIER_PRIORITY[tier];
 
       if (requestPriority <= existingPriority) {
         existing.lastUsedAt = new Date();
@@ -297,35 +241,29 @@ export class SubscriptionManager {
         };
       }
 
-      console.log(`[SubscriptionManager] Upgrading ${instrumentToken} from ${existing.tier} to ${effectiveTier}`);
+      console.log(`[SubscriptionManager] Upgrading ${instrumentToken} from ${existing.tier} to ${tier}`);
       await this.unsubscribeInternal(instrumentToken, true);
     }
 
-    // Find API key for this tier (SCANNER falls back to POPULAR for legacy configs)
-    let apiKeyId = this.tierToApiKey.get(effectiveTier);
-    if (!apiKeyId && effectiveTier === "SCANNER") {
-      apiKeyId = this.tierToApiKey.get("POPULAR");
-    }
+    const apiKeyId = this.tierToApiKey.get(tier);
     if (!apiKeyId) {
       const fallbackApiKeyId = this.tierToApiKey.get("TEMP") || 
-                               this.tierToApiKey.get("SCANNER") || 
                                this.tierToApiKey.get("POPULAR") || 
                                this.tierToApiKey.get("CORE");
       if (!fallbackApiKeyId) {
         return {
           success: false,
           instrumentToken,
-          error: `No API key configured for tier ${effectiveTier}`,
+          error: `No API key configured for tier ${tier}`,
         };
       }
-      apiKeyId = fallbackApiKeyId;
     }
 
     const targetApiKeyId = apiKeyId || Array.from(this.apiKeyConfigs.keys())[0];
-    const websocket = this.findAvailableWebSocket(targetApiKeyId, effectiveTier);
+    const websocket = this.findAvailableWebSocket(targetApiKeyId, tier);
 
     if (!websocket) {
-      console.warn(`[SubscriptionManager] No available WebSocket for ${instrumentToken} (tier: ${effectiveTier})`);
+      console.warn(`[SubscriptionManager] No available WebSocket for ${instrumentToken} (tier: ${tier})`);
       return {
         success: false,
         instrumentToken,
@@ -343,7 +281,7 @@ export class SubscriptionManager {
 
     const subscription: InstrumentSubscription = {
       instrumentToken,
-      tier: effectiveTier,
+      tier,
       apiKeyId: targetApiKeyId,
       websocketId: websocket.id,
       lastUsedAt: new Date(),
@@ -352,9 +290,9 @@ export class SubscriptionManager {
     this.subscriptions.set(instrumentToken, subscription);
     websocket.subscribedTokens.add(instrumentToken);
 
-    await this.persistSubscription(subscription, source, sourceId, neverCleanup || effectiveTier === "CORE" || effectiveTier === "SCANNER");
+    await this.persistSubscription(subscription);
 
-    console.log(`[SubscriptionManager] Subscribed ${instrumentToken} (${effectiveTier}) to ${websocket.id}. Total: ${websocket.subscribedTokens.size}`);
+    console.log(`[SubscriptionManager] Subscribed ${instrumentToken} (${tier}) to ${websocket.id}. Total: ${websocket.subscribedTokens.size}`);
 
     return {
       success: true,
@@ -373,7 +311,7 @@ export class SubscriptionManager {
     }
 
     if (primaryWs && primaryWs.subscribedTokens.size < MAX_INSTRUMENTS_PER_WS) {
-      if (tier === "CORE" || tier === "SCANNER" || tier === "POPULAR") {
+      if (tier === "CORE" || tier === "POPULAR") {
         return primaryWs;
       }
     }
@@ -419,9 +357,8 @@ export class SubscriptionManager {
       return false;
     }
 
-    // Protect CORE and SCANNER tiers from cleanup (unless explicitly allowed for upgrades)
-    if (!allowCore && (subscription.tier === "CORE" || subscription.tier === "SCANNER")) {
-      console.warn(`[SubscriptionManager] Cannot unsubscribe ${subscription.tier} instrument ${instrumentToken}`);
+    if (!allowCore && subscription.tier === "CORE") {
+      console.warn(`[SubscriptionManager] Cannot unsubscribe CORE instrument ${instrumentToken}`);
       return false;
     }
 
@@ -499,16 +436,13 @@ export class SubscriptionManager {
     console.log(`[SubscriptionManager] DESTROYED ephemeral fallback WebSocket ${websocketId}`);
   }
 
-  private async persistSubscription(sub: InstrumentSubscription, sourceType?: string, sourceId?: string, neverCleanup?: boolean): Promise<void> {
+  private async persistSubscription(sub: InstrumentSubscription): Promise<void> {
     await this.supabase.from("instrument_subscriptions").upsert({
       instrument_token: sub.instrumentToken,
       priority: sub.tier,
       api_key_id: sub.apiKeyId,
       websocket_id: sub.websocketId,
       last_used_at: sub.lastUsedAt.toISOString(),
-      source_type: sourceType || "SYSTEM",
-      source_id: sourceId || null,
-      never_cleanup: neverCleanup || false,
     }, { onConflict: "instrument_token" });
   }
 
@@ -532,8 +466,9 @@ export class SubscriptionManager {
     for (const [token, sub] of this.subscriptions.entries()) {
       const inactiveMs = now - sub.lastUsedAt.getTime();
 
-      // ONLY cleanup TEMP tier - CORE and SCANNER are NEVER cleaned up automatically
-      if (sub.tier === "TEMP" && inactiveMs > TEMP_CLEANUP_MS) {
+      if (sub.tier === "POPULAR" && inactiveMs > POPULAR_CLEANUP_MS) {
+        toRemove.push(token);
+      } else if (sub.tier === "TEMP" && inactiveMs > TEMP_CLEANUP_MS) {
         toRemove.push(token);
       }
     }
@@ -543,7 +478,7 @@ export class SubscriptionManager {
     }
 
     if (toRemove.length > 0) {
-      console.log(`[SubscriptionManager] Cleaned up ${toRemove.length} inactive TEMP subscriptions`);
+      console.log(`[SubscriptionManager] Cleaned up ${toRemove.length} inactive subscriptions`);
     }
 
     return toRemove.length;
@@ -554,24 +489,24 @@ export class SubscriptionManager {
     return ws ? Array.from(ws.subscribedTokens) : [];
   }
 
-  getTokensForResubscription(websocketId: string): { core: number[]; scanner: number[]; temp: number[] } {
+  getTokensForResubscription(websocketId: string): { core: number[]; popular: number[]; temp: number[] } {
     const ws = this.websockets.get(websocketId);
-    if (!ws) return { core: [], scanner: [], temp: [] };
+    if (!ws) return { core: [], popular: [], temp: [] };
 
     const core: number[] = [];
-    const scanner: number[] = [];
+    const popular: number[] = [];
     const temp: number[] = [];
 
     for (const token of ws.subscribedTokens) {
       const sub = this.subscriptions.get(token);
       if (sub) {
         if (sub.tier === "CORE") core.push(token);
-        else if (sub.tier === "SCANNER" || sub.tier === "POPULAR") scanner.push(token);
+        else if (sub.tier === "POPULAR") popular.push(token);
         else temp.push(token);
       }
     }
 
-    return { core, scanner, temp };
+    return { core, popular, temp };
   }
 
   getAllSubscribedTokens(): number[] {
@@ -625,7 +560,7 @@ export class SubscriptionManager {
     websocketStats: Array<{ id: string; count: number; isPrimary: boolean; age: number }>;
     fallbackWebSockets: number;
   } {
-    const byTier: Record<SubscriptionTier, number> = { CORE: 0, SCANNER: 0, POPULAR: 0, TEMP: 0 };
+    const byTier: Record<SubscriptionTier, number> = { CORE: 0, POPULAR: 0, TEMP: 0 };
     const byApiKey: Record<string, number> = {};
 
     for (const sub of this.subscriptions.values()) {
@@ -657,55 +592,6 @@ export class SubscriptionManager {
     if (sub) {
       sub.lastUsedAt = new Date();
     }
-  }
-
-  async subscribeScannerInstruments(): Promise<SubscriptionResult[]> {
-    const results: SubscriptionResult[] = [];
-
-    // Get instruments from scanner_instruments table
-    const { data: scannerInstruments, error: scannerError } = await this.supabase
-      .from("scanner_instruments")
-      .select("instrument_token, tradingsymbol")
-      .eq("is_active", true);
-
-    if (scannerError) {
-      console.error("[SubscriptionManager] Failed to load scanner instruments:", scannerError.message);
-    } else if (scannerInstruments) {
-      for (const inst of scannerInstruments) {
-        const result = await this.subscribe({
-          instrumentToken: inst.instrument_token,
-          tier: "SCANNER",
-          source: "scanner_instruments",
-          neverCleanup: true,
-        });
-        results.push(result);
-      }
-      console.log(`[SubscriptionManager] Subscribed ${scannerInstruments.length} scanner instruments`);
-    }
-
-    // Get instruments from active strategies
-    const { data: strategyInstruments, error: strategyError } = await this.supabase
-      .from("active_trade_instruments")
-      .select("instrument_token, tradingsymbol, source_type, source_id")
-      .eq("is_active", true);
-
-    if (strategyError) {
-      console.error("[SubscriptionManager] Failed to load strategy instruments:", strategyError.message);
-    } else if (strategyInstruments) {
-      for (const inst of strategyInstruments) {
-        const result = await this.subscribe({
-          instrumentToken: inst.instrument_token,
-          tier: "SCANNER",
-          source: inst.source_type,
-          sourceId: inst.source_id,
-          neverCleanup: true,
-        });
-        results.push(result);
-      }
-      console.log(`[SubscriptionManager] Subscribed ${strategyInstruments.length} strategy instruments`);
-    }
-
-    return results;
   }
 
   async destroy(): Promise<void> {

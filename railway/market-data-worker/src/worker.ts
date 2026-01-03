@@ -2,13 +2,9 @@
  * MARKET DATA WORKER - Multi-API-Key Architecture
  * 
  * Manages multiple Zerodha API keys with tier-based subscription allocation:
- * - API KEY A (CORE): NIFTY, BANKNIFTY, FINNIFTY, SENSEX, NIFTY50 stocks, index options
- * - API KEY B (SCANNER): Strategy instruments, Scanner instruments - NEVER auto-cleaned
- * - API KEY C (TEMP): User on-demand requests (Strategy/Analysis pages) - 5-min cleanup
- * 
- * Data Flow:
- * - Scanner + AI Trading: 24/7 data feed via SCANNER tier (runs even when users logged out)
- * - Strategy/Analysis: On-demand via TEMP tier (cleaned when user leaves)
+ * - API KEY A (CORE): NIFTY, BANKNIFTY, FINNIFTY, SENSEX, NIFTY50 stocks
+ * - API KEY B (POPULAR): Scanner stocks, watchlists, popular instruments
+ * - API KEY C (TEMP): User search, AI analysis charts
  * 
  * LIVE-HISTORICAL DATA:
  * - Backfills live_candles from Zerodha Historical API on startup
@@ -32,13 +28,11 @@ import {
   SubscriptionRequest 
 } from "./subscription-manager";
 import { BackfillService } from "./backfill-service";
-import { TechnicalIndicators } from "./utils/indicators";
-import { redis, REDIS_KEYS, scheduleMarketCloseCleanup, cleanupDayEndData } from "./utils/redis";
 
 const ALGORITHM = "aes-256-gcm";
 const MAX_INSTRUMENTS_PER_CONNECTION = 3000;
-const TICK_FLUSH_INTERVAL = 5000;
-const CANDLE_FLUSH_INTERVAL = 5000;
+const TICK_FLUSH_INTERVAL = 1000;
+const CANDLE_FLUSH_INTERVAL = 500;
 const HEALTH_CHECK_INTERVAL = 30000;
 const SUBSCRIPTION_REFRESH_INTERVAL = 300000;
 const BACKFILL_CHECK_INTERVAL = 3600000; // 1 hour
@@ -128,8 +122,6 @@ class MarketDataWorker {
   private backfillCheckInterval: NodeJS.Timeout | null = null;
   private pendingSubscriptionRequests: SubscriptionRequest[] = [];
   private backfillService: BackfillService | null = null;
-  private priceHistory: Map<string, number[]> = new Map();
-  private indicatorStates: Map<string, any> = new Map();
 
     constructor() {
       this.subscriptionManager = new SubscriptionManager(supabase);
@@ -152,12 +144,8 @@ class MarketDataWorker {
   async start(): Promise<void> {
     console.log("[MarketDataWorker] Starting Multi-API-Key Architecture...");
     console.log(`[MarketDataWorker] Supabase URL: ${supabaseUrl}`);
-    console.log(`[MarketDataWorker] Redis URL: ${process.env.REDIS_URL ? "configured" : "NOT SET"}`);
 
     await this.logSystemHealth("worker_started", { source: "market_data_worker", architecture: "multi_api_key" }, "info", "Market Data Worker started (Multi-API-Key)");
-
-    scheduleMarketCloseCleanup();
-    console.log("[MarketDataWorker] Day-end Redis cleanup scheduler initialized");
 
     while (!(await this.isMarketDataEnabled())) {
       console.log("[MarketDataWorker] Market data disabled. Waiting for enable signal (polling every 30s)...");
@@ -178,8 +166,7 @@ class MarketDataWorker {
       const legacyConfigs = await this.getLegacyAdminConfigs();
       if (legacyConfigs.length === 0) {
         await this.enterSafeMode("No Zerodha API configs available");
-        console.log("[MarketDataWorker] No configs available. Staying alive for heartbeat...");
-        return; // Don't exit, let heartbeat keep running
+        process.exit(1);
       }
       for (const c of legacyConfigs) {
         configs.push({
@@ -214,11 +201,11 @@ class MarketDataWorker {
 
     const connectedCount = Array.from(this.connections.values()).filter(c => c.isConnected).length;
     
-      if (connectedCount === 0) {
-        console.error("[MarketDataWorker] All connections failed. Will retry in next heartbeat cycle.");
-        await this.logSystemHealth("connection_failed", { reason: "All connections failed" }, "warning", "All WebSocket connections failed - will retry");
-        return; // Don't exit, let heartbeat retry
-      }
+    if (connectedCount === 0) {
+      console.error("[MarketDataWorker] All connections failed. Entering SAFE MODE.");
+      await this.enterSafeMode("All admin WebSocket connections failed");
+      process.exit(1);
+    }
 
     this.isRunning = true;
 
@@ -231,36 +218,25 @@ class MarketDataWorker {
 
     await this.subscribeToCore();
 
-      // Subscribe to SCANNER tier instruments (strategies + scanner)
-      await this.subscribeToScanner();
-
-      // Run initial backfill for CORE instruments
-      if (this.backfillService) {
-        console.log("[MarketDataWorker] Starting initial Live-Historical backfill...");
-        this.backfillService.backfillCoreInstruments().catch((err) => {
-          console.error("[MarketDataWorker] Initial backfill failed:", err);
-        });
-      }
+    // Run initial backfill for CORE instruments
+    if (this.backfillService) {
+      console.log("[MarketDataWorker] Starting initial Live-Historical backfill...");
+      this.backfillService.backfillCoreInstruments().catch((err) => {
+        console.error("[MarketDataWorker] Initial backfill failed:", err);
+      });
+    }
 
     console.log(`[MarketDataWorker] Running with ${connectedCount}/${configs.length} connections`);
     await this.logSystemHealth("worker_running", { connections: connectedCount, total: configs.length }, "info", `Market Data Worker running with ${connectedCount} connections`);
   }
 
   private async getApiKeyConfigs(): Promise<ApiKeyConfig[]> {
-    console.log("[MarketDataWorker] Fetching api_key_configs...");
     const { data: apiKeyData, error: apiKeyError } = await supabase
       .from("api_key_configs")
       .select("id, label, tier_assignment, zerodha_config_id")
       .eq("is_active", true);
 
-    if (apiKeyError) {
-      console.error("[MarketDataWorker] Error fetching api_key_configs:", apiKeyError);
-      return [];
-    }
-    
-    console.log(`[MarketDataWorker] Found ${apiKeyData?.length || 0} active api_key_configs`);
-
-    if (!apiKeyData || apiKeyData.length === 0) {
+    if (apiKeyError || !apiKeyData || apiKeyData.length === 0) {
       console.log("[MarketDataWorker] No api_key_configs found, checking legacy configs...");
       return [];
     }
@@ -268,8 +244,7 @@ class MarketDataWorker {
     const configs: ApiKeyConfig[] = [];
 
     for (const akc of apiKeyData) {
-      console.log(`[MarketDataWorker] Fetching Zerodha config for ${akc.label} (ID: ${akc.zerodha_config_id})...`);
-      const { data: zerodhaConfig, error: zError } = await supabase
+      const { data: zerodhaConfig } = await supabase
         .from("admin_zerodha_configs")
         .select("id, name, api_key, access_token")
         .eq("id", akc.zerodha_config_id)
@@ -277,14 +252,8 @@ class MarketDataWorker {
         .eq("connection_status", "connected")
         .single();
 
-      if (zError) {
-        console.warn(`[MarketDataWorker] Zerodha config ${akc.zerodha_config_id} not found or not connected:`, zError.message);
-        continue;
-      }
-
       if (zerodhaConfig && zerodhaConfig.access_token) {
         try {
-          console.log(`[MarketDataWorker] Decrypting keys for ${zerodhaConfig.name}...`);
           configs.push({
             id: akc.id,
             tierAssignment: akc.tier_assignment as SubscriptionTier,
@@ -404,12 +373,12 @@ class MarketDataWorker {
       const connection = this.connections.get(websocketId);
       if (!connection) return;
 
-      const { core, scanner, temp } = this.subscriptionManager.getTokensForResubscription(websocketId);
-      const totalTokens = core.length + scanner.length + temp.length;
+      const { core, popular, temp } = this.subscriptionManager.getTokensForResubscription(websocketId);
+      const totalTokens = core.length + popular.length + temp.length;
 
       if (totalTokens === 0) return;
 
-      console.log(`[MarketDataWorker][${websocketId}] Resubscribing ${totalTokens} tokens in PRIORITY ORDER (CORE: ${core.length}, SCANNER: ${scanner.length}, TEMP: ${temp.length})`);
+      console.log(`[MarketDataWorker][${websocketId}] Resubscribing ${totalTokens} tokens in PRIORITY ORDER (CORE: ${core.length}, POPULAR: ${popular.length}, TEMP: ${temp.length})`);
 
       const subscribeChunks = async (tokens: number[], tier: string) => {
         if (tokens.length === 0) return;
@@ -424,7 +393,7 @@ class MarketDataWorker {
       };
 
       await subscribeChunks(core, "CORE");
-      await subscribeChunks(scanner, "SCANNER");
+      await subscribeChunks(popular, "POPULAR");
       await subscribeChunks(temp, "TEMP");
     }
 
@@ -443,38 +412,6 @@ class MarketDataWorker {
         if (conn && conn.isConnected) {
           conn.ticker.subscribe([result.instrumentToken]);
           conn.ticker.setMode(conn.ticker.modeQuote, [result.instrumentToken]);
-        }
-      }
-    }
-
-    await this.updateEngineStatus();
-  }
-
-  private async subscribeToScanner(): Promise<void> {
-    console.log("[MarketDataWorker] Subscribing to SCANNER instruments (strategies + scanner)...");
-    
-    const results = await this.subscriptionManager.subscribeScannerInstruments();
-    const success = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
-
-    console.log(`[MarketDataWorker] SCANNER subscription complete: ${success} success, ${failed} failed`);
-
-    for (const result of results) {
-      if (result.success && result.websocketId) {
-        const conn = this.connections.get(result.websocketId);
-        if (conn && conn.isConnected) {
-          conn.ticker.subscribe([result.instrumentToken]);
-          conn.ticker.setMode(conn.ticker.modeQuote, [result.instrumentToken]);
-        }
-      }
-    }
-
-    // Queue backfill for SCANNER instruments
-    if (this.backfillService) {
-      for (const result of results) {
-        if (result.success) {
-          this.backfillService.queueBackfill(result.instrumentToken, "5m");
-          this.backfillService.queueBackfill(result.instrumentToken, "15m");
         }
       }
     }
@@ -558,21 +495,8 @@ class MarketDataWorker {
     this.tickCount += ticks.length;
     this.lastTickAt = now;
 
-    if (this.tickCount % 100 === 0) {
-      console.log(`[MarketDataWorker] Received ${this.tickCount} ticks since start. Last at ${now}`);
-    }
-
     for (const tick of ticks) {
       this.subscriptionManager.touchSubscription(tick.instrument_token);
-
-      // Publish to Redis Pub/Sub for immediate AI reaction
-      const redisPayload = JSON.stringify({
-        token: tick.instrument_token,
-        price: tick.last_price,
-        timestamp: now,
-      });
-      redis.publish(REDIS_KEYS.TICK_CHANNEL(tick.instrument_token), redisPayload);
-      redis.set(REDIS_KEYS.LATEST_TICK(tick.instrument_token), redisPayload, "EX", 3600);
 
       this.tickBuffer.push({
         instrument_token: tick.instrument_token,
@@ -667,67 +591,29 @@ class MarketDataWorker {
         "1s": 1, "5s": 5, "15s": 15, "1m": 60, "5m": 300, "15m": 900, "1h": 3600
       };
 
-        for (const [key, buffer] of this.candleBuffers.entries()) {
-          const [tokenStr, timeframe, bucketStartStr] = key.split(":");
-          const instrumentToken = parseInt(tokenStr);
-          const bucketStart = parseInt(bucketStartStr);
-          const seconds = timeframeSeconds[timeframe] || 1;
-          const bucketEnd = bucketStart + (seconds * 1000);
+      for (const [key, buffer] of this.candleBuffers.entries()) {
+        const [tokenStr, timeframe, bucketStartStr] = key.split(":");
+        const instrumentToken = parseInt(tokenStr);
+        const bucketStart = parseInt(bucketStartStr);
+        const seconds = timeframeSeconds[timeframe] || 1;
+        const bucketEnd = bucketStart + (seconds * 1000);
 
-          const historyKey = `${instrumentToken}:${timeframe}`;
-          const history = this.priceHistory.get(historyKey) || [];
-          
-          // Calculate indicators
-          const indicators: any = {};
-          if (history.length > 0) {
-            const currentPrices = [...history, buffer.close];
-            indicators.ema_20 = TechnicalIndicators.calculateEMA(buffer.close, history[history.length - 1], 20);
-            indicators.rsi_14 = TechnicalIndicators.calculateRSI(currentPrices, 14);
-          }
+        liveCandles.push({
+          instrument_token: instrumentToken,
+          timeframe: timeframe,
+          timestamp: new Date(bucketStart).toISOString(),
+          open: buffer.open,
+          high: buffer.high,
+          low: buffer.low,
+          close: buffer.close,
+          volume: buffer.volume,
+          oi: buffer.oi,
+        });
 
-            liveCandles.push({
-              instrument_token: instrumentToken,
-              timeframe: timeframe,
-              timestamp: new Date(bucketStart).toISOString(),
-              open: buffer.open,
-              high: buffer.high,
-              low: buffer.low,
-              close: buffer.close,
-              volume: buffer.volume,
-              oi: buffer.oi,
-              indicators: indicators
-            });
-
-            // Push live candle update to Redis
-            const candlePayload = JSON.stringify({
-              token: instrumentToken,
-              timeframe,
-              bucketStart,
-              open: buffer.open,
-              high: buffer.high,
-              low: buffer.low,
-              close: buffer.close,
-              indicators
-            });
-            redis.publish(REDIS_KEYS.CANDLE_CHANNEL(instrumentToken, timeframe), candlePayload);
-            redis.set(REDIS_KEYS.LIVE_CANDLE(instrumentToken, timeframe), candlePayload, "EX", 3600);
-
-            if (now >= bucketEnd) {
-              // Candle is closing, push to Redis List for history
-              const listKey = REDIS_KEYS.CANDLE_LIST(instrumentToken, timeframe);
-              redis.rpush(listKey, candlePayload);
-              redis.ltrim(listKey, -100, -1); // Keep last 100 candles
-              redis.expire(listKey, 86400); // 24 hours expiry
-
-              // Candle is closing, add to history
-
-            history.push(buffer.close);
-            if (history.length > 50) history.shift(); // Keep last 50
-            this.priceHistory.set(historyKey, history);
-            keysToRemove.push(key);
-          }
+        if (now >= bucketEnd) {
+          keysToRemove.push(key);
         }
-
+      }
 
       keysToRemove.forEach(k => this.candleBuffers.delete(k));
 
@@ -783,17 +669,13 @@ class MarketDataWorker {
       await this.updateEngineStatus();
 
       const stats = this.subscriptionManager.getStats();
-      console.log(`[MarketDataWorker] Stats: ${stats.totalSubscriptions} subscriptions (CORE: ${stats.byTier.CORE}, SCANNER: ${stats.byTier.SCANNER}, TEMP: ${stats.byTier.TEMP})`);
+      console.log(`[MarketDataWorker] Stats: ${stats.totalSubscriptions} subscriptions (CORE: ${stats.byTier.CORE}, POPULAR: ${stats.byTier.POPULAR}, TEMP: ${stats.byTier.TEMP})`);
     }, HEALTH_CHECK_INTERVAL);
   }
 
   private startSubscriptionRefresh(): void {
     this.subscriptionRefreshInterval = setInterval(async () => {
       if (this.isRunning && !this.isShuttingDown) {
-        // Refresh SCANNER tier from scanner_instruments and active_trade_instruments
-        await this.subscribeToScanner();
-
-        // Also handle legacy high-priority instruments
         const { data: popular } = await supabase
           .from("instruments")
           .select("instrument_token")
@@ -805,7 +687,7 @@ class MarketDataWorker {
           for (const inst of popular) {
             await this.subscribeInstrument({
               instrumentToken: inst.instrument_token,
-              tier: "SCANNER",
+              tier: "POPULAR",
               source: "subscription_refresh",
             });
           }
@@ -889,7 +771,6 @@ class MarketDataWorker {
       ticks_per_second: this.ticksPerSecond,
       last_tick_at: this.lastTickAt,
       updated_at: new Date().toISOString(),
-      last_heartbeat: new Date().toISOString(),
     }, { onConflict: "engine_type" });
   }
 
@@ -988,94 +869,27 @@ function setupGracefulShutdown(): void {
   });
 }
 
-async function checkAndTriggerAutoLogin(): Promise<void> {
-  try {
-    const { data: expiredConfigs } = await supabase
-      .from("admin_zerodha_configs")
-      .select("id, name, token_expires_at, connection_status")
-      .eq("is_active", true)
-      .eq("auto_login_enabled", true);
-
-    if (!expiredConfigs || expiredConfigs.length === 0) return;
-
-    const now = new Date();
-    const needsLogin: string[] = [];
-
-    for (const config of expiredConfigs) {
-      const expiresAt = config.token_expires_at ? new Date(config.token_expires_at) : null;
-      const isExpired = !expiresAt || expiresAt <= now;
-      const isDisconnected = config.connection_status !== "connected";
-
-      if (isExpired || isDisconnected) {
-        needsLogin.push(config.name);
-      }
-    }
-
-    if (needsLogin.length > 0) {
-      console.log(`[MarketDataWorker] Event-based auto-login triggered for: ${needsLogin.join(", ")}`);
-      
-      const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      
-      try {
-        const response = await fetch(`${appUrl}/api/cron/zerodha-auto-login`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${serviceKey}`,
-          },
-          body: JSON.stringify({ triggerType: "event_based_worker" }),
-        });
-
-        if (response.ok) {
-          console.log("[MarketDataWorker] Event-based auto-login completed successfully");
-          await supabase.from("system_health_logs").insert({
-            metric_type: "event_auto_login",
-            metric_value: { accounts: needsLogin, source: "market_data_worker" },
-            severity: "info",
-            message: `Event-based auto-login triggered for ${needsLogin.length} accounts`,
-          });
-        } else {
-          console.error("[MarketDataWorker] Event-based auto-login failed:", await response.text());
-        }
-      } catch (fetchErr) {
-        console.error("[MarketDataWorker] Failed to call auto-login endpoint:", fetchErr);
-      }
-    }
-  } catch (err) {
-    console.error("[MarketDataWorker] Error checking token expiry:", err);
-  }
-}
-
 async function heartbeatLoop(): Promise<void> {
   console.log("[MarketDataWorker] Starting heartbeat loop...");
   console.log("[MarketDataWorker] Market Data Worker ONLINE and heartbeat active");
   
   let consecutiveFailures = 0;
   const MAX_CONSECUTIVE_FAILURES = 3;
-  let lastAutoLoginCheck = 0;
-  const AUTO_LOGIN_CHECK_INTERVAL = 300000; // 5 minutes
   
-    while (!getShutdownFlag()) {
-        try {
-          // If worker is not running, try to start it periodically
-          if (!worker["isRunning"]) {
-            console.log("[MarketDataWorker] Worker not running, attempting periodic restart...");
-            await worker.start().catch(err => console.error("[MarketDataWorker] Restart failed:", err));
-          }
-
-          // Check for expired tokens and trigger auto-login if needed (every 5 minutes)
-          const now = Date.now();
-          if (now - lastAutoLoginCheck >= AUTO_LOGIN_CHECK_INTERVAL) {
-            lastAutoLoginCheck = now;
-            await checkAndTriggerAutoLogin();
-          }
-
-          // Use the worker's own update method which is more robust
-          await (worker as any).updateEngineStatus();
-        
-        consecutiveFailures = 0;
-        await sleep(30000);
+  while (!getShutdownFlag()) {
+    try {
+      const { error } = await supabase.from("data_engine_status").upsert({
+        engine_type: "market_data",
+        last_heartbeat: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "engine_type" });
+      
+      if (error) {
+        throw error;
+      }
+      
+      consecutiveFailures = 0;
+      await sleep(30000);
     } catch (error) {
       consecutiveFailures++;
       console.error(`[MarketDataWorker] Heartbeat error (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}):`, error);

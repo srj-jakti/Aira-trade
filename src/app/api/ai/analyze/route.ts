@@ -13,7 +13,7 @@ import { logInstrumentSearch } from "@/lib/server/dynamic-instrument-manager";
 /**
  * POST /api/ai/analyze
  * 
- * Performs Human-Like AI-powered market analysis on an instrument.
+ * Performs AI-powered market analysis on an instrument.
  * Uses Live-Historical data from live_candles for proper context.
  */
 export async function POST(request: NextRequest) {
@@ -78,8 +78,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Perform Human-Like AI analysis
-    const humanAnalysis = await aiSharedService.analyzeMarketHumanLike({
+    // Perform AI analysis
+    const marketAnalysis = await aiSharedService.analyzeMarketTrend({
       symbol: tradingsymbol,
       candles,
     }, timeframe);
@@ -142,47 +142,53 @@ export async function POST(request: NextRequest) {
       }
 
 
-      // Fallback analysis if AI fails
-      if (!humanAnalysis.success && !parsed) {
-        const recentCandles = candles.slice(-30);
-        const prices = recentCandles.map(c => c.close);
-        const highs = recentCandles.map(c => c.high);
-        const lows = recentCandles.map(c => c.low);
-        
-        const currentPrice = prices[prices.length - 1];
-        const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-        const maxHigh = Math.max(...highs);
-        const minLow = Math.min(...lows);
-        
-        const priceChange = ((currentPrice - prices[0]) / prices[0]) * 100;
-        
-        result = {
-          trend: priceChange > 2 ? "bullish" : priceChange < -2 ? "bearish" : "neutral",
-          strength: Math.min(100, Math.abs(priceChange) * 10),
-          support: minLow,
-          resistance: maxHigh,
-          analysis: `Based on ${recentCandles.length} candles of ${timeframe} data: Price ${priceChange > 0 ? "up" : "down"} ${Math.abs(priceChange).toFixed(2)}%. Current: ${currentPrice.toFixed(2)}, Avg: ${avgPrice.toFixed(2)}.`,
-          signal: priceChange > 3 ? "buy" : priceChange < -3 ? "sell" : "hold",
-          confidence: Math.min(80, 50 + Math.abs(priceChange) * 5),
-          entry: currentPrice,
-          target: currentPrice * (priceChange > 0 ? 1.05 : 0.95),
-          stopLoss: currentPrice * (priceChange > 0 ? 0.97 : 1.03),
-          reasoning: `Technical analysis based on recent price movement of ${priceChange.toFixed(2)}%.`,
-        };
-      }
+    // Fallback analysis if AI fails
+    if (!marketAnalysis.success && !signalAnalysis.success) {
+      const recentCandles = candles.slice(-30);
+      const prices = recentCandles.map(c => c.close);
+      const highs = recentCandles.map(c => c.high);
+      const lows = recentCandles.map(c => c.low);
+      
+      const currentPrice = prices[prices.length - 1];
+      const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+      const maxHigh = Math.max(...highs);
+      const minLow = Math.min(...lows);
+      
+      const priceChange = ((currentPrice - prices[0]) / prices[0]) * 100;
+      
+      trendResult = {
+        trend: priceChange > 2 ? "bullish" : priceChange < -2 ? "bearish" : "neutral",
+        strength: Math.min(100, Math.abs(priceChange) * 10),
+        support: minLow,
+        resistance: maxHigh,
+        analysis: `Based on ${recentCandles.length} candles of ${timeframe} data: Price ${priceChange > 0 ? "up" : "down"} ${Math.abs(priceChange).toFixed(2)}%. Current: ${currentPrice.toFixed(2)}, Avg: ${avgPrice.toFixed(2)}.`,
+      };
 
-      return NextResponse.json({
-        success: true,
-        analysis: result,
-        hasData: true,
-        dataPoints: candles.length,
-        dataSource: "LIVE",
-        dataSufficient: sufficient,
-        dataWarning: message,
-        latestPrice: latestTick?.lastPrice || candles[candles.length - 1]?.close,
-        aiProvider: humanAnalysis.provider || "fallback",
-        cached: humanAnalysis.cached,
-      });
+      signalResult = {
+        signal: priceChange > 3 ? "buy" : priceChange < -3 ? "sell" : "hold",
+        confidence: Math.min(80, 50 + Math.abs(priceChange) * 5),
+        entry: currentPrice,
+        target: currentPrice * (priceChange > 0 ? 1.05 : 0.95),
+        stopLoss: currentPrice * (priceChange > 0 ? 0.97 : 1.03),
+        reasoning: `Technical analysis based on recent price movement of ${priceChange.toFixed(2)}%.`,
+      };
+    }
+
+    return NextResponse.json({
+      success: true,
+      analysis: {
+        ...trendResult,
+        ...signalResult,
+      },
+      hasData: true,
+      dataPoints: candles.length,
+      dataSource: "LIVE",
+      dataSufficient: sufficient,
+      dataWarning: message,
+      latestPrice: latestTick?.lastPrice || candles[candles.length - 1]?.close,
+      aiProvider: marketAnalysis.provider || signalAnalysis.provider || "fallback",
+      cached: marketAnalysis.cached || signalAnalysis.cached,
+    });
   } catch (error) {
     console.error("AI Analysis error:", error);
     

@@ -171,10 +171,13 @@ export async function PATCH(
         details: { plan, duration, reason },
       });
 
-      return successResponse({ 
-        success: true, 
-        message: `${plan.toUpperCase()} plan assigned for ${duration.replace("_", " ")}` 
-      });
+        return successResponse({ 
+          success: true, 
+          message: `${plan.toUpperCase()} plan assigned for ${duration.replace("_", " ")}`,
+          expiresAt: endDate?.toISOString() || null,
+          plan: plan.toUpperCase(),
+          planId: plan,
+        });
     }
 
     if (action === "revoke_plan") {

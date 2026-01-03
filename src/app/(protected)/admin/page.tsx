@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Database, 
   Key, 
@@ -2007,67 +2008,118 @@ function UserManagement() {
     }
   };
 
-  const handleAction = async (userId: string, action: "approve" | "revoke" | "block" | "unblock") => {
-    setActionLoading(userId);
-    try {
-      await fetch(`/api/admin/users/${userId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action })
-      });
-      await fetchUsers();
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleDelete = async (userId: string) => {
-    if (!confirm("Are you sure you want to permanently delete this user? This action cannot be undone.")) return;
-    setActionLoading(userId);
-    try {
-      await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
-      await fetchUsers();
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleAssignPlan = async () => {
-    if (!planDialogUser) return;
-    setActionLoading(planDialogUser.id);
-    try {
-      const res = await fetch(`/api/admin/users/${planDialogUser.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          action: "assign_plan", 
-          plan: selectedPlan, 
-          duration: selectedDuration 
-        })
-      });
-      if (res.ok) {
-        setPlanDialogUser(null);
-        await fetchUsers();
+    const handleAction = async (userId: string, action: "approve" | "revoke" | "block" | "unblock") => {
+      setActionLoading(userId);
+      try {
+        const res = await fetch(`/api/admin/users/${userId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action })
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          toast.success(data.message || `User ${action}d successfully`);
+          await fetchUsers();
+        } else {
+          toast.error(`Failed to ${action} user`);
+        }
+      } catch (err) {
+        console.error(`Error ${action}ing user:`, err);
+        toast.error(`Error ${action}ing user`);
+      } finally {
+        setActionLoading(null);
       }
-    } finally {
-      setActionLoading(null);
-    }
-  };
+    };
+  
+    const handleDelete = async (userId: string) => {
+      if (!confirm("Are you sure you want to permanently delete this user? This action cannot be undone.")) return;
+      setActionLoading(userId);
+      try {
+        const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+        if (res.ok) {
+          toast.success("User deleted successfully");
+          await fetchUsers();
+        } else {
+          toast.error("Failed to delete user");
+        }
+      } catch (err) {
+        console.error("Error deleting user:", err);
+        toast.error("Error deleting user");
+      } finally {
+        setActionLoading(null);
+      }
+    };
+  
+    const handleAssignPlan = async () => {
+      if (!planDialogUser) return;
+      setActionLoading(planDialogUser.id);
+      try {
+        const res = await fetch(`/api/admin/users/${planDialogUser.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            action: "assign_plan", 
+            plan: selectedPlan, 
+            duration: selectedDuration 
+          })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+          const planLabel = PLANS.find(p => p.value === selectedPlan)?.label || selectedPlan;
+          const durationLabel = DURATIONS.find(d => d.value === selectedDuration)?.label || selectedDuration;
+          toast.success(`Successfully assigned ${planLabel} plan for ${durationLabel} to ${planDialogUser.email}`);
+          
+          setUsers(prevUsers => prevUsers.map(user => 
+            user.id === planDialogUser.id 
+              ? { 
+                  ...user, 
+                  plan: selectedPlan.toUpperCase(), 
+                  plan_id: selectedPlan,
+                  plan_expires: data.expiresAt || null,
+                  is_admin_grant: true 
+                }
+              : user
+          ));
+          
+          setPlanDialogUser(null);
+        } else {
+          toast.error(data.error || "Failed to assign plan");
+        }
+      } catch (err) {
+        console.error("Error assigning plan:", err);
+        toast.error("Error connecting to server");
+      } finally {
+        setActionLoading(null);
+      }
+    };
+  
+    const handleRevokePlan = async (userId: string) => {
+      if (!confirm("Are you sure you want to revoke this user's plan?")) return;
+      setActionLoading(userId);
+      try {
+        const res = await fetch(`/api/admin/users/${userId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "revoke_plan" })
+        });
+        
+        if (res.ok) {
+          toast.success("Plan revoked successfully");
+          await fetchUsers();
+        } else {
+          toast.error("Failed to revoke plan");
+        }
+      } catch (err) {
+        console.error("Error revoking plan:", err);
+        toast.error("Error revoking plan");
+      } finally {
+        setActionLoading(null);
+      }
+    };
 
-  const handleRevokePlan = async (userId: string) => {
-    if (!confirm("Are you sure you want to revoke this user's plan?")) return;
-    setActionLoading(userId);
-    try {
-      await fetch(`/api/admin/users/${userId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "revoke_plan" })
-      });
-      await fetchUsers();
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   const PLANS = [
     { value: "basic", label: "Basic" },

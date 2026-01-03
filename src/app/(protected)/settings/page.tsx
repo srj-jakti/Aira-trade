@@ -90,6 +90,23 @@ const SUBSCRIPTION_PLANS = [
     ],
     sebiLabel: "Advanced execution automation. User retains full control.",
   },
+  {
+    id: "admin",
+    name: "ADMIN",
+    subtitle: "Full Access",
+    price: 0,
+    icon: Crown,
+    color: "red",
+    features: [
+      { text: "All ELITE Features", included: true },
+      { text: "Admin Panel Access", included: true },
+      { text: "User Management", included: true },
+      { text: "System Configuration", included: true },
+      { text: "Full Platform Control", included: true },
+      { text: "Priority Support", included: true },
+    ],
+    sebiLabel: "Admin access with all features enabled.",
+  },
 ];
 
 export default function SettingsPage() {
@@ -249,54 +266,74 @@ export default function SettingsPage() {
                       <CardDescription className="text-white/40">Manage your subscription and billing.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      {loadingSubscription ? (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader2 className="w-6 h-6 animate-spin text-white/30" />
-                        </div>
-                      ) : subscription?.status === "active" ? (
-                        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              {currentPlan && (
-                                <div className={cn(
-                                  "w-10 h-10 rounded-lg flex items-center justify-center",
-                                  currentPlan.color === "green" && "bg-green-500/20",
-                                  currentPlan.color === "blue" && "bg-blue-500/20",
-                                  currentPlan.color === "purple" && "bg-purple-500/20"
-                                )}>
-                                  <currentPlan.icon className={cn(
-                                    "w-5 h-5",
-                                    currentPlan.color === "green" && "text-green-400",
-                                    currentPlan.color === "blue" && "text-blue-400",
-                                    currentPlan.color === "purple" && "text-purple-400"
-                                  )} />
+                    {loadingSubscription ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-6 h-6 animate-spin text-white/30" />
+                          </div>
+                        ) : subscription?.status === "active" ? (
+                          <div className={cn(
+                            "p-4 border rounded-xl",
+                            subscription.is_admin_grant 
+                              ? "bg-purple-500/10 border-purple-500/20" 
+                              : "bg-green-500/10 border-green-500/20"
+                          )}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {currentPlan && (
+                                  <div className={cn(
+                                    "w-10 h-10 rounded-lg flex items-center justify-center",
+                                    currentPlan.color === "green" && "bg-green-500/20",
+                                    currentPlan.color === "blue" && "bg-blue-500/20",
+                                    currentPlan.color === "purple" && "bg-purple-500/20",
+                                    currentPlan.color === "red" && "bg-red-500/20"
+                                  )}>
+                                    <currentPlan.icon className={cn(
+                                      "w-5 h-5",
+                                      currentPlan.color === "green" && "text-green-400",
+                                      currentPlan.color === "blue" && "text-blue-400",
+                                      currentPlan.color === "purple" && "text-purple-400",
+                                      currentPlan.color === "red" && "text-red-400"
+                                    )} />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-semibold text-white">{currentPlan?.name || subscription.plan_name} Plan</p>
+                                  <p className="text-xs text-white/50">{currentPlan?.subtitle}</p>
                                 </div>
-                              )}
-                              <div>
-                                <p className="font-semibold text-white">{currentPlan?.name || subscription.plan_name} Plan</p>
-                                <p className="text-xs text-white/50">{currentPlan?.subtitle}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {subscription.is_admin_grant && (
+                                  <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">Admin Granted</Badge>
+                                )}
+                                <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Active</Badge>
                               </div>
                             </div>
-                            <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Active</Badge>
-                          </div>
-                          <div className="mt-4 pt-4 border-t border-green-500/20 flex items-center justify-between">
-                            <div className="text-sm text-white/60">
-                              <span>Next billing: </span>
-                              <span className="text-white">
-                                {subscription.current_period_end 
-                                  ? new Date(subscription.current_period_end).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
-                                  : "N/A"
-                                }
-                              </span>
+                            <div className={cn(
+                              "mt-4 pt-4 border-t flex items-center justify-between",
+                              subscription.is_admin_grant ? "border-purple-500/20" : "border-green-500/20"
+                            )}>
+                              <div className="text-sm text-white/60">
+                                {subscription.current_period_end ? (
+                                  <>
+                                    <span>{subscription.is_admin_grant ? "Expires: " : "Next billing: "}</span>
+                                    <span className="text-white">
+                                      {new Date(subscription.current_period_end).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="text-green-400">Lifetime Access</span>
+                                )}
+                              </div>
+                              {!subscription.is_admin_grant && (
+                                <Link href="/pricing">
+                                  <Button variant="outline" size="sm" className="border-white/10 text-white hover:bg-white/5">
+                                    Change Plan
+                                  </Button>
+                                </Link>
+                              )}
                             </div>
-                            <Link href="/pricing">
-                              <Button variant="outline" size="sm" className="border-white/10 text-white hover:bg-white/5">
-                                Change Plan
-                              </Button>
-                            </Link>
                           </div>
-                        </div>
-                      ) : (
+                        ) : (
                         <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
                           <div className="flex items-center gap-3">
                             <Info className="w-5 h-5 text-amber-400" />
@@ -308,10 +345,10 @@ export default function SettingsPage() {
                         </div>
                       )}
 
-                      <div>
-                        <h3 className="text-sm font-medium text-white/70 mb-4">Available Plans</h3>
-                        <div className="grid md:grid-cols-3 gap-4">
-                          {SUBSCRIPTION_PLANS.map((plan) => (
+                        <div>
+                          <h3 className="text-sm font-medium text-white/70 mb-4">Available Plans</h3>
+                          <div className="grid md:grid-cols-3 gap-4">
+                            {SUBSCRIPTION_PLANS.filter(p => p.id !== "admin").map((plan) => (
                             <div
                               key={plan.id}
                               className={cn(

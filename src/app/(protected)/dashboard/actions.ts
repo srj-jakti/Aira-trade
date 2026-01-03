@@ -10,6 +10,7 @@ export async function getDashboardStatus() {
 
   if (!user) return null;
 
+  try {
     const [configRes, prefsRes, engineStatusRes, recentSignalsRes] = await Promise.all([
       supabase.from("config").select("zerodha_connection_status").single(),
       supabase.from("trading_preferences").select("*").eq("user_id", user.id).single(),

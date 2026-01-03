@@ -1,13 +1,6 @@
 /**
  * TRADING ENGINE - Railway Deployment
  * 24/7 persistent background AI auto-trading service
- * 
- * This engine:
- * - Runs independently of browser/UI
- * - Evaluates strategies for all users with auto_trading_enabled
- * - Executes trades via Zerodha API
- * - Manages execution locks to prevent duplicate trades
- * - Handles token refresh, position monitoring, and cleanup
  */
 
 import { supabase } from "./utils/supabase";
@@ -19,6 +12,7 @@ import {
   isTokenExpired,
   markTokenExpired,
   executeOrder,
+  executePaperOrder,
   fetchOrderStatus,
 } from "./executor";
 import {
@@ -42,6 +36,7 @@ interface TradingPreference {
   max_daily_loss: number;
   max_trades_per_day: number;
   priority_score: number;
+  paper_trading_enabled: boolean;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -164,16 +159,19 @@ async function processUser(user: TradingPreference): Promise<void> {
 
     await incrementRateLimit(user_id, "evaluation");
 
-    const broker = await getBrokerCredentials(user_id);
-    if (!broker || !broker.access_token) {
-      evaluationError = "No valid broker token";
-      return;
-    }
+    let broker = null;
+    if (!user.paper_trading_enabled) {
+      broker = await getBrokerCredentials(user_id);
+      if (!broker || !broker.access_token) {
+        evaluationError = "No valid broker token";
+        return;
+      }
 
-    if (isTokenExpired(broker.token_expires_at)) {
-      evaluationError = "Broker token expired";
-      await markTokenExpired(user_id);
-      return;
+      if (isTokenExpired(broker.token_expires_at)) {
+        evaluationError = "Broker token expired";
+        await markTokenExpired(user_id);
+        return;
+      }
     }
 
     if (!user.strategy_id) {
@@ -228,21 +226,24 @@ async function processUser(user: TradingPreference): Promise<void> {
         return;
       }
 
-      await updateSignalStatus(signalId, "EXECUTING", "Placing order with broker");
+      await updateSignalStatus(signalId, "EXECUTING", "Placing order");
 
       try {
-        const orderResult = await executeOrder(
+        let orderResult;
+        const config = {
           user_id,
-          broker,
-          signal,
-          {
-            user_id,
-            risk_per_trade: user.risk_per_trade || 1,
-            max_daily_loss: user.max_daily_loss || 1000,
-            max_trades_per_day: user.max_trades_per_day || 10,
-          },
-          strategy.id
-        );
+          risk_per_trade: user.risk_per_trade || 1,
+          max_daily_loss: user.max_daily_loss || 1000,
+          max_trades_per_day: user.max_trades_per_day || 10,
+        };
+
+        if (user.paper_trading_enabled) {
+          orderResult = await executePaperOrder(user_id, signal, config, strategy.id);
+        } else if (broker) {
+          orderResult = await executeOrder(user_id, broker, signal, config, strategy.id);
+        } else {
+          throw new Error("No broker credentials for live trade");
+        }
 
         await updateSignalStatus(
           signalId,
@@ -252,7 +253,7 @@ async function processUser(user: TradingPreference): Promise<void> {
         );
 
         await incrementRateLimit(user_id, "order");
-        logger.info(`Trade executed for user ${user_id}: ${orderResult.order_id}`);
+        logger.info(`${user.paper_trading_enabled ? 'Paper' : 'Live'} trade executed for user ${user_id}: ${orderResult.order_id}`);
       } catch (execError) {
         const errorMsg = execError instanceof Error ? execError.message : "Unknown error";
         await updateSignalStatus(signalId, "FAILED", errorMsg);
@@ -283,7 +284,8 @@ async function evaluationLoop(): Promise<void> {
           risk_per_trade:max_allocation_per_trade,
           max_daily_loss:daily_loss_limit,
           max_trades_per_day:daily_profit_limit,
-          priority_score
+          priority_score,
+          paper_trading_enabled
         `)
         .eq("auto_trading_enabled", true)
         .eq("execution_lock", false)
@@ -387,74 +389,78 @@ async function orderSyncLoop(): Promise<void> {
   }
 }
 
+async function monitorPositions(tableName: "user_positions" | "paper_positions"): Promise<void> {
+    const { data: positions } = await supabase
+      .from(tableName)
+      .select(`
+        id, user_id, instrument_token, tradingsymbol, quantity,
+        entry_price, stop_loss, target_price, position_type
+      `)
+      .eq("status", "OPEN")
+      .limit(100);
+
+    for (const position of positions || []) {
+      if (getShutdownFlag()) break;
+
+      const { data: tick } = await supabase
+        .from("realtime_ticks")
+        .select("last_price")
+        .eq("instrument_token", position.instrument_token)
+        .order("tick_timestamp", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!tick) continue;
+
+      const currentPrice = tick.last_price;
+      const pnl =
+        position.position_type === "LONG"
+          ? (currentPrice - position.entry_price) * position.quantity
+          : (position.entry_price - currentPrice) * position.quantity;
+      const pnlPercent = (pnl / (position.entry_price * position.quantity)) * 100;
+
+      await supabase
+        .from(tableName)
+        .update({
+          current_price: currentPrice,
+          unrealized_pnl: pnl,
+          unrealized_pnl_percent: pnlPercent,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", position.id);
+
+      let exitReason: string | null = null;
+      if (position.position_type === "LONG") {
+        if (currentPrice <= position.stop_loss) exitReason = "STOP_LOSS_HIT";
+        else if (currentPrice >= position.target_price) exitReason = "TARGET_HIT";
+      } else {
+        if (currentPrice >= position.stop_loss) exitReason = "STOP_LOSS_HIT";
+        else if (currentPrice <= position.target_price) exitReason = "TARGET_HIT";
+      }
+
+      if (exitReason) {
+        await supabase
+          .from(tableName)
+          .update({
+            status: "CLOSED",
+            exit_price: currentPrice,
+            exit_reason: exitReason,
+            closed_at: new Date().toISOString(),
+          })
+          .eq("id", position.id);
+
+        logger.info(`${tableName === 'paper_positions' ? 'Paper' : 'Live'} position ${position.id} closed: ${exitReason}`);
+      }
+    }
+}
+
 async function positionMonitorLoop(): Promise<void> {
   logger.info("Starting position monitor loop...");
 
   while (!getShutdownFlag()) {
     try {
-      const { data: positions } = await supabase
-        .from("user_positions")
-        .select(`
-          id, user_id, instrument_token, tradingsymbol, quantity,
-          entry_price, stop_loss, target_price, position_type
-        `)
-        .eq("status", "OPEN")
-        .limit(100);
-
-      for (const position of positions || []) {
-        if (getShutdownFlag()) break;
-
-        const { data: tick } = await supabase
-          .from("realtime_ticks")
-          .select("last_price")
-          .eq("instrument_token", position.instrument_token)
-          .order("tick_timestamp", { ascending: false })
-          .limit(1)
-          .single();
-
-        if (!tick) continue;
-
-        const currentPrice = tick.last_price;
-        const pnl =
-          position.position_type === "LONG"
-            ? (currentPrice - position.entry_price) * position.quantity
-            : (position.entry_price - currentPrice) * position.quantity;
-        const pnlPercent = (pnl / (position.entry_price * position.quantity)) * 100;
-
-        await supabase
-          .from("user_positions")
-          .update({
-            current_price: currentPrice,
-            unrealized_pnl: pnl,
-            unrealized_pnl_percent: pnlPercent,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", position.id);
-
-        let exitReason: string | null = null;
-        if (position.position_type === "LONG") {
-          if (currentPrice <= position.stop_loss) exitReason = "STOP_LOSS_HIT";
-          else if (currentPrice >= position.target_price) exitReason = "TARGET_HIT";
-        } else {
-          if (currentPrice >= position.stop_loss) exitReason = "STOP_LOSS_HIT";
-          else if (currentPrice <= position.target_price) exitReason = "TARGET_HIT";
-        }
-
-        if (exitReason) {
-          await supabase
-            .from("user_positions")
-            .update({
-              status: "CLOSED",
-              exit_price: currentPrice,
-              exit_reason: exitReason,
-              closed_at: new Date().toISOString(),
-            })
-            .eq("id", position.id);
-
-          logger.info(`Position ${position.id} closed: ${exitReason}`);
-        }
-      }
-
+      await monitorPositions("user_positions");
+      await monitorPositions("paper_positions");
       await sleep(10 * 1000);
     } catch (error) {
       logger.error("Position monitor loop error", error);
@@ -470,12 +476,13 @@ async function priorityUpdateLoop(): Promise<void> {
     try {
       await supabase.from("trading_preferences").update({ priority_score: 0 });
 
-      const { data: usersWithPositions } = await supabase
-        .from("user_positions")
-        .select("user_id")
-        .eq("status", "OPEN");
+      const { data: livePos } = await supabase.from("user_positions").select("user_id").eq("status", "OPEN");
+      const { data: paperPos } = await supabase.from("paper_positions").select("user_id").eq("status", "OPEN");
 
-      const userIds = [...new Set((usersWithPositions || []).map((u) => u.user_id))];
+      const userIds = [...new Set([
+        ...(livePos || []).map((u) => u.user_id),
+        ...(paperPos || []).map((u) => u.user_id)
+      ])];
 
       if (userIds.length > 0) {
         for (const userId of userIds) {
@@ -486,13 +493,22 @@ async function priorityUpdateLoop(): Promise<void> {
         }
       }
 
-      const { data: urgentPositions } = await supabase
+      const { data: liveUrgent } = await supabase
         .from("user_positions")
         .select("user_id")
         .eq("status", "OPEN")
         .lt("unrealized_pnl_percent", -2);
 
-      const urgentUserIds = [...new Set((urgentPositions || []).map((u) => u.user_id))];
+      const { data: paperUrgent } = await supabase
+        .from("paper_positions")
+        .select("user_id")
+        .eq("status", "OPEN")
+        .lt("unrealized_pnl_percent", -2);
+
+      const urgentUserIds = [...new Set([
+        ...(liveUrgent || []).map((u) => u.user_id),
+        ...(paperUrgent || []).map((u) => u.user_id)
+      ])];
 
       if (urgentUserIds.length > 0) {
         for (const userId of urgentUserIds) {

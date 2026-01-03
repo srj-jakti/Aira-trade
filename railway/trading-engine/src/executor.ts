@@ -157,6 +157,68 @@ async function logOrder(
   });
 }
 
+async function logPaperOrder(
+  userId: string,
+  signal: Signal,
+  result: OrderResult,
+  strategyId?: string
+): Promise<void> {
+  await supabase.from("paper_orders").insert({
+    user_id: userId,
+    strategy_id: strategyId,
+    order_id: result.order_id,
+    tradingsymbol: signal.instrument,
+    exchange: "NSE",
+    transaction_type: signal.action,
+    order_type: "MARKET",
+    product: "MIS",
+    quantity: 1,
+    status: result.success ? "placed" : "error",
+    status_message: result.error,
+    placed_at: new Date().toISOString(),
+    filled_at: result.success ? new Date().toISOString() : null,
+    fill_price: result.success ? signal.price : null,
+  });
+
+  if (result.success && signal.action !== "HOLD") {
+    // Also create/update paper position
+    const { data: existingPos } = await supabase
+      .from("paper_positions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("instrument_token", signal.instrumentToken)
+      .eq("status", "OPEN")
+      .single();
+
+    if (existingPos) {
+        // Handle closing or increasing? For now simple one position per instrument
+        // If it's reverse action, close it
+        if (existingPos.position_type !== (signal.action === "BUY" ? "LONG" : "SHORT")) {
+            await supabase.from("paper_positions").update({
+                status: "CLOSED",
+                exit_price: signal.price,
+                exit_reason: "SIGNAL_REVERSAL",
+                closed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }).eq("id", existingPos.id);
+        }
+    } else {
+        await supabase.from("paper_positions").insert({
+            user_id: userId,
+            strategy_id: strategyId,
+            instrument_token: signal.instrumentToken,
+            tradingsymbol: signal.instrument,
+            quantity: 1, // Simplified for now
+            entry_price: signal.price,
+            stop_loss: signal.stopLoss,
+            target_price: signal.target,
+            status: "OPEN",
+            position_type: signal.action === "BUY" ? "LONG" : "SHORT"
+        });
+    }
+  }
+}
+
 async function logOrderError(
   userId: string,
   signal: Signal,
@@ -176,6 +238,25 @@ async function logOrderError(
     status: "error",
     status_message: errorMsg,
   });
+}
+
+export async function executePaperOrder(
+  userId: string,
+  signal: Signal,
+  config: UserConfig,
+  strategyId?: string
+): Promise<OrderResult> {
+    const quantity = calculateQuantity(signal, config);
+    const orderId = `PAPER-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    
+    const result: OrderResult = {
+        success: true,
+        order_id: orderId,
+        status: "complete",
+    };
+
+    await logPaperOrder(userId, signal, result, strategyId);
+    return result;
 }
 
 export async function executeOrder(

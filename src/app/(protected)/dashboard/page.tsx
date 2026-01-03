@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Wallet, 
   TrendingUp, 
@@ -12,7 +12,9 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
-  Loader2
+  Loader2,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -30,6 +32,7 @@ import { getDashboardStatus, toggleAiTrading, togglePaperTrading } from "./actio
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { usePrices } from "@/hooks/useMarketData";
 
 const SIGNAL_STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
   PENDING: { icon: Clock, color: "text-yellow-400", label: "Pending" },
@@ -73,8 +76,18 @@ export default function Dashboard() {
   const [balance, setBalance] = useState({ total: "0.00", available: "0.00" });
   const [pl, setPl] = useState({ total: "0.00", day: "0.00", isPositive: true });
   const [positionsSummary, setPositionsSummary] = useState({ active: 0, total: 0 });
-  const [activePositions, setActivePositions] = useState([]);
+  const [activePositions, setActivePositions] = useState<any[]>([]);
   const [recentOrders, setRecentOrders] = useState([]);
+
+  const positionTokens = useMemo(() => 
+    activePositions.map((p: any) => p.instrument_token).filter((t: any) => typeof t === 'number'),
+    [activePositions]
+  );
+
+  const { prices: livePrices, isConnected: isLiveConnected, getPrice } = usePrices(
+    positionTokens,
+    positionTokens.length > 0
+  );
 
   useEffect(() => {
     async function loadStatus() {
@@ -223,19 +236,31 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
         <div className="lg:col-span-2">
           <Card className="bg-white/5 border-white/10 overflow-hidden h-full">
-            <CardHeader className="flex flex-row items-center justify-between bg-white/[0.02] border-b border-white/5 py-3">
-              <div className="flex items-center gap-2.5">
-                <div className="size-7 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                  <Activity className="size-3.5 text-blue-400" />
+              <CardHeader className="flex flex-row items-center justify-between bg-white/[0.02] border-b border-white/5 py-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-7 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                    <Activity className="size-3.5 text-blue-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-bold text-white">Active Positions</CardTitle>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-sm font-bold text-white">Active Positions</CardTitle>
+                <div className="flex items-center gap-2">
+                  {isLiveConnected ? (
+                    <div className="flex items-center gap-1 text-green-400">
+                      <Wifi className="size-3" />
+                      <span className="text-[9px] uppercase font-bold">Live</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-white/30">
+                      <WifiOff className="size-3" />
+                    </div>
+                  )}
+                  <Badge variant="secondary" className="bg-white/5 text-white/60 border-white/10 text-[9px] font-bold">
+                    {isConnected ? activePositions.length : 0} OPEN
+                  </Badge>
                 </div>
-              </div>
-              <Badge variant="secondary" className="bg-white/5 text-white/60 border-white/10 text-[9px] font-bold">
-                {isConnected ? activePositions.length : 0} OPEN
-              </Badge>
-            </CardHeader>
+              </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="bg-white/[0.01]">
@@ -243,7 +268,7 @@ export default function Dashboard() {
                     <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Instrument</TableHead>
                     <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Type</TableHead>
                     <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Qty</TableHead>
-                    <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Avg. Price</TableHead>
+                    <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Avg/LTP</TableHead>
                     <TableHead className="text-[9px] font-bold text-white/20 uppercase tracking-widest text-right">M2M P&L</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -254,30 +279,51 @@ export default function Dashboard() {
                         No active positions found
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    activePositions.map((pos: any) => (
-                      <TableRow key={pos.id} className="border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer">
-                        <TableCell className="font-bold text-white text-xs">{pos.symbol}</TableCell>
-                        <TableCell>
-                          <Badge className={cn(
-                            "text-[8px] font-black px-1.5 py-0 border-none",
-                            pos.type === "BUY" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                          )}>
-                            {pos.type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-white/60 font-mono text-[11px]">{pos.qty}</TableCell>
-                        <TableCell className="text-white/60 font-mono text-[11px]">₹{pos.avgPrice}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex flex-col items-end">
-                            <span className={cn("font-bold text-xs", pos.pl.startsWith("+") ? "text-green-400" : "text-red-400")}>
-                              {pos.pl}
-                            </span>
-                            <span className="text-[9px] text-white/20 font-medium">{pos.plPercent}</span>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    ) : (
+                      activePositions.map((pos: any) => {
+                        const livePrice = pos.instrument_token ? getPrice(pos.instrument_token) : null;
+                        const currentPrice = livePrice || parseFloat(pos.avgPrice) || 0;
+                        const avgPrice = parseFloat(pos.avgPrice) || 0;
+                        const qty = parseInt(pos.qty) || 0;
+                        const isLong = pos.type === "BUY";
+                        const unrealizedPnl = livePrice 
+                          ? (isLong ? (livePrice - avgPrice) : (avgPrice - livePrice)) * qty 
+                          : null;
+                        const originalPl = pos.pl?.replace(/[₹+,]/g, '') || '0';
+                        const displayPnl = unrealizedPnl !== null ? unrealizedPnl : parseFloat(originalPl);
+                        
+                        return (
+                          <TableRow key={pos.id} className="border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer">
+                            <TableCell className="font-bold text-white text-xs">{pos.symbol}</TableCell>
+                            <TableCell>
+                              <Badge className={cn(
+                                "text-[8px] font-black px-1.5 py-0 border-none",
+                                pos.type === "BUY" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                              )}>
+                                {pos.type}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-white/60 font-mono text-[11px]">{pos.qty}</TableCell>
+                            <TableCell className="text-[11px] font-mono">
+                              <div className="text-white/40 text-[9px]">₹{avgPrice.toFixed(2)}</div>
+                              <div className={cn(
+                                "font-bold",
+                                livePrice ? (displayPnl >= 0 ? "text-green-400" : "text-red-400") : "text-white/60"
+                              )}>
+                                ₹{currentPrice.toFixed(2)}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex flex-col items-end">
+                                <span className={cn("font-bold text-xs", displayPnl >= 0 ? "text-green-400" : "text-red-400")}>
+                                  {displayPnl >= 0 ? '+' : ''}₹{displayPnl.toFixed(2)}
+                                </span>
+                                <span className="text-[9px] text-white/20 font-medium">{pos.plPercent}</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                   )}
                 </TableBody>
               </Table>

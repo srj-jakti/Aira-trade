@@ -35,7 +35,7 @@ export async function getDashboardStatus() {
       ]);
 
       if (posRes.data) {
-        activePositions = posRes.data.map(p => ({
+        activePositions = posRes.data.map((p: any) => ({
           id: p.id,
           symbol: p.tradingsymbol,
           type: p.position_type,
@@ -47,8 +47,8 @@ export async function getDashboardStatus() {
       }
 
       if (histRes.data) {
-        const totalPnl = histRes.data.reduce((sum, trade) => sum + Number(trade.pnl), 0);
-        const unrealizedPnl = posRes.data?.reduce((sum, p) => sum + Number(p.unrealized_pnl), 0) || 0;
+        const totalPnl = histRes.data.reduce((sum: number, trade: any) => sum + Number(trade.pnl), 0);
+        const unrealizedPnl = posRes.data?.reduce((sum: number, p: any) => sum + Number(p.unrealized_pnl), 0) || 0;
         const netPnl = totalPnl + unrealizedPnl;
         pl = {
           total: netPnl.toLocaleString("en-IN", { minimumFractionDigits: 2 }),
@@ -78,16 +78,16 @@ export async function getDashboardStatus() {
         status: engineStatus?.status || "stopped",
         lastHeartbeat: engineStatus?.last_heartbeat,
         activeUsers: engineStatus?.active_users || 0,
-        errorMessage: engineStatus?.error_message,
+        errorMessage: engineStatus?.error_message
       },
       userTradingStatus: {
         lastEvaluation: prefs?.last_evaluation_at,
         nextEvaluation: prefs?.next_evaluation_at,
         evaluationError: prefs?.evaluation_error,
         consecutiveFailures: prefs?.consecutive_failures || 0,
-        strategyType: prefs?.strategy_type || "intraday",
+        strategyType: prefs?.strategy_type || "intraday"
       },
-      recentSignals: recentSignalsRes.data || [],
+      recentSignals: recentSignalsRes.data || []
     };
   } catch (error) {
     console.error("Error fetching dashboard status:", error);

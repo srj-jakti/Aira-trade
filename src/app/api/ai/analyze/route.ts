@@ -120,28 +120,27 @@ export async function POST(request: NextRequest) {
 
     const parsed = parseAIResponse(humanAnalysis);
     
-    if (parsed) {
-      // Map new Human-Like format to existing AnalysisResult format
-      const bias = parsed.bias || "NEUTRAL";
-      const confidence = (parsed.confidence || 0.5) * 100;
-      
-      result = {
-        trend: bias.toLowerCase(),
-        strength: confidence,
-        support: parsed.stoploss_zone?.[0] || null,
-        resistance: parsed.target_zone?.[0] || null,
-        analysis: `${parsed.market_regime || "Market"}: ${parsed.reasoning?.join(". ") || "No detailed analysis provided."}`,
-        signal: parsed.state === "EXECUTE" ? (bias === "BULLISH" ? "buy" : bias === "BEARISH" ? "sell" : "hold") : "hold",
-        confidence: confidence,
-        entry: parsed.entry_zone?.[0] || null,
-        target: parsed.target_zone?.[0] || null,
-        stopLoss: parsed.stoploss_zone?.[0] || null,
-        reasoning: parsed.reasoning?.join(". ") || "No reasoning provided.",
-      };
-    } else if (typeof humanAnalysis.result === "string") {
-      result.analysis = humanAnalysis.result;
-      result.reasoning = humanAnalysis.result;
-    }
+      if (parsed) {
+        // Map new Human-Like format to existing AnalysisResult format
+        const bias = parsed.bias || "NEUTRAL";
+        const confidence = (parsed.confidence || 0.5) * 100;
+        const summary = parsed.technical_summary || parsed.reasoning || [];
+        
+        result = {
+          trend: bias.toLowerCase(),
+          strength: confidence,
+          support: parsed.stoploss_zone?.[0] || null,
+          resistance: parsed.target_zone?.[0] || null,
+          analysis: summary.join(". "),
+          signal: parsed.state === "EXECUTE" ? (bias === "BULLISH" ? "buy" : bias === "BEARISH" ? "sell" : "hold") : "hold",
+          confidence: confidence,
+          entry: parsed.entry_zone?.[0] || null,
+          target: parsed.target_zone?.[0] || null,
+          stopLoss: parsed.stoploss_zone?.[0] || null,
+          reasoning: summary.join(". "),
+        };
+      }
+
 
       // Fallback analysis if AI fails
       if (!humanAnalysis.success && !parsed) {

@@ -458,27 +458,9 @@ const response = await fetch(
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="p-2 bg-green-500/10 rounded border border-green-500/20">
-                      <div className="text-green-400/70 text-xs">Support</div>
-                      <div className="font-mono font-medium text-green-400">{formatPrice(analysis.support)}</div>
-                    </div>
-                    <div className="p-2 bg-red-500/10 rounded border border-red-500/20">
-                      <div className="text-red-400/70 text-xs">Resistance</div>
-                      <div className="font-mono font-medium text-red-400">{formatPrice(analysis.resistance)}</div>
-                    </div>
-                  </div>
-
                   <div className="text-sm text-white/70 leading-relaxed">
                     {analysis.analysis}
                   </div>
-
-                  {analysis.reasoning && (
-                    <div className="pt-3 border-t border-white/10">
-                      <div className="text-xs text-white/40 mb-1">Analysis Reasoning</div>
-                      <div className="text-sm text-white/60">{analysis.reasoning}</div>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="min-h-[200px] flex items-center justify-center text-center">

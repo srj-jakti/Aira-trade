@@ -451,32 +451,33 @@ STEP 7: CONFIDENCE SCORING (MANDATORY)
 Calculate confidence using trend alignment, structure clarity, regime suitability, volatility health, historical success.
 If confidence < 0.70 → WAIT. If confidence ≥ 0.70 → PROCEED.
 
-STEP 8: EXPLAINABILITY (LIKE A HUMAN)
-Always explain WHY (justify the bias).
+  STEP 8: EXPLAINABILITY (LIKE A HUMAN)
+  Always explain WHY (justify the bias) in 2-3 brief technical points.
+  
+  🔐 BIAS LOCK RULE (CRITICAL)
+  Once analysis is published: Bias, Zones, and Stop are LOCKED.
+  Invalidate ONLY IF: Candle closes beyond invalidation zone, Market regime changes, or Time expiry reached.
+  
+  🎯 OUTPUT FORMAT (STRICT JSON)
+  {
+    "state": "WAIT | PREPARE | EXECUTE",
+    "market_regime": "string",
+    "timeframes": {
+      "higher": "string",
+      "trading": "string",
+      "lower": "string"
+    },
+    "bias": "BULLISH | BEARISH | NEUTRAL",
+    "confidence": 0.00,
+    "entry_zone": [min, max],
+    "target_zone": [min, max],
+    "stoploss_zone": [min, max],
+    "time_expectation": "string",
+    "analysis_expiry": "string",
+    "invalidation_rules": ["string"],
+    "technical_summary": ["string"]
+  }`;
 
-🔐 BIAS LOCK RULE (CRITICAL)
-Once analysis is published: Bias, Zones, and Stop are LOCKED.
-Invalidate ONLY IF: Candle closes beyond invalidation zone, Market regime changes, or Time expiry reached.
-
-🎯 OUTPUT FORMAT (STRICT JSON)
-{
-  "state": "WAIT | PREPARE | EXECUTE",
-  "market_regime": "string",
-  "timeframes": {
-    "higher": "string",
-    "trading": "string",
-    "lower": "string"
-  },
-  "bias": "BULLISH | BEARISH | NEUTRAL",
-  "confidence": 0.00,
-  "entry_zone": [min, max],
-  "target_zone": [min, max],
-  "stoploss_zone": [min, max],
-  "time_expectation": "string",
-  "analysis_expiry": "string",
-  "invalidation_rules": ["string"],
-  "reasoning": ["string"]
-}`;
 
     const messages = [
       { role: "system", content: systemPrompt },

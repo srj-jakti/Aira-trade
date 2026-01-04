@@ -16,7 +16,7 @@ export async function POST(
   if (!user.authenticated) return unauthorizedResponse();
 
   try {
-    await params;
+    const { strategyId: id } = await params;
     const body = await request.json();
     const { strategy, backtestResults, candleData } = body;
 
@@ -27,7 +27,8 @@ export async function POST(
     const improvement = await strategyService.improveStrategyWithAI(
       strategy,
       backtestResults,
-      candleData
+      candleData,
+      parseInt(id)
     );
 
     return successResponse(improvement);

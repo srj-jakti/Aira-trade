@@ -649,9 +649,27 @@ Your output must be precise, executable, and follow TradingView Pine Script / Ch
     async improveStrategyWithAI(
       strategy: StructuredStrategy,
       backtestResults: BacktestResult,
-      candleData?: { candles: Candle[]; indicatorValues?: Record<string, number[]> }
+      candleData?: { candles: Candle[]; indicatorValues?: Record<string, number[]> },
+      strategyId?: number
     ): Promise<{ improved: StructuredStrategy; notes: string }> {
       
+      // Fetch past backtests to compare performance
+      let pastPerformanceContext = "";
+      if (strategyId) {
+        const { data: pastBacktests } = await supabaseAdmin
+          .from("strategy_backtests")
+          .select("strategy_version, total_trades, win_rate, net_pnl_percentage, created_at")
+          .eq("strategy_id", strategyId)
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        if (pastBacktests && pastBacktests.length > 0) {
+          pastPerformanceContext = "\nPAST IMPROVEMENT HISTORY:\n" + pastBacktests.map(pb => 
+            `- v${pb.strategy_version}: Win Rate ${pb.win_rate.toFixed(1)}%, P&L ${pb.net_pnl_percentage.toFixed(2)}%, Trades: ${pb.total_trades} (${new Date(pb.created_at).toLocaleDateString()})`
+          ).join("\n");
+        }
+      }
+
       // Analyze trade patterns
       const trades = backtestResults.trade_log || [];
       const winningTrades = trades.filter(t => (t.pnl || 0) > 0);
@@ -710,113 +728,121 @@ MARKET ANALYSIS (from ${candles.length} candles):
 - Current Price: ₹${lastPrice.toFixed(2)}`;
       }
 
-      const messages = [
-        {
-          role: "system",
-          content: `You are an expert algorithmic trading strategist optimizing strategies for Indian markets.
-Analyze the strategy performance and market data to create an IMPROVED, MORE PROFITABLE version.
-
-### YOUR OPTIMIZATION APPROACH:
-1. **If Win Rate < 40%**: Tighten entry conditions (use AND logic), add confirmation filters
-2. **If Win Rate > 60% but low trades**: Loosen conditions (use OR logic), expand entry signals
-3. **If Stop Loss hits too often**: Increase SL%, add volatility filter (ADX < 25 = no trade)
-4. **If Target rarely hits**: Reduce target %, or use trailing stop loss
-5. **If mostly losses in trending market**: Add trend filter (EMA alignment, Supertrend)
-
-### AVAILABLE INDICATORS:
-| Indicator | Periods | Entry Signal |
-|-----------|---------|--------------|
-| RSI | 7, 14, 21 | <35 oversold (buy), >65 overbought (sell) |
-| EMA | 9, 20, 50, 200 | Price crossover, EMA crossover |
-| SMA | 20, 50, 200 | Trend direction |
-| MACD | 12,26,9 | Signal line cross, histogram reversal |
-| SUPERTREND | 10,3 | Direction change |
-| ADX | 14 | >25 = trending (take trades), <20 = ranging (avoid) |
-| BB | 20,2 | Band squeeze breakout |
-
-### RULE STRUCTURE:
-\`\`\`json
-{ "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 35 }
-{ "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 }
-{ "type": "indicator_vs_indicator", "indicator1": "EMA", "period1": 9, "indicator2": "EMA", "period2": 21, "operator": "CROSS_ABOVE" }
-{ "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" }
-\`\`\`
-
-### OUTPUT FORMAT:
-{
-  "improved": {
-    "name": "Strategy Name v2",
-    "description": "Improved description with specific changes",
-    "strategy_type": "INTRADAY" | "SWING",
-    "buy_entry_logic": { "conditions": [...], "indicators": [...] },
-    "sell_entry_logic": { "conditions": [...], "indicators": [...] },
-    "buy_stop_loss": { "parameters": { "percentage": X } },
-    "buy_target": { "parameters": { "percentage": Y } },
-    "sell_stop_loss": { "parameters": { "percentage": X } },
-    "sell_target": { "parameters": { "percentage": Y } },
-    "buy_trailing_sl": { "conditions": [] },
-    "sell_trailing_sl": { "conditions": [] },
-    "hold_logic": { "conditions": [] },
-    "executable_strategy": {
-      "name": "...",
-      "strategyType": "...",
-      "version": 2,
-      "buy": { "logic": "OR"|"AND", "rules": [...] },
-      "sell": { "logic": "OR"|"AND", "rules": [...] },
-      "buyExit": { "stopLoss": {...}, "target": {...} },
-      "sellExit": { "stopLoss": {...}, "target": {...} },
-      "requiredIndicators": [...],
-      "minWarmupCandles": 30
-    }
-  },
-  "notes": "Detailed explanation of changes: 1. Changed X because... 2. Added Y to filter..."
-}`,
-        },
-        {
-          role: "user",
-          content: `Analyze and improve this trading strategy:
-
-CURRENT STRATEGY:
-Name: ${strategy.name}
-Type: ${strategy.strategy_type || "SWING"}
-Buy Conditions: ${JSON.stringify(strategy.buy_entry_logic?.conditions || [])}
-Sell Conditions: ${JSON.stringify(strategy.sell_entry_logic?.conditions || [])}
-Stop Loss: ${strategy.buy_stop_loss?.parameters?.percentage || 2}%
-Target: ${strategy.buy_target?.parameters?.percentage || 4}%
-
-BACKTEST PERFORMANCE:
-- Total Trades: ${backtestResults.total_trades}
-- Win Rate: ${backtestResults.win_rate.toFixed(1)}% (${winningTrades.length} wins, ${losingTrades.length} losses)
-- Net P&L: ₹${backtestResults.net_pnl.toFixed(2)} (${backtestResults.net_pnl_percentage.toFixed(2)}%)
-- Max Drawdown: ${backtestResults.max_drawdown_percentage.toFixed(2)}%
-- Avg Win: ₹${avgWin.toFixed(2)}
-- Avg Loss: ₹${avgLoss.toFixed(2)}
-- Risk/Reward Ratio: ${avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : "N/A"}
-- Avg Holding Period: ${avgHoldingPeriod.toFixed(0)} minutes
-
-EXIT REASON BREAKDOWN:
-${Object.entries(exitReasons).map(([reason, count]) => `- ${reason}: ${count} trades (${((count/trades.length)*100).toFixed(1)}%)`).join('\n')}
-${marketContext}
-
-SAMPLE TRADES (most recent):
-${JSON.stringify(trades.slice(-5).map(t => ({
-  type: t.type,
-  entry: t.entry_price,
-  exit: t.exit_price,
-  pnl: t.pnl?.toFixed(2),
-  reason: t.exit_reason
-})), null, 2)}
-
-EXECUTABLE STRATEGY RULES:
-${JSON.stringify(strategy.executable_strategy, null, 2)}
-
-Based on this analysis, create an IMPROVED strategy that:
-1. Increases win rate if currently below 50%
-2. Improves risk/reward ratio
-3. Reduces max drawdown
-4. Adds appropriate filters based on market conditions`,
-        },
-      ];
+        const messages = [
+          {
+            role: "system",
+            content: `You are an expert algorithmic trading strategist optimizing strategies for Indian markets.
+  Analyze the strategy performance and market data to create an IMPROVED, MORE PROFITABLE version.
+  
+  ### YOUR OPTIMIZATION APPROACH (PRIORITY ORDER):
+  1. **Tweak Existing Parameters**: First, try adjusting the periods or thresholds of the indicators already present in the strategy (e.g., change EMA 9 to EMA 12, or RSI 14 to RSI 10).
+  2. **Refine Exit Logic**: Adjust Stop Loss % and Target % based on the win rate and average holding period.
+  3. **Add Filters (ONLY IF NECESSARY)**: Only add new indicators or conditions if the current ones cannot be optimized further to achieve a >60% win rate.
+  4. **Compare with Past Performance**: Ensure your suggested changes are likely to outperform the previous versions provided in the history.
+  
+  ### OPTIMIZATION RULES:
+  - **If Win Rate < 40%**: Tighten entry conditions (use AND logic), or adjust indicator periods to better match market volatility.
+  - **If Win Rate > 60% but low trades**: Loosen conditions (use OR logic), or shorten indicator periods to catch more moves.
+  - **If Stop Loss hits too often**: Increase SL%, or add a volatility filter like ADX or ATR-based exits.
+  - **If Target rarely hits**: Reduce target %, or implement a Trailing Stop Loss.
+  
+  ### AVAILABLE INDICATORS:
+  | Indicator | Periods | Entry Signal |
+  |-----------|---------|--------------|
+  | RSI | 7, 14, 21 | <35 oversold (buy), >65 overbought (sell) |
+  | EMA | 9, 20, 50, 200 | Price crossover, EMA crossover |
+  | SMA | 20, 50, 200 | Trend direction |
+  | MACD | 12,26,9 | Signal line cross, histogram reversal |
+  | SUPERTREND | 10,3 | Direction change |
+  | ADX | 14 | >25 = trending (take trades), <20 = ranging (avoid) |
+  | BB | 20,2 | Band squeeze breakout |
+  
+  ### RULE STRUCTURE:
+  \`\`\`json
+  { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 35 }
+  { "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 }
+  { "type": "indicator_vs_indicator", "indicator1": "EMA", "period1": 9, "indicator2": "EMA", "period2": 21, "operator": "CROSS_ABOVE" }
+  { "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" }
+  \`\`\`
+  
+  ### OUTPUT FORMAT:
+  {
+    "improved": {
+      "name": "Strategy Name vX",
+      "description": "Improved description focusing on specific parameter tweaks",
+      "strategy_type": "INTRADAY" | "SWING",
+      "buy_entry_logic": { "conditions": [...], "indicators": [...] },
+      "sell_entry_logic": { "conditions": [...], "indicators": [...] },
+      "buy_stop_loss": { "parameters": { "percentage": X } },
+      "buy_target": { "parameters": { "percentage": Y } },
+      "sell_stop_loss": { "parameters": { "percentage": X } },
+      "sell_target": { "parameters": { "percentage": Y } },
+      "buy_trailing_sl": { "conditions": [] },
+      "sell_trailing_sl": { "conditions": [] },
+      "hold_logic": { "conditions": [] },
+      "executable_strategy": {
+        "name": "...",
+        "strategyType": "...",
+        "version": X,
+        "buy": { "logic": "OR"|"AND", "rules": [...] },
+        "sell": { "logic": "OR"|"AND", "rules": [...] },
+        "buyExit": { "stopLoss": {...}, "target": {...} },
+        "sellExit": { "stopLoss": {...}, "target": {...} },
+        "requiredIndicators": [...],
+        "minWarmupCandles": 30
+      }
+    },
+    "notes": "Detailed explanation: 1. Adjusted EMA from 9 to 12 to filter noise. 2. Tightened RSI threshold. 3. Increased SL to 1.5% to avoid premature exits."
+  }`,
+          },
+          {
+            role: "user",
+            content: `Analyze and improve this trading strategy. Focus on TWEAKING current parameters before adding new ones.
+  
+  CURRENT STRATEGY:
+  Name: ${strategy.name}
+  Type: ${strategy.strategy_type || "SWING"}
+  Buy Conditions: ${JSON.stringify(strategy.buy_entry_logic?.conditions || [])}
+  Sell Conditions: ${JSON.stringify(strategy.sell_entry_logic?.conditions || [])}
+  Stop Loss: ${strategy.buy_stop_loss?.parameters?.percentage || 2}%
+  Target: ${strategy.buy_target?.parameters?.percentage || 4}%
+  
+  BACKTEST PERFORMANCE:
+  - Total Trades: ${backtestResults.total_trades}
+  - Win Rate: ${backtestResults.win_rate.toFixed(1)}% (${winningTrades.length} wins, ${losingTrades.length} losses)
+  - Net P&L: ₹${backtestResults.net_pnl.toFixed(2)} (${backtestResults.net_pnl_percentage.toFixed(2)}%)
+  - Max Drawdown: ${backtestResults.max_drawdown_percentage.toFixed(2)}%
+  - Avg Win: ₹${avgWin.toFixed(2)}
+  - Avg Loss: ₹${avgLoss.toFixed(2)}
+  - Risk/Reward Ratio: ${avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : "N/A"}
+  - Avg Holding Period: ${avgHoldingPeriod.toFixed(0)} minutes
+  
+  EXIT REASON BREAKDOWN:
+  ${Object.entries(exitReasons).map(([reason, count]) => `- ${reason}: ${count} trades (${((count/trades.length)*100).toFixed(1)}%)`).join('\n')}
+  ${marketContext}
+  ${pastPerformanceContext}
+  
+  SAMPLE TRADES (most recent):
+  ${JSON.stringify(trades.slice(-5).map(t => ({
+    type: t.type,
+    entry: t.entry_price,
+    exit: t.exit_price,
+    pnl: t.pnl?.toFixed(2),
+    reason: t.exit_reason
+  })), null, 2)}
+  
+  EXECUTABLE STRATEGY RULES:
+  ${JSON.stringify(strategy.executable_strategy, null, 2)}
+  
+  Based on this analysis, create an IMPROVED strategy that:
+  1. Prioritizes tweaking existing indicator settings (periods/values).
+  2. Increases win rate significantly.
+  3. Improves risk/reward ratio.
+  4. Reduces max drawdown.
+  5. Only adds new indicators if the current set is insufficient for the market conditions.
+  6. Outperforms all previous versions shown in history.`,
+          },
+        ];
   
       const result = await aiSharedService.executeAnalysis("strategy_improve", messages, {
         maxTokens: 4000,

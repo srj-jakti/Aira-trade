@@ -526,6 +526,20 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
       const parsed = typeof result.result === "string"
         ? JSON.parse(result.result.replace(/```json\n?|\n?```/g, "").trim())
         : result.result;
+      
+      // Ensure all required fields exist to prevent UI crashes
+      if (parsed.improved) {
+        const fields = [
+          "buy_entry_logic", "buy_stop_loss", "buy_target", "buy_trailing_sl",
+          "sell_entry_logic", "sell_stop_loss", "sell_target", "sell_trailing_sl",
+          "hold_logic"
+        ];
+        fields.forEach(field => {
+          if (!parsed.improved[field]) parsed.improved[field] = { conditions: [] };
+          if (!parsed.improved[field].conditions) parsed.improved[field].conditions = [];
+        });
+      }
+
       return parsed as { improved: StructuredStrategy; notes: string };
     } catch {
       throw new Error("Failed to parse AI improvement response");

@@ -1616,18 +1616,24 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
         </div>
       </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <div>
             <p className="text-white/40 text-xs">Capital</p>
             <p className="text-white font-medium">₹{result.capital_used.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-white/40 text-xs">Total Trades</p>
-            <p className="text-white font-medium">{result.total_trades}</p>
+            <p className="text-white/40 text-xs">Net P&L</p>
+            <p className={`font-bold ${result.net_pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+              ₹{result.net_pnl.toLocaleString()}
+            </p>
           </div>
           <div>
             <p className="text-white/40 text-xs">Win Rate</p>
             <p className="text-green-400 font-medium">{result.win_rate.toFixed(1)}%</p>
+          </div>
+          <div>
+            <p className="text-white/40 text-xs">Trades</p>
+            <p className="text-white font-medium">{result.total_trades}</p>
           </div>
           <div>
             <p className="text-white/40 text-xs">Max Drawdown</p>
@@ -1663,48 +1669,56 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
                 <thead className="text-white/40 text-xs">
                   <tr>
                     <th className="text-left py-2">Type</th>
+                    <th className="text-left py-2">Qty</th>
                     <th className="text-left py-2">Entry</th>
-                    <th className="text-left py-2">Exit</th>
+                    <th className="text-left py-2">Exit (Reason)</th>
                     <th className="text-right py-2">P&L</th>
                   </tr>
                 </thead>
                 <tbody className="text-white/80">
                   {result.trade_log.slice(0, 20).map((trade) => (
-                  <tr key={trade.id} className="border-t border-white/5">
-                    <td className="py-2">
-                      <Badge
-                        variant="outline"
-                        className={
-                          trade.type === "BUY"
-                            ? "border-green-500/30 text-green-400"
-                            : "border-red-500/30 text-red-400"
-                        }
+                    <tr key={trade.id} className="border-t border-white/5">
+                      <td className="py-2">
+                        <Badge
+                          variant="outline"
+                          className={
+                            trade.type === "BUY"
+                              ? "border-green-500/30 text-green-400"
+                              : "border-red-500/30 text-red-400"
+                          }
+                        >
+                          {trade.type}
+                        </Badge>
+                      </td>
+                      <td className="py-2 text-white/60">
+                        {trade.quantity}
+                      </td>
+                      <td className="py-2">
+                        <span className="font-medium">₹{trade.entry_price.toFixed(2)}</span>
+                        <span className="text-white/40 text-[10px] block">
+                          {new Date(trade.entry_time).toLocaleDateString()}
+                        </span>
+                      </td>
+                      <td className="py-2">
+                        <span className="font-medium">₹{trade.exit_price?.toFixed(2) || "-"}</span>
+                        <span className={`text-[10px] block ${
+                          trade.exit_reason?.includes("Stop Loss") ? "text-red-400" : 
+                          trade.exit_reason?.includes("Target") ? "text-green-400" : "text-white/40"
+                        }`}>
+                          {trade.exit_reason}
+                        </span>
+                      </td>
+                      <td
+                        className={`py-2 text-right font-bold ${
+                          (trade.pnl || 0) >= 0 ? "text-green-400" : "text-red-400"
+                        }`}
                       >
-                        {trade.type}
-                      </Badge>
-                    </td>
-                    <td className="py-2">
-                      ₹{trade.entry_price.toFixed(2)}
-                      <span className="text-white/40 text-xs block">
-                        {new Date(trade.entry_time).toLocaleDateString()}
-                      </span>
-                    </td>
-                    <td className="py-2">
-                      ₹{trade.exit_price?.toFixed(2) || "-"}
-                      <span className="text-white/40 text-xs block">
-                        {trade.exit_reason}
-                      </span>
-                    </td>
-                    <td
-                      className={`py-2 text-right ${
-                        (trade.pnl || 0) >= 0 ? "text-green-400" : "text-red-400"
-                      }`}
-                    >
-                      {(trade.pnl || 0) >= 0 ? "+" : ""}₹{trade.pnl?.toFixed(2) || "0"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+                        <div>{(trade.pnl || 0) >= 0 ? "+" : ""}₹{trade.pnl?.toFixed(2) || "0"}</div>
+                        <div className="text-[10px] opacity-70">{trade.pnl_percentage?.toFixed(2)}%</div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
             </table>
           </div>
         </div>

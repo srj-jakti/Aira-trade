@@ -394,6 +394,32 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
         }));
         
         console.log(`[StrategyService] Received ${candles.length} candles from ${result.source}`);
+        // IMPORTANT: Process each instrument separately or ensure they don't interleave in a way that breaks indicators
+        // For backtesting, it's best to run per-instrument and aggregate results
+        const instrumentResult = this.executeBacktest(strategy, candles, capital / instrumentTokens.length);
+        
+        if (allCandles.length === 0) {
+          // Initialize with first instrument's aggregated result structure
+          (this as any).aggregatedResult = { ...instrumentResult, trade_log: [...instrumentResult.trade_log] };
+        } else {
+          // Merge results
+          const agg = (this as any).aggregatedResult;
+          agg.total_trades += instrumentResult.total_trades;
+          agg.buy_count += instrumentResult.buy_count;
+          agg.sell_count += instrumentResult.sell_count;
+          agg.hold_count += instrumentResult.hold_count;
+          agg.net_pnl += instrumentResult.net_pnl;
+          agg.net_pnl_percentage = (agg.net_pnl / capital) * 100;
+          agg.trade_log = [...agg.trade_log, ...instrumentResult.trade_log].sort((a, b) => 
+            new Date(a.entry_time).getTime() - new Date(b.entry_time).getTime()
+          );
+          // Simplified Win Rate merge
+          const totalWins = (agg.win_rate * (agg.total_trades - instrumentResult.total_trades) / 100) + 
+                          (instrumentResult.win_rate * instrumentResult.total_trades / 100);
+          agg.win_rate = agg.total_trades > 0 ? (totalWins / agg.total_trades) * 100 : 0;
+          agg.max_drawdown = Math.max(agg.max_drawdown, instrumentResult.max_drawdown);
+        }
+
         allCandles = allCandles.concat(candles);
         dataSource = result.source;
       }
@@ -403,13 +429,11 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
       throw new Error("No data available for backtesting. We tried to fetch it automatically but failed. This could be due to invalid instrument tokens or market holidays.");
     }
 
-
-    allCandles.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-    const result = this.executeBacktest(strategy, allCandles, capital);
+    const finalResult = (this as any).aggregatedResult || this.executeBacktest(strategy, allCandles, capital);
+    delete (this as any).aggregatedResult;
     
     return {
-      ...result,
+      ...finalResult,
       data_source: dataSource,
       candle_count: allCandles.length,
       date_range: {

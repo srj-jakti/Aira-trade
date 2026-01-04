@@ -35,9 +35,12 @@ export class IndicatorCalculator {
     if (data.length < period) return results;
 
     const multiplier = 2 / (period + 1);
+    let ema = data[0]; // Start with first value
+    
+    // For a better EMA, we should seed it with an SMA
     let sum = 0;
     for (let i = 0; i < period; i++) sum += data[i];
-    let ema = sum / period;
+    ema = sum / period;
     results[period - 1] = ema;
 
     for (let i = period; i < data.length; i++) {
@@ -65,15 +68,32 @@ export class IndicatorCalculator {
 
   static calculateDEMA(data: number[], period: number): number[] {
     const ema1 = this.calculateEMA(data, period);
-    const ema2 = this.calculateEMA(ema1.filter(v => !isNaN(v)), period);
+    const ema2 = this.calculateEMA(ema1.map(v => isNaN(v) ? 0 : v), period); // Avoid filtering
     
     const results: number[] = new Array(data.length).fill(NaN);
-    const offset = (period - 1) * 2;
-    
-    for (let i = offset; i < data.length; i++) {
-      const e1 = ema1[i];
-      const e2 = ema2[i - (period - 1)];
-      results[i] = 2 * e1 - e2;
+    for (let i = period * 2 - 2; i < data.length; i++) {
+      results[i] = 2 * ema1[i] - ema2[i];
+    }
+    return results;
+  }
+
+  static calculateVWAP(candles: Candle[]): number[] {
+    const results: number[] = new Array(candles.length).fill(NaN);
+    let cumulativePV = 0;
+    let cumulativeV = 0;
+    let lastDate = "";
+
+    for (let i = 0; i < candles.length; i++) {
+      const date = new Date(candles[i].timestamp).toDateString();
+      if (date !== lastDate) {
+        cumulativePV = 0;
+        cumulativeV = 0;
+        lastDate = date;
+      }
+      const pv = ((candles[i].high + candles[i].low + candles[i].close) / 3) * candles[i].volume;
+      cumulativePV += pv;
+      cumulativeV += candles[i].volume;
+      results[i] = cumulativePV / cumulativeV;
     }
     return results;
   }
@@ -112,36 +132,86 @@ export class IndicatorCalculator {
     const fastEma = this.calculateEMA(data, fast);
     const slowEma = this.calculateEMA(data, slow);
     const macdLine = fastEma.map((f, i) => f - slowEma[i]);
-    const signalLine = this.calculateEMA(macdLine.filter(v => !isNaN(v)), signal);
     
-    const alignedSignal: number[] = new Array(data.length).fill(NaN);
-    const offset = slow - 1 + signal - 1;
-    for (let i = 0; i < signalLine.length; i++) {
-      if (i + offset < data.length) alignedSignal[i + offset] = signalLine[i];
+    // Calculate signal line manually to keep indices aligned
+    const results: number[] = new Array(data.length).fill(NaN);
+    const multiplier = 2 / (signal + 1);
+    
+    let firstValid = -1;
+    for(let i=0; i<macdLine.length; i++) {
+      if(!isNaN(macdLine[i])) {
+        firstValid = i;
+        break;
+      }
     }
-    return { macd: macdLine, signal: alignedSignal, histogram: macdLine.map((m, i) => m - alignedSignal[i]) };
+
+    if (firstValid !== -1 && macdLine.length > firstValid + signal) {
+      let sum = 0;
+      for (let i = firstValid; i < firstValid + signal; i++) sum += macdLine[i];
+      let sig = sum / signal;
+      results[firstValid + signal - 1] = sig;
+
+      for (let i = firstValid + signal; i < macdLine.length; i++) {
+        sig = (macdLine[i] - sig) * multiplier + sig;
+        results[i] = sig;
+      }
+    }
+
+    return { 
+      macd: macdLine, 
+      signal: results, 
+      histogram: macdLine.map((m, i) => m - results[i]) 
+    };
+  }
+
+  static calculateADX(candles: Candle[], period: number = 14): number[] {
+    const results: number[] = new Array(candles.length).fill(NaN);
+    if (candles.length < period * 2) return results;
+
+    const plusDM: number[] = new Array(candles.length).fill(0);
+    const minusDM: number[] = new Array(candles.length).fill(0);
+    const tr: number[] = new Array(candles.length).fill(0);
+
+    for (let i = 1; i < candles.length; i++) {
+      const highDiff = candles[i].high - candles[i - 1].high;
+      const lowDiff = candles[i - 1].low - candles[i].low;
+      
+      plusDM[i] = (highDiff > lowDiff && highDiff > 0) ? highDiff : 0;
+      minusDM[i] = (lowDiff > highDiff && lowDiff > 0) ? lowDiff : 0;
+      tr[i] = Math.max(
+        candles[i].high - candles[i].low,
+        Math.abs(candles[i].high - candles[i - 1].close),
+        Math.abs(candles[i].low - candles[i - 1].close)
+      );
+    }
+
+    const smoothedPlusDM = this.calculateEMA(plusDM, period);
+    const smoothedMinusDM = this.calculateEMA(minusDM, period);
+    const smoothedTR = this.calculateEMA(tr, period);
+
+    const dx: number[] = new Array(candles.length).fill(0);
+    for (let i = period; i < candles.length; i++) {
+      const plusDI = (smoothedPlusDM[i] / smoothedTR[i]) * 100;
+      const minusDI = (smoothedMinusDM[i] / smoothedTR[i]) * 100;
+      dx[i] = (Math.abs(plusDI - minusDI) / (plusDI + minusDI)) * 100;
+    }
+
+    const adx = this.calculateEMA(dx, period);
+    return adx;
   }
 
   static calculateStochastic(candles: Candle[], period: number = 14, kPeriod: number = 3, dPeriod: number = 3): { k: number[]; d: number[] } {
-    const k: number[] = new Array(candles.length).fill(NaN);
+    const rawK: number[] = new Array(candles.length).fill(NaN);
     for (let i = period - 1; i < candles.length; i++) {
       const slice = candles.slice(i - period + 1, i + 1);
       const low = Math.min(...slice.map(c => c.low));
       const high = Math.max(...slice.map(c => c.high));
-      k[i] = ((candles[i].close - low) / (high - low)) * 100;
+      rawK[i] = ((candles[i].close - low) / (high - low)) * 100;
     }
-    const smoothK = this.calculateSMA(k.filter(v => !isNaN(v)), kPeriod);
-    const d = this.calculateSMA(smoothK, dPeriod);
+    const k = this.calculateSMA(rawK.map(v => isNaN(v) ? 0 : v), kPeriod).map((v, i) => isNaN(rawK[i]) ? NaN : v);
+    const d = this.calculateSMA(k.map(v => isNaN(v) ? 0 : v), dPeriod).map((v, i) => isNaN(k[i]) ? NaN : v);
 
-    const alignedK: number[] = new Array(candles.length).fill(NaN);
-    const alignedD: number[] = new Array(candles.length).fill(NaN);
-    const offsetK = period - 1 + kPeriod - 1;
-    const offsetD = offsetK + dPeriod - 1;
-
-    for(let i=0; i<smoothK.length; i++) if(i+offsetK < candles.length) alignedK[i+offsetK] = smoothK[i];
-    for(let i=0; i<d.length; i++) if(i+offsetD < candles.length) alignedD[i+offsetD] = d[i];
-
-    return { k: alignedK, d: alignedD };
+    return { k, d };
   }
 
   // --- VOLATILITY INDICATORS ---
@@ -180,8 +250,16 @@ export class IndicatorCalculator {
     for (let i = period; i < candles.length; i++) {
       const basicUpper = (candles[i].high + candles[i].low) / 2 + multiplier * atr[i];
       const basicLower = (candles[i].high + candles[i].low) / 2 - multiplier * atr[i];
-      upperBand[i] = (basicUpper < upperBand[i - 1] || candles[i - 1].close > upperBand[i - 1]) ? basicUpper : upperBand[i - 1];
-      lowerBand[i] = (basicLower > lowerBand[i - 1] || candles[i - 1].close < lowerBand[i - 1]) ? basicLower : lowerBand[i - 1];
+      
+      // Seed with basic values if first calculation
+      if (i === period) {
+        upperBand[i] = basicUpper;
+        lowerBand[i] = basicLower;
+      } else {
+        upperBand[i] = (basicUpper < upperBand[i - 1] || candles[i - 1].close > upperBand[i - 1]) ? basicUpper : upperBand[i - 1];
+        lowerBand[i] = (basicLower > lowerBand[i - 1] || candles[i - 1].close < lowerBand[i - 1]) ? basicLower : lowerBand[i - 1];
+      }
+      
       direction[i] = direction[i - 1];
       if (direction[i - 1] === 1 && candles[i].close <= lowerBand[i]) direction[i] = -1;
       else if (direction[i - 1] === -1 && candles[i].close >= upperBand[i]) direction[i] = 1;
@@ -207,6 +285,8 @@ export class IndicatorCalculator {
 
   static isHammer(candle: Candle, prevCandle: Candle | null): boolean {
     const body = Math.abs(candle.close - candle.open);
+    const range = candle.high - candle.low;
+    if (range === 0) return false;
     const lowerWick = Math.min(candle.open, candle.close) - candle.low;
     const upperWick = candle.high - Math.max(candle.open, candle.close);
     return lowerWick > body * 2 && upperWick < body * 0.5;
@@ -214,6 +294,8 @@ export class IndicatorCalculator {
 
   static isShootingStar(candle: Candle): boolean {
     const body = Math.abs(candle.close - candle.open);
+    const range = candle.high - candle.low;
+    if (range === 0) return false;
     const lowerWick = Math.min(candle.open, candle.close) - candle.low;
     const upperWick = candle.high - Math.max(candle.open, candle.close);
     return upperWick > body * 2 && lowerWick < body * 0.5;
@@ -233,6 +315,7 @@ export class IndicatorCalculator {
   static isDoji(candle: Candle): boolean {
     const body = Math.abs(candle.close - candle.open);
     const range = candle.high - candle.low;
+    if (range === 0) return body === 0;
     return body < range * 0.1;
   }
 }

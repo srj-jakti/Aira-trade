@@ -27,17 +27,17 @@ export async function GET() {
       return serverErrorResponse();
     }
 
-    const { data: countsData } = await supabaseAdmin.rpc('get_subscription_counts');
+      const { data: countsData } = await supabaseAdmin.rpc('get_segment_counts');
 
-    return successResponse({ 
-      settings: data || {},
-      counts: countsData || {
-        equity: 0,
-        indices_options: 0,
-        futures: 0,
-        currency: 0
-      }
-    });
+      return successResponse({ 
+        settings: data || {},
+        counts: countsData || {
+          equity: 0,
+          indices_options: 0,
+          futures: 0,
+          currency: 0
+        }
+      });
   } catch {
     return serverErrorResponse();
   }

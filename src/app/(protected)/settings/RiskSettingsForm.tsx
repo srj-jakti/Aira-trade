@@ -11,10 +11,10 @@ import { Loader2, TrendingUp, TrendingDown, Target, AlertTriangle, Info, RotateC
 import { resetPaperBalance, togglePaperTrading } from "@/app/(protected)/dashboard/actions";
 
 const SEGMENTS = [
-  { id: "equity", label: "Equity Stocks", description: "Cash market equity trading" },
-  { id: "indices_options", label: "Indices Options", description: "NIFTY, BANKNIFTY, FINNIFTY options" },
-  { id: "futures", label: "Futures", description: "Stock and index futures" },
-  { id: "currency", label: "Currency (Spot + Options)", description: "USDINR, EURINR with options" },
+  { id: "equity", label: "Equity Stocks", description: "All indices + NIFTY 500 & BSE 500 stocks (NSE preferred)" },
+  { id: "indices_options", label: "Indices Options", description: "NIFTY, BANKNIFTY, FINNIFTY, SENSEX, BANKEX options (20 CE + 20 PE near ATM)" },
+  { id: "futures", label: "Futures", description: "Index futures + NIFTY 100 & BSE 100 stock futures" },
+  { id: "currency", label: "Currency", description: "USDINR, EURINR, GBPINR, JPYINR + options (20 CE + 20 PE)" },
 ];
 
 export function RiskSettingsForm() {
@@ -330,21 +330,22 @@ export function RiskSettingsForm() {
         </div>
 
           <div className="space-y-4">
-          <Label className="text-white/60 text-xs uppercase tracking-wider font-bold">Market Segments</Label>
-          <div className="grid grid-cols-2 gap-4">
+          <Label className="text-white/60 text-xs uppercase tracking-wider font-bold">Market Segments for AI to Scan & Trade</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {SEGMENTS.map((segment) => {
               const count = counts[segment.id as keyof typeof counts] || 0;
               return (
-                <div key={segment.id} className="flex items-center space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/[0.08] transition-colors cursor-pointer" onClick={() => toggleSegment(segment.id)}>
+                <div key={segment.id} className="flex items-start space-x-3 p-4 bg-white/5 border border-white/10 rounded-lg hover:bg-white/[0.08] transition-colors cursor-pointer" onClick={() => toggleSegment(segment.id)}>
                   <Checkbox 
                     id={segment.id} 
                     checked={settings.preferred_markets.includes(segment.id)}
                     onCheckedChange={() => toggleSegment(segment.id)}
-                    className="border-white/20 data-[state=checked]:bg-white data-[state=checked]:text-black"
+                    className="mt-0.5 border-white/20 data-[state=checked]:bg-white data-[state=checked]:text-black"
                   />
-                  <div className="flex flex-col">
-                    <label htmlFor={segment.id} className="text-sm text-white cursor-pointer">{segment.label}</label>
-                    <span className="text-[10px] text-white/40">({count} instruments)</span>
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor={segment.id} className="text-sm font-medium text-white cursor-pointer">{segment.label}</label>
+                    <span className="text-[10px] text-white/50">{segment.description}</span>
+                    <span className="text-xs text-emerald-400 font-mono font-bold">{count.toLocaleString()} instruments</span>
                   </div>
                 </div>
               );

@@ -368,48 +368,41 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     const normalizedTf = normalizeTimeframe(timeframe);
 
     let allCandles: Candle[] = [];
-    let dataSource = "live_candles";
+    let dataSource = "historical_candles";
+
+    const { getCandles } = await import("./candle-service");
 
     for (const instrumentToken of instrumentTokens) {
-      const { data: liveCandles, error } = await supabaseAdmin
-        .from("live_candles")
-        .select("*")
-        .eq("instrument_token", instrumentToken)
-        .eq("timeframe", normalizedTf)
-        .gte("timestamp", from.toISOString())
-        .lte("timestamp", to.toISOString())
-        .order("timestamp", { ascending: true });
+      console.log(`[StrategyService] Requesting candles from CandleService for ${instrumentToken} ${normalizedTf}`);
+      
+      const result = await getCandles({
+        instrumentToken,
+        timeframe: normalizedTf,
+        mode: "BACKTEST",
+        fromDate: from,
+        toDate: to,
+      });
 
-      let candles: Candle[] = [];
-
-      if (!error && liveCandles && liveCandles.length > 0) {
-        candles = liveCandles.map(c => ({
-          timestamp: c.timestamp,
-          open: parseFloat(c.open),
-          high: parseFloat(c.high),
-          low: parseFloat(c.low),
-          close: parseFloat(c.close),
-          volume: parseInt(c.volume) || 0,
+      if (result.candles && result.candles.length > 0) {
+        const candles: Candle[] = result.candles.map(c => ({
+          timestamp: c.timestamp.toISOString(),
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+          volume: c.volume,
         }));
-        console.log(`[StrategyService] Found ${candles.length} candles in live_candles for ${instrumentToken}`);
+        
+        console.log(`[StrategyService] Received ${candles.length} candles from ${result.source}`);
+        allCandles = allCandles.concat(candles);
+        dataSource = result.source;
       }
-
-        if (candles.length < 50) {
-          console.log(`[StrategyService] Insufficient data in live_candles (${candles.length}), fetching from Zerodha...`);
-          const zerodhaCandles = await this.fetchCandlesFromZerodha(instrumentToken, timeframe, from, to, zerodhaConfigId);
-          if (zerodhaCandles.length > candles.length) {
-            candles = zerodhaCandles;
-            dataSource = "zerodha_api";
-          }
-        }
-
-
-      allCandles = allCandles.concat(candles);
     }
 
     if (allCandles.length === 0) {
-      throw new Error("No data available for backtesting. Please ensure market data is available.");
+      throw new Error("No data available for backtesting. We tried to fetch it automatically but failed. This could be due to invalid instrument tokens or market holidays.");
     }
+
 
     allCandles.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 

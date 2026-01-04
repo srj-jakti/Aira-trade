@@ -297,7 +297,8 @@ async function getBacktestModeCandles(
   const from = fromDate || defaultFromDate;
   const to = toDate || new Date();
 
-  const { data, error } = await supabaseAdmin
+  // 1. Try to get from database first
+  const { data: existingData, error } = await supabaseAdmin
     .from("historical_candles")
     .select("*")
     .eq("instrument_token", instrumentToken)
@@ -310,7 +311,135 @@ async function getBacktestModeCandles(
     throw new Error(`Failed to fetch historical candles: ${error.message}`);
   }
 
-  const candles = (data || []).map((c) => ({
+  // 2. If no data or insufficient coverage, try to fetch from Zerodha
+  // We consider it insufficient if there are no candles at all
+  if (!existingData || existingData.length === 0) {
+    console.log(`[CandleService] No historical data for ${instrumentToken} ${timeframe} in range. Attempting backfill...`);
+    
+    try {
+      const { marketDataEngine } = await import("@/lib/server/market-data-engine");
+      const { decrypt, encrypt } = await import("@/lib/server/encryption");
+      const { performZerodhaFullLogin } = await import("@/lib/server/zerodha-auth");
+
+      let config = await marketDataEngine.getActiveConfig();
+      
+      // Check if token is expired (expired if now > token_expires_at)
+      const isExpired = config?.token_expires_at ? new Date() > new Date(config.token_expires_at) : true;
+
+      if (config && isExpired && config.auto_login_enabled) {
+        console.log(`[CandleService] Zerodha token expired for ${config.name}. Attempting silent login...`);
+        const loginResult = await performZerodhaFullLogin({
+          api_key: decrypt(config.api_key),
+          api_secret: decrypt(config.api_secret),
+          user_id: decrypt(config.user_id),
+          password: decrypt(config.password),
+          totp_secret: decrypt(config.totp_secret),
+        });
+
+        if (loginResult.success && loginResult.accessToken) {
+          const tokenExpiry = new Date();
+          tokenExpiry.setHours(23, 59, 59, 999);
+          
+          const { data: updatedConfig } = await supabaseAdmin
+            .from("admin_zerodha_configs")
+            .update({
+              access_token: encrypt(loginResult.accessToken),
+              token_expires_at: tokenExpiry.toISOString(),
+              last_login_at: new Date().toISOString(),
+              connection_status: "connected",
+            })
+            .eq("id", config.id)
+            .select("*")
+            .single();
+          
+          if (updatedConfig) config = updatedConfig;
+        }
+      }
+
+      if (config && config.access_token && (!config.token_expires_at || new Date() <= new Date(config.token_expires_at))) {
+        const apiKey = decrypt(config.api_key);
+        const accessToken = decrypt(config.access_token);
+        
+        const intervalMap: Record<string, string> = {
+          "1m": "minute",
+          "3m": "3minute",
+          "5m": "5minute",
+          "15m": "15minute",
+          "30m": "30minute",
+          "1h": "60minute",
+          "day": "day",
+        };
+        const interval = intervalMap[timeframe] || (timeframe.includes("minute") ? timeframe : "day");
+        
+        const fromStr = from.toISOString().split("T")[0];
+        const toStr = to.toISOString().split("T")[0];
+
+        const response = await fetch(
+          `https://api.kite.trade/instruments/historical/${instrumentToken}/${interval}?from=${fromStr}&to=${toStr}`,
+          {
+            headers: {
+              "X-Kite-Version": "3",
+              Authorization: `token ${apiKey}:${accessToken}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          const rawCandles = result.data?.candles || [];
+
+          if (rawCandles.length > 0) {
+            const rows = rawCandles.map((c: (string | number)[]) => ({
+              instrument_token: instrumentToken,
+              timeframe: timeframe,
+              timestamp: new Date(c[0] as string).toISOString(),
+              open: c[1] as number,
+              high: c[2] as number,
+              low: c[3] as number,
+              close: c[4] as number,
+              volume: c[5] as number,
+              oi: (c[6] as number) || 0,
+            }));
+
+            // Store in historical_candles
+            const batchSize = 1000;
+            for (let i = 0; i < rows.length; i += batchSize) {
+              const batch = rows.slice(i, i + batchSize);
+              await supabaseAdmin
+                .from("historical_candles")
+                .upsert(batch, { onConflict: "instrument_token,timeframe,timestamp" });
+            }
+            console.log(`[CandleService] Backfilled ${rows.length} candles into historical_candles`);
+
+            const candles = rows.map(r => ({
+              timestamp: new Date(r.timestamp),
+              open: r.open,
+              high: r.high,
+              low: r.low,
+              close: r.close,
+              volume: r.volume,
+              oi: r.oi
+            }));
+
+            return {
+              candles,
+              hasMore: false,
+              oldestTimestamp: candles[0].timestamp.toISOString(),
+              newestTimestamp: candles[candles.length - 1].timestamp.toISOString(),
+              mode: "BACKTEST",
+              source: "zerodha_historical_api_backfill",
+            };
+          }
+        } else {
+          console.error(`[CandleService] Failed to backfill from Zerodha: ${response.statusText}`);
+        }
+      }
+    } catch (err) {
+      console.error("[CandleService] Error during backfill:", err);
+    }
+  }
+
+  const candles = (existingData || []).map((c) => ({
     timestamp: new Date(c.timestamp),
     open: parseFloat(c.open),
     high: parseFloat(c.high),

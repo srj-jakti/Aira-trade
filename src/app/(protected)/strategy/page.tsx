@@ -31,6 +31,8 @@ import {
   Calendar,
   Link2,
   Wrench,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -61,6 +63,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Sheet,
   SheetContent,
@@ -172,6 +184,17 @@ const TIMEFRAMES = [
 
 export default function StrategyPage() {
   const [activeTab, setActiveTab] = useState("create");
+  const [editingStrategy, setEditingStrategy] = useState<any>(null);
+
+  const handleEdit = (strategy: any) => {
+    setEditingStrategy(strategy);
+    setActiveTab("create");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingStrategy(null);
+    setActiveTab("private");
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-[#030303] overflow-y-auto">
@@ -187,7 +210,10 @@ export default function StrategyPage() {
           </div>
         </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <Tabs value={activeTab} onValueChange={(v) => {
+              setActiveTab(v);
+              if (v !== "create") setEditingStrategy(null);
+            }} className="space-y-6">
               <div className="px-0">
                 <TabsList className="flex h-auto sm:h-12 items-center justify-between gap-0.5 rounded-xl border border-white/10 bg-white/5 p-1 w-full overflow-x-auto scrollbar-hide">
                   <TabsTrigger
@@ -202,7 +228,9 @@ export default function StrategyPage() {
                     className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
                   >
                     <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                    <span className="truncate w-full text-center sm:text-left">Create</span>
+                    <span className="truncate w-full text-center sm:text-left">
+                      {editingStrategy ? "Edit" : "Create"}
+                    </span>
                   </TabsTrigger>
                   <TabsTrigger
                     value="private"
@@ -234,11 +262,11 @@ export default function StrategyPage() {
             </TabsContent>
 
             <TabsContent value="create" className="space-y-6 mt-0">
-              <CreateStrategyTab />
+              <CreateStrategyTab initialData={editingStrategy} onCancel={handleCancelEdit} />
             </TabsContent>
 
             <TabsContent value="private" className="space-y-6 mt-0">
-              <PrivateStrategiesTab />
+              <PrivateStrategiesTab onEdit={handleEdit} />
             </TabsContent>
 
             <TabsContent value="public" className="space-y-6 mt-0">
@@ -575,7 +603,13 @@ function ActiveStrategiesTab() {
   );
 }
 
-function CreateStrategyTab() {
+function CreateStrategyTab({
+  initialData,
+  onCancel
+}: {
+  initialData?: any;
+  onCancel?: () => void;
+}) {
   const [step, setStep] = useState<"input" | "review" | "backtest" | "improve" | "save">("input");
   const [rawInput, setRawInput] = useState("");
   const [formatting, setFormatting] = useState(false);
@@ -601,6 +635,46 @@ function CreateStrategyTab() {
   const [referenceInstrument, setReferenceInstrument] = useState("");
   const [refInstrumentSearch, setRefInstrumentSearch] = useState("");
   const [refInstruments, setRefInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
+
+  useEffect(() => {
+    if (initialData) {
+      setRawInput(initialData.raw_input || "");
+      setStrategy(initialData.strategy_logic || null);
+      setSelectedTimeframes(initialData.selected_timeframes || []);
+      setIsPaperTrading(initialData.is_paper_trading || false);
+      setVisibility(initialData.visibility || "private");
+      
+      if (initialData.selected_instruments && initialData.selected_instruments.length > 0) {
+        fetchInstrumentsForTokens(initialData.selected_instruments);
+      }
+      
+      setStep("review");
+    } else {
+      resetForm();
+    }
+  }, [initialData]);
+
+  const fetchInstrumentsForTokens = async (tokens: number[]) => {
+    try {
+      const results = await Promise.all(
+        tokens.map(async (token) => {
+          const res = await fetch(`/api/market-data/instruments?search=${token}&limit=1`);
+          if (res.ok) {
+            const data = await res.json();
+            return data.instruments?.[0];
+          }
+          return null;
+        })
+      );
+      const valid = results.filter(Boolean) as Array<{instrument_token: number; tradingsymbol: string}>;
+      setSelectedInstruments(valid.map(i => ({ 
+        instrument_token: i.instrument_token, 
+        tradingsymbol: i.tradingsymbol 
+      })));
+    } catch (err) {
+      console.error("Error fetching instruments for tokens:", err);
+    }
+  };
 
   const searchInstruments = useCallback(async (query: string) => {
     if (query.length < 2) {
@@ -761,8 +835,11 @@ function CreateStrategyTab() {
     if (!strategy || selectedTimeframes.length === 0) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/strategies", {
-        method: "POST",
+      const url = initialData ? `/api/strategies/${initialData.id}` : "/api/strategies";
+      const method = initialData ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           strategy,
@@ -776,9 +853,10 @@ function CreateStrategyTab() {
       if (res.ok) {
         setShowSaveDialog(false);
         resetForm();
-        alert(visibility === "private" 
+        if (onCancel) onCancel();
+        alert(initialData ? "Strategy updated successfully!" : (visibility === "private" 
           ? "Strategy saved successfully!" 
-          : "Strategy saved and submitted for approval!");
+          : "Strategy saved and submitted for approval!"));
       }
     } catch {
       alert("Error saving strategy");
@@ -799,6 +877,7 @@ function CreateStrategyTab() {
     setFromDate("");
     setToDate("");
     setReferenceInstrument("");
+    if (onCancel && initialData) onCancel();
   };
 
   return (
@@ -1184,7 +1263,7 @@ function CreateStrategyTab() {
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
         <DialogContent className="bg-[#1a1a1a] border-white/10 text-white">
           <DialogHeader>
-            <DialogTitle>Save Strategy</DialogTitle>
+            <DialogTitle>{initialData ? "Update Strategy" : "Save Strategy"}</DialogTitle>
             <DialogDescription className="text-white/50">
               Select timeframes and visibility for your strategy.
             </DialogDescription>
@@ -1275,7 +1354,7 @@ function CreateStrategyTab() {
               className="bg-cyan-500 hover:bg-cyan-600"
             >
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-              Save Strategy
+              {initialData ? "Update Strategy" : "Save Strategy"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1466,9 +1545,10 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
   );
 }
 
-function PrivateStrategiesTab() {
+function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) {
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchStrategies();
@@ -1497,6 +1577,20 @@ function PrivateStrategiesTab() {
     }
   };
 
+  const handleDelete = async (id: number) => {
+    try {
+      const res = await fetch(`/api/strategies/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setStrategies(prev => prev.filter(s => s.id !== id));
+        setDeletingId(null);
+      }
+    } catch (err) {
+      alert("Error deleting strategy");
+    }
+  };
+
   if (loading) {
     return (
       <Card className="bg-white/5 border-white/10">
@@ -1508,80 +1602,120 @@ function PrivateStrategiesTab() {
   }
 
   return (
-    <Card className="bg-white/5 border-white/10">
-      <CardHeader>
-        <CardTitle className="text-white text-lg">Private Strategies</CardTitle>
-        <CardDescription className="text-white/40">
-          Your personal strategies. Toggle to activate for AI analysis.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {strategies.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-white/5 rounded-xl">
-            <Lock className="w-12 h-12 text-white/10 mb-4" />
-            <p className="text-white/40">No private strategies saved</p>
-            <p className="text-white/20 text-sm mt-1">
-              Create your first strategy in the Create AI tab
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {strategies.map((strategy) => (
-              <div
-                key={strategy.id}
-                className="p-4 bg-white/5 border border-white/10 rounded-xl"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-white font-medium">{strategy.name}</h3>
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${
-                          strategy.visibility === "private"
-                            ? "border-white/20 text-white/40"
-                            : strategy.visibility === "public"
-                            ? "border-green-500/30 text-green-400"
-                            : "border-purple-500/30 text-purple-400"
-                        }`}
-                      >
-                        {strategy.visibility === "invite_only" ? "Invite Only" : strategy.visibility}
-                      </Badge>
-                      {strategy.visibility !== "private" && !strategy.admin_approved && (
-                        <Badge variant="outline" className="text-xs border-yellow-500/30 text-yellow-400">
-                          Pending Approval
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-white/40 text-sm mt-1">{strategy.description}</p>
-                    <div className="flex gap-2 mt-2">
-                      {strategy.selected_timeframes?.map((tf) => (
+    <>
+      <Card className="bg-white/5 border-white/10">
+        <CardHeader>
+          <CardTitle className="text-white text-lg">Private Strategies</CardTitle>
+          <CardDescription className="text-white/40">
+            Your personal strategies. Toggle to activate for AI analysis.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {strategies.length === 0 ? (
+            <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-white/5 rounded-xl">
+              <Lock className="w-12 h-12 text-white/10 mb-4" />
+              <p className="text-white/40">No private strategies saved</p>
+              <p className="text-white/20 text-sm mt-1">
+                Create your first strategy in the Create AI tab
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {strategies.map((strategy) => (
+                <div
+                  key={strategy.id}
+                  className="p-4 bg-white/5 border border-white/10 rounded-xl"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-white font-medium">{strategy.name}</h3>
                         <Badge
-                          key={tf}
                           variant="outline"
-                          className="text-xs border-white/10 text-white/50"
+                          className={`text-xs ${
+                            strategy.visibility === "private"
+                              ? "border-white/20 text-white/40"
+                              : strategy.visibility === "public"
+                              ? "border-green-500/30 text-green-400"
+                              : "border-purple-500/30 text-purple-400"
+                          }`}
                         >
-                          {TIMEFRAMES.find((t) => t.value === tf)?.label || tf}
+                          {strategy.visibility === "invite_only" ? "Invite Only" : strategy.visibility}
                         </Badge>
-                      ))}
+                        {strategy.visibility !== "private" && !strategy.admin_approved && (
+                          <Badge variant="outline" className="text-xs border-yellow-500/30 text-yellow-400">
+                            Pending Approval
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-white/40 text-sm mt-1">{strategy.description}</p>
+                      <div className="flex gap-2 mt-2">
+                        {strategy.selected_timeframes?.map((tf) => (
+                          <Badge
+                            key={tf}
+                            variant="outline"
+                            className="text-xs border-white/10 text-white/50"
+                          >
+                            {TIMEFRAMES.find((t) => t.value === tf)?.label || tf}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-white/40 text-xs">Activation</p>
-                      <Switch
-                        checked={strategy.is_active}
-                        onCheckedChange={(checked) => toggleActive(strategy.id, checked)}
-                      />
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 mr-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-white/40 hover:text-white hover:bg-white/10"
+                          onClick={() => onEdit?.(strategy)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-white/40 hover:text-red-400 hover:bg-red-400/10"
+                          onClick={() => setDeletingId(strategy.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-white/40 text-[10px] uppercase tracking-wider mb-1">Status</p>
+                        <Switch
+                          checked={strategy.is_active}
+                          onCheckedChange={(checked) => toggleActive(strategy.id, checked)}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={deletingId !== null} onOpenChange={(open) => !open && setDeletingId(null)}>
+        <AlertDialogContent className="bg-[#1a1a1a] border-white/10 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/50">
+              This will permanently delete the strategy and stop all active scanning/trading associated with it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingId && handleDelete(deletingId)}
+              className="bg-red-500 hover:bg-red-600 text-white border-none"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 

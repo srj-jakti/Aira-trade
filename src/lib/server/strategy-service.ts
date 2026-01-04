@@ -128,26 +128,35 @@ class StrategyService {
   
   CRITICAL: You MUST use the following technical indicators, candlestick patterns, and chart patterns when defining the entry/exit conditions. Use their exact names.
   
-  TRADING TOOLS AVAILABLE:
-  - Trend: SMA, EMA, WMA, HMA, Supertrend, ADX, Ichimoku, VWAP, Alligator
-  - Momentum: RSI, MACD, Stochastic, CCI, Williams %R, MFI, ROC, Awesome Oscillator
-  - Volatility: Bollinger Bands, ATR, Keltner Channel, Donchian Channel
-  - Patterns: Hammer, Shooting Star, Doji, Engulfing, Morning Star, Harami, H&S, Double Top/Bottom
-  - Price Action: Swing High/Low, Trend Lines, Breakout, FVG, Order Block, Liquidity Sweep
+  TRADING TOOLS AVAILABLE (FULL TOOLBOX):
+  - Trend Indicators: SMA, EMA, WMA, HMA, DEMA, TEMA, Supertrend, ADX, Ichimoku, VWAP, Alligator, Parabolic SAR, ZigZag
+  - Momentum Indicators: RSI, MACD, Stochastic, CCI, Williams %R, MFI, ROC, Awesome Oscillator, Chaikin Money Flow, Trix
+  - Volatility Indicators: Bollinger Bands, ATR, Keltner Channel, Donchian Channel, Standard Deviation, Choppiness Index
+  - Volume Indicators: Volume SMA, OBV, VWAP, Chaikin Oscillator, Force Index, Ease of Movement
+  - Candlestick Patterns: Hammer, Shooting Star, Doji, Bullish/Bearish Engulfing, Morning/Evening Star, Piercing Line, Dark Cloud Cover, Three White Soldiers, Three Black Crows
+  - Chart Patterns: Head & Shoulders, Inverse H&S, Double Top/Bottom, Triple Top/Bottom, Ascending/Descending Triangle, Symmetrical Triangle, Bull/Bear Flag, Pennant, Cup and Handle
+  - Price Action: Swing High/Low, Trend Lines, Support/Resistance Breakout/Breakdown, FVG (Fair Value Gap), Order Block, Liquidity Sweep, BOS (Break of Structure), CHoCH (Change of Character)
   
   RULES:
-  1. ALWAYS provide specific buy_entry_logic, sell_entry_logic, stop_loss, and target.
-  2. If the user is vague, infer the most professional parameters (e.g., RSI period 14, SMA period 20).
-  3. Support multi-instrument logic if requested.
+  1. ALWAYS provide specific buy_entry_logic, sell_entry_logic, buy_stop_loss, buy_target, sell_stop_loss, sell_target, and hold_logic.
+  2. Logic should be structured as an array of conditions. Example: ["Price > SMA(200)", "RSI(14) < 30", "Bullish Engulfing"].
+  3. If the user is vague, infer the most professional parameters (e.g., RSI period 14, EMA period 9/21).
+  4. Ensure logic is mutually exclusive where appropriate (e.g., don't buy and sell at the same time).
+  5. Include a clear, professional name and description.
+  6. Reference instruments: If index price is mentioned, use logic like "NIFTY Price > SMA(20)".
   
-  OUTPUT FORMAT (JSON):
+  OUTPUT FORMAT (JSON ONLY):
   {
     "name": "Strategy Name",
     "description": "Professional description",
-    "buy_entry_logic": { "conditions": ["RSI(14) below 30", "Price above SMA(20)"], "indicators": ["RSI", "SMA"] },
-    "sell_entry_logic": { "conditions": ["RSI(14) above 70", "Price below SMA(20)"], "indicators": ["RSI", "SMA"] },
+    "buy_entry_logic": { "conditions": ["RSI(14) below 30", "Price above EMA(20)"], "indicators": ["RSI", "EMA"] },
     "buy_stop_loss": { "parameters": { "percentage": 2 } },
     "buy_target": { "parameters": { "percentage": 4 } },
+    "buy_trailing_sl": { "parameters": { "active": false } },
+    "sell_entry_logic": { "conditions": ["RSI(14) above 70", "Price below EMA(20)"], "indicators": ["RSI", "EMA"] },
+    "sell_stop_loss": { "parameters": { "percentage": 2 } },
+    "sell_target": { "parameters": { "percentage": 4 } },
+    "sell_trailing_sl": { "parameters": { "active": false } },
     "hold_logic": { "conditions": ["Volume below 100000"] }
   }`,
       },
@@ -742,7 +751,9 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     strategy: StructuredStrategy,
     rawInput: string,
     selectedTimeframes: string[],
-    visibility: "private" | "public" | "invite_only"
+    visibility: "private" | "public" | "invite_only",
+    isPaperTrading: boolean = false,
+    selectedInstruments: number[] = []
   ): Promise<number> {
     // 1. Create or Update strategy
     const { data, error } = await supabaseAdmin
@@ -762,6 +773,8 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
         sell_trailing_sl: strategy.sell_trailing_sl,
         hold_logic: strategy.hold_logic,
         selected_timeframes: selectedTimeframes,
+        selected_instruments: selectedInstruments,
+        is_paper_trading: isPaperTrading,
         visibility,
         is_finalized: true,
         status: "finalized",

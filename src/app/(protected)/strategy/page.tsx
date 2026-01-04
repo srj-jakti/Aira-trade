@@ -126,6 +126,8 @@ interface Strategy {
   description: string;
   visibility: string;
   is_active: boolean;
+  is_paper_trading?: boolean;
+  selected_instruments?: number[];
   selected_timeframes: string[];
   created_at: string;
   admin_approved?: boolean;
@@ -135,6 +137,30 @@ interface Strategy {
     net_pnl_percentage: number;
     total_trades: number;
   };
+}
+
+interface Signal {
+  id: number;
+  strategy_id: number;
+  instrument_token: number;
+  type: "BUY" | "SELL";
+  price: number;
+  timestamp: string;
+}
+
+interface PaperTrade {
+  id: number;
+  strategy_id: number;
+  instrument_token: number;
+  type: "BUY" | "SELL";
+  entry_price: number;
+  entry_time: string;
+  exit_price?: number;
+  exit_time?: string;
+  status: "OPEN" | "CLOSED";
+  pnl?: number;
+  pnl_percentage?: number;
+  exit_reason?: string;
 }
 
 const TIMEFRAMES = [
@@ -232,20 +258,53 @@ export default function StrategyPage() {
 function ActiveStrategiesTab() {
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedStrategyId, setSelectedStrategyId] = useState<number | null>(null);
+  const [signals, setSignals] = useState<Signal[]>([]);
+  const [paperTrades, setPaperTrades] = useState<PaperTrade[]>([]);
+  const [activeView, setActiveView] = useState<"overview" | "signals" | "trades">("overview");
 
   useEffect(() => {
     fetchActiveStrategies();
   }, []);
+
+  useEffect(() => {
+    if (selectedStrategyId) {
+      fetchStrategyData(selectedStrategyId);
+    }
+  }, [selectedStrategyId]);
 
   const fetchActiveStrategies = async () => {
     try {
       const res = await fetch("/api/strategies");
       if (res.ok) {
         const data = await res.json();
-        setStrategies((data.strategies || []).filter((s: Strategy) => s.is_active));
+        const activeOnes = (data.strategies || []).filter((s: Strategy) => s.is_active);
+        setStrategies(activeOnes);
+        if (activeOnes.length > 0 && !selectedStrategyId) {
+          setSelectedStrategyId(activeOnes[0].id);
+        }
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStrategyData = async (id: number) => {
+    try {
+      const [sigRes, tradeRes] = await Promise.all([
+        fetch(`/api/ai/signals?strategyId=${id}&limit=10`),
+        fetch(`/api/trading/history?strategyId=${id}&limit=10`)
+      ]);
+      if (sigRes.ok) {
+        const data = await sigRes.json();
+        setSignals(data.signals || []);
+      }
+      if (tradeRes.ok) {
+        const data = await tradeRes.json();
+        setPaperTrades(data.trades || []);
+      }
+    } catch (err) {
+      console.error("Error fetching strategy data:", err);
     }
   };
 
@@ -270,65 +329,249 @@ function ActiveStrategiesTab() {
     );
   }
 
+  const selectedStrategy = strategies.find(s => s.id === selectedStrategyId);
+
   return (
-    <Card className="bg-white/5 border-white/10">
-      <CardHeader>
-        <CardTitle className="text-white text-lg">Active Strategies</CardTitle>
-        <CardDescription className="text-white/40">
-          Strategies enabled for AI Analysis, Scanner, and User-Configured Automation.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {strategies.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-white/5 rounded-xl">
-            <Activity className="w-12 h-12 text-white/10 mb-4" />
-            <p className="text-white/40">No active strategies</p>
-            <p className="text-white/20 text-sm mt-1">
-              Activate a strategy from your Private tab to use it
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {strategies.map((strategy) => (
-              <div
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <Card className="bg-white/5 border-white/10 lg:col-span-1">
+        <CardHeader>
+          <CardTitle className="text-white text-sm">Active List</CardTitle>
+        </CardHeader>
+        <CardContent className="p-2 space-y-1">
+          {strategies.length === 0 ? (
+            <p className="text-white/20 text-xs p-4 text-center">No active strategies</p>
+          ) : (
+            strategies.map((strategy) => (
+              <button
                 key={strategy.id}
-                className="p-4 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between"
+                onClick={() => setSelectedStrategyId(strategy.id)}
+                className={`w-full text-left p-3 rounded-lg transition-all ${
+                  selectedStrategyId === strategy.id ? "bg-white/10" : "hover:bg-white/5"
+                }`}
               >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-white font-medium">{strategy.name}</h3>
-                    <Badge
-                      variant="outline"
-                      className="text-xs border-green-500/30 text-green-400"
-                    >
-                      Active
+                <div className="flex items-center justify-between">
+                  <span className="text-white text-sm font-medium truncate">{strategy.name}</span>
+                  <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className="text-[10px] px-1 h-4 border-white/10 text-white/40">
+                    {strategy.selected_timeframes[0]}
+                  </Badge>
+                  {strategy.is_paper_trading && (
+                    <Badge variant="outline" className="text-[10px] px-1 h-4 border-cyan-500/30 text-cyan-400">
+                      Paper
                     </Badge>
-                  </div>
-                  <p className="text-white/40 text-sm mt-1">
-                    {strategy.description}
-                  </p>
-                  <div className="flex gap-2 mt-2">
-                    {strategy.selected_timeframes?.map((tf) => (
-                      <Badge
-                        key={tf}
-                        variant="outline"
-                        className="text-xs border-white/10 text-white/50"
-                      >
-                        {TIMEFRAMES.find((t) => t.value === tf)?.label || tf}
-                      </Badge>
-                    ))}
+                  )}
+                </div>
+              </button>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="bg-white/5 border-white/10 lg:col-span-3">
+        {selectedStrategy ? (
+          <>
+            <CardHeader className="border-b border-white/5 pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-white text-lg">{selectedStrategy.name}</CardTitle>
+                  <CardDescription className="text-white/40">
+                    Monitoring {selectedStrategy.selected_instruments?.length || 0} instruments
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col items-end mr-4">
+                    <span className="text-[10px] text-white/40 uppercase tracking-wider">Status</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-white text-xs">Active</span>
+                      <Switch
+                        checked={selectedStrategy.is_active}
+                        onCheckedChange={(checked) => toggleActive(selectedStrategy.id, checked)}
+                      />
+                    </div>
                   </div>
                 </div>
-                <Switch
-                  checked={strategy.is_active}
-                  onCheckedChange={(checked) => toggleActive(strategy.id, checked)}
-                />
               </div>
-            ))}
+              
+              <div className="flex gap-2 mt-4">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setActiveView("overview")}
+                  className={activeView === "overview" ? "bg-white/10 text-white" : "text-white/40"}
+                >
+                  Overview
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setActiveView("signals")}
+                  className={activeView === "signals" ? "bg-white/10 text-white" : "text-white/40"}
+                >
+                  Live Signals
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setActiveView("trades")}
+                  className={activeView === "trades" ? "bg-white/10 text-white" : "text-white/40"}
+                >
+                  Paper Trades
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {activeView === "overview" && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                      <p className="text-white/40 text-xs mb-1">Total Signals</p>
+                      <p className="text-white text-xl font-bold">{signals.length}</p>
+                    </div>
+                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                      <p className="text-white/40 text-xs mb-1">Win Rate</p>
+                      <p className="text-green-400 text-xl font-bold">
+                        {selectedStrategy.stats?.win_rate?.toFixed(1) || "0.0"}%
+                      </p>
+                    </div>
+                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                      <p className="text-white/40 text-xs mb-1">Total P&L</p>
+                      <p className={`text-xl font-bold ${
+                        (selectedStrategy.stats?.net_pnl_percentage || 0) >= 0 ? "text-green-400" : "text-red-400"
+                      }`}>
+                        {selectedStrategy.stats?.net_pnl_percentage?.toFixed(2) || "0.00"}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                    <h4 className="text-white text-sm font-medium mb-3">Strategy Description</h4>
+                    <p className="text-white/60 text-sm leading-relaxed">
+                      {selectedStrategy.description}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {activeView === "signals" && (
+                <div className="space-y-4">
+                  {signals.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Zap className="w-12 h-12 text-white/10 mx-auto mb-4" />
+                      <p className="text-white/40">Waiting for live signals...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="text-white/40 text-xs">
+                          <tr className="border-b border-white/5">
+                            <th className="text-left py-3">Time</th>
+                            <th className="text-left py-3">Type</th>
+                            <th className="text-left py-3">Price</th>
+                            <th className="text-right py-3">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-white/80">
+                          {signals.map((signal) => (
+                            <tr key={signal.id} className="border-b border-white/5 hover:bg-white/5">
+                              <td className="py-3 text-white/40">
+                                {new Date(signal.timestamp).toLocaleTimeString()}
+                              </td>
+                              <td className="py-3">
+                                <Badge variant="outline" className={
+                                  signal.type === "BUY" ? "border-green-500/30 text-green-400" : "border-red-500/30 text-red-400"
+                                }>
+                                  {signal.type}
+                                </Badge>
+                              </td>
+                              <td className="py-3">₹{signal.price.toFixed(2)}</td>
+                              <td className="py-3 text-right">
+                                <Badge variant="outline" className="border-cyan-500/30 text-cyan-400">Recorded</Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeView === "trades" && (
+                <div className="space-y-4">
+                  {paperTrades.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Target className="w-12 h-12 text-white/10 mx-auto mb-4" />
+                      <p className="text-white/40">No paper trades recorded yet</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="text-white/40 text-xs">
+                          <tr className="border-b border-white/5">
+                            <th className="text-left py-3">Type</th>
+                            <th className="text-left py-3">Entry</th>
+                            <th className="text-left py-3">Exit</th>
+                            <th className="text-right py-3">P&L</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-white/80">
+                          {paperTrades.map((trade) => (
+                            <tr key={trade.id} className="border-b border-white/5 hover:bg-white/5">
+                              <td className="py-3">
+                                <Badge variant="outline" className={
+                                  trade.type === "BUY" ? "border-green-500/30 text-green-400" : "border-red-500/30 text-red-400"
+                                }>
+                                  {trade.type}
+                                </Badge>
+                              </td>
+                              <td className="py-3">
+                                <div>₹{trade.entry_price.toFixed(2)}</div>
+                                <div className="text-[10px] text-white/40">
+                                  {new Date(trade.entry_time).toLocaleDateString()}
+                                </div>
+                              </td>
+                              <td className="py-3">
+                                {trade.status === "OPEN" ? (
+                                  <Badge className="bg-cyan-500">OPEN</Badge>
+                                ) : (
+                                  <>
+                                    <div>₹{trade.exit_price?.toFixed(2)}</div>
+                                    <div className="text-[10px] text-white/40">{trade.exit_reason}</div>
+                                  </>
+                                )}
+                              </td>
+                              <td className={`py-3 text-right font-medium ${
+                                (trade.pnl || 0) >= 0 ? "text-green-400" : "text-red-400"
+                              }`}>
+                                {trade.status === "CLOSED" ? (
+                                  <>
+                                    <div>{(trade.pnl || 0) >= 0 ? "+" : ""}₹{trade.pnl?.toFixed(2)}</div>
+                                    <div className="text-[10px]">{trade.pnl_percentage?.toFixed(2)}%</div>
+                                  </>
+                                ) : "-"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center min-h-[400px]">
+            <Activity className="w-12 h-12 text-white/10 mb-4" />
+            <p className="text-white/40 text-center">
+              Select a strategy from the left to view live performance
+            </p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }
 
@@ -348,6 +591,7 @@ function CreateStrategyTab() {
   const [improvementNotes, setImprovementNotes] = useState("");
   const [improvementCount, setImprovementCount] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [isPaperTrading, setIsPaperTrading] = useState(false);
   const [visibility, setVisibility] = useState<"private" | "public" | "invite_only">("private");
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [fromDate, setFromDate] = useState("");
@@ -524,6 +768,8 @@ function CreateStrategyTab() {
           strategy,
           rawInput,
           selectedTimeframes,
+          selectedInstruments: selectedInstruments.map(i => i.instrument_token),
+          isPaperTrading,
           visibility,
         }),
       });
@@ -999,6 +1245,19 @@ function CreateStrategyTab() {
                   </SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
+              <div className="space-y-0.5">
+                <Label className="text-white text-sm">Paper Trading</Label>
+                <p className="text-white/40 text-[10px]">
+                  Simulate trades on live data after saving
+                </p>
+              </div>
+              <Switch
+                checked={isPaperTrading}
+                onCheckedChange={setIsPaperTrading}
+              />
             </div>
           </div>
 

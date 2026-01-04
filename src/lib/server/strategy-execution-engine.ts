@@ -88,34 +88,60 @@ export class StrategyExecutionEngine {
   }
 
   private checkSignals(strategy: StructuredStrategy, candles: Candle[], index: number): "BUY" | "SELL" | null {
+    // Pre-calculate common indicators for the current lookback window
+    const closePrices = candles.map(c => c.close);
+    const indicatorData: Record<string, any> = {};
+    
+    indicatorData["rsi_14"] = IndicatorCalculator.calculateRSI(closePrices, 14);
+    indicatorData["sma_20"] = IndicatorCalculator.calculateSMA(closePrices, 20);
+    indicatorData["ema_9"] = IndicatorCalculator.calculateEMA(closePrices, 9);
+    
     const checkAllConditions = (conditions: string[], idx: number): boolean => {
       if (!conditions || conditions.length === 0) return false;
-      
-      // Re-using the logic from StrategyService but simplified for real-time
-      // Ideally, we should unify this into a shared Evaluator class
-      // For now, I'll implement a basic version that handles common indicators
-      
-      const closePrices = candles.map(c => c.close);
-      const indicatorData: Record<string, any> = {};
       
       return conditions.every(condition => {
         const lowerCond = condition.toLowerCase();
         
+        // RSI
         if (lowerCond.includes("rsi")) {
-          const rsi = IndicatorCalculator.calculateRSI(closePrices, 14)[idx];
+          const rsi = indicatorData["rsi_14"][idx];
           if (isNaN(rsi)) return false;
-          if (lowerCond.includes("below") || lowerCond.includes("<")) return rsi < 30;
-          if (lowerCond.includes("above") || lowerCond.includes(">")) return rsi > 70;
+          if (lowerCond.includes("below") || lowerCond.includes("<")) {
+            const threshold = parseInt(lowerCond.match(/\d+/)?.[0] || "30");
+            return rsi < threshold;
+          }
+          if (lowerCond.includes("above") || lowerCond.includes(">")) {
+            const threshold = parseInt(lowerCond.match(/\d+/)?.[0] || "70");
+            return rsi > threshold;
+          }
         }
 
+        // MA
         if (lowerCond.includes("sma") || lowerCond.includes("ema")) {
-          const period = 20; // Default
-          const ma = lowerCond.includes("sma") 
-            ? IndicatorCalculator.calculateSMA(closePrices, period)[idx]
-            : IndicatorCalculator.calculateEMA(closePrices, period)[idx];
+          const type = lowerCond.includes("sma") ? "sma" : "ema";
+          const period = parseInt(lowerCond.match(/\d+/)?.[0] || "20");
+          const key = `${type}_${period}`;
+          
+          if (!indicatorData[key]) {
+            indicatorData[key] = type === "sma" 
+              ? IndicatorCalculator.calculateSMA(closePrices, period)
+              : IndicatorCalculator.calculateEMA(closePrices, period);
+          }
+
+          const ma = indicatorData[key][idx];
           if (isNaN(ma)) return false;
-          if (lowerCond.includes("above")) return candles[idx].close > ma;
-          if (lowerCond.includes("below")) return candles[idx].close < ma;
+          if (lowerCond.includes("above") || lowerCond.includes(">")) return candles[idx].close > ma;
+          if (lowerCond.includes("below") || lowerCond.includes("<")) return candles[idx].close < ma;
+        }
+
+        // Candlestick Patterns
+        if (lowerCond.includes("hammer")) {
+          return IndicatorCalculator.isHammer(candles[idx], idx > 0 ? candles[idx-1] : null);
+        }
+        if (lowerCond.includes("engulfing")) {
+          if (idx === 0) return false;
+          const res = IndicatorCalculator.isEngulfing(candles[idx], candles[idx-1]);
+          return lowerCond.includes("bullish") ? res.bullish : res.bearish;
         }
 
         return false;

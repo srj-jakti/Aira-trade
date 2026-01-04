@@ -11,10 +11,10 @@ import { Loader2, TrendingUp, TrendingDown, Target, AlertTriangle, Info, RotateC
 import { resetPaperBalance, togglePaperTrading } from "@/app/(protected)/dashboard/actions";
 
 const SEGMENTS = [
-  { id: "equity", label: "Equity Stocks", description: "All indices + NIFTY 500 & BSE 500 stocks (NSE preferred)" },
-  { id: "indices_options", label: "Indices Options", description: "NIFTY, BANKNIFTY, FINNIFTY, SENSEX, BANKEX options (20 CE + 20 PE near ATM)" },
-  { id: "futures", label: "Futures", description: "Index futures + NIFTY 100 & BSE 100 stock futures" },
-  { id: "currency", label: "Currency", description: "USDINR, EURINR, GBPINR, JPYINR + options (20 CE + 20 PE)" },
+  { id: "equity", label: "Equity Stocks", description: "Indices + NIFTY 500 & BSE 500 stocks (Unique companies, NSE preferred)" },
+  { id: "indices_options", label: "Indices Options", description: "NIFTY, BANKNIFTY, FINNIFTY, SENSEX, BANKEX + 20 CE & 20 PE strikes near ATM" },
+  { id: "futures", label: "Futures", description: "Index futures + NSE & BSE stock futures (NIFTY 100 & BSE 100, NSE preferred)" },
+  { id: "currency", label: "Currency", description: "USDINR, EURINR, GBPINR, JPYINR + options (20 CE & 20 PE per pair)" },
 ];
 
 export function RiskSettingsForm() {

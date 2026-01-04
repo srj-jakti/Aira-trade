@@ -204,10 +204,21 @@ IMPORTANT: Use "logic": "OR" for rules to get more signals. Keep rules SIMPLE wi
         throw new Error("AI failed to format strategy");
       }
 
-        try {
-          const parsed = typeof result.result === "string" 
-            ? JSON.parse(result.result.replace(/```json\n?|\n?```/g, "").trim())
-            : result.result;
+          try {
+            let jsonString = typeof result.result === "string" ? result.result : JSON.stringify(result.result);
+            
+            // More robust JSON extraction
+            const firstBrace = jsonString.indexOf("{");
+            const lastBrace = jsonString.lastIndexOf("}");
+            
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+              jsonString = jsonString.substring(firstBrace, lastBrace + 1);
+            } else {
+              jsonString = jsonString.replace(/```json\n?|\n?```/g, "").trim();
+            }
+
+            const parsed = JSON.parse(jsonString);
+
           
           console.log("[StrategyService] AI returned executable_strategy:", !!parsed.executable_strategy);
           

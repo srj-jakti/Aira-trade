@@ -174,8 +174,8 @@ export default function StrategyPage() {
   const [activeTab, setActiveTab] = useState("create");
 
   return (
-    <div className="flex flex-col h-full bg-[#030303]">
-      <div className="flex-1 p-4 md:p-8 pt-6 space-y-6 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col min-h-screen bg-[#030303] overflow-y-auto">
+      <div className="flex-1 p-4 md:p-8 pt-6 space-y-6 max-w-7xl mx-auto w-full pb-20">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-white">

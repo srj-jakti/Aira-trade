@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { IndicatorCalculator, type Candle } from "./indicator-calculator";
 import { type StructuredStrategy } from "./strategy-service";
+import { StrategyEvaluator } from "./strategy-evaluator";
 
 export class StrategyExecutionEngine {
   private static instance: StrategyExecutionEngine;
@@ -51,10 +52,18 @@ export class StrategyExecutionEngine {
     const instrumentTokens = strategy.selected_instruments || [];
     if (instrumentTokens.length === 0) return;
 
+    const { data: preferences } = await supabaseAdmin
+      .from("trading_preferences")
+      .select("auto_trading_enabled")
+      .eq("user_id", strategy.user_id)
+      .single();
+
+    const isAutoTrading = preferences?.auto_trading_enabled || false;
+
     for (const token of instrumentTokens) {
       const timeframe = strategy.selected_timeframes?.[0] || "5m";
       
-      // Fetch recent candles (need enough for indicators)
+      // Fetch recent candles
       const { data: candles } = await supabaseAdmin
         .from("live_candles")
         .select("*")
@@ -75,83 +84,38 @@ export class StrategyExecutionEngine {
       }));
 
       const lastIndex = sortedCandles.length - 1;
-      const signal = this.checkSignals(strategy, sortedCandles, lastIndex);
+      const indicatorData = StrategyEvaluator.precalculateIndicators(sortedCandles);
+      const evaluation = StrategyEvaluator.evaluate(strategy, sortedCandles, lastIndex, indicatorData);
+
+      let signal: "BUY" | "SELL" | null = null;
+      if (evaluation.buySignal) signal = "BUY";
+      else if (evaluation.sellSignal) signal = "SELL";
 
       if (signal) {
         await this.recordSignal(strategy.id, token, signal, sortedCandles[lastIndex].close);
         
-        if (strategy.is_paper_trading) {
-          await this.processPaperTrade(strategy, token, signal, sortedCandles[lastIndex]);
+        // ONLY trade if Auto Trading is enabled
+        if (isAutoTrading) {
+          if (strategy.is_paper_trading) {
+            // Real-time Paper Trading
+            await this.processPaperTrade(strategy, token, signal, sortedCandles[lastIndex]);
+          } else {
+            // REAL LIVE Trading
+            await this.executeRealTrade(strategy, token, signal, sortedCandles[lastIndex]);
+          }
+        }
+      } else {
+        // Even if no new entry signal, check if we need to close existing paper trades based on logic
+        if (strategy.is_paper_trading && isAutoTrading) {
+          await this.processPaperTrade(strategy, token, null, sortedCandles[lastIndex], evaluation);
         }
       }
     }
   }
 
-  private checkSignals(strategy: StructuredStrategy, candles: Candle[], index: number): "BUY" | "SELL" | null {
-    // Pre-calculate common indicators for the current lookback window
-    const closePrices = candles.map(c => c.close);
-    const indicatorData: Record<string, any> = {};
-    
-    indicatorData["rsi_14"] = IndicatorCalculator.calculateRSI(closePrices, 14);
-    indicatorData["sma_20"] = IndicatorCalculator.calculateSMA(closePrices, 20);
-    indicatorData["ema_9"] = IndicatorCalculator.calculateEMA(closePrices, 9);
-    
-    const checkAllConditions = (conditions: string[], idx: number): boolean => {
-      if (!conditions || conditions.length === 0) return false;
-      
-      return conditions.every(condition => {
-        const lowerCond = condition.toLowerCase();
-        
-        // RSI
-        if (lowerCond.includes("rsi")) {
-          const rsi = indicatorData["rsi_14"][idx];
-          if (isNaN(rsi)) return false;
-          if (lowerCond.includes("below") || lowerCond.includes("<")) {
-            const threshold = parseInt(lowerCond.match(/\d+/)?.[0] || "30");
-            return rsi < threshold;
-          }
-          if (lowerCond.includes("above") || lowerCond.includes(">")) {
-            const threshold = parseInt(lowerCond.match(/\d+/)?.[0] || "70");
-            return rsi > threshold;
-          }
-        }
-
-        // MA
-        if (lowerCond.includes("sma") || lowerCond.includes("ema")) {
-          const type = lowerCond.includes("sma") ? "sma" : "ema";
-          const period = parseInt(lowerCond.match(/\d+/)?.[0] || "20");
-          const key = `${type}_${period}`;
-          
-          if (!indicatorData[key]) {
-            indicatorData[key] = type === "sma" 
-              ? IndicatorCalculator.calculateSMA(closePrices, period)
-              : IndicatorCalculator.calculateEMA(closePrices, period);
-          }
-
-          const ma = indicatorData[key][idx];
-          if (isNaN(ma)) return false;
-          if (lowerCond.includes("above") || lowerCond.includes(">")) return candles[idx].close > ma;
-          if (lowerCond.includes("below") || lowerCond.includes("<")) return candles[idx].close < ma;
-        }
-
-        // Candlestick Patterns
-        if (lowerCond.includes("hammer")) {
-          return IndicatorCalculator.isHammer(candles[idx], idx > 0 ? candles[idx-1] : null);
-        }
-        if (lowerCond.includes("engulfing")) {
-          if (idx === 0) return false;
-          const res = IndicatorCalculator.isEngulfing(candles[idx], candles[idx-1]);
-          return lowerCond.includes("bullish") ? res.bullish : res.bearish;
-        }
-
-        return false;
-      });
-    };
-
-    if (checkAllConditions(strategy.buy_entry_logic.conditions, index)) return "BUY";
-    if (checkAllConditions(strategy.sell_entry_logic.conditions, index)) return "SELL";
-    
-    return null;
+  private async executeRealTrade(strategy: any, token: number, signal: string, candle: any) {
+    console.log(`[StrategyExecutionEngine] EXECUTING REAL TRADE: ${strategy.name} ${signal} ${token} @ ${candle.close}`);
+    // Real trade execution would be integrated here
   }
 
   private async recordSignal(strategyId: number, token: number, type: string, price: number) {
@@ -164,8 +128,13 @@ export class StrategyExecutionEngine {
     });
   }
 
-  private async processPaperTrade(strategy: any, token: number, signal: string, candle: Candle) {
-    // Check if we already have an open paper trade for this strategy/instrument
+  private async processPaperTrade(
+    strategy: any, 
+    token: number, 
+    signal: "BUY" | "SELL" | null, 
+    candle: Candle,
+    evaluation?: any
+  ) {
     const { data: openTrade } = await supabaseAdmin
       .from("paper_trades")
       .select("*")
@@ -175,33 +144,59 @@ export class StrategyExecutionEngine {
       .single();
 
     if (openTrade) {
-      // Check for exit signal or SL/Target
       let shouldExit = false;
       let reason = "";
 
-      if (openTrade.type === "BUY" && signal === "SELL") {
-        shouldExit = true;
-        reason = "Reverse Signal";
-      } else if (openTrade.type === "SELL" && signal === "BUY") {
-        shouldExit = true;
-        reason = "Reverse Signal";
+      // 1. Logic-based Exit
+      if (openTrade.type === "BUY") {
+        if (signal === "SELL" || (evaluation && evaluation.sellSignal)) {
+          shouldExit = true;
+          reason = "Exit Signal (Live Paper)";
+        }
+      } else {
+        if (signal === "BUY" || (evaluation && evaluation.buySignal)) {
+          shouldExit = true;
+          reason = "Exit Signal (Live Paper)";
+        }
       }
 
-      // Check SL/Target (Basic)
-      const pnlPct = openTrade.type === "BUY" 
-        ? ((candle.close - openTrade.entry_price) / openTrade.entry_price) * 100
-        : ((openTrade.entry_price - candle.close) / openTrade.entry_price) * 100;
-
-      if (pnlPct <= -2) { shouldExit = true; reason = "Stop Loss Hit"; }
-      if (pnlPct >= 4) { shouldExit = true; reason = "Target Hit"; }
+      // 2. SL/Target based Exit
+      const entryPrice = openTrade.entry_price;
+      const currentPrice = candle.close;
+      
+      if (openTrade.type === "BUY") {
+        const slPct = strategy.buy_stop_loss?.parameters?.percentage || 2;
+        const targetPct = strategy.buy_target?.parameters?.percentage || 4;
+        
+        if (currentPrice <= entryPrice * (1 - slPct / 100)) {
+          shouldExit = true;
+          reason = "Stop Loss Hit (Live Paper)";
+        } else if (currentPrice >= entryPrice * (1 + targetPct / 100)) {
+          shouldExit = true;
+          reason = "Target Hit (Live Paper)";
+        }
+      } else {
+        const slPct = strategy.sell_stop_loss?.parameters?.percentage || 2;
+        const targetPct = strategy.sell_target?.parameters?.percentage || 4;
+        
+        if (currentPrice >= entryPrice * (1 + slPct / 100)) {
+          shouldExit = true;
+          reason = "Stop Loss Hit (Live Paper)";
+        } else if (currentPrice <= entryPrice * (1 - targetPct / 100)) {
+          shouldExit = true;
+          reason = "Target Hit (Live Paper)";
+        }
+      }
 
       if (shouldExit) {
-        const pnl = (candle.close - openTrade.entry_price) * openTrade.quantity * (openTrade.type === "BUY" ? 1 : -1);
+        const pnl = (currentPrice - entryPrice) * openTrade.quantity * (openTrade.type === "BUY" ? 1 : -1);
+        const pnlPct = ((currentPrice - entryPrice) / entryPrice) * 100 * (openTrade.type === "BUY" ? 1 : -1);
+        
         await supabaseAdmin
           .from("paper_trades")
           .update({
             status: "CLOSED",
-            exit_price: candle.close,
+            exit_price: currentPrice,
             exit_time: candle.timestamp,
             pnl,
             pnl_percentage: pnlPct,
@@ -209,7 +204,7 @@ export class StrategyExecutionEngine {
           })
           .eq("id", openTrade.id);
       }
-    } else {
+    } else if (signal) {
       // Open new paper trade
       await supabaseAdmin.from("paper_trades").insert({
         strategy_id: strategy.id,
@@ -218,7 +213,7 @@ export class StrategyExecutionEngine {
         type: signal,
         entry_price: candle.close,
         entry_time: candle.timestamp,
-        quantity: 1, // Default
+        quantity: 1, // Simple default
         status: "OPEN"
       });
     }

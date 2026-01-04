@@ -438,139 +438,15 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     let wins = 0;
     let losses = 0;
 
+import { StrategyEvaluator } from "./strategy-evaluator";
+
+// ... inside executeBacktest ...
     // Pre-calculate indicators for the entire series
-    const indicatorData: Record<string, any> = {};
-    const closePrices = candles.map(c => c.close);
-    const highPrices = candles.map(c => c.high);
-    const lowPrices = candles.map(c => c.low);
-
-    // Common indicators often used
-    indicatorData["rsi_14"] = IndicatorCalculator.calculateRSI(closePrices, 14);
-    indicatorData["sma_20"] = IndicatorCalculator.calculateSMA(closePrices, 20);
-    indicatorData["sma_50"] = IndicatorCalculator.calculateSMA(closePrices, 50);
-    indicatorData["sma_200"] = IndicatorCalculator.calculateSMA(closePrices, 200);
-    indicatorData["ema_9"] = IndicatorCalculator.calculateEMA(closePrices, 9);
-    indicatorData["ema_21"] = IndicatorCalculator.calculateEMA(closePrices, 21);
-    
-    const macd = IndicatorCalculator.calculateMACD(closePrices);
-    indicatorData["macd_line"] = macd.macd;
-    indicatorData["macd_signal"] = macd.signal;
-    indicatorData["macd_hist"] = macd.histogram;
-
-    const bb = IndicatorCalculator.calculateBollingerBands(closePrices);
-    indicatorData["bb_upper"] = bb.upper;
-    indicatorData["bb_middle"] = bb.middle;
-    indicatorData["bb_lower"] = bb.lower;
-
-    const st = IndicatorCalculator.calculateSupertrend(candles as CalcCandle[]);
-    indicatorData["supertrend"] = st.trend;
-    indicatorData["supertrend_dir"] = st.direction;
-
-    const checkCondition = (condition: string, index: number): boolean => {
-      const lowerCond = condition.toLowerCase();
-      const candle = candles[index];
-      const prevCandle = index > 0 ? candles[index - 1] : null;
-
-      // 1. RSI Conditions
-      if (lowerCond.includes("rsi")) {
-        const rsi = indicatorData["rsi_14"][index];
-        if (isNaN(rsi)) return false;
-        
-        if (lowerCond.includes("below") || lowerCond.includes("<")) {
-          const threshold = parseInt(lowerCond.match(/\d+/)?.[0] || "30");
-          return rsi < threshold;
-        }
-        if (lowerCond.includes("above") || lowerCond.includes(">")) {
-          const threshold = parseInt(lowerCond.match(/\d+/)?.[0] || "70");
-          return rsi > threshold;
-        }
-        if (lowerCond.includes("crosses above")) {
-          const threshold = parseInt(lowerCond.match(/\d+/)?.[0] || "30");
-          const prevRsi = indicatorData["rsi_14"][index - 1];
-          return prevRsi < threshold && rsi >= threshold;
-        }
-      }
-
-      // 2. MA Crossovers / Price vs MA
-      if (lowerCond.includes("sma") || lowerCond.includes("ema")) {
-        const type = lowerCond.includes("sma") ? "sma" : "ema";
-        const period = parseInt(lowerCond.match(/\d+/)?.[0] || "20");
-        const key = `${type}_${period}`;
-        
-        // Ensure indicator is calculated
-        if (!indicatorData[key]) {
-          indicatorData[key] = type === "sma" 
-            ? IndicatorCalculator.calculateSMA(closePrices, period)
-            : IndicatorCalculator.calculateEMA(closePrices, period);
-        }
-
-        const maValue = indicatorData[key][index];
-        if (isNaN(maValue)) return false;
-
-        if (lowerCond.includes("price") && (lowerCond.includes("above") || lowerCond.includes(">"))) {
-          return candle.close > maValue;
-        }
-        if (lowerCond.includes("price") && (lowerCond.includes("below") || lowerCond.includes("<"))) {
-          return candle.close < maValue;
-        }
-        if (lowerCond.includes("crosses above")) {
-          const prevMa = indicatorData[key][index - 1];
-          return prevCandle && prevCandle.close < prevMa && candle.close >= maValue;
-        }
-      }
-
-      // 3. MACD
-      if (lowerCond.includes("macd")) {
-        const line = indicatorData["macd_line"][index];
-        const signal = indicatorData["macd_signal"][index];
-        if (isNaN(line) || isNaN(signal)) return false;
-
-        if (lowerCond.includes("crosses above signal")) {
-          const prevLine = indicatorData["macd_line"][index - 1];
-          const prevSignal = indicatorData["macd_signal"][index - 1];
-          return prevLine < prevSignal && line >= signal;
-        }
-      }
-
-      // 4. Supertrend
-      if (lowerCond.includes("supertrend")) {
-        const dir = indicatorData["supertrend_dir"][index];
-        if (lowerCond.includes("bullish") || lowerCond.includes("buy")) {
-          return dir === 1;
-        }
-        if (lowerCond.includes("bearish") || lowerCond.includes("sell")) {
-          return dir === -1;
-        }
-      }
-
-      // 5. Candlestick Patterns
-      if (lowerCond.includes("hammer")) {
-        return IndicatorCalculator.isHammer(candle as CalcCandle, prevCandle as CalcCandle);
-      }
-      if (lowerCond.includes("engulfing")) {
-        if (!prevCandle) return false;
-        const res = IndicatorCalculator.isEngulfing(candle as CalcCandle, prevCandle as CalcCandle);
-        return lowerCond.includes("bullish") ? res.bullish : res.bearish;
-      }
-      if (lowerCond.includes("doji")) {
-        return IndicatorCalculator.isDoji(candle as CalcCandle);
-      }
-
-      // 6. Simple Price Action
-      if (lowerCond.includes("bullish candle")) return candle.close > candle.open;
-      if (lowerCond.includes("bearish candle")) return candle.close < candle.open;
-      
-      return false;
-    };
-
-    const checkAllConditions = (conditions: string[], index: number): boolean => {
-      if (!conditions || conditions.length === 0) return false;
-      return conditions.every(c => checkCondition(c, index));
-    };
+    const indicatorData = StrategyEvaluator.precalculateIndicators(candles as CalcCandle[]);
 
     for (let i = 20; i < candles.length; i++) {
       const candle = candles[i];
-      const prevCandle = candles[i - 1];
+      const evaluation = StrategyEvaluator.evaluate(strategy, candles as CalcCandle[], i, indicatorData);
 
       if (currentPosition) {
         const entryPrice = currentPosition.entry_price;
@@ -586,7 +462,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
           
           if (candle.low <= slPrice) {
             shouldExit = true;
-            exitReason = "Stop Loss Hit";
+            exitReason = "Stop Loss Hit (Paper)";
             exitPrice = slPrice;
           }
 
@@ -597,14 +473,14 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
 
           if (candle.high >= targetPrice && !shouldExit) {
             shouldExit = true;
-            exitReason = "Target Hit";
+            exitReason = "Target Hit (Paper)";
             exitPrice = targetPrice;
           }
 
           // Sell Signal (Reverse Entry)
-          if (checkAllConditions(strategy.sell_entry_logic.conditions, i) && !shouldExit) {
+          if (evaluation.sellSignal && !shouldExit) {
             shouldExit = true;
-            exitReason = "Sell Signal";
+            exitReason = "Sell Signal (Paper)";
           }
         } else {
           // SELL Position Logic
@@ -614,7 +490,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
 
           if (candle.high >= slPrice) {
             shouldExit = true;
-            exitReason = "Stop Loss Hit";
+            exitReason = "Stop Loss Hit (Paper)";
             exitPrice = slPrice;
           }
 
@@ -624,13 +500,13 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
 
           if (candle.low <= targetPrice && !shouldExit) {
             shouldExit = true;
-            exitReason = "Target Hit";
+            exitReason = "Target Hit (Paper)";
             exitPrice = targetPrice;
           }
 
-          if (checkAllConditions(strategy.buy_entry_logic.conditions, i) && !shouldExit) {
+          if (evaluation.buySignal && !shouldExit) {
             shouldExit = true;
-            exitReason = "Buy Signal";
+            exitReason = "Buy Signal (Paper)";
           }
         }
 
@@ -658,33 +534,28 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
         }
       }
 
-      if (!currentPosition) {
-        const holdConditions = strategy.hold_logic.conditions || [];
-        const shouldHold = holdConditions.length > 0 && checkAllConditions(holdConditions, i);
-
-        if (!shouldHold) {
-          if (checkAllConditions(strategy.buy_entry_logic.conditions, i)) {
-            const quantity = Math.floor((cashBalance * 0.95) / candle.close);
-            if (quantity > 0) {
-              currentPosition = {
-                id: `trade-${trades.length + 1}`,
-                type: "BUY",
-                entry_time: candle.timestamp,
-                entry_price: candle.close,
-                quantity,
-              };
-            }
-          } else if (checkAllConditions(strategy.sell_entry_logic.conditions, i)) {
-            const quantity = Math.floor((cashBalance * 0.95) / candle.close);
-            if (quantity > 0) {
-              currentPosition = {
-                id: `trade-${trades.length + 1}`,
-                type: "SELL",
-                entry_time: candle.timestamp,
-                entry_price: candle.close,
-                quantity,
-              };
-            }
+      if (!currentPosition && !evaluation.holdSignal) {
+        if (evaluation.buySignal) {
+          const quantity = Math.floor((cashBalance * 0.95) / candle.close);
+          if (quantity > 0) {
+            currentPosition = {
+              id: `paper-trade-${trades.length + 1}`,
+              type: "BUY",
+              entry_time: candle.timestamp,
+              entry_price: candle.close,
+              quantity,
+            };
+          }
+        } else if (evaluation.sellSignal) {
+          const quantity = Math.floor((cashBalance * 0.95) / candle.close);
+          if (quantity > 0) {
+            currentPosition = {
+              id: `paper-trade-${trades.length + 1}`,
+              type: "SELL",
+              entry_time: candle.timestamp,
+              entry_price: candle.close,
+              quantity,
+            };
           }
         }
       }

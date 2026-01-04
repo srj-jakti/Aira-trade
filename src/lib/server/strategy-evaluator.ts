@@ -1,0 +1,156 @@
+
+import { IndicatorCalculator, type Candle } from "./indicator-calculator";
+import { type StructuredStrategy } from "./strategy-service";
+
+export interface EvaluationResult {
+  buySignal: boolean;
+  sellSignal: boolean;
+  holdSignal: boolean;
+  indicatorData: Record<string, any>;
+}
+
+export class StrategyEvaluator {
+  static precalculateIndicators(candles: Candle[]): Record<string, any> {
+    const data: Record<string, any> = {};
+    const close = candles.map(c => c.close);
+    
+    // Core Indicators
+    data["rsi_14"] = IndicatorCalculator.calculateRSI(close, 14);
+    data["sma_20"] = IndicatorCalculator.calculateSMA(close, 20);
+    data["sma_50"] = IndicatorCalculator.calculateSMA(close, 50);
+    data["sma_200"] = IndicatorCalculator.calculateSMA(close, 200);
+    data["ema_9"] = IndicatorCalculator.calculateEMA(close, 9);
+    data["ema_21"] = IndicatorCalculator.calculateEMA(close, 21);
+    data["wma_20"] = IndicatorCalculator.calculateWMA(close, 20);
+    data["dema_20"] = IndicatorCalculator.calculateDEMA(close, 20);
+    
+    const macd = IndicatorCalculator.calculateMACD(close);
+    data["macd_line"] = macd.macd;
+    data["macd_signal"] = macd.signal;
+    data["macd_hist"] = macd.histogram;
+
+    const bb = IndicatorCalculator.calculateBollingerBands(close);
+    data["bb_upper"] = bb.upper;
+    data["bb_middle"] = bb.middle;
+    data["bb_lower"] = bb.lower;
+
+    const st = IndicatorCalculator.calculateSupertrend(candles);
+    data["supertrend"] = st.trend;
+    data["supertrend_dir"] = st.direction;
+
+    data["atr_14"] = IndicatorCalculator.calculateATR(candles);
+    data["obv"] = IndicatorCalculator.calculateOBV(candles);
+
+    const stoch = IndicatorCalculator.calculateStochastic(candles);
+    data["stoch_k"] = stoch.k;
+    data["stoch_d"] = stoch.d;
+
+    return data;
+  }
+
+  static evaluate(
+    strategy: StructuredStrategy,
+    candles: Candle[],
+    index: number,
+    indicatorData: Record<string, any>
+  ): EvaluationResult {
+    const checkCondition = (condition: string, idx: number): boolean => {
+      const lowerCond = condition.toLowerCase();
+      const candle = candles[idx];
+      const prevCandle = idx > 0 ? candles[idx - 1] : null;
+
+      // 1. RSI
+      if (lowerCond.includes("rsi")) {
+        const rsi = indicatorData["rsi_14"][idx];
+        if (isNaN(rsi)) return false;
+        if (lowerCond.includes("below") || lowerCond.includes("<")) return rsi < (parseInt(lowerCond.match(/\d+/)?.[0] || "30"));
+        if (lowerCond.includes("above") || lowerCond.includes(">")) return rsi > (parseInt(lowerCond.match(/\d+/)?.[0] || "70"));
+        if (lowerCond.includes("crosses above")) return idx > 0 && indicatorData["rsi_14"][idx-1] < (parseInt(lowerCond.match(/\d+/)?.[0] || "30")) && rsi >= (parseInt(lowerCond.match(/\d+/)?.[0] || "30"));
+      }
+
+      // 2. MA
+      if (lowerCond.includes("sma") || lowerCond.includes("ema") || lowerCond.includes("wma") || lowerCond.includes("dema")) {
+        let type = "sma";
+        if (lowerCond.includes("ema")) type = "ema";
+        else if (lowerCond.includes("wma")) type = "wma";
+        else if (lowerCond.includes("dema")) type = "dema";
+        const period = parseInt(lowerCond.match(/\d+/)?.[0] || "20");
+        const key = `${type}_${period}`;
+        
+        if (!indicatorData[key]) {
+          const close = candles.map(c => c.close);
+          if (type === "sma") indicatorData[key] = IndicatorCalculator.calculateSMA(close, period);
+          else if (type === "ema") indicatorData[key] = IndicatorCalculator.calculateEMA(close, period);
+          else if (type === "wma") indicatorData[key] = IndicatorCalculator.calculateWMA(close, period);
+          else if (type === "dema") indicatorData[key] = IndicatorCalculator.calculateDEMA(close, period);
+        }
+
+        const ma = indicatorData[key][idx];
+        if (isNaN(ma)) return false;
+        if (lowerCond.includes("price") && (lowerCond.includes("above") || lowerCond.includes(">"))) return candle.close > ma;
+        if (lowerCond.includes("price") && (lowerCond.includes("below") || lowerCond.includes("<"))) return candle.close < ma;
+        if (lowerCond.includes("crosses above")) return prevCandle && candles[idx-1].close < indicatorData[key][idx-1] && candle.close >= ma;
+      }
+
+      // 3. MACD
+      if (lowerCond.includes("macd")) {
+        const line = indicatorData["macd_line"][idx];
+        const signal = indicatorData["macd_signal"][idx];
+        if (isNaN(line) || isNaN(signal)) return false;
+        if (lowerCond.includes("crosses above signal")) return idx > 0 && indicatorData["macd_line"][idx-1] < indicatorData["macd_signal"][idx-1] && line >= signal;
+      }
+
+      // 4. Supertrend
+      if (lowerCond.includes("supertrend")) {
+        const dir = indicatorData["supertrend_dir"][idx];
+        if (lowerCond.includes("bullish") || lowerCond.includes("buy")) return dir === 1;
+        if (lowerCond.includes("bearish") || lowerCond.includes("sell")) return dir === -1;
+      }
+
+      // 5. Stochastic
+      if (lowerCond.includes("stochastic")) {
+        const k = indicatorData["stoch_k"][idx];
+        const d = indicatorData["stoch_d"][idx];
+        if (isNaN(k) || isNaN(d)) return false;
+        if (lowerCond.includes("k crosses above d")) return idx > 0 && indicatorData["stoch_k"][idx-1] < indicatorData["stoch_d"][idx-1] && k >= d;
+      }
+
+      // 6. Patterns
+      if (lowerCond.includes("hammer")) return IndicatorCalculator.isHammer(candle, prevCandle);
+      if (lowerCond.includes("shooting star")) return IndicatorCalculator.isShootingStar(candle);
+      if (lowerCond.includes("engulfing")) {
+        if (!prevCandle) return false;
+        const res = IndicatorCalculator.isEngulfing(candle, prevCandle);
+        return lowerCond.includes("bullish") ? res.bullish : res.bearish;
+      }
+      if (lowerCond.includes("doji")) return IndicatorCalculator.isDoji(candle);
+
+      // 7. Volume
+      if (lowerCond.includes("volume")) {
+        if (lowerCond.includes("above average")) {
+          const volSma = IndicatorCalculator.calculateSMA(candles.map(c => c.volume), 20);
+          return candle.volume > volSma[idx];
+        }
+        if (lowerCond.includes("obv rising")) return idx > 0 && indicatorData["obv"][idx] > indicatorData["obv"][idx-1];
+      }
+
+      // 8. Price Action
+      if (lowerCond.includes("bullish candle")) return candle.close > candle.open;
+      if (lowerCond.includes("bearish candle")) return candle.close < candle.open;
+
+      return false;
+    };
+
+    const check = (logic: any) => {
+      if (!logic || !logic.conditions || logic.conditions.length === 0) return false;
+      return logic.conditions.every((c: string) => checkCondition(c, index));
+    };
+
+    return {
+      buySignal: check(strategy.buy_entry_logic),
+      sellSignal: check(strategy.sell_entry_logic),
+      holdSignal: check(strategy.hold_logic),
+      indicatorData
+    };
+  }
+}

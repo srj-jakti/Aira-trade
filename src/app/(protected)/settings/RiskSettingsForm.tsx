@@ -11,7 +11,7 @@ import { Loader2, TrendingUp, TrendingDown, Target, AlertTriangle, Info, RotateC
 import { resetPaperBalance, togglePaperTrading } from "@/app/(protected)/dashboard/actions";
 
 const SEGMENTS = [
-  { id: "equity", label: "Equity Stocks (1750+ Stocks)", description: "Cash market equity trading" },
+  { id: "equity", label: "Equity Stocks", description: "Cash market equity trading" },
   { id: "indices_options", label: "Indices Options", description: "NIFTY, BANKNIFTY, FINNIFTY options" },
   { id: "futures", label: "Futures", description: "Stock and index futures" },
   { id: "currency", label: "Currency (Spot + Options)", description: "USDINR, EURINR with options" },
@@ -23,12 +23,17 @@ export function RiskSettingsForm() {
   const [resettingPaper, setResettingPaper] = useState(false);
   const [automationConsent, setAutomationConsent] = useState(false);
   const [paperTradingEnabled, setPaperTradingEnabled] = useState(false);
+  const [counts, setCounts] = useState({
+    equity: 0,
+    indices_options: 0,
+    futures: 0,
+    currency: 0
+  });
   const [settings, setSettings] = useState({
     auto_trading_enabled: false,
     preferred_markets: [] as string[],
     daily_profit_limit: "",
     daily_loss_limit: "",
-    max_allocation_per_trade: "",
     daily_pnl_realized: 0,
     daily_quota_hit_at: null as string | null,
     daily_quota_reason: null as string | null
@@ -46,7 +51,6 @@ export function RiskSettingsForm() {
               preferred_markets: data.settings.preferred_markets || [],
               daily_profit_limit: data.settings.daily_profit_limit?.toString() || "",
               daily_loss_limit: data.settings.daily_loss_limit?.toString() || "",
-              max_allocation_per_trade: data.settings.max_allocation_per_trade?.toString() || "",
               daily_pnl_realized: parseFloat(data.settings.daily_pnl_realized) || 0,
               daily_quota_hit_at: data.settings.daily_quota_hit_at,
               daily_quota_reason: data.settings.daily_quota_reason
@@ -55,6 +59,9 @@ export function RiskSettingsForm() {
             if (data.settings.auto_trading_enabled) {
               setAutomationConsent(true);
             }
+          }
+          if (data.counts) {
+            setCounts(data.counts);
           }
         }
       } catch (error) {
@@ -79,7 +86,6 @@ export function RiskSettingsForm() {
           preferred_markets: settings.preferred_markets,
           daily_profit_limit: parseFloat(settings.daily_profit_limit) || 0,
           daily_loss_limit: parseFloat(settings.daily_loss_limit) || 0,
-          max_allocation_per_trade: parseFloat(settings.max_allocation_per_trade) || 0,
         }),
       });
 
@@ -323,69 +329,60 @@ export function RiskSettingsForm() {
           )}
         </div>
 
-        <div className="space-y-4">
-        <Label className="text-white/60 text-xs uppercase tracking-wider font-bold">Market Segments</Label>
-        <div className="grid grid-cols-2 gap-4">
-          {SEGMENTS.map((segment) => (
-            <div key={segment.id} className="flex items-center space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/[0.08] transition-colors cursor-pointer" onClick={() => toggleSegment(segment.id)}>
-              <Checkbox 
-                id={segment.id} 
-                checked={settings.preferred_markets.includes(segment.id)}
-                onCheckedChange={() => toggleSegment(segment.id)}
-                className="border-white/20 data-[state=checked]:bg-white data-[state=checked]:text-black"
-              />
-              <label htmlFor={segment.id} className="text-sm text-white cursor-pointer">{segment.label}</label>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="profitLimit" className="flex items-center gap-2">
-            <TrendingUp className="w-3 h-3 text-green-500" />
-            Daily Target Limit (₹)
-          </Label>
-          <Input 
-            id="profitLimit" 
-            type="number"
-            value={settings.daily_profit_limit}
-            onChange={(e) => setSettings(prev => ({ ...prev, daily_profit_limit: e.target.value }))}
-            placeholder="e.g. 5000"
-            className="bg-white/5 border-white/10"
-          />
+          <div className="space-y-4">
+          <Label className="text-white/60 text-xs uppercase tracking-wider font-bold">Market Segments</Label>
+          <div className="grid grid-cols-2 gap-4">
+            {SEGMENTS.map((segment) => {
+              const count = counts[segment.id as keyof typeof counts] || 0;
+              return (
+                <div key={segment.id} className="flex items-center space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/[0.08] transition-colors cursor-pointer" onClick={() => toggleSegment(segment.id)}>
+                  <Checkbox 
+                    id={segment.id} 
+                    checked={settings.preferred_markets.includes(segment.id)}
+                    onCheckedChange={() => toggleSegment(segment.id)}
+                    className="border-white/20 data-[state=checked]:bg-white data-[state=checked]:text-black"
+                  />
+                  <div className="flex flex-col">
+                    <label htmlFor={segment.id} className="text-sm text-white cursor-pointer">{segment.label}</label>
+                    <span className="text-[10px] text-white/40">({count} instruments)</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="lossLimit" className="flex items-center gap-2">
-            <TrendingDown className="w-3 h-3 text-red-500" />
-            Daily Loss Limit (₹)
-          </Label>
-          <Input 
-            id="lossLimit" 
-            type="number"
-            value={settings.daily_loss_limit}
-            onChange={(e) => setSettings(prev => ({ ...prev, daily_loss_limit: e.target.value }))}
-            placeholder="e.g. 2000"
-            className="bg-white/5 border-white/10"
-          />
-        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="profitLimit" className="flex items-center gap-2">
+              <TrendingUp className="w-3 h-3 text-green-500" />
+              Daily Target Limit (₹)
+            </Label>
+            <Input 
+              id="profitLimit" 
+              type="number"
+              value={settings.daily_profit_limit}
+              onChange={(e) => setSettings(prev => ({ ...prev, daily_profit_limit: e.target.value }))}
+              placeholder="e.g. 5000"
+              className="bg-white/5 border-white/10"
+            />
+          </div>
 
-        <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="maxAlloc" className="flex items-center gap-2">
-            <Target className="w-3 h-3 text-blue-500" />
-            Max Allocation Per Position (%)
-          </Label>
-          <Input 
-            id="maxAlloc" 
-            type="number"
-            value={settings.max_allocation_per_trade}
-            onChange={(e) => setSettings(prev => ({ ...prev, max_allocation_per_trade: e.target.value }))}
-            placeholder="e.g. 10"
-            className="bg-white/5 border-white/10"
-          />
+          <div className="space-y-2">
+            <Label htmlFor="lossLimit" className="flex items-center gap-2">
+              <TrendingDown className="w-3 h-3 text-red-500" />
+              Daily Loss Limit (₹)
+            </Label>
+            <Input 
+              id="lossLimit" 
+              type="number"
+              value={settings.daily_loss_limit}
+              onChange={(e) => setSettings(prev => ({ ...prev, daily_loss_limit: e.target.value }))}
+              placeholder="e.g. 2000"
+              className="bg-white/5 border-white/10"
+            />
+          </div>
         </div>
-      </div>
 
       <Button 
         type="submit" 

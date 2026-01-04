@@ -27,7 +27,17 @@ export async function GET() {
       return serverErrorResponse();
     }
 
-    return successResponse({ settings: data || {} });
+    const { data: countsData } = await supabaseAdmin.rpc('get_subscription_counts');
+
+    return successResponse({ 
+      settings: data || {},
+      counts: countsData || {
+        equity: 0,
+        indices_options: 0,
+        futures: 0,
+        currency: 0
+      }
+    });
   } catch {
     return serverErrorResponse();
   }

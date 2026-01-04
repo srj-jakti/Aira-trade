@@ -11,7 +11,6 @@ export const credentialsSchema = z.object({
 export const tradingSettingsSchema = z.object({
   auto_trading_enabled: z.boolean().optional(),
   risk_appetite: z.enum(["low", "medium", "high"]).optional(),
-  max_allocation_per_trade: z.number().min(0).max(100).optional(),
   preferred_markets: z.array(z.string()).optional(),
   daily_profit_limit: z.number().min(0).optional(),
   daily_loss_limit: z.number().min(0).optional(),

@@ -250,6 +250,11 @@ export function validateStrategy(strategy: ExecutableStrategy): { valid: boolean
   }
   
   const validateRule = (rule: StrategyRule, context: string): void => {
+    if (!rule.type) {
+      errors.push(`${context}: Rule type is required`);
+      return;
+    }
+    
     switch (rule.type) {
       case "indicator":
         if (!rule.name) errors.push(`${context}: Indicator name is required`);
@@ -261,11 +266,22 @@ export function validateStrategy(strategy: ExecutableStrategy): { valid: boolean
         if (!rule.indicator) errors.push(`${context}: Indicator is required`);
         if (!rule.operator) errors.push(`${context}: Operator is required`);
         break;
+      case "indicator_vs_indicator":
+        if (!rule.indicator1) errors.push(`${context}: Indicator 1 is required`);
+        if (!rule.indicator2) errors.push(`${context}: Indicator 2 is required`);
+        if (!rule.operator) errors.push(`${context}: Operator is required`);
+        break;
       case "trend":
         if (!rule.indicator) errors.push(`${context}: Trend indicator is required`);
         break;
       case "pattern":
         if (!rule.pattern) errors.push(`${context}: Pattern type is required`);
+        break;
+      case "price_action":
+        if (!rule.action) errors.push(`${context}: Action type is required`);
+        break;
+      case "volume":
+        if (!rule.operator) errors.push(`${context}: Operator is required`);
         break;
     }
   };

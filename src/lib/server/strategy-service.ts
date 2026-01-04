@@ -149,32 +149,40 @@ class StrategyService {
   ### AVAILABLE INDICATORS:
   - RSI, EMA, SMA, SUPERTREND, MACD, BB_UPPER, BB_LOWER, ADX
   
-  ### OUTPUT JSON FORMAT:
-  {
-    "name": "Strategy Name",
-    "description": "Brief description",
-    "strategy_type": "INTRADAY" | "SWING" | "SCALPING" | "OPTIONS",
-    "buy_entry_logic": { "conditions": ["Human readable condition 1"] },
-    "sell_entry_logic": { "conditions": ["Human readable condition 1"] },
-    "buy_stop_loss": { "parameters": { "percentage": 1.5 } },
-    "buy_target": { "parameters": { "percentage": 3 } },
-    "buy_trailing_sl": { "conditions": [] },
-    "sell_stop_loss": { "parameters": { "percentage": 1.5 } },
-    "sell_target": { "parameters": { "percentage": 3 } },
-    "sell_trailing_sl": { "conditions": [] },
-    "hold_logic": { "conditions": [] },
-    "executable_strategy": {
+    ### OUTPUT JSON FORMAT:
+    {
       "name": "Strategy Name",
-      "strategyType": "INTRADAY" | "SWING" | "SCALPING" | "OPTIONS",
-      "version": 1,
-      "buy": { "logic": "OR", "rules": [...] },
-      "sell": { "logic": "OR", "rules": [...] },
-      "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3 } },
-      "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3 } },
-      "requiredIndicators": [...],
-      "minWarmupCandles": 20
+      "description": "Brief description",
+      "strategy_type": "INTRADAY" | "SWING" | "SCALPING" | "OPTIONS",
+      "buy_entry_logic": { "conditions": ["Human readable condition 1"] },
+      "sell_entry_logic": { "conditions": ["Human readable condition 1"] },
+      "executable_strategy": {
+        "name": "Strategy Name",
+        "strategyType": "INTRADAY" | "SWING" | "SCALPING" | "OPTIONS",
+        "version": 1,
+        "buy": { 
+          "logic": "OR", 
+          "rules": [
+            { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 40 },
+            { "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 }
+          ] 
+        },
+        "sell": { 
+          "logic": "OR", 
+          "rules": [
+            { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 60 },
+            { "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_BELOW", "indicator": "EMA", "indicatorPeriod": 20 }
+          ] 
+        },
+        "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3 } },
+        "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3 } },
+        "requiredIndicators": [
+          { "name": "RSI", "period": 14 },
+          { "name": "EMA", "period": 20 }
+        ],
+        "minWarmupCandles": 30
+      }
     }
-  }
   
   IMPORTANT: For INTRADAY strategies, ensure the description mentions "Exits same day".`,
           },
@@ -259,69 +267,104 @@ class StrategyService {
       }
 
   private sanitizeExecutableStrategy(strategy: ExecutableStrategy): ExecutableStrategy {
-    // Fix overly strict RSI thresholds
-    const fixRSIThresholds = (rules: any[]) => {
+    const sanitizeRules = (rules: any[] = []) => {
       return rules.map(rule => {
-        if (rule.type === "indicator" && rule.name === "RSI") {
-          if (rule.operator === "<" && rule.value <= 30) {
-            return { ...rule, value: 40 }; // Relax from 30 to 40
-          }
-          if (rule.operator === ">" && rule.value >= 70) {
-            return { ...rule, value: 60 }; // Relax from 70 to 60
-          }
+        // Fix missing type
+        if (!rule.type) {
+          if (rule.indicator && rule.priceField) rule.type = "price_vs_indicator";
+          else if (rule.indicator1 && rule.indicator2) rule.type = "indicator_vs_indicator";
+          else if (rule.name || (rule.indicator && rule.value !== undefined)) rule.type = "indicator";
+          else if (rule.indicator === "SUPERTREND" || rule.indicator === "ADX") rule.type = "trend";
+          else if (rule.pattern) rule.type = "pattern";
+          else if (rule.action) rule.type = "price_action";
+          else if (rule.operator && (rule.value !== undefined || rule.compareToAverage)) rule.type = "volume";
         }
+
+        // Fix keys
+        if (rule.condition && !rule.operator) rule.operator = rule.condition;
+        if (rule.indicator && !rule.name && rule.type === "indicator") rule.name = rule.indicator;
+        if (rule.period && !rule.indicatorPeriod && rule.type === "price_vs_indicator") rule.indicatorPeriod = rule.period;
+        
+        // Map common string operators to constants
+        const opMap: Record<string, string> = {
+          "cross above": "CROSS_ABOVE",
+          "crosses above": "CROSS_ABOVE",
+          "crossed above": "CROSS_ABOVE",
+          "cross below": "CROSS_BELOW",
+          "crosses below": "CROSS_BELOW",
+          "crossed below": "CROSS_BELOW",
+          "above": ">",
+          "below": "<",
+          "greater than": ">",
+          "less than": "<",
+          "equal": "==",
+          "equals": "=="
+        };
+
+        if (typeof rule.operator === "string" && opMap[rule.operator.toLowerCase()]) {
+          rule.operator = opMap[rule.operator.toLowerCase()];
+        }
+
+        // Fix overly strict RSI thresholds
+        if (rule.type === "indicator" && rule.name === "RSI") {
+          if (rule.operator === "<" && rule.value <= 30) rule.value = 40;
+          if (rule.operator === ">" && rule.value >= 70) rule.value = 60;
+        }
+
         return rule;
       });
     };
 
     // Remove broken indicators (Z-Score, etc)
-    const removeUnsupportedRules = (rules: any[]) => {
+    const filterRules = (rules: any[] = []) => {
+      const unsupported = ["ZSCORE", "Z_SCORE", "Z-SCORE", "VAP"];
       return rules.filter(rule => {
-        if (rule.type === "indicator" && ["ZSCORE", "Z_SCORE", "Z-SCORE"].includes(rule.name?.toUpperCase())) {
-          console.log("[StrategyService] Removing unsupported Z-Score rule");
-          return false;
-        }
-        if (rule.type === "pattern" && ["BULLISH_ENGULFING", "BEARISH_ENGULFING", "HAMMER", "DOJI"].includes(rule.pattern)) {
-          console.log("[StrategyService] Removing rare pattern rule:", rule.pattern);
-          return false;
-        }
+        const name = (rule.name || rule.indicator || "").toUpperCase();
+        if (unsupported.includes(name)) return false;
         return true;
       });
     };
 
-    // Process buy rules
     if (strategy.buy?.rules) {
-      strategy.buy.rules = removeUnsupportedRules(fixRSIThresholds(strategy.buy.rules));
-      // If only 1 rule left after filtering, use OR logic to increase signals
-      if (strategy.buy.rules.length <= 2) {
-        strategy.buy.logic = "OR";
-      }
-      // If no rules left, add a simple default
+      strategy.buy.rules = filterRules(sanitizeRules(strategy.buy.rules));
+      if (strategy.buy.rules.length <= 2) strategy.buy.logic = "OR";
       if (strategy.buy.rules.length === 0) {
-        strategy.buy.rules = [
-          { type: "indicator", name: "RSI", period: 14, operator: "<", value: 40 }
-        ];
-        strategy.buy.logic = "OR";
+        strategy.buy.rules = [{ type: "indicator", name: "RSI", period: 14, operator: "<", value: 40 }];
       }
     }
 
-    // Process sell rules
     if (strategy.sell?.rules) {
-      strategy.sell.rules = removeUnsupportedRules(fixRSIThresholds(strategy.sell.rules));
-      if (strategy.sell.rules.length <= 2) {
-        strategy.sell.logic = "OR";
-      }
+      strategy.sell.rules = filterRules(sanitizeRules(strategy.sell.rules));
+      if (strategy.sell.rules.length <= 2) strategy.sell.logic = "OR";
       if (strategy.sell.rules.length === 0) {
-        strategy.sell.rules = [
-          { type: "indicator", name: "RSI", period: 14, operator: ">", value: 60 }
-        ];
-        strategy.sell.logic = "OR";
+        strategy.sell.rules = [{ type: "indicator", name: "RSI", period: 14, operator: ">", value: 60 }];
       }
     }
 
-    // Ensure warmup is reasonable
-    if (!strategy.minWarmupCandles || strategy.minWarmupCandles > 100) {
-      strategy.minWarmupCandles = 20;
+    // Rebuild requiredIndicators
+    const indicators: Map<string, { name: any; period?: number }> = new Map();
+    const collectIndicators = (rules: any[] = []) => {
+      rules.forEach(rule => {
+        if (rule.type === "indicator" && rule.name) {
+          indicators.set(`${rule.name}_${rule.period || 14}`, { name: rule.name, period: rule.period });
+        } else if (rule.type === "price_vs_indicator" && rule.indicator) {
+          indicators.set(`${rule.indicator}_${rule.indicatorPeriod || 20}`, { name: rule.indicator, period: rule.indicatorPeriod });
+        } else if (rule.type === "indicator_vs_indicator") {
+          if (rule.indicator1) indicators.set(`${rule.indicator1}_${rule.period1 || 20}`, { name: rule.indicator1, period: rule.period1 });
+          if (rule.indicator2) indicators.set(`${rule.indicator2}_${rule.period2 || 20}`, { name: rule.indicator2, period: rule.period2 });
+        } else if (rule.type === "trend" && rule.indicator) {
+          indicators.set(rule.indicator, { name: rule.indicator });
+        }
+      });
+    };
+
+    collectIndicators(strategy.buy?.rules);
+    collectIndicators(strategy.sell?.rules);
+    collectIndicators(strategy.hold?.rules);
+
+    strategy.requiredIndicators = Array.from(indicators.values()) as any;
+    if (!strategy.minWarmupCandles || strategy.minWarmupCandles < 30) {
+      strategy.minWarmupCandles = 30;
     }
 
     return strategy;
@@ -683,6 +726,11 @@ class StrategyService {
     const from = fromDate || defaultFrom;
     const to = toDate || now;
     const normalizedTf = normalizeTimeframe(timeframe);
+
+    // Sanitize strategy before running backtest
+    if (strategy.executable_strategy) {
+      strategy.executable_strategy = this.sanitizeExecutableStrategy(strategy.executable_strategy);
+    }
 
     let allCandles: Candle[] = [];
     let dataSource = "historical_candles";

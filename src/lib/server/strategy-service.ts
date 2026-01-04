@@ -3,6 +3,7 @@ import { aiSharedService } from "./ai-shared-service";
 import { marketDataEngine } from "./market-data-engine";
 import { decrypt } from "./encryption";
 import { IndicatorCalculator, type Candle as CalcCandle } from "./indicator-calculator";
+import { StrategyEvaluator } from "./strategy-evaluator";
 
 export interface StrategyLogic {
   conditions: string[];
@@ -438,9 +439,6 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     let wins = 0;
     let losses = 0;
 
-import { StrategyEvaluator } from "./strategy-evaluator";
-
-// ... inside executeBacktest ...
     // Pre-calculate indicators for the entire series
     const indicatorData = StrategyEvaluator.precalculateIndicators(candles as CalcCandle[]);
 

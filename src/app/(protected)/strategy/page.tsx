@@ -635,6 +635,86 @@ function CreateStrategyTab({
   const [referenceInstrument, setReferenceInstrument] = useState("");
   const [refInstrumentSearch, setRefInstrumentSearch] = useState("");
   const [refInstruments, setRefInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
+  const [drafts, setDrafts] = useState<any[]>([]);
+  const [currentDraftId, setCurrentDraftId] = useState<number | null>(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [showDrafts, setShowDrafts] = useState(false);
+
+  useEffect(() => {
+    fetchDrafts();
+  }, []);
+
+  const fetchDrafts = async () => {
+    try {
+      const res = await fetch("/api/strategies/drafts");
+      if (res.ok) {
+        const data = await res.json();
+        setDrafts(data.drafts || []);
+      }
+    } catch (err) {
+      console.error("Error fetching drafts:", err);
+    }
+  };
+
+  const saveDraft = async () => {
+    setSavingDraft(true);
+    try {
+      const res = await fetch("/api/strategies/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draftId: currentDraftId,
+          rawInput,
+          strategyData: strategy,
+          selectedInstruments: selectedInstruments.map(i => i.instrument_token),
+          selectedTimeframes,
+          backtestResults,
+          step,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentDraftId(data.draft.id);
+        fetchDrafts();
+        alert("Draft saved successfully!");
+      }
+    } catch (err) {
+      alert("Failed to save draft");
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const loadDraft = async (draft: any) => {
+    setCurrentDraftId(draft.id);
+    setRawInput(draft.raw_input || "");
+    setStrategy(draft.strategy_data || null);
+    setSelectedTimeframes(draft.selected_timeframes || []);
+    setBacktestResults(draft.backtest_results || {});
+    setStep(draft.step || "input");
+    
+    if (draft.selected_instruments && draft.selected_instruments.length > 0) {
+      await fetchInstrumentsForTokens(draft.selected_instruments);
+    }
+    
+    setShowDrafts(false);
+  };
+
+  const deleteDraft = async (draftId: number) => {
+    try {
+      const res = await fetch(`/api/strategies/drafts?id=${draftId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        fetchDrafts();
+        if (currentDraftId === draftId) {
+          setCurrentDraftId(null);
+        }
+      }
+    } catch (err) {
+      alert("Failed to delete draft");
+    }
+  };
 
   useEffect(() => {
     if (initialData) {
@@ -877,11 +957,93 @@ function CreateStrategyTab({
     setFromDate("");
     setToDate("");
     setReferenceInstrument("");
+    setCurrentDraftId(null);
     if (onCancel && initialData) onCancel();
   };
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          {currentDraftId && (
+            <Badge variant="outline" className="border-yellow-500/30 text-yellow-400">
+              Draft #{currentDraftId}
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {drafts.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDrafts(!showDrafts)}
+              className="border-white/10 text-white/60"
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              Drafts ({drafts.length})
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={saveDraft}
+            disabled={savingDraft || (!rawInput.trim() && !strategy)}
+            className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
+          >
+            {savingDraft ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
+            Save Draft
+          </Button>
+        </div>
+      </div>
+
+      {showDrafts && drafts.length > 0 && (
+        <Card className="bg-yellow-500/5 border-yellow-500/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-white text-sm flex items-center gap-2">
+              <Clock className="w-4 h-4 text-yellow-400" />
+              Your Drafts
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {drafts.map((draft) => (
+              <div
+                key={draft.id}
+                className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg"
+              >
+                <div className="flex-1">
+                  <p className="text-white text-sm font-medium">{draft.name || "Untitled"}</p>
+                  <p className="text-white/40 text-xs">
+                    Step: {draft.step} • {new Date(draft.updated_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => loadDraft(draft)}
+                    className="text-cyan-400 hover:bg-cyan-500/10"
+                  >
+                    Continue
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteDraft(draft.id)}
+                    className="text-red-400 hover:bg-red-500/10"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex items-center justify-between gap-0.5 mb-6 bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto scrollbar-hide">
         {["input", "review", "backtest", "improve", "save"].map((s, i) => (
           <div key={s} className="flex items-center flex-1 last:flex-none">

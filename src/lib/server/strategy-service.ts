@@ -236,22 +236,167 @@ RULES:
       throw new Error("AI failed to format strategy");
     }
 
-    try {
-      const parsed = typeof result.result === "string" 
-        ? JSON.parse(result.result.replace(/```json\n?|\n?```/g, "").trim())
-        : result.result;
+      try {
+        const parsed = typeof result.result === "string" 
+          ? JSON.parse(result.result.replace(/```json\n?|\n?```/g, "").trim())
+          : result.result;
+        
+        console.log("[StrategyService] AI returned executable_strategy:", !!parsed.executable_strategy);
+        
+        if (parsed.executable_strategy) {
+          const validation = validateStrategy(parsed.executable_strategy);
+          if (!validation.valid) {
+            console.warn("[StrategyService] Executable strategy validation failed:", validation.errors);
+          } else {
+            console.log("[StrategyService] Executable strategy is valid with rules:", 
+              JSON.stringify({
+                buyRules: parsed.executable_strategy.buy?.rules?.length || 0,
+                sellRules: parsed.executable_strategy.sell?.rules?.length || 0,
+              })
+            );
+          }
+        } else {
+          console.log("[StrategyService] No executable_strategy returned by AI, creating fallback...");
+          parsed.executable_strategy = this.createFallbackExecutableStrategy(parsed);
+        }
+        
+        return parsed as StructuredStrategy;
+      } catch (e) {
+        console.error("[StrategyService] Failed to parse AI response:", e);
+        throw new Error("Failed to parse AI response");
+      }
+    }
+
+  private createFallbackExecutableStrategy(strategy: StructuredStrategy): ExecutableStrategy {
+    const buyRules: any[] = [];
+    const sellRules: any[] = [];
+    const indicators: Array<{ name: any; period?: number }> = [];
+
+    const parseConditions = (conditions: string[], type: "buy" | "sell") => {
+      const rules = type === "buy" ? buyRules : sellRules;
       
-      if (parsed.executable_strategy) {
-        const validation = validateStrategy(parsed.executable_strategy);
-        if (!validation.valid) {
-          console.warn("[StrategyService] Executable strategy validation failed:", validation.errors);
+      for (const cond of conditions || []) {
+        const lower = cond.toLowerCase();
+        
+        if (lower.includes("rsi")) {
+          const match = lower.match(/rsi[^\d]*(\d+)?[^\d]*([<>=]+|below|above|crosses?\s*(?:above|below))[^\d]*(\d+)/i);
+          if (match) {
+            const period = parseInt(match[1]) || 14;
+            const opStr = match[2].toLowerCase();
+            const value = parseInt(match[3]);
+            let operator = ">";
+            if (opStr.includes("<") || opStr.includes("below")) operator = "<";
+            if (opStr.includes("cross") && opStr.includes("above")) operator = "CROSS_ABOVE";
+            if (opStr.includes("cross") && opStr.includes("below")) operator = "CROSS_BELOW";
+            rules.push({ type: "indicator", name: "RSI", period, operator, value });
+            if (!indicators.find(i => i.name === "RSI" && i.period === period)) {
+              indicators.push({ name: "RSI", period });
+            }
+          }
+        }
+        
+        if (lower.includes("supertrend")) {
+          if (lower.includes("bullish") || lower.includes("buy")) {
+            rules.push({ type: "trend", indicator: "SUPERTREND", direction: "BULLISH" });
+          } else if (lower.includes("bearish") || lower.includes("sell")) {
+            rules.push({ type: "trend", indicator: "SUPERTREND", direction: "BEARISH" });
+          }
+          if (!indicators.find(i => i.name === "SUPERTREND")) {
+            indicators.push({ name: "SUPERTREND" as any });
+          }
+        }
+        
+        if (lower.includes("ema") || lower.includes("sma")) {
+          const maType = lower.includes("ema") ? "EMA" : "SMA";
+          const match = lower.match(/(ema|sma)[^\d]*\(?(\d+)\)?/i);
+          const period = match ? parseInt(match[2]) : 20;
+          
+          if (lower.includes("price") || lower.includes("close")) {
+            let operator: any = ">";
+            if (lower.includes("<") || lower.includes("below")) operator = "<";
+            if (lower.includes("cross") && lower.includes("above")) operator = "CROSS_ABOVE";
+            if (lower.includes("cross") && lower.includes("below")) operator = "CROSS_BELOW";
+            rules.push({ 
+              type: "price_vs_indicator", 
+              priceField: "close", 
+              operator, 
+              indicator: maType, 
+              indicatorPeriod: period 
+            });
+          }
+          if (!indicators.find(i => i.name === maType && i.period === period)) {
+            indicators.push({ name: maType as any, period });
+          }
+        }
+        
+        if (lower.includes("macd")) {
+          if (lower.includes("cross") && lower.includes("above")) {
+            rules.push({ 
+              type: "indicator_vs_indicator", 
+              indicator1: "MACD", 
+              indicator2: "MACD_SIGNAL", 
+              operator: "CROSS_ABOVE" 
+            });
+          } else if (lower.includes("cross") && lower.includes("below")) {
+            rules.push({ 
+              type: "indicator_vs_indicator", 
+              indicator1: "MACD", 
+              indicator2: "MACD_SIGNAL", 
+              operator: "CROSS_BELOW" 
+            });
+          } else if (lower.includes(">") || lower.includes("above")) {
+            rules.push({ type: "indicator", name: "MACD_HIST", operator: ">", value: 0 });
+          } else if (lower.includes("<") || lower.includes("below")) {
+            rules.push({ type: "indicator", name: "MACD_HIST", operator: "<", value: 0 });
+          }
+          if (!indicators.find(i => i.name === "MACD")) {
+            indicators.push({ name: "MACD" as any });
+          }
+        }
+        
+        if (lower.includes("bullish candle") || lower.includes("green candle")) {
+          rules.push({ type: "price_action", action: "BULLISH_CANDLE" });
+        }
+        if (lower.includes("bearish candle") || lower.includes("red candle")) {
+          rules.push({ type: "price_action", action: "BEARISH_CANDLE" });
         }
       }
-      
-      return parsed as StructuredStrategy;
-    } catch {
-      throw new Error("Failed to parse AI response");
+    };
+
+    parseConditions(strategy.buy_entry_logic?.conditions || [], "buy");
+    parseConditions(strategy.sell_entry_logic?.conditions || [], "sell");
+
+    if (buyRules.length === 0) {
+      buyRules.push({ type: "indicator", name: "RSI", period: 14, operator: "<", value: 40 });
+      indicators.push({ name: "RSI" as any, period: 14 });
     }
+    
+    if (sellRules.length === 0) {
+      sellRules.push({ type: "indicator", name: "RSI", period: 14, operator: ">", value: 60 });
+    }
+
+    const slPercent = (strategy.buy_stop_loss?.parameters?.percentage as number) || 2;
+    const targetPercent = (strategy.buy_target?.parameters?.percentage as number) || 4;
+
+    console.log("[StrategyService] Created fallback executable strategy with", buyRules.length, "buy rules and", sellRules.length, "sell rules");
+
+    return {
+      name: strategy.name,
+      description: strategy.description,
+      version: 1,
+      buy: { logic: "AND", rules: buyRules },
+      sell: { logic: "AND", rules: sellRules },
+      buyExit: {
+        stopLoss: { type: "PERCENTAGE", value: slPercent },
+        target: { type: "PERCENTAGE", value: targetPercent },
+      },
+      sellExit: {
+        stopLoss: { type: "PERCENTAGE", value: slPercent },
+        target: { type: "PERCENTAGE", value: targetPercent },
+      },
+      requiredIndicators: indicators as any,
+      minWarmupCandles: 30,
+    };
   }
 
   async improveStrategyWithAI(
@@ -531,6 +676,14 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
 
     if (useNewExecutor && strategy.executable_strategy) {
       console.log("[Backtest] Using NEW executable strategy engine");
+      console.log("[Backtest] Strategy rules:", JSON.stringify({
+        buyRules: strategy.executable_strategy.buy?.rules?.length || 0,
+        buyLogic: strategy.executable_strategy.buy?.logic,
+        sellRules: strategy.executable_strategy.sell?.rules?.length || 0,
+        sellLogic: strategy.executable_strategy.sell?.logic,
+        firstBuyRule: strategy.executable_strategy.buy?.rules?.[0],
+        firstSellRule: strategy.executable_strategy.sell?.rules?.[0],
+      }, null, 2));
       executor = new StrategyRuleExecutor(true);
       executor.precalculateIndicators(candles as CalcCandle[], strategy.executable_strategy);
       warmupPeriod = getRequiredWarmupPeriod(strategy.executable_strategy);
@@ -556,6 +709,22 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
         buySignal = result.buySignal;
         sellSignal = result.sellSignal;
         holdInfo = result.holdInfo;
+        
+        if (i === warmupPeriod || i === warmupPeriod + 1 || i === warmupPeriod + 2) {
+          console.log(`[Backtest] Sample eval candle ${i}:`, JSON.stringify({
+            close: candle.close,
+            buyResult: result.log.buyEvaluation.result,
+            buyRuleResults: result.log.buyEvaluation.ruleResults.map(r => ({
+              passed: r.passed,
+              reason: r.reason
+            })),
+            sellResult: result.log.sellEvaluation.result,
+            sellRuleResults: result.log.sellEvaluation.ruleResults.map(r => ({
+              passed: r.passed,
+              reason: r.reason
+            })),
+          }, null, 2));
+        }
         
         if (i < warmupPeriod + 5 || result.buySignal || result.sellSignal) {
           evaluationLogs.push(result.log);

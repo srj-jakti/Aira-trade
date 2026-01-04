@@ -458,6 +458,17 @@ export class StrategyRuleExecutor {
       };
     }
 
+    if (index === warmupPeriod && this.debugMode) {
+      console.log(`[Executor] First evaluation at index ${index}`);
+      console.log(`[Executor] BUY rules: ${strategy.buy.rules.length}, logic: ${strategy.buy.logic}`);
+      console.log(`[Executor] SELL rules: ${strategy.sell.rules.length}, logic: ${strategy.sell.logic}`);
+      console.log(`[Executor] Sample indicator values at index ${index}:`, {
+        RSI_14: this.indicatorCache.get("RSI_14")?.[index],
+        EMA_20: this.indicatorCache.get("EMA_20")?.[index],
+        SUPERTREND_DIR: this.indicatorCache.get("SUPERTREND_DIR")?.[index],
+      });
+    }
+
     const buyEval = this.evaluateRuleSet(strategy.buy, index);
     const sellEval = this.evaluateRuleSet(strategy.sell, index);
     const holdEval = strategy.hold ? this.evaluateRuleSet(strategy.hold, index) : { result: false, ruleResults: [] };

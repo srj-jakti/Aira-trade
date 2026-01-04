@@ -78,16 +78,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Perform AI analysis
-    const marketAnalysis = await aiSharedService.analyzeMarketTrend({
+    // Perform Human-Like AI analysis
+    const humanAnalysis = await aiSharedService.analyzeMarketHumanLike({
       symbol: tradingsymbol,
       candles,
-    });
-
-    const signalAnalysis = await aiSharedService.generateSignal({
-      symbol: tradingsymbol,
-      candles,
-    });
+    }, timeframe);
 
     const parseAIResponse = (response: any) => {
       if (!response.success || !response.result) return null;
@@ -109,15 +104,12 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    let trendResult = {
+    let result = {
       trend: "neutral",
       strength: 50,
       support: null as number | null,
       resistance: null as number | null,
       analysis: "Analysis in progress...",
-    };
-
-    let signalResult = {
       signal: "hold",
       confidence: 50,
       entry: null as number | null,
@@ -126,22 +118,33 @@ export async function POST(request: NextRequest) {
       reasoning: "Signal generation in progress...",
     };
 
-    const parsedTrend = parseAIResponse(marketAnalysis);
-    if (parsedTrend) {
-      trendResult = { ...trendResult, ...parsedTrend };
-    } else if (typeof marketAnalysis.result === "string") {
-      trendResult.analysis = marketAnalysis.result;
-    }
-
-    const parsedSignal = parseAIResponse(signalAnalysis);
-    if (parsedSignal) {
-      signalResult = { ...signalResult, ...parsedSignal };
-    } else if (typeof signalAnalysis.result === "string") {
-      signalResult.reasoning = signalAnalysis.result;
+    const parsed = parseAIResponse(humanAnalysis);
+    
+    if (parsed) {
+      // Map new Human-Like format to existing AnalysisResult format
+      const bias = parsed.bias || "NEUTRAL";
+      const confidence = (parsed.confidence || 0.5) * 100;
+      
+      result = {
+        trend: bias.toLowerCase(),
+        strength: confidence,
+        support: parsed.stoploss_zone?.[0] || null,
+        resistance: parsed.target_zone?.[0] || null,
+        analysis: `${parsed.market_regime || "Market"}: ${parsed.reasoning?.join(". ") || "No detailed analysis provided."}`,
+        signal: parsed.state === "EXECUTE" ? (bias === "BULLISH" ? "buy" : bias === "BEARISH" ? "sell" : "hold") : "hold",
+        confidence: confidence,
+        entry: parsed.entry_zone?.[0] || null,
+        target: parsed.target_zone?.[0] || null,
+        stopLoss: parsed.stoploss_zone?.[0] || null,
+        reasoning: parsed.reasoning?.join(". ") || "No reasoning provided.",
+      };
+    } else if (typeof humanAnalysis.result === "string") {
+      result.analysis = humanAnalysis.result;
+      result.reasoning = humanAnalysis.result;
     }
 
     // Fallback analysis if AI fails
-    if (!marketAnalysis.success && !signalAnalysis.success) {
+    if (!humanAnalysis.success && !parsed) {
       const recentCandles = candles.slice(-30);
       const prices = recentCandles.map(c => c.close);
       const highs = recentCandles.map(c => c.high);

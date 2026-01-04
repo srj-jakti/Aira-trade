@@ -395,6 +395,100 @@ class AISharedService {
     };
   }
 
+  async analyzeMarketHumanLike(input: MarketAnalysisInput, timeframe: string): Promise<AIAnalysisResult> {
+    const recentCandles = input.candles.slice(-100);
+    const candlesSummary = recentCandles.map((c) => ({
+      t: c.timestamp instanceof Date ? c.timestamp.toISOString() : c.timestamp,
+      o: c.open.toFixed(2),
+      h: c.high.toFixed(2),
+      l: c.low.toFixed(2),
+      c: c.close.toFixed(2),
+      v: c.volume,
+    }));
+
+    const systemPrompt = `ROLE:
+You are a professional discretionary trader with institutional discipline.
+Your job is to analyze price charts like a human, not like a tick-reactive machine.
+
+You prioritize stability, structure, conviction, and probability over speed.
+
+🔒 CORE NON-NEGOTIABLE RULES
+NEVER analyze tick-by-tick
+ONLY analyze on CLOSED candles
+DO NOT change bias until invalidation
+NO trade if confidence < threshold
+WAIT is a valid and preferred outcome
+
+🧠 ANALYSIS FLOW (MUST FOLLOW IN ORDER)
+STEP 1: MARKET REGIME DETECTION
+First, classify the market: TRENDING, RANGING, BREAKOUT, CHOP / NO-TRADE.
+If regime is CHOP, immediately return: { "state": "WAIT", "reason": "No clear structure" }
+
+STEP 2: MULTI-TIMEFRAME ALIGNMENT
+Analyze top-down:
+- Higher TF: Direction
+- Trading TF: Bias
+- Lower TF: Entry quality
+RULE: If higher TF ≠ trading TF → WAIT. Only proceed when aligned.
+
+STEP 3: MARKET STRUCTURE (HUMAN THINKING)
+Identify: Higher High / Higher Low, Lower High / Lower Low, Range boundaries, Liquidity sweeps, Demand / Supply zones.
+Do NOT use indicators unless they confirm structure.
+
+STEP 4: FORM A SINGLE DIRECTIONAL BIAS
+Choose ONLY ONE: BULLISH, BEARISH, NEUTRAL (WAIT).
+Once chosen: Bias is LOCKED until invalidation.
+
+STEP 5: ZONE-BASED PREDICTION (NOT PRICE GUESSING)
+Humans think in zones, not exact prices.
+Define: Entry Zone, Target Zone, Invalidation Zone.
+Example: "entry_zone": [22450, 22470], "target_zone": [22580, 22620], "invalidation_zone": [22380, 22390]
+
+STEP 6: TIME-BOUND CONVICTION
+Expected holding time, Expiry. If time expires without progress → invalidate.
+
+STEP 7: CONFIDENCE SCORING (MANDATORY)
+Calculate confidence using trend alignment, structure clarity, regime suitability, volatility health, historical success.
+If confidence < 0.70 → WAIT. If confidence ≥ 0.70 → PROCEED.
+
+STEP 8: EXPLAINABILITY (LIKE A HUMAN)
+Always explain WHY (justify the bias).
+
+🔐 BIAS LOCK RULE (CRITICAL)
+Once analysis is published: Bias, Zones, and Stop are LOCKED.
+Invalidate ONLY IF: Candle closes beyond invalidation zone, Market regime changes, or Time expiry reached.
+
+🎯 OUTPUT FORMAT (STRICT JSON)
+{
+  "state": "WAIT | PREPARE | EXECUTE",
+  "market_regime": "string",
+  "timeframes": {
+    "higher": "string",
+    "trading": "string",
+    "lower": "string"
+  },
+  "bias": "BULLISH | BEARISH | NEUTRAL",
+  "confidence": 0.00,
+  "entry_zone": [min, max],
+  "target_zone": [min, max],
+  "stoploss_zone": [min, max],
+  "time_expectation": "string",
+  "analysis_expiry": "string",
+  "invalidation_rules": ["string"],
+  "reasoning": ["string"]
+}`;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      {
+        role: "user",
+        content: `Analyze ${input.symbol} on ${timeframe} timeframe with recent price data: ${JSON.stringify(candlesSummary)}`,
+      },
+    ];
+
+    return this.executeAnalysis("human_market_analysis", messages, { cacheTTL: 30, maxTokens: 1500 });
+  }
+
   async analyzeMarketTrend(input: MarketAnalysisInput): Promise<AIAnalysisResult> {
     const recentCandles = input.candles.slice(-50);
     const candlesSummary = recentCandles.map((c) => ({

@@ -457,40 +457,51 @@ class AISharedService {
 
     const hasUserInput = userInput && userInput.trim().length > 10;
     
-    const systemPrompt = `You are a Principal Quant Engineer and Trading Systems Architect specializing in Indian markets (NSE/BSE).
-Your goal is to generate HIGHLY RIGOROUS, MACHINE-EXECUTABLE trading strategies.
+    const systemPrompt = `You are a Senior Quant Developer creating PRACTICAL trading strategies for Indian markets (NSE).
 
 ${toolsContext}
 
 ${!hasUserInput ? `
-STRATEGY ARCHETYPE FOR THIS GENERATION: ${archetype.name}
+STRATEGY ARCHETYPE: ${archetype.name}
 Description: ${archetype.description}
 Preferred Indicators: ${preferredTools.join(", ")}
-Preferred Patterns: ${preferredPatterns.join(", ")}
-
-Generate a unique, technically detailed strategy based on this archetype.
 ` : `
-The user has provided their own strategy idea. Enhance it with specific, quantifiable rules using technical indicators.
+The user has provided their own strategy idea. Convert it into a SIMPLE, actionable strategy.
 `}
 
 ${referenceInstrument ? `
-IMPORTANT: The user wants to trade derivatives but use ${referenceInstrument} as a reference for signals.
-Include explicit logic for how ${referenceInstrument} price action triggers entries.
+NOTE: Use ${referenceInstrument} as the reference instrument for signals.
 ` : ""}
 
-STRATEGY REQUIREMENTS:
-1. **QUANTIFIABLE RULES**: Every entry and exit must be based on a specific, measurable condition (e.g., "EMA(20) crosses above EMA(50)").
-2. **HOLD/NO-TRADE LOGIC**: Include conditions for when NOT to trade (e.g., "RSI(14) > 70", "ADX(14) < 20").
-3. **EXIT RIGOR**: 
-   - Stop Loss: Explicit percentage or points.
-   - Target: Explicit percentage or points.
-4. **TIME-BASED EXITS**: For intraday, specify an exit time (e.g., 3:15 PM IST).
+### CRITICAL: GENERATE SIMPLE, TRADEABLE STRATEGIES
+1. Use ONLY 1-2 entry conditions - more conditions = fewer signals = worse backtests
+2. Use REALISTIC thresholds:
+   - RSI oversold: 35-40 (NOT 30)
+   - RSI overbought: 60-65 (NOT 70)  
+3. Supertrend direction is very reliable
+4. EMA crossovers work well
+5. AVOID complex patterns (engulfing, hammer) - they rarely trigger
 
-Write in clear, actionable technical English. Each rule must be deterministic.`;
+### OUTPUT FORMAT (Plain Text):
+Write a clear, actionable strategy in this format:
+
+**Strategy Name**: [Name]
+**Description**: [1-2 sentences]
+
+**BUY Entry**: [Simple condition, e.g., "RSI(14) below 40" OR "Price crosses above EMA(20)"]
+**SELL Entry**: [Simple condition, e.g., "RSI(14) above 60" OR "Price crosses below EMA(20)"]
+
+**Stop Loss**: [X]% from entry
+**Target**: [Y]% from entry
+
+**Timeframe**: 15 minute / Daily
+**Best Markets**: Index futures, large cap stocks
+
+Keep it SIMPLE with 1-2 conditions max per entry.`;
 
     const userPrompt = hasUserInput 
-      ? `Based on my idea below, create a complete, detailed trading strategy with specific rules:\n\n${userInput}`
-      : `Generate a unique, highly profitable ${archetype.name} strategy for Indian markets. Make it specific and actionable.`;
+      ? `Convert my idea into a SIMPLE strategy with 1-2 entry conditions:\n\n${userInput}`
+      : `Generate a simple, practical ${archetype.name} strategy. Use only 1-2 entry conditions for BUY and SELL.`;
 
     const messages = [
       { role: "system", content: systemPrompt },
@@ -499,7 +510,7 @@ Write in clear, actionable technical English. Each rule must be deterministic.`;
 
     return this.executeAnalysis("strategy_generation", messages, { 
       cacheTTL: hasUserInput ? 1 : 300,
-      maxTokens: 1500,
+      maxTokens: 1000,
       skipCache: !hasUserInput
     });
   }

@@ -129,60 +129,69 @@ class StrategyService {
     const messages = [
         {
           role: "system",
-          content: `You are a Principal Quant Engineer and Trading Systems Architect. Your task is to convert human-readable trading ideas into a RIGOROUS, MACHINE-EXECUTABLE trading strategy schema.
+          content: `You are a Senior Quant Developer creating PRACTICAL trading strategies for Indian markets (NSE).
 
-### CRITICAL RULES:
-1. **NO INFORMATION LOSS**: Do NOT simplify the strategy. Every technical detail, condition, filter, and hold-logic mentioned by the user MUST be represented in the "executable_strategy" object.
-2. **TECHNICAL RIGOR**: Use precise indicator names, periods, and operators.
-3. **HOLD LOGIC**: If the user mentions "don't trade when...", "avoid...", or specific "hold" conditions, you MUST include them in the "hold" rule set.
-4. **EXIT LOGIC**: Accurately capture Stop Loss (SL) and Target (TP) as either PERCENTAGE or POINTS. Use the values provided by the user.
-5. **DETERMINISTIC**: The resulting JSON must be fully executable without further parsing.
+### CRITICAL: GENERATE SIMPLE, TRADEABLE STRATEGIES
+1. Use ONLY 1-2 rules per entry (buy/sell). More rules = fewer signals.
+2. Use REALISTIC thresholds:
+   - RSI oversold: 35-40 (NOT 30), overbought: 60-65 (NOT 70)
+   - Moving average crossovers work well
+   - Supertrend is reliable for trend following
+3. AVOID complex patterns like engulfing, hammer - they rarely trigger
+4. AVOID Z-Score, custom indicators - stick to standard ones
 
-### AVAILABLE INDICATORS:
-- RSI (period), SMA (period), EMA (period), WMA (period), DEMA (period)
-- VWAP (no period), MACD, MACD_SIGNAL, MACD_HIST
-- SUPERTREND (standard: 10, 3), SUPERTREND_DIR (1=bull, -1=bear)
-- ADX (period), ATR (period)
-- STOCH_K, STOCH_D, BB_UPPER, BB_MIDDLE, BB_LOWER (period)
-- OBV (no period)
+### AVAILABLE INDICATORS (USE THESE ONLY):
+- RSI (period: 14 default)
+- EMA (period), SMA (period)  
+- SUPERTREND (direction: BULLISH/BEARISH)
+- MACD, MACD_SIGNAL (for crossovers)
+- BB_UPPER, BB_LOWER (Bollinger Bands)
+- ADX (for trend strength)
 
-### RULE TYPES & SCHEMA:
-- **indicator**: { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 50 }
-- **price_vs_indicator**: { "type": "price_vs_indicator", "priceField": "close", "operator": ">", "indicator": "EMA", "indicatorPeriod": 20 }
-- **indicator_vs_indicator**: { "type": "indicator_vs_indicator", "indicator1": "MACD", "indicator2": "MACD_SIGNAL", "operator": "CROSS_ABOVE" }
-- **trend**: { "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" }
-- **pattern**: { "type": "pattern", "pattern": "HAMMER" }
-- **price_action**: { "type": "price_action", "action": "BULLISH_CANDLE" }
-- **volume**: { "type": "volume", "operator": ">", "value": 100000, "compareToAverage": false }
+### SIMPLE RULE EXAMPLES:
+BUY: RSI(14) < 40 OR price crosses above EMA(20)
+SELL: RSI(14) > 60 OR price crosses below EMA(20)
 
-### OUTPUT FORMAT (JSON ONLY):
+### RULE SCHEMA:
+- indicator: { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 40 }
+- price_vs_indicator: { "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 }
+- trend: { "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" }
+
+### OUTPUT JSON FORMAT:
 {
-  "name": "Technical Name",
-  "description": "Full technical description",
-  "buy_entry_logic": { "conditions": ["Condition 1", "Condition 2"] },
-  "sell_entry_logic": { "conditions": ["Condition 1"] },
-  "hold_logic": { "conditions": ["Condition 1"] },
-  "buy_stop_loss": { "parameters": { "percentage": 2 } },
-  "buy_target": { "parameters": { "percentage": 4 } },
+  "name": "Strategy Name",
+  "description": "Brief description",
+  "buy_entry_logic": { "conditions": ["Human readable condition 1"] },
+  "sell_entry_logic": { "conditions": ["Human readable condition 1"] },
+  "buy_stop_loss": { "parameters": { "percentage": 1.5 } },
+  "buy_target": { "parameters": { "percentage": 3 } },
   "executable_strategy": {
     "name": "Strategy Name",
-    "description": "Description",
     "version": 1,
-    "buy": { "logic": "AND", "rules": [ ... ] },
-    "sell": { "logic": "AND", "rules": [ ... ] },
-    "hold": { "logic": "OR", "rules": [ ... ] },
-    "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 2 }, "target": { "type": "PERCENTAGE", "value": 4 } },
-    "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 2 }, "target": { "type": "PERCENTAGE", "value": 4 } },
-    "requiredIndicators": [ { "name": "RSI", "period": 14 }, ... ],
-    "minWarmupCandles": 50
+    "buy": { 
+      "logic": "OR",
+      "rules": [
+        { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 40 }
+      ]
+    },
+    "sell": { 
+      "logic": "OR", 
+      "rules": [
+        { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 60 }
+      ]
+    },
+    "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3 } },
+    "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3 } },
+    "requiredIndicators": [ { "name": "RSI", "period": 14 } ],
+    "minWarmupCandles": 20
   }
 }
 
-Set "minWarmupCandles" to at least 50 if using moving averages or 100 if using long-period indicators.`,
+IMPORTANT: Use "logic": "OR" for rules to get more signals. Keep rules SIMPLE with 1-2 conditions max.`,
         },
       {
         role: "user",
-        content: `Convert this trading idea into a complete executable strategy:\n\n${rawInput}`,
+        content: `Convert this trading idea into a SIMPLE, PRACTICAL executable strategy with realistic thresholds:\n\n${rawInput}`,
       },
     ];
 
@@ -191,40 +200,115 @@ Set "minWarmupCandles" to at least 50 if using moving averages or 100 if using l
       skipCache: true,
     });
 
-    if (!result.success || !result.result) {
-      throw new Error("AI failed to format strategy");
-    }
+      if (!result.success || !result.result) {
+        throw new Error("AI failed to format strategy");
+      }
 
-      try {
-        const parsed = typeof result.result === "string" 
-          ? JSON.parse(result.result.replace(/```json\n?|\n?```/g, "").trim())
-          : result.result;
-        
-        console.log("[StrategyService] AI returned executable_strategy:", !!parsed.executable_strategy);
-        
-        if (parsed.executable_strategy) {
-          const validation = validateStrategy(parsed.executable_strategy);
-          if (!validation.valid) {
-            console.warn("[StrategyService] Executable strategy validation failed:", validation.errors);
+        try {
+          const parsed = typeof result.result === "string" 
+            ? JSON.parse(result.result.replace(/```json\n?|\n?```/g, "").trim())
+            : result.result;
+          
+          console.log("[StrategyService] AI returned executable_strategy:", !!parsed.executable_strategy);
+          
+          if (parsed.executable_strategy) {
+            // Post-process to fix common AI mistakes
+            parsed.executable_strategy = this.sanitizeExecutableStrategy(parsed.executable_strategy);
+            
+            const validation = validateStrategy(parsed.executable_strategy);
+            if (!validation.valid) {
+              console.warn("[StrategyService] Executable strategy validation failed:", validation.errors);
+              parsed.executable_strategy = this.createFallbackExecutableStrategy(parsed);
+            } else {
+              console.log("[StrategyService] Executable strategy is valid with rules:", 
+                JSON.stringify({
+                  buyRules: parsed.executable_strategy.buy?.rules?.length || 0,
+                  sellRules: parsed.executable_strategy.sell?.rules?.length || 0,
+                  buyLogic: parsed.executable_strategy.buy?.logic,
+                  sellLogic: parsed.executable_strategy.sell?.logic,
+                })
+              );
+            }
           } else {
-            console.log("[StrategyService] Executable strategy is valid with rules:", 
-              JSON.stringify({
-                buyRules: parsed.executable_strategy.buy?.rules?.length || 0,
-                sellRules: parsed.executable_strategy.sell?.rules?.length || 0,
-              })
-            );
+            console.log("[StrategyService] No executable_strategy returned by AI, creating fallback...");
+            parsed.executable_strategy = this.createFallbackExecutableStrategy(parsed);
           }
-        } else {
-          console.log("[StrategyService] No executable_strategy returned by AI, creating fallback...");
-          parsed.executable_strategy = this.createFallbackExecutableStrategy(parsed);
+          
+          return parsed as StructuredStrategy;
+        } catch (e) {
+          console.error("[StrategyService] Failed to parse AI response:", e);
+          throw new Error("Failed to parse AI response");
         }
-        
-        return parsed as StructuredStrategy;
-      } catch (e) {
-        console.error("[StrategyService] Failed to parse AI response:", e);
-        throw new Error("Failed to parse AI response");
+      }
+
+  private sanitizeExecutableStrategy(strategy: ExecutableStrategy): ExecutableStrategy {
+    // Fix overly strict RSI thresholds
+    const fixRSIThresholds = (rules: any[]) => {
+      return rules.map(rule => {
+        if (rule.type === "indicator" && rule.name === "RSI") {
+          if (rule.operator === "<" && rule.value <= 30) {
+            return { ...rule, value: 40 }; // Relax from 30 to 40
+          }
+          if (rule.operator === ">" && rule.value >= 70) {
+            return { ...rule, value: 60 }; // Relax from 70 to 60
+          }
+        }
+        return rule;
+      });
+    };
+
+    // Remove broken indicators (Z-Score, etc)
+    const removeUnsupportedRules = (rules: any[]) => {
+      return rules.filter(rule => {
+        if (rule.type === "indicator" && ["ZSCORE", "Z_SCORE", "Z-SCORE"].includes(rule.name?.toUpperCase())) {
+          console.log("[StrategyService] Removing unsupported Z-Score rule");
+          return false;
+        }
+        if (rule.type === "pattern" && ["BULLISH_ENGULFING", "BEARISH_ENGULFING", "HAMMER", "DOJI"].includes(rule.pattern)) {
+          console.log("[StrategyService] Removing rare pattern rule:", rule.pattern);
+          return false;
+        }
+        return true;
+      });
+    };
+
+    // Process buy rules
+    if (strategy.buy?.rules) {
+      strategy.buy.rules = removeUnsupportedRules(fixRSIThresholds(strategy.buy.rules));
+      // If only 1 rule left after filtering, use OR logic to increase signals
+      if (strategy.buy.rules.length <= 2) {
+        strategy.buy.logic = "OR";
+      }
+      // If no rules left, add a simple default
+      if (strategy.buy.rules.length === 0) {
+        strategy.buy.rules = [
+          { type: "indicator", name: "RSI", period: 14, operator: "<", value: 40 }
+        ];
+        strategy.buy.logic = "OR";
       }
     }
+
+    // Process sell rules
+    if (strategy.sell?.rules) {
+      strategy.sell.rules = removeUnsupportedRules(fixRSIThresholds(strategy.sell.rules));
+      if (strategy.sell.rules.length <= 2) {
+        strategy.sell.logic = "OR";
+      }
+      if (strategy.sell.rules.length === 0) {
+        strategy.sell.rules = [
+          { type: "indicator", name: "RSI", period: 14, operator: ">", value: 60 }
+        ];
+        strategy.sell.logic = "OR";
+      }
+    }
+
+    // Ensure warmup is reasonable
+    if (!strategy.minWarmupCandles || strategy.minWarmupCandles > 100) {
+      strategy.minWarmupCandles = 20;
+    }
+
+    return strategy;
+  }
 
   private createFallbackExecutableStrategy(strategy: StructuredStrategy): ExecutableStrategy {
     const buyRules: any[] = [];
@@ -339,24 +423,24 @@ Set "minWarmupCandles" to at least 50 if using moving averages or 100 if using l
 
     console.log("[StrategyService] Created fallback executable strategy with", buyRules.length, "buy rules and", sellRules.length, "sell rules");
 
-    return {
-      name: strategy.name,
-      description: strategy.description,
-      version: 1,
-      buy: { logic: "AND", rules: buyRules },
-      sell: { logic: "AND", rules: sellRules },
-      buyExit: {
-        stopLoss: { type: "PERCENTAGE", value: slPercent },
-        target: { type: "PERCENTAGE", value: targetPercent },
-      },
-      sellExit: {
-        stopLoss: { type: "PERCENTAGE", value: slPercent },
-        target: { type: "PERCENTAGE", value: targetPercent },
-      },
-      requiredIndicators: indicators as any,
-      minWarmupCandles: 30,
-    };
-  }
+      return {
+        name: strategy.name,
+        description: strategy.description,
+        version: 1,
+        buy: { logic: "OR", rules: buyRules },
+        sell: { logic: "OR", rules: sellRules },
+        buyExit: {
+          stopLoss: { type: "PERCENTAGE", value: slPercent },
+          target: { type: "PERCENTAGE", value: targetPercent },
+        },
+        sellExit: {
+          stopLoss: { type: "PERCENTAGE", value: slPercent },
+          target: { type: "PERCENTAGE", value: targetPercent },
+        },
+        requiredIndicators: indicators as any,
+        minWarmupCandles: 20,
+      };
+    }
 
   async improveStrategyWithAI(
     strategy: StructuredStrategy,

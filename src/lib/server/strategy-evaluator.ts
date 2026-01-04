@@ -70,14 +70,12 @@ export class StrategyEvaluator {
       // Helper to check numeric comparison
       const checkComparison = (val: number, cond: string, defaultThreshold: number): boolean => {
         const nums = extractNumbers(cond);
-        // If there's a bracketed period like RSI(14), the first number is the period.
-        // We want the last number as the threshold if there's more than one.
         const threshold = nums.length > 1 ? nums[nums.length - 1] : (nums[0] ?? defaultThreshold);
         
-        if (cond.includes(">=")) return val >= threshold;
-        if (cond.includes("<=")) return val <= threshold;
-        if (cond.includes(">") || cond.includes("above")) return val > threshold;
-        if (cond.includes("<") || cond.includes("below")) return val < threshold;
+        if (cond.includes(">=") || cond.includes("above or equal")) return val >= threshold;
+        if (cond.includes("<=") || cond.includes("below or equal")) return val <= threshold;
+        if (cond.includes(">") || cond.includes("above") || cond.includes("greater than")) return val > threshold;
+        if (cond.includes("<") || cond.includes("below") || cond.includes("less than")) return val < threshold;
         if (cond.includes("==") || cond.includes("equal")) return val === threshold;
         return false;
       };
@@ -85,7 +83,7 @@ export class StrategyEvaluator {
       // 1. RSI
       if (lowerCond.includes("rsi")) {
         const nums = extractNumbers(lowerCond);
-        const period = nums.length > 1 ? nums[0] : 14;
+        const period = (lowerCond.includes("rsi(") || lowerCond.includes("rsi (")) && nums.length > 1 ? nums[0] : 14;
         const key = `rsi_${period}`;
         
         if (!indicatorData[key]) {
@@ -133,17 +131,15 @@ export class StrategyEvaluator {
         if (isNaN(ma)) return false;
 
         // Price vs MA
-        if (lowerCond.includes("price")) {
+        if (lowerCond.includes("price") || lowerCond.includes("close")) {
           if (lowerCond.includes("crosses above")) return prevCandle && prevCandle.close < prevMa && candle.close >= ma;
           if (lowerCond.includes("crosses below")) return prevCandle && prevCandle.close > prevMa && candle.close <= ma;
-          if (lowerCond.includes(">") || lowerCond.includes("above")) return candle.close > ma;
-          if (lowerCond.includes("<") || lowerCond.includes("below")) return candle.close < ma;
+          if (lowerCond.includes(">") || lowerCond.includes("above") || lowerCond.includes("greater")) return candle.close > ma;
+          if (lowerCond.includes("<") || lowerCond.includes("below") || lowerCond.includes("less")) return candle.close < ma;
         }
 
         // MA vs MA (Crossover)
         if (lowerCond.includes("crosses above") || lowerCond.includes("crosses below")) {
-           // If we have two indicators like "EMA(9) crosses above EMA(21)"
-           // This is complex for a simple parser, but let's try to find if there's a second period
            if (nums.length >= 2) {
              const period2 = nums[1];
              const key2 = `${type}_${period2}`;
@@ -160,9 +156,8 @@ export class StrategyEvaluator {
            }
         }
         
-        // Default to Price > MA if just "Price above EMA"
-        if (lowerCond.includes("above") || lowerCond.includes(">")) return candle.close > ma;
-        if (lowerCond.includes("below") || lowerCond.includes("<")) return candle.close < ma;
+        if (lowerCond.includes("above") || lowerCond.includes(">") || lowerCond.includes("greater")) return candle.close > ma;
+        if (lowerCond.includes("below") || lowerCond.includes("<") || lowerCond.includes("less")) return candle.close < ma;
       }
 
       // 3. MACD

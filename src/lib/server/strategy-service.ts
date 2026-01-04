@@ -22,6 +22,7 @@ export interface StrategyLogic {
 export interface StructuredStrategy {
   name: string;
   description: string;
+  strategy_type?: "SWING" | "INTRADAY" | "SCALPING" | "OPTIONS";
   buy_entry_logic: StrategyLogic;
   buy_stop_loss: StrategyLogic;
   buy_target: StrategyLogic;
@@ -125,70 +126,53 @@ class StrategyService {
     return StrategyService.instance;
   }
 
-  async formatStrategyWithAI(rawInput: string): Promise<StructuredStrategy> {
-    const messages = [
-        {
-          role: "system",
-          content: `You are a Senior Quant Developer creating PRACTICAL trading strategies for Indian markets (NSE).
-
-### CRITICAL: GENERATE SIMPLE, TRADEABLE STRATEGIES
-1. Use ONLY 1-2 rules per entry (buy/sell). More rules = fewer signals.
-2. Use REALISTIC thresholds:
-   - RSI oversold: 35-40 (NOT 30), overbought: 60-65 (NOT 70)
-   - Moving average crossovers work well
-   - Supertrend is reliable for trend following
-3. AVOID complex patterns like engulfing, hammer - they rarely trigger
-4. AVOID Z-Score, custom indicators - stick to standard ones
-
-### AVAILABLE INDICATORS (USE THESE ONLY):
-- RSI (period: 14 default)
-- EMA (period), SMA (period)  
-- SUPERTREND (direction: BULLISH/BEARISH)
-- MACD, MACD_SIGNAL (for crossovers)
-- BB_UPPER, BB_LOWER (Bollinger Bands)
-- ADX (for trend strength)
-
-### SIMPLE RULE EXAMPLES:
-BUY: RSI(14) < 40 OR price crosses above EMA(20)
-SELL: RSI(14) > 60 OR price crosses below EMA(20)
-
-### RULE SCHEMA:
-- indicator: { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 40 }
-- price_vs_indicator: { "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 }
-- trend: { "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" }
-
-### OUTPUT JSON FORMAT:
-{
-  "name": "Strategy Name",
-  "description": "Brief description",
-  "buy_entry_logic": { "conditions": ["Human readable condition 1"] },
-  "sell_entry_logic": { "conditions": ["Human readable condition 1"] },
-  "buy_stop_loss": { "parameters": { "percentage": 1.5 } },
-  "buy_target": { "parameters": { "percentage": 3 } },
-  "executable_strategy": {
+    async formatStrategyWithAI(rawInput: string): Promise<StructuredStrategy> {
+      const messages = [
+          {
+            role: "system",
+            content: `You are a Senior Quant Developer creating PRACTICAL trading strategies for Indian markets (NSE).
+  
+  ### STRATEGY CLASSIFICATION:
+  Identify the strategy type:
+  - INTRADAY: Entry and Exit happen on the same day. All positions MUST exit before 3:20 PM.
+  - SWING: Positions held for multiple days.
+  - SCALPING: Very short term trades (minutes).
+  - OPTIONS: Strategies specifically mentioning options or complex Greeks.
+  
+  ### CRITICAL: GENERATE SIMPLE, TRADEABLE STRATEGIES
+  1. Use ONLY 1-2 rules per entry (buy/sell).
+  2. For INTRADAY, add a rule to exit all positions at the end of the day.
+  3. Use REALISTIC thresholds:
+     - RSI oversold: 35-40, overbought: 60-65
+     - Moving average crossovers work well
+  
+  ### AVAILABLE INDICATORS:
+  - RSI, EMA, SMA, SUPERTREND, MACD, BB_UPPER, BB_LOWER, ADX
+  
+  ### OUTPUT JSON FORMAT:
+  {
     "name": "Strategy Name",
-    "version": 1,
-    "buy": { 
-      "logic": "OR",
-      "rules": [
-        { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 40 }
-      ]
-    },
-    "sell": { 
-      "logic": "OR", 
-      "rules": [
-        { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 60 }
-      ]
-    },
-    "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3 } },
-    "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3 } },
-    "requiredIndicators": [ { "name": "RSI", "period": 14 } ],
-    "minWarmupCandles": 20
+    "description": "Brief description",
+    "strategy_type": "INTRADAY" | "SWING" | "SCALPING" | "OPTIONS",
+    "buy_entry_logic": { "conditions": ["Human readable condition 1"] },
+    "sell_entry_logic": { "conditions": ["Human readable condition 1"] },
+    "buy_stop_loss": { "parameters": { "percentage": 1.5 } },
+    "buy_target": { "parameters": { "percentage": 3 } },
+    "executable_strategy": {
+      "name": "Strategy Name",
+      "strategyType": "INTRADAY" | "SWING" | "SCALPING" | "OPTIONS",
+      "version": 1,
+      "buy": { "logic": "OR", "rules": [...] },
+      "sell": { "logic": "OR", "rules": [...] },
+      "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3 } },
+      "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3 } },
+      "requiredIndicators": [...],
+      "minWarmupCandles": 20
+    }
   }
-}
-
-IMPORTANT: Use "logic": "OR" for rules to get more signals. Keep rules SIMPLE with 1-2 conditions max.`,
-        },
+  
+  IMPORTANT: For INTRADAY strategies, ensure the description mentions "Exits same day".`,
+          },
       {
         role: "user",
         content: `Convert this trading idea into a SIMPLE, PRACTICAL executable strategy with realistic thresholds:\n\n${rawInput}`,

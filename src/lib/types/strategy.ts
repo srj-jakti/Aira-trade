@@ -123,10 +123,13 @@ export interface ExitParameters {
   atrPeriod?: number;
 }
 
+export type StrategyType = "SWING" | "INTRADAY" | "SCALPING" | "OPTIONS";
+
 export interface ExecutableStrategy {
   name: string;
   description: string;
   version: number;
+  strategyType?: StrategyType;
   
   buy: RuleSet;
   sell: RuleSet;

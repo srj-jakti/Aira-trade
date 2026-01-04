@@ -74,19 +74,15 @@ export interface Candle {
   volume: number;
 }
 
-const TIMEFRAME_LOOKBACK: Record<string, { days: number; label: string }> = {
-  "1m": { days: 60, label: "60 Days" },
-  "3m": { days: 100, label: "100 Days" },
-  "5m": { days: 100, label: "100 Days" },
-  "15m": { days: 200, label: "200 Days" },
-  "30m": { days: 400, label: "400 Days" },
-  "1h": { days: 400, label: "400 Days" },
-  "day": { days: 2000, label: "5 Years" },
-  "3minute": { days: 100, label: "100 Days" },
-  "5minute": { days: 100, label: "100 Days" },
-  "15minute": { days: 200, label: "200 Days" },
-  "60minute": { days: 400, label: "400 Days" },
-};
+  const TIMEFRAME_LOOKBACK: Record<string, { days: number; label: string }> = {
+    "1m": { days: 30, label: "30 Days" },
+    "3m": { days: 60, label: "60 Days" },
+    "5m": { days: 90, label: "3 Months" },
+    "15m": { days: 90, label: "3 Months" },
+    "30m": { days: 180, label: "6 Months" },
+    "1h": { days: 365, label: "1 Year" },
+    "day": { days: 1825, label: "5 Years" },
+  };
 
 function normalizeTimeframe(tf: string): string {
   const aliases: Record<string, string> = {
@@ -131,96 +127,59 @@ class StrategyService {
 
   async formatStrategyWithAI(rawInput: string): Promise<StructuredStrategy> {
     const messages = [
-      {
-        role: "system",
-        content: `You are an expert trading strategy formatter. Convert user input into a MACHINE-EXECUTABLE trading strategy with structured rules.
+        {
+          role: "system",
+          content: `You are a Principal Quant Engineer and Trading Systems Architect. Your task is to convert human-readable trading ideas into a RIGOROUS, MACHINE-EXECUTABLE trading strategy schema.
 
-CRITICAL: Output MUST include an "executable_strategy" object with TYPED RULES - NO natural language strings.
+### CRITICAL RULES:
+1. **NO INFORMATION LOSS**: Do NOT simplify the strategy. Every technical detail, condition, filter, and hold-logic mentioned by the user MUST be represented in the "executable_strategy" object.
+2. **TECHNICAL RIGOR**: Use precise indicator names, periods, and operators.
+3. **HOLD LOGIC**: If the user mentions "don't trade when...", "avoid...", or specific "hold" conditions, you MUST include them in the "hold" rule set.
+4. **EXIT LOGIC**: Accurately capture Stop Loss (SL) and Target (TP) as either PERCENTAGE or POINTS. Use the values provided by the user.
+5. **DETERMINISTIC**: The resulting JSON must be fully executable without further parsing.
 
-AVAILABLE INDICATORS (use exact names):
-- RSI, SMA, EMA, WMA, DEMA, VWAP, MACD, MACD_SIGNAL, MACD_HIST
-- SUPERTREND, SUPERTREND_DIR, ADX, ATR
-- STOCH_K, STOCH_D, BB_UPPER, BB_MIDDLE, BB_LOWER, OBV
+### AVAILABLE INDICATORS:
+- RSI (period), SMA (period), EMA (period), WMA (period), DEMA (period)
+- VWAP (no period), MACD, MACD_SIGNAL, MACD_HIST
+- SUPERTREND (standard: 10, 3), SUPERTREND_DIR (1=bull, -1=bear)
+- ADX (period), ATR (period)
+- STOCH_K, STOCH_D, BB_UPPER, BB_MIDDLE, BB_LOWER (period)
+- OBV (no period)
 
-RULE TYPES:
-1. "indicator" - Compare indicator to a value
-   { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 50 }
-   
-2. "price_vs_indicator" - Compare price to indicator
-   { "type": "price_vs_indicator", "priceField": "close", "operator": ">", "indicator": "EMA", "indicatorPeriod": 20 }
-   
-3. "trend" - Check trend direction
-   { "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" }
-   { "type": "trend", "indicator": "ADX", "threshold": 25 }
-   
-4. "pattern" - Detect candlestick pattern
-   { "type": "pattern", "pattern": "HAMMER" }
-   Patterns: HAMMER, SHOOTING_STAR, DOJI, BULLISH_ENGULFING, BEARISH_ENGULFING
-   
-5. "price_action" - Simple price action
-   { "type": "price_action", "action": "BULLISH_CANDLE" }
-   Actions: BULLISH_CANDLE, BEARISH_CANDLE, HIGHER_HIGH, LOWER_LOW
-   
-6. "volume" - Volume conditions
-   { "type": "volume", "operator": ">", "value": 100000 }
-   { "type": "volume", "operator": ">", "compareToAverage": true, "averagePeriod": 20 }
+### RULE TYPES & SCHEMA:
+- **indicator**: { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 50 }
+- **price_vs_indicator**: { "type": "price_vs_indicator", "priceField": "close", "operator": ">", "indicator": "EMA", "indicatorPeriod": 20 }
+- **indicator_vs_indicator**: { "type": "indicator_vs_indicator", "indicator1": "MACD", "indicator2": "MACD_SIGNAL", "operator": "CROSS_ABOVE" }
+- **trend**: { "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" }
+- **pattern**: { "type": "pattern", "pattern": "HAMMER" }
+- **price_action**: { "type": "price_action", "action": "BULLISH_CANDLE" }
+- **volume**: { "type": "volume", "operator": ">", "value": 100000, "compareToAverage": false }
 
-OPERATORS: ">", "<", ">=", "<=", "==", "CROSS_ABOVE", "CROSS_BELOW"
-LOGIC: "AND" (all rules must pass) or "OR" (any rule can pass)
-
-OUTPUT FORMAT (JSON ONLY):
+### OUTPUT FORMAT (JSON ONLY):
 {
-  "name": "Strategy Name",
-  "description": "Human-readable description",
-  "buy_entry_logic": { "conditions": ["RSI < 30", "Price > EMA(20)"], "indicators": ["RSI", "EMA"] },
+  "name": "Technical Name",
+  "description": "Full technical description",
+  "buy_entry_logic": { "conditions": ["Condition 1", "Condition 2"] },
+  "sell_entry_logic": { "conditions": ["Condition 1"] },
+  "hold_logic": { "conditions": ["Condition 1"] },
   "buy_stop_loss": { "parameters": { "percentage": 2 } },
   "buy_target": { "parameters": { "percentage": 4 } },
-  "buy_trailing_sl": { "parameters": { "active": false } },
-  "sell_entry_logic": { "conditions": ["RSI > 70"], "indicators": ["RSI"] },
-  "sell_stop_loss": { "parameters": { "percentage": 2 } },
-  "sell_target": { "parameters": { "percentage": 4 } },
-  "sell_trailing_sl": { "parameters": { "active": false } },
-  "hold_logic": { "conditions": [] },
   "executable_strategy": {
     "name": "Strategy Name",
-    "description": "Human-readable description",
+    "description": "Description",
     "version": 1,
-    "buy": {
-      "logic": "AND",
-      "rules": [
-        { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 30 },
-        { "type": "price_vs_indicator", "priceField": "close", "operator": ">", "indicator": "EMA", "indicatorPeriod": 20 }
-      ]
-    },
-    "sell": {
-      "logic": "AND",
-      "rules": [
-        { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 70 }
-      ]
-    },
-    "buyExit": {
-      "stopLoss": { "type": "PERCENTAGE", "value": 2 },
-      "target": { "type": "PERCENTAGE", "value": 4 }
-    },
-    "sellExit": {
-      "stopLoss": { "type": "PERCENTAGE", "value": 2 },
-      "target": { "type": "PERCENTAGE", "value": 4 }
-    },
-    "requiredIndicators": [
-      { "name": "RSI", "period": 14 },
-      { "name": "EMA", "period": 20 }
-    ],
-    "minWarmupCandles": 30
+    "buy": { "logic": "AND", "rules": [ ... ] },
+    "sell": { "logic": "AND", "rules": [ ... ] },
+    "hold": { "logic": "OR", "rules": [ ... ] },
+    "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 2 }, "target": { "type": "PERCENTAGE", "value": 4 } },
+    "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 2 }, "target": { "type": "PERCENTAGE", "value": 4 } },
+    "requiredIndicators": [ { "name": "RSI", "period": 14 }, ... ],
+    "minWarmupCandles": 50
   }
 }
 
-RULES:
-1. executable_strategy.buy.rules and executable_strategy.sell.rules MUST be typed objects, NOT strings
-2. Always include requiredIndicators listing all indicators used
-3. Set minWarmupCandles to max(period) + 10
-4. If user mentions Supertrend bullish/bearish, use trend rule
-5. Make buy and sell conditions mutually exclusive`,
-      },
+Set "minWarmupCandles" to at least 50 if using moving averages or 100 if using long-period indicators.`,
+        },
       {
         role: "user",
         content: `Convert this trading idea into a complete executable strategy:\n\n${rawInput}`,

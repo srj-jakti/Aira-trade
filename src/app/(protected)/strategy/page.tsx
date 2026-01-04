@@ -617,20 +617,26 @@ function CreateStrategyTab({
   const [strategy, setStrategy] = useState<StructuredStrategy | null>(null);
   const [backtestResults, setBacktestResults] = useState<Record<string, BacktestResult>>({});
   const [selectedTimeframes, setSelectedTimeframes] = useState<string[]>([]);
-  const [selectedInstruments, setSelectedInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string}>>([]);
-  const [instrumentSearch, setInstrumentSearch] = useState("");
-  const [instruments, setInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
-  const [backtesting, setBacktesting] = useState(false);
-  const [improving, setImproving] = useState(false);
-  const [improvementNotes, setImprovementNotes] = useState("");
-  const [improvementCount, setImprovementCount] = useState(0);
-  const [saving, setSaving] = useState(false);
-  const [isPaperTrading, setIsPaperTrading] = useState(false);
-  const [visibility, setVisibility] = useState<"private" | "public" | "invite_only">("private");
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [selectedTf, setSelectedTf] = useState("15m");
+    const [selectedInstruments, setSelectedInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string}>>([
+      { instrument_token: 256265, tradingsymbol: "NIFTY 50" }
+    ]);
+    const [instrumentSearch, setInstrumentSearch] = useState("");
+    const [instruments, setInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
+    const [backtesting, setBacktesting] = useState(false);
+    const [improving, setImproving] = useState(false);
+    const [improvementNotes, setImprovementNotes] = useState("");
+    const [improvementCount, setImprovementCount] = useState(0);
+    const [saving, setSaving] = useState(false);
+    const [isPaperTrading, setIsPaperTrading] = useState(false);
+    const [visibility, setVisibility] = useState<"private" | "public" | "invite_only">("private");
+    const [showSaveDialog, setShowSaveDialog] = useState(false);
+    const [fromDate, setFromDate] = useState(() => {
+      const d = new Date();
+      d.setDate(d.getDate() - 90);
+      return d.toISOString().split("T")[0];
+    });
+    const [toDate, setToDate] = useState(() => new Date().toISOString().split("T")[0]);
+    const [selectedTf, setSelectedTf] = useState("15m");
   const [showToolbox, setShowToolbox] = useState(false);
   const [referenceInstrument, setReferenceInstrument] = useState("");
   const [refInstrumentSearch, setRefInstrumentSearch] = useState("");

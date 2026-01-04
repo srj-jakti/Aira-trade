@@ -476,7 +476,15 @@ export class StrategyRuleExecutor {
     let finalSignal: "BUY" | "SELL" | "HOLD" = "HOLD";
     let signalReason = "";
 
-    if (buyEval.result && !sellEval.result) {
+    // Signal Priority: 
+    // 1. If HOLD condition is met, it overrides entry signals (unless the user meant HOLD as "keep position", but here we use it as "no trade")
+    // 2. If both BUY and SELL are met, it's a conflict -> HOLD
+    // 3. EXIT signals are handled by the backtest engine separately, but here we focus on ENTRY.
+
+    if (holdEval.result) {
+      finalSignal = "HOLD";
+      signalReason = `HOLD condition met: ${holdEval.ruleResults.filter(r => r.passed).map(r => r.reason).join(", ")}`;
+    } else if (buyEval.result && !sellEval.result) {
       finalSignal = "BUY";
       signalReason = `BUY conditions met (${strategy.buy.logic}): ${buyEval.ruleResults.filter(r => r.passed).map(r => r.reason).join(", ")}`;
     } else if (sellEval.result && !buyEval.result) {
@@ -489,7 +497,7 @@ export class StrategyRuleExecutor {
       finalSignal = "HOLD";
       const failedBuyRules = buyEval.ruleResults.filter(r => !r.passed);
       const failedSellRules = sellEval.ruleResults.filter(r => !r.passed);
-      signalReason = `No entry conditions met. BUY failed: ${failedBuyRules.map(r => r.reason).join(", ")}. SELL failed: ${failedSellRules.map(r => r.reason).join(", ")}`;
+      signalReason = `No entry conditions met. BUY failed: [${failedBuyRules.map(r => r.reason).join(" | ")}]. SELL failed: [${failedSellRules.map(r => r.reason).join(" | ")}]`;
     }
 
     const indicatorValues: Record<string, number> = {};

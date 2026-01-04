@@ -457,8 +457,8 @@ class AISharedService {
 
     const hasUserInput = userInput && userInput.trim().length > 10;
     
-    const systemPrompt = `You are an expert algorithmic trading strategy developer specializing in Indian markets (NSE/BSE).
-Your goal is to generate highly profitable, robust, and detailed intraday/swing trading strategies.
+    const systemPrompt = `You are a Principal Quant Engineer and Trading Systems Architect specializing in Indian markets (NSE/BSE).
+Your goal is to generate HIGHLY RIGOROUS, MACHINE-EXECUTABLE trading strategies.
 
 ${toolsContext}
 
@@ -468,30 +468,25 @@ Description: ${archetype.description}
 Preferred Indicators: ${preferredTools.join(", ")}
 Preferred Patterns: ${preferredPatterns.join(", ")}
 
-Generate a unique strategy based on this archetype. Be creative and specific.
+Generate a unique, technically detailed strategy based on this archetype.
 ` : `
-The user has provided their own strategy idea. Enhance it with specific indicators, entry/exit rules, and risk management.
+The user has provided their own strategy idea. Enhance it with specific, quantifiable rules using technical indicators.
 `}
 
 ${referenceInstrument ? `
 IMPORTANT: The user wants to trade derivatives but use ${referenceInstrument} as a reference for signals.
-Include logic for how to use the ${referenceInstrument} price/signals to trigger entries on the actual trading instrument.
+Include explicit logic for how ${referenceInstrument} price action triggers entries.
 ` : ""}
 
 STRATEGY REQUIREMENTS:
-1. Specify the instrument type (Index, Stock, F&O) and recommended symbols
-2. Timeframe for analysis (1min, 5min, 15min, etc.)
-3. ENTRY CONDITIONS: Use specific indicators with exact parameters (e.g., "RSI(14) crosses above 30")
-4. EXIT CONDITIONS: 
-   - Stop Loss: Fixed points/percentage OR ATR-based
-   - Target: Fixed OR trailing OR indicator-based
-   - Time-based exit if applicable
-5. Position sizing recommendation
-6. Best market conditions for this strategy
-7. Risk management rules
+1. **QUANTIFIABLE RULES**: Every entry and exit must be based on a specific, measurable condition (e.g., "EMA(20) crosses above EMA(50)").
+2. **HOLD/NO-TRADE LOGIC**: Include conditions for when NOT to trade (e.g., "RSI(14) > 70", "ADX(14) < 20").
+3. **EXIT RIGOR**: 
+   - Stop Loss: Explicit percentage or points.
+   - Target: Explicit percentage or points.
+4. **TIME-BASED EXITS**: For intraday, specify an exit time (e.g., 3:15 PM IST).
 
-Write in clear, actionable plain English. Start directly with the strategy - no preamble.
-Each condition should be specific enough to be coded into an algorithm.`;
+Write in clear, actionable technical English. Each rule must be deterministic.`;
 
     const userPrompt = hasUserInput 
       ? `Based on my idea below, create a complete, detailed trading strategy with specific rules:\n\n${userInput}`

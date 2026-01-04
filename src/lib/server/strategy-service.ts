@@ -158,6 +158,11 @@ class StrategyService {
     "sell_entry_logic": { "conditions": ["Human readable condition 1"] },
     "buy_stop_loss": { "parameters": { "percentage": 1.5 } },
     "buy_target": { "parameters": { "percentage": 3 } },
+    "buy_trailing_sl": { "conditions": [] },
+    "sell_stop_loss": { "parameters": { "percentage": 1.5 } },
+    "sell_target": { "parameters": { "percentage": 3 } },
+    "sell_trailing_sl": { "conditions": [] },
+    "hold_logic": { "conditions": [] },
     "executable_strategy": {
       "name": "Strategy Name",
       "strategyType": "INTRADAY" | "SWING" | "SCALPING" | "OPTIONS",
@@ -454,81 +459,112 @@ class StrategyService {
       };
     }
 
-  async improveStrategyWithAI(
-    strategy: StructuredStrategy,
-    backtestResults: BacktestResult
-  ): Promise<{ improved: StructuredStrategy; notes: string }> {
-    const messages = [
-      {
-        role: "system",
-        content: `You are an expert trading strategy optimizer. Analyze the given strategy and its backtest results, then provide an IMPROVED version.
-
-Focus on:
-1. Entry/exit timing optimization
-2. Stop loss and target adjustments based on win/loss patterns
-3. Filter improvements to reduce false signals
-4. Trailing stop loss optimization
-5. Hold/no-trade condition refinements
-
-OUTPUT FORMAT (JSON):
-{
-  "improved": { <same structure as input strategy with improvements> },
-  "notes": "Detailed explanation of what was changed and why"
-}`,
-      },
-      {
-        role: "user",
-        content: `Improve this strategy based on backtest results:
-
-CURRENT STRATEGY:
-${JSON.stringify(strategy, null, 2)}
-
-BACKTEST RESULTS:
-- Total Trades: ${backtestResults.total_trades}
-- Win Rate: ${backtestResults.win_rate}%
-- Loss Rate: ${backtestResults.loss_rate}%
-- Net P&L: ${backtestResults.net_pnl} (${backtestResults.net_pnl_percentage}%)
-- Max Drawdown: ${backtestResults.max_drawdown} (${backtestResults.max_drawdown_percentage}%)
-- Buy Count: ${backtestResults.buy_count}
-- Sell Count: ${backtestResults.sell_count}
-
-TRADE LOG SUMMARY:
-${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
-      },
-    ];
-
-    const result = await aiSharedService.executeAnalysis("strategy_improve", messages, {
-      maxTokens: 3000,
-      skipCache: true,
-    });
-
-    if (!result.success || !result.result) {
-      throw new Error("AI failed to improve strategy");
-    }
-
-    try {
-      const parsed = typeof result.result === "string"
-        ? JSON.parse(result.result.replace(/```json\n?|\n?```/g, "").trim())
-        : result.result;
-      
-      // Ensure all required fields exist to prevent UI crashes
-      if (parsed.improved) {
-        const fields = [
-          "buy_entry_logic", "buy_stop_loss", "buy_target", "buy_trailing_sl",
-          "sell_entry_logic", "sell_stop_loss", "sell_target", "sell_trailing_sl",
-          "hold_logic"
-        ];
-        fields.forEach(field => {
-          if (!parsed.improved[field]) parsed.improved[field] = { conditions: [] };
-          if (!parsed.improved[field].conditions) parsed.improved[field].conditions = [];
-        });
+    async improveStrategyWithAI(
+      strategy: StructuredStrategy,
+      backtestResults: BacktestResult
+    ): Promise<{ improved: StructuredStrategy; notes: string }> {
+      const messages = [
+        {
+          role: "system",
+          content: `You are an expert trading strategy optimizer. Analyze the given strategy and its backtest results, then provide an IMPROVED version.
+  
+  ### STRATEGY CLASSIFICATION:
+  Identify/Maintain the strategy type:
+  - INTRADAY: Entry and Exit happen on the same day. All positions MUST exit before 3:20 PM.
+  - SWING: Positions held for multiple days.
+  - SCALPING: Very short term trades (minutes).
+  - OPTIONS: Strategies specifically mentioning options or complex Greeks.
+  
+  Focus on:
+  1. Entry/exit timing optimization
+  2. Stop loss and target adjustments based on win/loss patterns
+  3. Filter improvements to reduce false signals
+  4. Trailing stop loss optimization
+  5. Hold/no-trade condition refinements
+  
+  OUTPUT FORMAT (JSON):
+  {
+    "improved": { 
+      "name": "Strategy Name",
+      "description": "...",
+      "strategy_type": "...",
+      "buy_entry_logic": { "conditions": [...] },
+      ...
+    },
+    "notes": "Detailed explanation of what was changed and why"
+  }`,
+        },
+        {
+          role: "user",
+          content: `Improve this strategy based on backtest results:
+  
+  CURRENT STRATEGY:
+  ${JSON.stringify(strategy, null, 2)}
+  
+  BACKTEST RESULTS:
+  - Total Trades: ${backtestResults.total_trades}
+  - Win Rate: ${backtestResults.win_rate}%
+  - Loss Rate: ${backtestResults.loss_rate}%
+  - Net P&L: ₹${backtestResults.net_pnl} (${backtestResults.net_pnl_percentage}%)
+  - Max Drawdown: ₹${backtestResults.max_drawdown} (${backtestResults.max_drawdown_percentage}%)
+  
+  TRADE LOG SUMMARY:
+  ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
+        },
+      ];
+  
+      const result = await aiSharedService.executeAnalysis("strategy_improve", messages, {
+        maxTokens: 3000,
+        skipCache: true,
+      });
+  
+      if (!result.success || !result.result) {
+        throw new Error("AI failed to improve strategy");
       }
-
-      return parsed as { improved: StructuredStrategy; notes: string };
-    } catch {
-      throw new Error("Failed to parse AI improvement response");
+  
+      try {
+        let jsonString = typeof result.result === "string" ? result.result : JSON.stringify(result.result);
+        const firstBrace = jsonString.indexOf("{");
+        const lastBrace = jsonString.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace !== -1) {
+          jsonString = jsonString.substring(firstBrace, lastBrace + 1);
+        }
+        const parsed = JSON.parse(jsonString);
+        
+        // Robust field insurance
+        const ensureFields = (obj: any) => {
+          if (!obj) return { name: "Improved Strategy", description: "Improved by AI" };
+          const fields = [
+            "buy_entry_logic", "buy_stop_loss", "buy_target", "buy_trailing_sl",
+            "sell_entry_logic", "sell_stop_loss", "sell_target", "sell_trailing_sl",
+            "hold_logic"
+          ];
+          fields.forEach(field => {
+            if (!obj[field]) obj[field] = { conditions: [] };
+            if (!obj[field].conditions) obj[field].conditions = [];
+          });
+          if (!obj.name) obj.name = strategy.name + " (Improved)";
+          if (!obj.description) obj.description = strategy.description;
+          if (!obj.strategy_type) obj.strategy_type = strategy.strategy_type || "SWING";
+          return obj;
+        };
+  
+        if (parsed.improved) {
+          parsed.improved = ensureFields(parsed.improved);
+          if (!parsed.notes) parsed.notes = "Strategy improved with optimized parameters.";
+        } else if (parsed.name) {
+          // If AI returned the strategy directly instead of wrapped in "improved"
+          const improved = ensureFields(parsed);
+          return { improved, notes: parsed.notes || "Strategy improved with optimized parameters." };
+        }
+  
+        return parsed as { improved: StructuredStrategy; notes: string };
+      } catch (e) {
+        console.error("[StrategyService] Failed to parse AI improvement response:", e);
+        throw new Error("Failed to parse AI improvement response");
+      }
     }
-  }
+
 
   private async fetchCandlesFromZerodha(
     instrumentToken: number,
@@ -854,6 +890,29 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
           if (sellSignal && !shouldExit) {
             shouldExit = true;
             exitReason = "Sell Signal";
+          }
+
+          // Intraday Square-off logic
+          const isIntraday = strategy.strategy_type === "INTRADAY" || execStrategy?.strategyType === "INTRADAY";
+          if (isIntraday && !shouldExit) {
+            const candleDate = new Date(candle.timestamp);
+            const hour = candleDate.getHours();
+            const minute = candleDate.getMinutes();
+            
+            // Indian markets square off around 3:15 PM - 3:20 PM
+            if (hour > 15 || (hour === 15 && minute >= 15)) {
+              shouldExit = true;
+              exitReason = "Intraday Square-off";
+              exitPrice = candle.close;
+            } else if (i < candles.length - 1) {
+              // Check if next candle is on a different day
+              const nextCandleDate = new Date(candles[i+1].timestamp);
+              if (candleDate.getDate() !== nextCandleDate.getDate()) {
+                shouldExit = true;
+                exitReason = "Intraday End-of-Day";
+                exitPrice = candle.close;
+              }
+            }
           }
         } else {
           let slPercent = 2;

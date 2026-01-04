@@ -93,6 +93,7 @@ interface StrategyLogic {
 interface StructuredStrategy {
   name: string;
   description: string;
+  strategy_type?: "SWING" | "INTRADAY" | "SCALPING" | "OPTIONS";
   buy_entry_logic: StrategyLogic;
   buy_stop_loss: StrategyLogic;
   buy_target: StrategyLogic;
@@ -892,16 +893,20 @@ function CreateStrategyTab({
     }
   };
 
-  const improveStrategy = async () => {
-    if (!strategy || Object.keys(backtestResults).length === 0) return;
-    setImproving(true);
-    try {
-      const latestBacktest = Object.values(backtestResults)[0];
-      const res = await fetch("/api/strategies/preview/improve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ strategy, backtestResults: latestBacktest }),
-      });
+    const improveStrategy = async () => {
+      const currentResult = backtestResults[selectedTf];
+      if (!strategy || !currentResult) {
+        alert("Please run a backtest for the selected timeframe first");
+        return;
+      }
+      setImproving(true);
+      try {
+        const res = await fetch("/api/strategies/preview/improve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ strategy, backtestResults: currentResult }),
+        });
+
       if (res.ok) {
         const data = await res.json();
         setStrategy(data.improved);
@@ -1390,15 +1395,13 @@ function CreateStrategyTab({
                 </>
               )}
 
-              {Object.keys(backtestResults).length > 0 && (
-                <div className="space-y-4 mt-6">
-                  {Object.entries(backtestResults).map(([timeframe, result]) => (
+                {backtestResults[selectedTf] && (
+                  <div className="space-y-4 mt-6">
                     <BacktestResultCard
-                      key={timeframe}
-                      timeframe={timeframe}
-                      result={result}
+                      timeframe={selectedTf}
+                      result={backtestResults[selectedTf]}
                     />
-                  ))}
+
 
                   <div className="flex gap-4 pt-4">
                     <Button
@@ -1606,121 +1609,128 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
           </Badge>
           <span className="text-white/40 text-sm">{tf?.coverage} data</span>
         </div>
-        <div
-          className={`text-lg font-bold ${
-            result.net_pnl >= 0 ? "text-green-400" : "text-red-400"
-          }`}
-        >
-          {result.net_pnl >= 0 ? "+" : ""}
-          {result.net_pnl_percentage.toFixed(2)}%
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="text-white/40 text-[10px] uppercase tracking-wider">Net P&L</p>
+            <div
+              className={`text-lg font-bold ${
+                result.net_pnl >= 0 ? "text-green-400" : "text-red-400"
+              }`}
+            >
+              {result.net_pnl >= 0 ? "+" : ""}
+              ₹{result.net_pnl.toLocaleString()} ({result.net_pnl_percentage.toFixed(2)}%)
+            </div>
+          </div>
         </div>
       </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <div>
-            <p className="text-white/40 text-xs">Capital</p>
-            <p className="text-white font-medium">₹{result.capital_used.toLocaleString()}</p>
-          </div>
-          <div>
-            <p className="text-white/40 text-xs">Net P&L</p>
-            <p className={`font-bold ${result.net_pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-              ₹{result.net_pnl.toLocaleString()}
-            </p>
-          </div>
-          <div>
-            <p className="text-white/40 text-xs">Win Rate</p>
-            <p className="text-green-400 font-medium">{result.win_rate.toFixed(1)}%</p>
-          </div>
-          <div>
-            <p className="text-white/40 text-xs">Trades</p>
-            <p className="text-white font-medium">{result.total_trades}</p>
-          </div>
-          <div>
-            <p className="text-white/40 text-xs">Max Drawdown</p>
-            <p className="text-red-400 font-medium">{result.max_drawdown_percentage.toFixed(1)}%</p>
-          </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-3 bg-white/5 rounded-lg border border-white/5">
+          <p className="text-white/40 text-xs mb-1">Win Rate</p>
+          <p className="text-green-400 text-xl font-bold">{result.win_rate.toFixed(1)}%</p>
+          <p className="text-white/20 text-[10px]">Total: {result.total_trades} trades</p>
         </div>
+        <div className="p-3 bg-white/5 rounded-lg border border-white/5">
+          <p className="text-white/40 text-xs mb-1">P&L / Trade</p>
+          <p className={`text-xl font-bold ${result.net_pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+            ₹{(result.net_pnl / (result.total_trades || 1)).toFixed(0)}
+          </p>
+          <p className="text-white/20 text-[10px]">Avg per position</p>
+        </div>
+        <div className="p-3 bg-white/5 rounded-lg border border-white/5">
+          <p className="text-white/40 text-xs mb-1">Max Drawdown</p>
+          <p className="text-red-400 text-xl font-bold">{result.max_drawdown_percentage.toFixed(1)}%</p>
+          <p className="text-white/20 text-[10px]">₹{result.max_drawdown.toLocaleString()}</p>
+        </div>
+        <div className="p-3 bg-white/5 rounded-lg border border-white/5">
+          <p className="text-white/40 text-xs mb-1">Capital Used</p>
+          <p className="text-white text-xl font-bold">₹{result.capital_used.toLocaleString()}</p>
+          <p className="text-white/20 text-[10px]">Total exposure</p>
+        </div>
+      </div>
 
-      <div className="flex gap-4 mt-4 text-sm">
+      <div className="flex gap-4 mt-4 text-xs">
         <span className="text-white/40">
-          Buy: <span className="text-green-400">{result.buy_count}</span>
+          Profit Trades: <span className="text-green-400">{Math.round(result.total_trades * result.win_rate / 100)}</span>
         </span>
         <span className="text-white/40">
-          Sell: <span className="text-red-400">{result.sell_count}</span>
+          Loss Trades: <span className="text-red-400">{Math.round(result.total_trades * result.loss_rate / 100)}</span>
         </span>
         <span className="text-white/40">
           Hold: <span className="text-white/60">{result.hold_count}</span>
         </span>
       </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowTrades(!showTrades)}
-          className="mt-4 text-white/40 hover:text-white"
-        >
-          {showTrades ? "Hide" : "Show"} Trade Log ({(result.trade_log || []).length})
-        </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setShowTrades(!showTrades)}
+        className="mt-4 text-white/40 hover:text-white h-8"
+      >
+        {showTrades ? "Hide" : "Show"} Position Log ({(result.trade_log || []).length})
+      </Button>
 
-        {showTrades && result.trade_log && (
-          <div className="mt-4 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <div className="min-w-[600px]">
-              <table className="w-full text-sm">
-                <thead className="text-white/40 text-xs">
-                  <tr>
-                    <th className="text-left py-2">Type</th>
-                    <th className="text-left py-2">Qty</th>
-                    <th className="text-left py-2">Entry</th>
-                    <th className="text-left py-2">Exit (Reason)</th>
-                    <th className="text-right py-2">P&L</th>
-                  </tr>
-                </thead>
-                <tbody className="text-white/80">
-                  {result.trade_log.slice(0, 20).map((trade) => (
-                    <tr key={trade.id} className="border-t border-white/5">
-                      <td className="py-2">
-                        <Badge
-                          variant="outline"
-                          className={
-                            trade.type === "BUY"
-                              ? "border-green-500/30 text-green-400"
-                              : "border-red-500/30 text-red-400"
-                          }
-                        >
-                          {trade.type}
-                        </Badge>
-                      </td>
-                      <td className="py-2 text-white/60">
-                        {trade.quantity}
-                      </td>
-                      <td className="py-2">
-                        <span className="font-medium">₹{trade.entry_price.toFixed(2)}</span>
-                        <span className="text-white/40 text-[10px] block">
-                          {new Date(trade.entry_time).toLocaleDateString()}
-                        </span>
-                      </td>
-                      <td className="py-2">
-                        <span className="font-medium">₹{trade.exit_price?.toFixed(2) || "-"}</span>
-                        <span className={`text-[10px] block ${
-                          trade.exit_reason?.includes("Stop Loss") ? "text-red-400" : 
-                          trade.exit_reason?.includes("Target") ? "text-green-400" : "text-white/40"
-                        }`}>
-                          {trade.exit_reason}
-                        </span>
-                      </td>
-                      <td
-                        className={`py-2 text-right font-bold ${
-                          (trade.pnl || 0) >= 0 ? "text-green-400" : "text-red-400"
-                        }`}
-                      >
-                        <div>{(trade.pnl || 0) >= 0 ? "+" : ""}₹{trade.pnl?.toFixed(2) || "0"}</div>
-                        <div className="text-[10px] opacity-70">{trade.pnl_percentage?.toFixed(2)}%</div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-            </table>
-          </div>
+      {showTrades && result.trade_log && (
+        <div className="mt-4 overflow-x-auto border border-white/5 rounded-lg">
+          <table className="w-full text-sm">
+            <thead className="text-white/40 text-[10px] uppercase tracking-wider bg-white/5">
+              <tr>
+                <th className="text-left px-4 py-2">S.No</th>
+                <th className="text-left px-4 py-2">Type</th>
+                <th className="text-left px-4 py-2">Qty</th>
+                <th className="text-left px-4 py-2">Entry</th>
+                <th className="text-left px-4 py-2">Exit (Reason)</th>
+                <th className="text-right px-4 py-2">P&L</th>
+              </tr>
+            </thead>
+            <tbody className="text-white/80">
+              {result.trade_log.map((trade, idx) => (
+                <tr key={trade.id} className="border-t border-white/5 hover:bg-white/5 transition-colors">
+                  <td className="px-4 py-3 text-white/30 text-xs">
+                    {idx + 1}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] h-5 ${
+                        trade.type === "BUY"
+                          ? "border-green-500/30 text-green-400"
+                          : "border-red-500/30 text-red-400"
+                      }`}
+                    >
+                      {trade.type}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-white/60 font-mono text-xs">
+                    {trade.quantity}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-xs">₹{trade.entry_price.toFixed(2)}</div>
+                    <div className="text-white/30 text-[9px]">
+                      {new Date(trade.entry_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-xs">₹{trade.exit_price?.toFixed(2) || "-"}</div>
+                    <div className={`text-[9px] ${
+                      trade.exit_reason?.includes("Stop Loss") ? "text-red-400/70" : 
+                      trade.exit_reason?.includes("Target") ? "text-green-400/70" : "text-white/30"
+                    }`}>
+                      {trade.exit_reason || "-"}
+                    </div>
+                  </td>
+                  <td
+                    className={`px-4 py-3 text-right font-bold text-xs ${
+                      (trade.pnl || 0) >= 0 ? "text-green-400" : "text-red-400"
+                    }`}
+                  >
+                    <div>{(trade.pnl || 0) >= 0 ? "+" : ""}₹{trade.pnl?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="text-[10px] opacity-70 font-normal">{trade.pnl_percentage?.toFixed(2)}%</div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

@@ -910,13 +910,23 @@ function CreateStrategyTab({
       if (res.ok) {
         const data = await res.json();
         setStrategy(data.improved);
-        setImprovementNotes(data.notes);
+        // Ensure notes is a string to prevent React crash
+        const notes = typeof data.notes === 'string' 
+          ? data.notes 
+          : typeof data.notes === 'object' 
+            ? JSON.stringify(data.notes) 
+            : String(data.notes || "");
+        setImprovementNotes(notes);
         setImprovementCount((c) => c + 1);
         setBacktestResults({});
         setStep("improve");
+      } else {
+        const error = await res.json().catch(() => ({ error: "Failed to improve strategy" }));
+        alert(error.error || "Error improving strategy");
       }
-    } catch {
-      alert("Error improving strategy");
+    } catch (err) {
+      console.error("Improve strategy error:", err);
+      alert("Error improving strategy. Please check console.");
     } finally {
       setImproving(false);
     }
@@ -1578,7 +1588,7 @@ function StrategySection({
                     <li key={i}>• {c}</li>
                   ))}
                 </ul>
-                  {section.data.parameters && typeof section.data.parameters === "object" && Object.keys(section.data.parameters).length > 0 && (
+                    {section.data.parameters && typeof section.data.parameters === "object" && section.data.parameters !== null && Object.keys(section.data.parameters).length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {Object.entries(section.data.parameters).map(([k, v]) => (
                         <Badge key={k} variant="outline" className="text-xs border-white/10 text-white/50">

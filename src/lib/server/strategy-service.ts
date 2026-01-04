@@ -745,7 +745,7 @@ Based on this analysis, create an IMPROVED strategy that:
         const parsed = JSON.parse(jsonString);
         
         const ensureFields = (obj: any) => {
-          if (!obj) return { 
+          if (!obj || typeof obj !== "object") return { 
             name: strategy.name + " (Improved)", 
             description: strategy.description,
             strategy_type: strategy.strategy_type || "SWING"
@@ -756,15 +756,22 @@ Based on this analysis, create an IMPROVED strategy that:
             "hold_logic"
           ];
           fields.forEach(field => {
-            if (!obj[field]) obj[field] = { conditions: [], parameters: {} };
-            if (!obj[field].conditions) obj[field].conditions = [];
+            if (!obj[field] || typeof obj[field] !== "object") {
+              obj[field] = { conditions: [], parameters: {} };
+            }
+            if (!obj[field].conditions || !Array.isArray(obj[field].conditions)) {
+              obj[field].conditions = [];
+            }
+            if (!obj[field].parameters || typeof obj[field].parameters !== "object" || obj[field].parameters === null) {
+              obj[field].parameters = {};
+            }
           });
           if (!obj.name) obj.name = strategy.name + " (Improved)";
           if (!obj.description) obj.description = strategy.description;
           if (!obj.strategy_type) obj.strategy_type = strategy.strategy_type || "SWING";
           
           // Ensure executable_strategy is valid
-          if (obj.executable_strategy) {
+          if (obj.executable_strategy && typeof obj.executable_strategy === "object") {
             obj.executable_strategy = this.sanitizeExecutableStrategy(obj.executable_strategy);
           } else {
             obj.executable_strategy = this.createFallbackExecutableStrategy(obj);

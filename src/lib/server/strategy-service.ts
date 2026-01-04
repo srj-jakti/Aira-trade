@@ -4,6 +4,13 @@ import { marketDataEngine } from "./market-data-engine";
 import { decrypt } from "./encryption";
 import { IndicatorCalculator, type Candle as CalcCandle } from "./indicator-calculator";
 import { StrategyEvaluator } from "./strategy-evaluator";
+import { StrategyRuleExecutor, formatEvaluationLogForDisplay } from "./strategy-rule-executor";
+import {
+  type ExecutableStrategy,
+  type EvaluationLog,
+  validateStrategy,
+  getRequiredWarmupPeriod,
+} from "@/lib/types/strategy";
 
 export interface StrategyLogic {
   conditions: string[];
@@ -24,6 +31,7 @@ export interface StructuredStrategy {
   sell_target: StrategyLogic;
   sell_trailing_sl: StrategyLogic;
   hold_logic: StrategyLogic;
+  executable_strategy?: ExecutableStrategy;
 }
 
 export interface BacktestResult {
@@ -125,51 +133,102 @@ class StrategyService {
     const messages = [
       {
         role: "system",
-        content: `You are an expert trading strategy formatter. Your job is to take ANY user input and convert it into a fully structured, executable trading strategy.
-  
-  CRITICAL: You MUST use the following technical indicators, candlestick patterns, and chart patterns when defining the entry/exit conditions. Use their exact names.
-  
-  TRADING TOOLS AVAILABLE (FULL TOOLBOX):
-  - Trend Indicators: SMA, EMA, WMA, HMA, DEMA, TEMA, Supertrend, ADX, Ichimoku, VWAP, Alligator, Parabolic SAR, ZigZag
-  - Momentum Indicators: RSI, MACD, Stochastic, CCI, Williams %R, MFI, ROC, Awesome Oscillator, Chaikin Money Flow, Trix
-  - Volatility Indicators: Bollinger Bands, ATR, Keltner Channel, Donchian Channel, Standard Deviation, Choppiness Index
-  - Volume Indicators: Volume SMA, OBV, VWAP, Chaikin Oscillator, Force Index, Ease of Movement
-  - Candlestick Patterns: Hammer, Shooting Star, Doji, Bullish/Bearish Engulfing, Morning/Evening Star, Piercing Line, Dark Cloud Cover, Three White Soldiers, Three Black Crows
-  - Chart Patterns: Head & Shoulders, Inverse H&S, Double Top/Bottom, Triple Top/Bottom, Ascending/Descending Triangle, Symmetrical Triangle, Bull/Bear Flag, Pennant, Cup and Handle
-  - Price Action: Swing High/Low, Trend Lines, Support/Resistance Breakout/Breakdown, FVG (Fair Value Gap), Order Block, Liquidity Sweep, BOS (Break of Structure), CHoCH (Change of Character)
-  
-  RULES:
-  1. ALWAYS provide specific buy_entry_logic, sell_entry_logic, buy_stop_loss, buy_target, sell_stop_loss, sell_target, and hold_logic.
-  2. Logic should be structured as an array of conditions. Example: ["Price > SMA(200)", "RSI(14) < 30", "Bullish Engulfing"].
-  3. If the user is vague, infer the most professional parameters (e.g., RSI period 14, EMA period 9/21).
-  4. Ensure logic is mutually exclusive where appropriate (e.g., don't buy and sell at the same time).
-  5. Include a clear, professional name and description.
-  6. Reference instruments: If index price is mentioned, use logic like "NIFTY Price > SMA(20)".
-  
-  OUTPUT FORMAT (JSON ONLY):
-  {
-    "name": "Strategy Name",
-    "description": "Professional description",
-    "buy_entry_logic": { "conditions": ["RSI(14) below 30", "Price above EMA(20)"], "indicators": ["RSI", "EMA"] },
-    "buy_stop_loss": { "parameters": { "percentage": 2 } },
-    "buy_target": { "parameters": { "percentage": 4 } },
-    "buy_trailing_sl": { "parameters": { "active": false } },
-    "sell_entry_logic": { "conditions": ["RSI(14) above 70", "Price below EMA(20)"], "indicators": ["RSI", "EMA"] },
-    "sell_stop_loss": { "parameters": { "percentage": 2 } },
-    "sell_target": { "parameters": { "percentage": 4 } },
-    "sell_trailing_sl": { "parameters": { "active": false } },
-    "hold_logic": { "conditions": ["Volume below 100000"] }
-  }`,
-      },
+        content: `You are an expert trading strategy formatter. Convert user input into a MACHINE-EXECUTABLE trading strategy with structured rules.
 
+CRITICAL: Output MUST include an "executable_strategy" object with TYPED RULES - NO natural language strings.
+
+AVAILABLE INDICATORS (use exact names):
+- RSI, SMA, EMA, WMA, DEMA, VWAP, MACD, MACD_SIGNAL, MACD_HIST
+- SUPERTREND, SUPERTREND_DIR, ADX, ATR
+- STOCH_K, STOCH_D, BB_UPPER, BB_MIDDLE, BB_LOWER, OBV
+
+RULE TYPES:
+1. "indicator" - Compare indicator to a value
+   { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 50 }
+   
+2. "price_vs_indicator" - Compare price to indicator
+   { "type": "price_vs_indicator", "priceField": "close", "operator": ">", "indicator": "EMA", "indicatorPeriod": 20 }
+   
+3. "trend" - Check trend direction
+   { "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" }
+   { "type": "trend", "indicator": "ADX", "threshold": 25 }
+   
+4. "pattern" - Detect candlestick pattern
+   { "type": "pattern", "pattern": "HAMMER" }
+   Patterns: HAMMER, SHOOTING_STAR, DOJI, BULLISH_ENGULFING, BEARISH_ENGULFING
+   
+5. "price_action" - Simple price action
+   { "type": "price_action", "action": "BULLISH_CANDLE" }
+   Actions: BULLISH_CANDLE, BEARISH_CANDLE, HIGHER_HIGH, LOWER_LOW
+   
+6. "volume" - Volume conditions
+   { "type": "volume", "operator": ">", "value": 100000 }
+   { "type": "volume", "operator": ">", "compareToAverage": true, "averagePeriod": 20 }
+
+OPERATORS: ">", "<", ">=", "<=", "==", "CROSS_ABOVE", "CROSS_BELOW"
+LOGIC: "AND" (all rules must pass) or "OR" (any rule can pass)
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "name": "Strategy Name",
+  "description": "Human-readable description",
+  "buy_entry_logic": { "conditions": ["RSI < 30", "Price > EMA(20)"], "indicators": ["RSI", "EMA"] },
+  "buy_stop_loss": { "parameters": { "percentage": 2 } },
+  "buy_target": { "parameters": { "percentage": 4 } },
+  "buy_trailing_sl": { "parameters": { "active": false } },
+  "sell_entry_logic": { "conditions": ["RSI > 70"], "indicators": ["RSI"] },
+  "sell_stop_loss": { "parameters": { "percentage": 2 } },
+  "sell_target": { "parameters": { "percentage": 4 } },
+  "sell_trailing_sl": { "parameters": { "active": false } },
+  "hold_logic": { "conditions": [] },
+  "executable_strategy": {
+    "name": "Strategy Name",
+    "description": "Human-readable description",
+    "version": 1,
+    "buy": {
+      "logic": "AND",
+      "rules": [
+        { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 30 },
+        { "type": "price_vs_indicator", "priceField": "close", "operator": ">", "indicator": "EMA", "indicatorPeriod": 20 }
+      ]
+    },
+    "sell": {
+      "logic": "AND",
+      "rules": [
+        { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 70 }
+      ]
+    },
+    "buyExit": {
+      "stopLoss": { "type": "PERCENTAGE", "value": 2 },
+      "target": { "type": "PERCENTAGE", "value": 4 }
+    },
+    "sellExit": {
+      "stopLoss": { "type": "PERCENTAGE", "value": 2 },
+      "target": { "type": "PERCENTAGE", "value": 4 }
+    },
+    "requiredIndicators": [
+      { "name": "RSI", "period": 14 },
+      { "name": "EMA", "period": 20 }
+    ],
+    "minWarmupCandles": 30
+  }
+}
+
+RULES:
+1. executable_strategy.buy.rules and executable_strategy.sell.rules MUST be typed objects, NOT strings
+2. Always include requiredIndicators listing all indicators used
+3. Set minWarmupCandles to max(period) + 10
+4. If user mentions Supertrend bullish/bearish, use trend rule
+5. Make buy and sell conditions mutually exclusive`,
+      },
       {
         role: "user",
-        content: `Convert this trading idea into a complete strategy:\n\n${rawInput}`,
+        content: `Convert this trading idea into a complete executable strategy:\n\n${rawInput}`,
       },
     ];
 
     const result = await aiSharedService.executeAnalysis("strategy_format", messages, {
-      maxTokens: 2000,
+      maxTokens: 3000,
       skipCache: true,
     });
 
@@ -181,6 +240,14 @@ class StrategyService {
       const parsed = typeof result.result === "string" 
         ? JSON.parse(result.result.replace(/```json\n?|\n?```/g, "").trim())
         : result.result;
+      
+      if (parsed.executable_strategy) {
+        const validation = validateStrategy(parsed.executable_strategy);
+        if (!validation.valid) {
+          console.warn("[StrategyService] Executable strategy validation failed:", validation.errors);
+        }
+      }
+      
       return parsed as StructuredStrategy;
     } catch {
       throw new Error("Failed to parse AI response");
@@ -447,7 +514,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     strategy: StructuredStrategy,
     candles: Candle[],
     capital: number
-  ): BacktestResult {
+  ): BacktestResult & { evaluation_logs?: EvaluationLog[] } {
     const trades: TradeEntry[] = [];
     let currentPosition: TradeEntry | null = null;
     let cashBalance = capital;
@@ -455,13 +522,56 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     let maxDrawdown = 0;
     let wins = 0;
     let losses = 0;
+    const evaluationLogs: EvaluationLog[] = [];
 
-    // Pre-calculate indicators for the entire series
-    const indicatorData = StrategyEvaluator.precalculateIndicators(candles as CalcCandle[]);
+    const useNewExecutor = !!strategy.executable_strategy;
+    let executor: StrategyRuleExecutor | null = null;
+    let indicatorData: Record<string, any> = {};
+    let warmupPeriod = 20;
 
-    for (let i = 20; i < candles.length; i++) {
+    if (useNewExecutor && strategy.executable_strategy) {
+      console.log("[Backtest] Using NEW executable strategy engine");
+      executor = new StrategyRuleExecutor(true);
+      executor.precalculateIndicators(candles as CalcCandle[], strategy.executable_strategy);
+      warmupPeriod = getRequiredWarmupPeriod(strategy.executable_strategy);
+      console.log(`[Backtest] Warmup period: ${warmupPeriod} candles`);
+    } else {
+      console.log("[Backtest] Using LEGACY string-based evaluator (fallback)");
+      indicatorData = StrategyEvaluator.precalculateIndicators(candles as CalcCandle[]);
+    }
+
+    console.log(`[Backtest] Processing ${candles.length} candles, starting from index ${warmupPeriod}`);
+    let buySignalCount = 0;
+    let sellSignalCount = 0;
+
+    for (let i = warmupPeriod; i < candles.length; i++) {
       const candle = candles[i];
-      const evaluation = StrategyEvaluator.evaluate(strategy, candles as CalcCandle[], i, indicatorData);
+      
+      let buySignal = false;
+      let sellSignal = false;
+      let holdInfo = false;
+
+      if (useNewExecutor && executor && strategy.executable_strategy) {
+        const result = executor.evaluate(strategy.executable_strategy, i);
+        buySignal = result.buySignal;
+        sellSignal = result.sellSignal;
+        holdInfo = result.holdInfo;
+        
+        if (i < warmupPeriod + 5 || result.buySignal || result.sellSignal) {
+          evaluationLogs.push(result.log);
+          if (result.buySignal || result.sellSignal) {
+            console.log(`[Backtest] Candle ${i}: ${result.log.finalSignal} - ${result.log.signalReason.substring(0, 100)}`);
+          }
+        }
+      } else {
+        const evaluation = StrategyEvaluator.evaluate(strategy, candles as CalcCandle[], i, indicatorData);
+        buySignal = evaluation.buySignal;
+        sellSignal = evaluation.sellSignal;
+        holdInfo = evaluation.holdSignal;
+      }
+
+      if (buySignal) buySignalCount++;
+      if (sellSignal) sellSignalCount++;
 
       if (currentPosition) {
         const entryPrice = currentPosition.entry_price;
@@ -469,59 +579,79 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
         let exitReason = "";
         let exitPrice = candle.close;
 
+        const execStrategy = strategy.executable_strategy;
+
         if (currentPosition.type === "BUY") {
-          // Stop Loss
-          const slParams = strategy.buy_stop_loss.parameters || {};
-          const slPercent = (slParams.percentage as number) || 2;
+          let slPercent = 2;
+          let targetPercent = 4;
+
+          if (execStrategy?.buyExit?.stopLoss) {
+            slPercent = execStrategy.buyExit.stopLoss.value;
+          } else if (strategy.buy_stop_loss?.parameters?.percentage) {
+            slPercent = strategy.buy_stop_loss.parameters.percentage as number;
+          }
+          
+          if (execStrategy?.buyExit?.target) {
+            targetPercent = execStrategy.buyExit.target.value;
+          } else if (strategy.buy_target?.parameters?.percentage) {
+            targetPercent = strategy.buy_target.parameters.percentage as number;
+          }
+
           const slPrice = entryPrice * (1 - slPercent / 100);
           
           if (candle.low <= slPrice) {
             shouldExit = true;
-            exitReason = "Stop Loss Hit (Paper)";
+            exitReason = "Stop Loss Hit";
             exitPrice = slPrice;
           }
 
-          // Target
-          const targetParams = strategy.buy_target.parameters || {};
-          const targetPercent = (targetParams.percentage as number) || 4;
           const targetPrice = entryPrice * (1 + targetPercent / 100);
 
           if (candle.high >= targetPrice && !shouldExit) {
             shouldExit = true;
-            exitReason = "Target Hit (Paper)";
+            exitReason = "Target Hit";
             exitPrice = targetPrice;
           }
 
-          // Sell Signal (Reverse Entry)
-          if (evaluation.sellSignal && !shouldExit) {
+          if (sellSignal && !shouldExit) {
             shouldExit = true;
-            exitReason = "Sell Signal (Paper)";
+            exitReason = "Sell Signal";
           }
         } else {
-          // SELL Position Logic
-          const slParams = strategy.sell_stop_loss.parameters || {};
-          const slPercent = (slParams.percentage as number) || 2;
+          let slPercent = 2;
+          let targetPercent = 4;
+
+          if (execStrategy?.sellExit?.stopLoss) {
+            slPercent = execStrategy.sellExit.stopLoss.value;
+          } else if (strategy.sell_stop_loss?.parameters?.percentage) {
+            slPercent = strategy.sell_stop_loss.parameters.percentage as number;
+          }
+          
+          if (execStrategy?.sellExit?.target) {
+            targetPercent = execStrategy.sellExit.target.value;
+          } else if (strategy.sell_target?.parameters?.percentage) {
+            targetPercent = strategy.sell_target.parameters.percentage as number;
+          }
+
           const slPrice = entryPrice * (1 + slPercent / 100);
 
           if (candle.high >= slPrice) {
             shouldExit = true;
-            exitReason = "Stop Loss Hit (Paper)";
+            exitReason = "Stop Loss Hit";
             exitPrice = slPrice;
           }
 
-          const targetParams = strategy.sell_target.parameters || {};
-          const targetPercent = (targetParams.percentage as number) || 4;
           const targetPrice = entryPrice * (1 - targetPercent / 100);
 
           if (candle.low <= targetPrice && !shouldExit) {
             shouldExit = true;
-            exitReason = "Target Hit (Paper)";
+            exitReason = "Target Hit";
             exitPrice = targetPrice;
           }
 
-          if (evaluation.buySignal && !shouldExit) {
+          if (buySignal && !shouldExit) {
             shouldExit = true;
-            exitReason = "Buy Signal (Paper)";
+            exitReason = "Buy Signal";
           }
         }
 
@@ -549,28 +679,30 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
         }
       }
 
-      if (!currentPosition && !evaluation.holdSignal) {
-        if (evaluation.buySignal) {
+      if (!currentPosition) {
+        if (buySignal) {
           const quantity = Math.floor((cashBalance * 0.95) / candle.close);
           if (quantity > 0) {
             currentPosition = {
-              id: `paper-trade-${trades.length + 1}`,
+              id: `trade-${trades.length + 1}`,
               type: "BUY",
               entry_time: candle.timestamp,
               entry_price: candle.close,
               quantity,
             };
+            console.log(`[Backtest] BUY Entry at candle ${i}: price=${candle.close}, qty=${quantity}`);
           }
-        } else if (evaluation.sellSignal) {
+        } else if (sellSignal) {
           const quantity = Math.floor((cashBalance * 0.95) / candle.close);
           if (quantity > 0) {
             currentPosition = {
-              id: `paper-trade-${trades.length + 1}`,
+              id: `trade-${trades.length + 1}`,
               type: "SELL",
               entry_time: candle.timestamp,
               entry_price: candle.close,
               quantity,
             };
+            console.log(`[Backtest] SELL Entry at candle ${i}: price=${candle.close}, qty=${quantity}`);
           }
         }
       }
@@ -600,22 +732,26 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     const buyCount = trades.filter(t => t.type === "BUY").length;
     const sellCount = trades.filter(t => t.type === "SELL").length;
 
+    console.log(`[Backtest] COMPLETE: ${totalTrades} trades, BUY signals: ${buySignalCount}, SELL signals: ${sellSignalCount}`);
+    console.log(`[Backtest] P&L: ${netPnl.toFixed(2)} (${((netPnl/capital)*100).toFixed(2)}%), Win Rate: ${totalTrades > 0 ? ((wins/totalTrades)*100).toFixed(1) : 0}%`);
+
     return {
       capital_used: capital,
       total_trades: totalTrades,
       buy_count: buyCount,
       sell_count: sellCount,
-      hold_count: candles.length - 20 - totalTrades,
+      hold_count: candles.length - warmupPeriod - totalTrades,
       net_pnl: netPnl,
       net_pnl_percentage: (netPnl / capital) * 100,
       win_rate: totalTrades > 0 ? (wins / totalTrades) * 100 : 0,
       loss_rate: totalTrades > 0 ? (losses / totalTrades) * 100 : 0,
       max_drawdown: maxDrawdown,
-      max_drawdown_percentage: (maxDrawdown / peakBalance) * 100,
+      max_drawdown_percentage: peakBalance > 0 ? (maxDrawdown / peakBalance) * 100 : 0,
       trade_log: trades,
       data_source: "pending",
       candle_count: 0,
       date_range: { from: "", to: "" },
+      evaluation_logs: evaluationLogs.slice(0, 50),
     };
   }
 
@@ -641,7 +777,13 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     isPaperTrading: boolean = false,
     selectedInstruments: number[] = []
   ): Promise<number> {
-    // 1. Create or Update strategy
+    if (strategy.executable_strategy) {
+      const validation = validateStrategy(strategy.executable_strategy);
+      if (!validation.valid) {
+        console.warn("[StrategyService] Saving strategy with validation issues:", validation.errors);
+      }
+    }
+
     const { data, error } = await supabaseAdmin
       .from("strategies")
       .insert({
@@ -658,6 +800,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
         sell_target: strategy.sell_target,
         sell_trailing_sl: strategy.sell_trailing_sl,
         hold_logic: strategy.hold_logic,
+        executable_strategy: strategy.executable_strategy || null,
         selected_timeframes: selectedTimeframes,
         selected_instruments: selectedInstruments,
         is_paper_trading: isPaperTrading,
@@ -673,7 +816,6 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
       throw new Error("Failed to save strategy");
     }
 
-    // 2. Save version snapshot
     await this.saveVersionSnapshot(data.id, 1, strategy);
 
     return data.id;
@@ -684,16 +826,14 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     strategy: StructuredStrategy,
     selectedTimeframes?: string[]
   ): Promise<void> {
-    // 1. Get current version
     const { data: current } = await supabaseAdmin
       .from("strategies")
-      .select("version")
+      .select("version, improvement_count")
       .eq("id", strategyId)
       .single();
 
     const newVersion = (current?.version || 1) + 1;
 
-    // 2. Update strategy
     const { error } = await supabaseAdmin
       .from("strategies")
       .update({
@@ -708,6 +848,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
         sell_target: strategy.sell_target,
         sell_trailing_sl: strategy.sell_trailing_sl,
         hold_logic: strategy.hold_logic,
+        executable_strategy: strategy.executable_strategy || null,
         selected_timeframes: selectedTimeframes,
         version: newVersion,
         improvement_count: (current?.improvement_count || 0) + 1,
@@ -716,7 +857,6 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
 
     if (error) throw new Error("Failed to update strategy");
 
-    // 3. Save version snapshot
     await this.saveVersionSnapshot(strategyId, newVersion, strategy);
   }
 

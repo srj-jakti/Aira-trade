@@ -6,7 +6,6 @@ import { createDecipheriv } from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
 
-// Minimum candles required for proper evaluation
 const MIN_CANDLES_FOR_EVALUATION = 20;
 const RECOMMENDED_CANDLES = 50;
 
@@ -32,6 +31,19 @@ function decrypt(ciphertext: string): string {
   return decrypted;
 }
 
+interface ExecutableStrategy {
+  name: string;
+  description: string;
+  version: number;
+  buy: { logic: "AND" | "OR"; rules: any[] };
+  sell: { logic: "AND" | "OR"; rules: any[] };
+  hold?: { logic: "AND" | "OR"; rules: any[] };
+  buyExit: { stopLoss: { type: string; value: number }; target: { type: string; value: number } };
+  sellExit: { stopLoss: { type: string; value: number }; target: { type: string; value: number } };
+  requiredIndicators: Array<{ name: string; period?: number }>;
+  minWarmupCandles: number;
+}
+
 interface Strategy {
   id: string;
   name: string;
@@ -40,6 +52,7 @@ interface Strategy {
   hold_logic: any;
   instruments: number[];
   timeframe: string;
+  executable_strategy?: ExecutableStrategy;
 }
 
 interface CandleData {
@@ -75,6 +88,7 @@ export async function getStrategy(strategyId: string): Promise<Strategy | null> 
     hold_logic: data.hold_logic || {},
     instruments: data.selected_instruments || [],
     timeframe: data.selected_timeframes?.[0] || "5m",
+    executable_strategy: data.executable_strategy || undefined,
   };
 }
 
@@ -190,11 +204,9 @@ export async function evaluateWithAI(
   const instrumentToken = candles.length > 0 ? candles[0].instrument_token : null;
   if (!instrumentToken) return null;
 
-  // 1. Try Rule-Based Evaluation First (Reliable)
   const ruleResult = evaluateWithRules(strategy, candles);
   if (ruleResult) return ruleResult;
 
-  // 2. Fallback to AI Analysis if no clear rule-based signal
   const aiConfig = await getActiveAIConfig();
   if (!aiConfig) return null;
 
@@ -241,10 +253,144 @@ Sell Logic: ${JSON.stringify(strategy.sell_entry_logic)}`,
   }
 }
 
-/**
- * Robust Rule-Based Evaluation
- * Mirrors the logic in local StrategyEvaluator.ts
- */
+function evaluateExecutableRule(rule: any, candles: CandleData[], index: number, indicatorCache: Map<string, number[]>): boolean {
+  const candle = candles[index];
+  const prevCandle = index > 0 ? candles[index - 1] : null;
+
+  const getIndicator = (name: string, period?: number): number => {
+    const key = period ? `${name}_${period}` : name;
+    const data = indicatorCache.get(key);
+    return data ? data[index] : NaN;
+  };
+
+  const compare = (left: number, op: string, right: number, prevLeft?: number, prevRight?: number): boolean => {
+    if (isNaN(left) || isNaN(right)) return false;
+    switch (op) {
+      case ">": return left > right;
+      case "<": return left < right;
+      case ">=": return left >= right;
+      case "<=": return left <= right;
+      case "==": return Math.abs(left - right) < 0.0001;
+      case "CROSS_ABOVE":
+        return prevLeft !== undefined && prevRight !== undefined && !isNaN(prevLeft) && !isNaN(prevRight) && prevLeft < prevRight && left >= right;
+      case "CROSS_BELOW":
+        return prevLeft !== undefined && prevRight !== undefined && !isNaN(prevLeft) && !isNaN(prevRight) && prevLeft > prevRight && left <= right;
+      default: return false;
+    }
+  };
+
+  switch (rule.type) {
+    case "indicator": {
+      const val = getIndicator(rule.name, rule.period);
+      const prevVal = index > 0 ? (indicatorCache.get(`${rule.name}_${rule.period || 14}`)?.[index - 1] ?? NaN) : NaN;
+      return compare(val, rule.operator, rule.value, prevVal, rule.value);
+    }
+    case "price_vs_indicator": {
+      const price = candle[rule.priceField as keyof CandleData] as number;
+      const indVal = getIndicator(rule.indicator, rule.indicatorPeriod);
+      const prevPrice = prevCandle ? (prevCandle[rule.priceField as keyof CandleData] as number) : NaN;
+      const prevInd = index > 0 ? (indicatorCache.get(`${rule.indicator}_${rule.indicatorPeriod || 14}`)?.[index - 1] ?? NaN) : NaN;
+      return compare(price, rule.operator, indVal, prevPrice, prevInd);
+    }
+    case "trend": {
+      if (rule.indicator === "SUPERTREND") {
+        const dir = getIndicator("SUPERTREND_DIR");
+        return rule.direction === "BULLISH" ? dir === 1 : dir === -1;
+      } else if (rule.indicator === "ADX") {
+        const adx = getIndicator("ADX", 14);
+        return adx > (rule.threshold || 25);
+      }
+      return false;
+    }
+    case "pattern": {
+      if (rule.pattern === "BULLISH_CANDLE") return candle.close > candle.open;
+      if (rule.pattern === "BEARISH_CANDLE") return candle.close < candle.open;
+      return false;
+    }
+    case "price_action": {
+      if (rule.action === "BULLISH_CANDLE") return candle.close > candle.open;
+      if (rule.action === "BEARISH_CANDLE") return candle.close < candle.open;
+      if (rule.action === "HIGHER_HIGH") return prevCandle ? candle.high > prevCandle.high : false;
+      if (rule.action === "LOWER_LOW") return prevCandle ? candle.low < prevCandle.low : false;
+      return false;
+    }
+    case "volume": {
+      const vol = candle.volume;
+      return compare(vol, rule.operator, rule.value || 100000);
+    }
+    default:
+      return false;
+  }
+}
+
+function calculateSimpleIndicators(candles: CandleData[]): Map<string, number[]> {
+  const cache = new Map<string, number[]>();
+  const closes = candles.map(c => c.close);
+  const n = candles.length;
+
+  const calcSMA = (period: number): number[] => {
+    const result = new Array(n).fill(NaN);
+    for (let i = period - 1; i < n; i++) {
+      let sum = 0;
+      for (let j = 0; j < period; j++) sum += closes[i - j];
+      result[i] = sum / period;
+    }
+    return result;
+  };
+
+  const calcEMA = (period: number): number[] => {
+    const result = new Array(n).fill(NaN);
+    const mult = 2 / (period + 1);
+    let ema = closes[0];
+    for (let i = 0; i < n; i++) {
+      ema = (closes[i] - ema) * mult + ema;
+      if (i >= period - 1) result[i] = ema;
+    }
+    return result;
+  };
+
+  const calcRSI = (period: number): number[] => {
+    const result = new Array(n).fill(NaN);
+    let avgGain = 0, avgLoss = 0;
+    for (let i = 1; i <= period && i < n; i++) {
+      const change = closes[i] - closes[i - 1];
+      if (change > 0) avgGain += change;
+      else avgLoss += Math.abs(change);
+    }
+    avgGain /= period;
+    avgLoss /= period;
+    for (let i = period; i < n; i++) {
+      const change = closes[i] - closes[i - 1];
+      if (change > 0) {
+        avgGain = (avgGain * (period - 1) + change) / period;
+        avgLoss = (avgLoss * (period - 1)) / period;
+      } else {
+        avgGain = (avgGain * (period - 1)) / period;
+        avgLoss = (avgLoss * (period - 1) + Math.abs(change)) / period;
+      }
+      const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+      result[i] = 100 - (100 / (1 + rs));
+    }
+    return result;
+  };
+
+  cache.set("RSI_14", calcRSI(14));
+  cache.set("SMA_20", calcSMA(20));
+  cache.set("SMA_50", calcSMA(50));
+  cache.set("EMA_9", calcEMA(9));
+  cache.set("EMA_20", calcEMA(20));
+  cache.set("EMA_21", calcEMA(21));
+  cache.set("EMA_50", calcEMA(50));
+
+  const supertrendDir = new Array(n).fill(0);
+  for (let i = 14; i < n; i++) {
+    supertrendDir[i] = closes[i] > closes[i - 1] ? 1 : -1;
+  }
+  cache.set("SUPERTREND_DIR", supertrendDir);
+
+  return cache;
+}
+
 export function evaluateWithRules(strategy: Strategy, candles: CandleData[]): Signal | null {
   if (candles.length < 5) return null;
 
@@ -255,20 +401,61 @@ export function evaluateWithRules(strategy: Strategy, candles: CandleData[]): Si
 
   if (instrumentCandles.length < 5) return null;
 
-  const latest = instrumentCandles[instrumentCandles.length - 1];
-  const prev = instrumentCandles[instrumentCandles.length - 2];
+  const latestIdx = instrumentCandles.length - 1;
+  const latest = instrumentCandles[latestIdx];
 
-  // Simple Price Action / Movement rules for live trading if complex indicators not ready
-  // In a real scenario, we'd include the full IndicatorCalculator here too.
-  // For now, let's at least check basic movement to avoid the "always on hold" problem.
-  
+  if (strategy.executable_strategy) {
+    const exec = strategy.executable_strategy;
+    const indicatorCache = calculateSimpleIndicators(instrumentCandles);
+    
+    const evaluateRuleSet = (ruleSet: { logic: "AND" | "OR"; rules: any[] }): boolean => {
+      if (!ruleSet?.rules || ruleSet.rules.length === 0) return false;
+      const results = ruleSet.rules.map(rule => evaluateExecutableRule(rule, instrumentCandles, latestIdx, indicatorCache));
+      return ruleSet.logic === "AND" ? results.every(r => r) : results.some(r => r);
+    };
+
+    const buySignal = evaluateRuleSet(exec.buy);
+    const sellSignal = evaluateRuleSet(exec.sell);
+
+    if (buySignal && !sellSignal) {
+      const sl = exec.buyExit?.stopLoss?.value || 2;
+      const tgt = exec.buyExit?.target?.value || 4;
+      return {
+        action: "BUY",
+        instrument: `TOKEN_${latest.instrument_token}`,
+        instrumentToken: latest.instrument_token,
+        price: latest.close,
+        stopLoss: latest.close * (1 - sl / 100),
+        target: latest.close * (1 + tgt / 100),
+        confidence: 85,
+        reasoning: "Executable strategy BUY rules passed",
+      };
+    }
+
+    if (sellSignal && !buySignal) {
+      const sl = exec.sellExit?.stopLoss?.value || 2;
+      const tgt = exec.sellExit?.target?.value || 4;
+      return {
+        action: "SELL",
+        instrument: `TOKEN_${latest.instrument_token}`,
+        instrumentToken: latest.instrument_token,
+        price: latest.close,
+        stopLoss: latest.close * (1 + sl / 100),
+        target: latest.close * (1 - tgt / 100),
+        confidence: 85,
+        reasoning: "Executable strategy SELL rules passed",
+      };
+    }
+
+    return null;
+  }
+
+  const prev = instrumentCandles[instrumentCandles.length - 2];
   const change = (latest.close - prev.close) / prev.close;
   
-  // If the strategy rules are provided, we check them
   const checkBuy = () => {
     const logic = strategy.buy_entry_logic?.conditions || [];
     if (logic.length === 0) return false;
-    // Simple check: if rules mention "Bullish" or "Crosses Above" and price moved up
     if (JSON.stringify(logic).toLowerCase().includes("bullish") && latest.close > latest.open) return true;
     if (JSON.stringify(logic).toLowerCase().includes("price >") && latest.close > prev.close) return true;
     return false;
@@ -288,10 +475,10 @@ export function evaluateWithRules(strategy: Strategy, candles: CandleData[]): Si
         instrument: `TOKEN_${latest.instrument_token}`,
         instrumentToken: latest.instrument_token,
         price: latest.close,
-        stopLoss: latest.close * 0.99,
-        target: latest.close * 1.02,
-        confidence: 80,
-        reasoning: "Rule-based signal detected",
+        stopLoss: latest.close * 0.98,
+        target: latest.close * 1.04,
+        confidence: 75,
+        reasoning: "Legacy rule-based signal detected",
      };
   }
 
@@ -301,10 +488,10 @@ export function evaluateWithRules(strategy: Strategy, candles: CandleData[]): Si
         instrument: `TOKEN_${latest.instrument_token}`,
         instrumentToken: latest.instrument_token,
         price: latest.close,
-        stopLoss: latest.close * 1.01,
-        target: latest.close * 0.98,
-        confidence: 80,
-        reasoning: "Rule-based signal detected",
+        stopLoss: latest.close * 1.02,
+        target: latest.close * 0.96,
+        confidence: 75,
+        reasoning: "Legacy rule-based signal detected",
      };
   }
 

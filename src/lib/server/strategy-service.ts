@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { aiSharedService } from "./ai-shared-service";
 import { marketDataEngine } from "./market-data-engine";
 import { decrypt } from "./encryption";
+import { IndicatorCalculator, type Candle as CalcCandle } from "./indicator-calculator";
 
 export interface StrategyLogic {
   conditions: string[];
@@ -123,69 +124,34 @@ class StrategyService {
     const messages = [
       {
         role: "system",
-        content: `You are an expert trading strategy formatter. Your job is to take ANY user input (even vague, incomplete, or poorly explained) and convert it into a fully structured, executable trading strategy.
-
-RULES:
-1. NEVER reject any input - always try to infer and fill in missing details
-2. If the user mentions only buy conditions, infer reasonable sell conditions
-3. Always provide stop loss, targets, and trailing stop loss logic
-4. Be specific with numbers and conditions
-
-OUTPUT FORMAT (JSON):
-{
-  "name": "Strategy name (generate if not provided)",
-  "description": "Brief description of the strategy",
-  "buy_entry_logic": {
-    "conditions": ["List of specific entry conditions for BUY"],
-    "indicators": ["RSI", "MACD", etc.],
-    "parameters": {"rsi_period": 14, "rsi_oversold": 30, etc.},
-    "description": "When to enter a BUY trade"
-  },
-  "buy_stop_loss": {
-    "conditions": ["Stop loss conditions"],
-    "parameters": {"percentage": 2, "points": 50},
-    "description": "Stop loss logic for BUY trades"
-  },
-  "buy_target": {
-    "conditions": ["Target/profit booking conditions"],
-    "parameters": {"percentage": 4, "risk_reward": 2},
-    "description": "Target logic for BUY trades"
-  },
-  "buy_trailing_sl": {
-    "conditions": ["Trailing stop loss conditions"],
-    "parameters": {"activation_profit": 2, "trail_distance": 1},
-    "description": "Trailing SL logic for BUY trades"
-  },
-  "sell_entry_logic": {
-    "conditions": ["List of specific entry conditions for SELL/SHORT"],
-    "indicators": ["RSI", "MACD", etc.],
-    "parameters": {},
-    "description": "When to enter a SELL trade"
-  },
-  "sell_stop_loss": {
-    "conditions": ["Stop loss conditions for SELL"],
-    "parameters": {"percentage": 2},
-    "description": "Stop loss logic for SELL trades"
-  },
-  "sell_target": {
-    "conditions": ["Target conditions for SELL"],
-    "parameters": {"percentage": 4},
-    "description": "Target logic for SELL trades"
-  },
-  "sell_trailing_sl": {
-    "conditions": ["Trailing SL for SELL"],
-    "parameters": {},
-    "description": "Trailing SL logic for SELL trades"
-  },
-  "hold_logic": {
-    "conditions": ["Conditions when NOT to trade"],
-    "parameters": {"volatility_threshold": 2, "time_start": "09:30", "time_end": "15:00"},
-    "description": "Market conditions to avoid trading"
-  }
-}
-
-Be creative but practical. If user says "buy when RSI low", interpret as "RSI below 30" etc.`,
+        content: `You are an expert trading strategy formatter. Your job is to take ANY user input and convert it into a fully structured, executable trading strategy.
+  
+  CRITICAL: You MUST use the following technical indicators, candlestick patterns, and chart patterns when defining the entry/exit conditions. Use their exact names.
+  
+  TRADING TOOLS AVAILABLE:
+  - Trend: SMA, EMA, WMA, HMA, Supertrend, ADX, Ichimoku, VWAP, Alligator
+  - Momentum: RSI, MACD, Stochastic, CCI, Williams %R, MFI, ROC, Awesome Oscillator
+  - Volatility: Bollinger Bands, ATR, Keltner Channel, Donchian Channel
+  - Patterns: Hammer, Shooting Star, Doji, Engulfing, Morning Star, Harami, H&S, Double Top/Bottom
+  - Price Action: Swing High/Low, Trend Lines, Breakout, FVG, Order Block, Liquidity Sweep
+  
+  RULES:
+  1. ALWAYS provide specific buy_entry_logic, sell_entry_logic, stop_loss, and target.
+  2. If the user is vague, infer the most professional parameters (e.g., RSI period 14, SMA period 20).
+  3. Support multi-instrument logic if requested.
+  
+  OUTPUT FORMAT (JSON):
+  {
+    "name": "Strategy Name",
+    "description": "Professional description",
+    "buy_entry_logic": { "conditions": ["RSI(14) below 30", "Price above SMA(20)"], "indicators": ["RSI", "SMA"] },
+    "sell_entry_logic": { "conditions": ["RSI(14) above 70", "Price below SMA(20)"], "indicators": ["RSI", "SMA"] },
+    "buy_stop_loss": { "parameters": { "percentage": 2 } },
+    "buy_target": { "parameters": { "percentage": 4 } },
+    "hold_logic": { "conditions": ["Volume below 100000"] }
+  }`,
       },
+
       {
         role: "user",
         content: `Convert this trading idea into a complete strategy:\n\n${rawInput}`,
@@ -463,93 +429,134 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     let wins = 0;
     let losses = 0;
 
-    const getIndicatorValue = (candles: Candle[], index: number, indicator: string, period: number = 14): number => {
-      if (index < period) return 50;
+    // Pre-calculate indicators for the entire series
+    const indicatorData: Record<string, any> = {};
+    const closePrices = candles.map(c => c.close);
+    const highPrices = candles.map(c => c.high);
+    const lowPrices = candles.map(c => c.low);
 
-      switch (indicator.toUpperCase()) {
-        case "RSI": {
-          let gains = 0, lossesSum = 0;
-          for (let i = index - period + 1; i <= index; i++) {
-            const change = candles[i].close - candles[i - 1].close;
-            if (change > 0) gains += change;
-            else lossesSum -= change;
-          }
-          const avgGain = gains / period;
-          const avgLoss = lossesSum / period;
-          if (avgLoss === 0) return 100;
-          const rs = avgGain / avgLoss;
-          return 100 - (100 / (1 + rs));
+    // Common indicators often used
+    indicatorData["rsi_14"] = IndicatorCalculator.calculateRSI(closePrices, 14);
+    indicatorData["sma_20"] = IndicatorCalculator.calculateSMA(closePrices, 20);
+    indicatorData["sma_50"] = IndicatorCalculator.calculateSMA(closePrices, 50);
+    indicatorData["sma_200"] = IndicatorCalculator.calculateSMA(closePrices, 200);
+    indicatorData["ema_9"] = IndicatorCalculator.calculateEMA(closePrices, 9);
+    indicatorData["ema_21"] = IndicatorCalculator.calculateEMA(closePrices, 21);
+    
+    const macd = IndicatorCalculator.calculateMACD(closePrices);
+    indicatorData["macd_line"] = macd.macd;
+    indicatorData["macd_signal"] = macd.signal;
+    indicatorData["macd_hist"] = macd.histogram;
+
+    const bb = IndicatorCalculator.calculateBollingerBands(closePrices);
+    indicatorData["bb_upper"] = bb.upper;
+    indicatorData["bb_middle"] = bb.middle;
+    indicatorData["bb_lower"] = bb.lower;
+
+    const st = IndicatorCalculator.calculateSupertrend(candles as CalcCandle[]);
+    indicatorData["supertrend"] = st.trend;
+    indicatorData["supertrend_dir"] = st.direction;
+
+    const checkCondition = (condition: string, index: number): boolean => {
+      const lowerCond = condition.toLowerCase();
+      const candle = candles[index];
+      const prevCandle = index > 0 ? candles[index - 1] : null;
+
+      // 1. RSI Conditions
+      if (lowerCond.includes("rsi")) {
+        const rsi = indicatorData["rsi_14"][index];
+        if (isNaN(rsi)) return false;
+        
+        if (lowerCond.includes("below") || lowerCond.includes("<")) {
+          const threshold = parseInt(lowerCond.match(/\d+/)?.[0] || "30");
+          return rsi < threshold;
         }
-        case "SMA": {
-          let sum = 0;
-          for (let i = index - period + 1; i <= index; i++) {
-            sum += candles[i].close;
-          }
-          return sum / period;
+        if (lowerCond.includes("above") || lowerCond.includes(">")) {
+          const threshold = parseInt(lowerCond.match(/\d+/)?.[0] || "70");
+          return rsi > threshold;
         }
-        case "EMA": {
-          const multiplier = 2 / (period + 1);
-          let ema = candles[index - period].close;
-          for (let i = index - period + 1; i <= index; i++) {
-            ema = (candles[i].close - ema) * multiplier + ema;
-          }
-          return ema;
+        if (lowerCond.includes("crosses above")) {
+          const threshold = parseInt(lowerCond.match(/\d+/)?.[0] || "30");
+          const prevRsi = indicatorData["rsi_14"][index - 1];
+          return prevRsi < threshold && rsi >= threshold;
         }
-        default:
-          return 50;
       }
+
+      // 2. MA Crossovers / Price vs MA
+      if (lowerCond.includes("sma") || lowerCond.includes("ema")) {
+        const type = lowerCond.includes("sma") ? "sma" : "ema";
+        const period = parseInt(lowerCond.match(/\d+/)?.[0] || "20");
+        const key = `${type}_${period}`;
+        
+        // Ensure indicator is calculated
+        if (!indicatorData[key]) {
+          indicatorData[key] = type === "sma" 
+            ? IndicatorCalculator.calculateSMA(closePrices, period)
+            : IndicatorCalculator.calculateEMA(closePrices, period);
+        }
+
+        const maValue = indicatorData[key][index];
+        if (isNaN(maValue)) return false;
+
+        if (lowerCond.includes("price") && (lowerCond.includes("above") || lowerCond.includes(">"))) {
+          return candle.close > maValue;
+        }
+        if (lowerCond.includes("price") && (lowerCond.includes("below") || lowerCond.includes("<"))) {
+          return candle.close < maValue;
+        }
+        if (lowerCond.includes("crosses above")) {
+          const prevMa = indicatorData[key][index - 1];
+          return prevCandle && prevCandle.close < prevMa && candle.close >= maValue;
+        }
+      }
+
+      // 3. MACD
+      if (lowerCond.includes("macd")) {
+        const line = indicatorData["macd_line"][index];
+        const signal = indicatorData["macd_signal"][index];
+        if (isNaN(line) || isNaN(signal)) return false;
+
+        if (lowerCond.includes("crosses above signal")) {
+          const prevLine = indicatorData["macd_line"][index - 1];
+          const prevSignal = indicatorData["macd_signal"][index - 1];
+          return prevLine < prevSignal && line >= signal;
+        }
+      }
+
+      // 4. Supertrend
+      if (lowerCond.includes("supertrend")) {
+        const dir = indicatorData["supertrend_dir"][index];
+        if (lowerCond.includes("bullish") || lowerCond.includes("buy")) {
+          return dir === 1;
+        }
+        if (lowerCond.includes("bearish") || lowerCond.includes("sell")) {
+          return dir === -1;
+        }
+      }
+
+      // 5. Candlestick Patterns
+      if (lowerCond.includes("hammer")) {
+        return IndicatorCalculator.isHammer(candle as CalcCandle, prevCandle as CalcCandle);
+      }
+      if (lowerCond.includes("engulfing")) {
+        if (!prevCandle) return false;
+        const res = IndicatorCalculator.isEngulfing(candle as CalcCandle, prevCandle as CalcCandle);
+        return lowerCond.includes("bullish") ? res.bullish : res.bearish;
+      }
+      if (lowerCond.includes("doji")) {
+        return IndicatorCalculator.isDoji(candle as CalcCandle);
+      }
+
+      // 6. Simple Price Action
+      if (lowerCond.includes("bullish candle")) return candle.close > candle.open;
+      if (lowerCond.includes("bearish candle")) return candle.close < candle.open;
+      
+      return false;
     };
 
-    const checkConditions = (conditions: string[], candle: Candle, prevCandle: Candle | null, index: number): boolean => {
+    const checkAllConditions = (conditions: string[], index: number): boolean => {
       if (!conditions || conditions.length === 0) return false;
-
-      for (const condition of conditions) {
-        const lowerCond = condition.toLowerCase();
-
-        if (lowerCond.includes("rsi") && lowerCond.includes("below")) {
-          const match = lowerCond.match(/(\d+)/);
-          const threshold = match ? parseInt(match[1]) : 30;
-          const rsi = getIndicatorValue(candles, index, "RSI", 14);
-          if (rsi >= threshold) return false;
-        }
-
-        if (lowerCond.includes("rsi") && lowerCond.includes("above")) {
-          const match = lowerCond.match(/(\d+)/);
-          const threshold = match ? parseInt(match[1]) : 70;
-          const rsi = getIndicatorValue(candles, index, "RSI", 14);
-          if (rsi <= threshold) return false;
-        }
-
-        if (lowerCond.includes("price") && lowerCond.includes("above") && lowerCond.includes("sma")) {
-          const match = lowerCond.match(/(\d+)/);
-          const period = match ? parseInt(match[1]) : 20;
-          const sma = getIndicatorValue(candles, index, "SMA", period);
-          if (candle.close <= sma) return false;
-        }
-
-        if (lowerCond.includes("price") && lowerCond.includes("below") && lowerCond.includes("sma")) {
-          const match = lowerCond.match(/(\d+)/);
-          const period = match ? parseInt(match[1]) : 20;
-          const sma = getIndicatorValue(candles, index, "SMA", period);
-          if (candle.close >= sma) return false;
-        }
-
-        if (lowerCond.includes("bullish") && lowerCond.includes("candle")) {
-          if (candle.close <= candle.open) return false;
-        }
-
-        if (lowerCond.includes("bearish") && lowerCond.includes("candle")) {
-          if (candle.close >= candle.open) return false;
-        }
-
-        if (lowerCond.includes("volume") && lowerCond.includes("above")) {
-          const match = lowerCond.match(/(\d+)/);
-          const threshold = match ? parseInt(match[1]) : 1000000;
-          if (candle.volume < threshold) return false;
-        }
-      }
-
-      return true;
+      return conditions.every(c => checkCondition(c, index));
     };
 
     for (let i = 20; i < candles.length; i++) {
@@ -563,6 +570,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
         let exitPrice = candle.close;
 
         if (currentPosition.type === "BUY") {
+          // Stop Loss
           const slParams = strategy.buy_stop_loss.parameters || {};
           const slPercent = (slParams.percentage as number) || 2;
           const slPrice = entryPrice * (1 - slPercent / 100);
@@ -573,6 +581,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
             exitPrice = slPrice;
           }
 
+          // Target
           const targetParams = strategy.buy_target.parameters || {};
           const targetPercent = (targetParams.percentage as number) || 4;
           const targetPrice = entryPrice * (1 + targetPercent / 100);
@@ -583,11 +592,13 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
             exitPrice = targetPrice;
           }
 
-          if (checkConditions(strategy.sell_entry_logic.conditions, candle, prevCandle, i) && !shouldExit) {
+          // Sell Signal (Reverse Entry)
+          if (checkAllConditions(strategy.sell_entry_logic.conditions, i) && !shouldExit) {
             shouldExit = true;
             exitReason = "Sell Signal";
           }
         } else {
+          // SELL Position Logic
           const slParams = strategy.sell_stop_loss.parameters || {};
           const slPercent = (slParams.percentage as number) || 2;
           const slPrice = entryPrice * (1 + slPercent / 100);
@@ -608,7 +619,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
             exitPrice = targetPrice;
           }
 
-          if (checkConditions(strategy.buy_entry_logic.conditions, candle, prevCandle, i) && !shouldExit) {
+          if (checkAllConditions(strategy.buy_entry_logic.conditions, i) && !shouldExit) {
             shouldExit = true;
             exitReason = "Buy Signal";
           }
@@ -640,10 +651,10 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
 
       if (!currentPosition) {
         const holdConditions = strategy.hold_logic.conditions || [];
-        const shouldHold = holdConditions.length > 0 && checkConditions(holdConditions, candle, prevCandle, i);
+        const shouldHold = holdConditions.length > 0 && checkAllConditions(holdConditions, i);
 
         if (!shouldHold) {
-          if (checkConditions(strategy.buy_entry_logic.conditions, candle, prevCandle, i)) {
+          if (checkAllConditions(strategy.buy_entry_logic.conditions, i)) {
             const quantity = Math.floor((cashBalance * 0.95) / candle.close);
             if (quantity > 0) {
               currentPosition = {
@@ -654,7 +665,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
                 quantity,
               };
             }
-          } else if (checkConditions(strategy.sell_entry_logic.conditions, candle, prevCandle, i)) {
+          } else if (checkAllConditions(strategy.sell_entry_logic.conditions, i)) {
             const quantity = Math.floor((cashBalance * 0.95) / candle.close);
             if (quantity > 0) {
               currentPosition = {
@@ -733,6 +744,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
     selectedTimeframes: string[],
     visibility: "private" | "public" | "invite_only"
   ): Promise<number> {
+    // 1. Create or Update strategy
     const { data, error } = await supabaseAdmin
       .from("strategies")
       .insert({
@@ -753,6 +765,7 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
         visibility,
         is_finalized: true,
         status: "finalized",
+        version: 1,
       })
       .select("id")
       .single();
@@ -761,7 +774,71 @@ ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
       throw new Error("Failed to save strategy");
     }
 
+    // 2. Save version snapshot
+    await this.saveVersionSnapshot(data.id, 1, strategy);
+
     return data.id;
+  }
+
+  async updateStrategy(
+    strategyId: number,
+    strategy: StructuredStrategy,
+    selectedTimeframes?: string[]
+  ): Promise<void> {
+    // 1. Get current version
+    const { data: current } = await supabaseAdmin
+      .from("strategies")
+      .select("version")
+      .eq("id", strategyId)
+      .single();
+
+    const newVersion = (current?.version || 1) + 1;
+
+    // 2. Update strategy
+    const { error } = await supabaseAdmin
+      .from("strategies")
+      .update({
+        name: strategy.name,
+        description: strategy.description,
+        buy_entry_logic: strategy.buy_entry_logic,
+        buy_stop_loss: strategy.buy_stop_loss,
+        buy_target: strategy.buy_target,
+        buy_trailing_sl: strategy.buy_trailing_sl,
+        sell_entry_logic: strategy.sell_entry_logic,
+        sell_stop_loss: strategy.sell_stop_loss,
+        sell_target: strategy.sell_target,
+        sell_trailing_sl: strategy.sell_trailing_sl,
+        hold_logic: strategy.hold_logic,
+        selected_timeframes: selectedTimeframes,
+        version: newVersion,
+        improvement_count: (current?.improvement_count || 0) + 1,
+      })
+      .eq("id", strategyId);
+
+    if (error) throw new Error("Failed to update strategy");
+
+    // 3. Save version snapshot
+    await this.saveVersionSnapshot(strategyId, newVersion, strategy);
+  }
+
+  private async saveVersionSnapshot(
+    strategyId: number,
+    version: number,
+    strategy: StructuredStrategy
+  ): Promise<void> {
+    await supabaseAdmin.from("strategy_versions").insert({
+      strategy_id: strategyId,
+      version: version,
+      buy_entry_logic: strategy.buy_entry_logic,
+      buy_stop_loss: strategy.buy_stop_loss,
+      buy_target: strategy.buy_target,
+      buy_trailing_sl: strategy.buy_trailing_sl,
+      sell_entry_logic: strategy.sell_entry_logic,
+      sell_stop_loss: strategy.sell_stop_loss,
+      sell_target: strategy.sell_target,
+      sell_trailing_sl: strategy.sell_trailing_sl,
+      hold_logic: strategy.hold_logic,
+    });
   }
 
   async saveBacktestResult(

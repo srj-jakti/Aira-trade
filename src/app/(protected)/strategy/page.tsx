@@ -1285,11 +1285,11 @@ function CreateStrategyTab({
                     <Shield className="w-4 h-4 text-yellow-400" />
                     <span className="text-yellow-400 font-medium">Hold / No-Trade Logic</span>
                   </div>
-                  <ul className="text-white/60 text-sm space-y-1">
-                    {strategy.hold_logic?.conditions?.map((c, i) => (
-                      <li key={i}>• {c}</li>
-                    )) || <li>• No specific hold conditions</li>}
-                  </ul>
+                    <ul className="text-white/60 text-sm space-y-1">
+                      {strategy.hold_logic?.conditions?.map((c, i) => (
+                        <li key={i}>• {typeof c === 'string' ? c : JSON.stringify(c)}</li>
+                      )) || <li>• No specific hold conditions</li>}
+                    </ul>
                 </div>
             </CardContent>
           </Card>
@@ -1583,11 +1583,17 @@ function StrategySection({
                 {section.data.description && (
                   <p className="mb-1 text-white/60 italic">{section.data.description}</p>
                 )}
-                <ul className="space-y-0.5">
-                  {section.data.conditions?.map((c, i) => (
-                    <li key={i}>• {c}</li>
-                  ))}
-                </ul>
+                  <ul className="space-y-0.5">
+                    {section.data.conditions?.map((c, i) => (
+                      <li key={i}>
+                        • {typeof c === 'string' ? c : (
+                          <span className="text-white/40">
+                            {JSON.stringify(c)}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                     {section.data.parameters && typeof section.data.parameters === "object" && section.data.parameters !== null && Object.keys(section.data.parameters).length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {Object.entries(section.data.parameters).map(([k, v]) => (

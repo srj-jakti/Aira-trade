@@ -273,7 +273,7 @@ Your output must be precise, executable, and follow TradingView Pine Script / Ch
               return obj;
             };
 
-            const finalized = ensureFields(parsed);
+            let finalized = ensureFields(parsed);
             
             console.log("[StrategyService] AI returned executable_strategy:", !!finalized.executable_strategy);
             
@@ -299,6 +299,9 @@ Your output must be precise, executable, and follow TradingView Pine Script / Ch
               console.log("[StrategyService] No executable_strategy returned by AI, creating fallback...");
               finalized.executable_strategy = this.createFallbackExecutableStrategy(finalized);
             }
+            
+            // Sync strings with objects
+            finalized = this.syncConditionsWithExecutable(finalized);
             
             return finalized as StructuredStrategy;
         } catch (e) {
@@ -417,6 +420,95 @@ Your output must be precise, executable, and follow TradingView Pine Script / Ch
     strategy.requiredIndicators = Array.from(indicators.values()) as any;
     if (!strategy.minWarmupCandles || strategy.minWarmupCandles < 30) {
       strategy.minWarmupCandles = 30;
+    }
+
+    return strategy;
+  }
+
+  private formatRuleToString(rule: any): string {
+    if (!rule) return "Invalid rule";
+    
+    switch (rule.type) {
+      case "indicator":
+        return `${rule.name}${rule.period ? `(${rule.period})` : ""} ${rule.operator} ${rule.value}`;
+      
+      case "price_vs_indicator":
+        const priceField = rule.priceField ? rule.priceField.charAt(0).toUpperCase() + rule.priceField.slice(1) : "Price";
+        const multiplier = rule.multiplier && rule.multiplier !== 1 ? ` (x${rule.multiplier})` : "";
+        return `${priceField} ${rule.operator.replace("_", " ")} ${rule.indicator}${rule.indicatorPeriod ? `(${rule.indicatorPeriod})` : ""}${multiplier}`;
+      
+      case "indicator_vs_indicator":
+        return `${rule.indicator1}${rule.period1 ? `(${rule.period1})` : ""} ${rule.operator.replace("_", " ")} ${rule.indicator2}${rule.period2 ? `(${rule.period2})` : ""}`;
+      
+      case "trend":
+        return `${rule.indicator} is ${rule.direction}`;
+      
+      case "volume":
+        if (rule.compareToAverage) {
+          return `Volume is ${rule.operator} ${rule.value || 1.5}x of ${rule.averagePeriod || 20}-period average`;
+        }
+        return `Volume ${rule.operator} ${rule.value}`;
+      
+      case "price_action":
+        return `Price Action: ${rule.action.replace("_", " ")}`;
+      
+      case "pattern":
+        return `Pattern: ${rule.pattern.replace("_", " ")}`;
+      
+      default:
+        return JSON.stringify(rule);
+    }
+  }
+
+  private syncConditionsWithExecutable(strategy: StructuredStrategy): StructuredStrategy {
+    if (!strategy.executable_strategy) return strategy;
+    
+    const exec = strategy.executable_strategy;
+    
+    if (exec.buy?.rules) {
+      strategy.buy_entry_logic.conditions = exec.buy.rules.map(r => this.formatRuleToString(r));
+      strategy.buy_entry_logic.indicators = (exec.requiredIndicators || [])
+        .filter(i => strategy.buy_entry_logic.conditions.some(c => c.includes(i.name)))
+        .map(i => `${i.name}${i.period ? `(${i.period})` : ""}`);
+    }
+    
+    if (exec.sell?.rules) {
+      strategy.sell_entry_logic.conditions = exec.sell.rules.map(r => this.formatRuleToString(r));
+      strategy.sell_entry_logic.indicators = (exec.requiredIndicators || [])
+        .filter(i => strategy.sell_entry_logic.conditions.some(c => c.includes(i.name)))
+        .map(i => `${i.name}${i.period ? `(${i.period})` : ""}`);
+    }
+
+    if (exec.buyExit?.stopLoss) {
+      strategy.buy_stop_loss.parameters = { 
+        ...strategy.buy_stop_loss.parameters,
+        percentage: exec.buyExit.stopLoss.value,
+        type: exec.buyExit.stopLoss.type
+      };
+    }
+
+    if (exec.buyExit?.target) {
+      strategy.buy_target.parameters = { 
+        ...strategy.buy_target.parameters,
+        percentage: exec.buyExit.target.value,
+        type: exec.buyExit.target.type
+      };
+    }
+
+    if (exec.sellExit?.stopLoss) {
+      strategy.sell_stop_loss.parameters = { 
+        ...strategy.sell_stop_loss.parameters,
+        percentage: exec.sellExit.stopLoss.value,
+        type: exec.sellExit.stopLoss.type
+      };
+    }
+
+    if (exec.sellExit?.target) {
+      strategy.sell_target.parameters = { 
+        ...strategy.sell_target.parameters,
+        percentage: exec.sellExit.target.value,
+        type: exec.sellExit.target.type
+      };
     }
 
     return strategy;
@@ -780,15 +872,18 @@ Based on this analysis, create an IMPROVED strategy that:
           return obj;
         };
   
-        if (parsed.improved) {
-          parsed.improved = ensureFields(parsed.improved);
-          if (!parsed.notes) parsed.notes = "Strategy optimized based on backtest analysis.";
-        } else if (parsed.name) {
-          const improved = ensureFields(parsed);
-          return { improved, notes: parsed.notes || "Strategy optimized based on backtest analysis." };
-        }
-  
-        return parsed as { improved: StructuredStrategy; notes: string };
+          if (parsed.improved) {
+            const improved = this.syncConditionsWithExecutable(ensureFields(parsed.improved));
+            const notes = parsed.notes || "Strategy optimized based on backtest analysis.";
+            return { improved, notes };
+          } else if (parsed.name) {
+            const improved = this.syncConditionsWithExecutable(ensureFields(parsed));
+            const notes = parsed.notes || "Strategy optimized based on backtest analysis.";
+            return { improved, notes };
+          }
+    
+          if (parsed.improved) return parsed;
+          return { improved: ensureFields(parsed), notes: "Strategy optimized." };
       } catch (e) {
         console.error("[StrategyService] Failed to parse AI improvement response:", e);
         throw new Error("Failed to parse AI improvement response");

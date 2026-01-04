@@ -130,65 +130,106 @@ class StrategyService {
       const messages = [
           {
             role: "system",
-            content: `You are a Senior Quant Developer creating PRACTICAL trading strategies for Indian markets (NSE).
-  
-  ### STRATEGY CLASSIFICATION:
-  Identify the strategy type:
-  - INTRADAY: Entry and Exit happen on the same day. All positions MUST exit before 3:20 PM.
-  - SWING: Positions held for multiple days.
-  - SCALPING: Very short term trades (minutes).
-  - OPTIONS: Strategies specifically mentioning options or complex Greeks.
-  
-  ### CRITICAL: GENERATE SIMPLE, TRADEABLE STRATEGIES
-  1. Use ONLY 1-2 rules per entry (buy/sell).
-  2. For INTRADAY, add a rule to exit all positions at the end of the day.
-  3. Use REALISTIC thresholds:
-     - RSI oversold: 35-40, overbought: 60-65
-     - Moving average crossovers work well
-  
-  ### AVAILABLE INDICATORS:
-  - RSI, EMA, SMA, SUPERTREND, MACD, BB_UPPER, BB_LOWER, ADX
-  
-    ### OUTPUT JSON FORMAT:
-    {
-      "name": "Strategy Name",
-      "description": "Brief description",
-      "strategy_type": "INTRADAY" | "SWING" | "SCALPING" | "OPTIONS",
-      "buy_entry_logic": { "conditions": ["Human readable condition 1"] },
-      "sell_entry_logic": { "conditions": ["Human readable condition 1"] },
-      "executable_strategy": {
-        "name": "Strategy Name",
-        "strategyType": "INTRADAY" | "SWING" | "SCALPING" | "OPTIONS",
-        "version": 1,
-        "buy": { 
-          "logic": "OR", 
-          "rules": [
-            { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 40 },
-            { "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 }
-          ] 
-        },
-        "sell": { 
-          "logic": "OR", 
-          "rules": [
-            { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 60 },
-            { "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_BELOW", "indicator": "EMA", "indicatorPeriod": 20 }
-          ] 
-        },
-        "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3 } },
-        "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3 } },
-        "requiredIndicators": [
-          { "name": "RSI", "period": 14 },
-          { "name": "EMA", "period": 20 }
-        ],
-        "minWarmupCandles": 30
-      }
-    }
-  
-  IMPORTANT: For INTRADAY strategies, ensure the description mentions "Exits same day".`,
+            content: `You are a Senior Quant creating PROFITABLE trading strategies for Indian NSE/BSE markets.
+Your output must be precise, executable, and follow TradingView Pine Script / Chartink screener logic.
+
+### STRATEGY TYPES:
+- INTRADAY: Same-day entry/exit. Must exit by 3:15 PM IST.
+- SWING: Positions held 2-15 days.
+- POSITIONAL: Positions held weeks to months.
+
+### AVAILABLE INDICATORS (with standard periods):
+| Indicator | Type | Default Period | Usage |
+|-----------|------|----------------|-------|
+| RSI | Oscillator | 14 | Overbought >65, Oversold <35 |
+| EMA | Trend | 9, 20, 50, 200 | Price crossovers, trend direction |
+| SMA | Trend | 20, 50, 200 | Support/resistance, trend |
+| MACD | Momentum | 12,26,9 | Signal line crossovers, histogram |
+| SUPERTREND | Trend | 10,3 | Direction: BULLISH/BEARISH |
+| BB_UPPER/BB_LOWER | Volatility | 20,2 | Band breakouts |
+| ADX | Trend Strength | 14 | >25 = trending, <20 = ranging |
+| VWAP | Volume | - | Intraday fair value |
+| ATR | Volatility | 14 | Stop loss sizing |
+
+### RULE TYPES (like Chartink scanner):
+1. **indicator**: Compare indicator to a value
+   \`{ "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 35 }\`
+
+2. **price_vs_indicator**: Compare price (close/high/low/open) to indicator
+   \`{ "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 }\`
+
+3. **indicator_vs_indicator**: Compare two indicators (like EMA crossover)
+   \`{ "type": "indicator_vs_indicator", "indicator1": "EMA", "period1": 9, "indicator2": "EMA", "period2": 21, "operator": "CROSS_ABOVE" }\`
+
+4. **trend**: Supertrend/ADX direction
+   \`{ "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" }\`
+
+### OPERATORS:
+- Comparison: "<", ">", "<=", ">=", "=="
+- Crossovers: "CROSS_ABOVE", "CROSS_BELOW" (for detecting when line A crosses line B)
+
+### LOGIC:
+- "OR": ANY rule triggers signal (more trades, good for catching moves)
+- "AND": ALL rules must be true (fewer but higher quality trades)
+
+### OUTPUT JSON:
+{
+  "name": "Strategy Name",
+  "description": "Clear description with entry/exit logic",
+  "strategy_type": "INTRADAY" | "SWING" | "POSITIONAL",
+  "buy_entry_logic": { 
+    "conditions": ["Close crosses above EMA(20)", "RSI(14) < 40"],
+    "indicators": ["EMA(20)", "RSI(14)"]
+  },
+  "sell_entry_logic": { 
+    "conditions": ["Close crosses below EMA(20)", "RSI(14) > 60"],
+    "indicators": ["EMA(20)", "RSI(14)"]
+  },
+  "buy_stop_loss": { "parameters": { "percentage": 1.5 } },
+  "buy_target": { "parameters": { "percentage": 3.0 } },
+  "sell_stop_loss": { "parameters": { "percentage": 1.5 } },
+  "sell_target": { "parameters": { "percentage": 3.0 } },
+  "buy_trailing_sl": { "conditions": [] },
+  "sell_trailing_sl": { "conditions": [] },
+  "hold_logic": { "conditions": [] },
+  "executable_strategy": {
+    "name": "Strategy Name",
+    "strategyType": "INTRADAY",
+    "version": 1,
+    "buy": { 
+      "logic": "OR", 
+      "rules": [
+        { "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 },
+        { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 35 }
+      ] 
+    },
+    "sell": { 
+      "logic": "OR", 
+      "rules": [
+        { "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_BELOW", "indicator": "EMA", "indicatorPeriod": 20 },
+        { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 65 }
+      ] 
+    },
+    "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3.0 } },
+    "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3.0 } },
+    "requiredIndicators": [
+      { "name": "EMA", "period": 20 },
+      { "name": "RSI", "period": 14 }
+    ],
+    "minWarmupCandles": 30
+  }
+}
+
+### CRITICAL RULES:
+1. Use "OR" logic for buy/sell to generate more signals
+2. Keep rules simple: 1-2 conditions max per entry
+3. RSI thresholds: oversold 30-40, overbought 60-70 (NOT extreme 20/80)
+4. Stop loss: 1-2% for intraday, 2-4% for swing
+5. Target: 1.5x to 2x of stop loss (risk-reward ratio)`,
           },
       {
         role: "user",
-        content: `Convert this trading idea into a SIMPLE, PRACTICAL executable strategy with realistic thresholds:\n\n${rawInput}`,
+        content: `Create a profitable trading strategy based on this idea. Make it simple and tradeable:\n\n${rawInput}`,
       },
     ];
 
@@ -298,11 +339,18 @@ class StrategyService {
           "greater than": ">",
           "less than": "<",
           "equal": "==",
-          "equals": "=="
+          "equals": "==",
+          "between": "BETWEEN"
         };
 
         if (typeof rule.operator === "string" && opMap[rule.operator.toLowerCase()]) {
           rule.operator = opMap[rule.operator.toLowerCase()];
+        }
+
+        // Fix BETWEEN operator - convert to simple comparison if no second value
+        if (rule.operator === "BETWEEN" && !rule.value2 && !rule.maxValue) {
+          rule.operator = "<";
+          rule.value = 60;
         }
 
         // Fix overly strict RSI thresholds
@@ -315,12 +363,16 @@ class StrategyService {
       });
     };
 
-    // Remove broken indicators (Z-Score, etc)
+    // Remove broken indicators and unsupported rules
     const filterRules = (rules: any[] = []) => {
       const unsupported = ["ZSCORE", "Z_SCORE", "Z-SCORE", "VAP"];
       return rules.filter(rule => {
         const name = (rule.name || rule.indicator || "").toUpperCase();
         if (unsupported.includes(name)) return false;
+        // Remove volume rules without proper configuration
+        if (rule.type === "volume" && rule.compareToAverage && !rule.averagePeriod) {
+          rule.averagePeriod = 20;
+        }
         return true;
       });
     };
@@ -504,60 +556,178 @@ class StrategyService {
 
     async improveStrategyWithAI(
       strategy: StructuredStrategy,
-      backtestResults: BacktestResult
+      backtestResults: BacktestResult,
+      candleData?: { candles: Candle[]; indicatorValues?: Record<string, number[]> }
     ): Promise<{ improved: StructuredStrategy; notes: string }> {
+      
+      // Analyze trade patterns
+      const trades = backtestResults.trade_log || [];
+      const winningTrades = trades.filter(t => (t.pnl || 0) > 0);
+      const losingTrades = trades.filter(t => (t.pnl || 0) <= 0);
+      
+      // Calculate trade statistics
+      const avgWin = winningTrades.length > 0 
+        ? winningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0) / winningTrades.length 
+        : 0;
+      const avgLoss = losingTrades.length > 0 
+        ? Math.abs(losingTrades.reduce((sum, t) => sum + (t.pnl || 0), 0) / losingTrades.length)
+        : 0;
+      const avgHoldingPeriod = trades.length > 0
+        ? trades.reduce((sum, t) => {
+            if (t.entry_time && t.exit_time) {
+              return sum + (new Date(t.exit_time).getTime() - new Date(t.entry_time).getTime()) / (1000 * 60);
+            }
+            return sum;
+          }, 0) / trades.length
+        : 0;
+
+      // Analyze exit reasons
+      const exitReasons: Record<string, number> = {};
+      trades.forEach(t => {
+        const reason = t.exit_reason || "Unknown";
+        exitReasons[reason] = (exitReasons[reason] || 0) + 1;
+      });
+
+      // Build market context from candle data
+      let marketContext = "";
+      if (candleData?.candles && candleData.candles.length > 0) {
+        const candles = candleData.candles;
+        const lastPrice = candles[candles.length - 1].close;
+        const startPrice = candles[0].close;
+        const trendPercent = ((lastPrice - startPrice) / startPrice) * 100;
+        
+        // Calculate volatility
+        const returns = candles.slice(1).map((c, i) => (c.close - candles[i].close) / candles[i].close);
+        const avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+        const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length;
+        const volatility = Math.sqrt(variance) * 100;
+        
+        // Find support/resistance levels
+        const highs = candles.map(c => c.high).sort((a, b) => b - a);
+        const lows = candles.map(c => c.low).sort((a, b) => a - b);
+        const resistance = highs[Math.floor(highs.length * 0.1)];
+        const support = lows[Math.floor(lows.length * 0.1)];
+
+        marketContext = `
+MARKET ANALYSIS (from ${candles.length} candles):
+- Period Trend: ${trendPercent > 0 ? "BULLISH" : "BEARISH"} (${trendPercent.toFixed(2)}%)
+- Volatility: ${volatility.toFixed(2)}% (${volatility < 1 ? "LOW" : volatility < 2 ? "MEDIUM" : "HIGH"})
+- Price Range: ₹${lows[0].toFixed(2)} to ₹${highs[0].toFixed(2)}
+- Key Resistance: ₹${resistance.toFixed(2)}
+- Key Support: ₹${support.toFixed(2)}
+- Current Price: ₹${lastPrice.toFixed(2)}`;
+      }
+
       const messages = [
         {
           role: "system",
-          content: `You are an expert trading strategy optimizer. Analyze the given strategy and its backtest results, then provide an IMPROVED version.
-  
-  ### STRATEGY CLASSIFICATION:
-  Identify/Maintain the strategy type:
-  - INTRADAY: Entry and Exit happen on the same day. All positions MUST exit before 3:20 PM.
-  - SWING: Positions held for multiple days.
-  - SCALPING: Very short term trades (minutes).
-  - OPTIONS: Strategies specifically mentioning options or complex Greeks.
-  
-  Focus on:
-  1. Entry/exit timing optimization
-  2. Stop loss and target adjustments based on win/loss patterns
-  3. Filter improvements to reduce false signals
-  4. Trailing stop loss optimization
-  5. Hold/no-trade condition refinements
-  
-  OUTPUT FORMAT (JSON):
-  {
-    "improved": { 
-      "name": "Strategy Name",
-      "description": "...",
-      "strategy_type": "...",
-      "buy_entry_logic": { "conditions": [...] },
-      ...
-    },
-    "notes": "Detailed explanation of what was changed and why"
-  }`,
+          content: `You are an expert algorithmic trading strategist optimizing strategies for Indian markets.
+Analyze the strategy performance and market data to create an IMPROVED, MORE PROFITABLE version.
+
+### YOUR OPTIMIZATION APPROACH:
+1. **If Win Rate < 40%**: Tighten entry conditions (use AND logic), add confirmation filters
+2. **If Win Rate > 60% but low trades**: Loosen conditions (use OR logic), expand entry signals
+3. **If Stop Loss hits too often**: Increase SL%, add volatility filter (ADX < 25 = no trade)
+4. **If Target rarely hits**: Reduce target %, or use trailing stop loss
+5. **If mostly losses in trending market**: Add trend filter (EMA alignment, Supertrend)
+
+### AVAILABLE INDICATORS:
+| Indicator | Periods | Entry Signal |
+|-----------|---------|--------------|
+| RSI | 7, 14, 21 | <35 oversold (buy), >65 overbought (sell) |
+| EMA | 9, 20, 50, 200 | Price crossover, EMA crossover |
+| SMA | 20, 50, 200 | Trend direction |
+| MACD | 12,26,9 | Signal line cross, histogram reversal |
+| SUPERTREND | 10,3 | Direction change |
+| ADX | 14 | >25 = trending (take trades), <20 = ranging (avoid) |
+| BB | 20,2 | Band squeeze breakout |
+
+### RULE STRUCTURE:
+\`\`\`json
+{ "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 35 }
+{ "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 }
+{ "type": "indicator_vs_indicator", "indicator1": "EMA", "period1": 9, "indicator2": "EMA", "period2": 21, "operator": "CROSS_ABOVE" }
+{ "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" }
+\`\`\`
+
+### OUTPUT FORMAT:
+{
+  "improved": {
+    "name": "Strategy Name v2",
+    "description": "Improved description with specific changes",
+    "strategy_type": "INTRADAY" | "SWING",
+    "buy_entry_logic": { "conditions": [...], "indicators": [...] },
+    "sell_entry_logic": { "conditions": [...], "indicators": [...] },
+    "buy_stop_loss": { "parameters": { "percentage": X } },
+    "buy_target": { "parameters": { "percentage": Y } },
+    "sell_stop_loss": { "parameters": { "percentage": X } },
+    "sell_target": { "parameters": { "percentage": Y } },
+    "buy_trailing_sl": { "conditions": [] },
+    "sell_trailing_sl": { "conditions": [] },
+    "hold_logic": { "conditions": [] },
+    "executable_strategy": {
+      "name": "...",
+      "strategyType": "...",
+      "version": 2,
+      "buy": { "logic": "OR"|"AND", "rules": [...] },
+      "sell": { "logic": "OR"|"AND", "rules": [...] },
+      "buyExit": { "stopLoss": {...}, "target": {...} },
+      "sellExit": { "stopLoss": {...}, "target": {...} },
+      "requiredIndicators": [...],
+      "minWarmupCandles": 30
+    }
+  },
+  "notes": "Detailed explanation of changes: 1. Changed X because... 2. Added Y to filter..."
+}`,
         },
         {
           role: "user",
-          content: `Improve this strategy based on backtest results:
-  
-  CURRENT STRATEGY:
-  ${JSON.stringify(strategy, null, 2)}
-  
-  BACKTEST RESULTS:
-  - Total Trades: ${backtestResults.total_trades}
-  - Win Rate: ${backtestResults.win_rate}%
-  - Loss Rate: ${backtestResults.loss_rate}%
-  - Net P&L: ₹${backtestResults.net_pnl} (${backtestResults.net_pnl_percentage}%)
-  - Max Drawdown: ₹${backtestResults.max_drawdown} (${backtestResults.max_drawdown_percentage}%)
-  
-  TRADE LOG SUMMARY:
-  ${JSON.stringify(backtestResults.trade_log.slice(0, 10), null, 2)}`,
+          content: `Analyze and improve this trading strategy:
+
+CURRENT STRATEGY:
+Name: ${strategy.name}
+Type: ${strategy.strategy_type || "SWING"}
+Buy Conditions: ${JSON.stringify(strategy.buy_entry_logic?.conditions || [])}
+Sell Conditions: ${JSON.stringify(strategy.sell_entry_logic?.conditions || [])}
+Stop Loss: ${strategy.buy_stop_loss?.parameters?.percentage || 2}%
+Target: ${strategy.buy_target?.parameters?.percentage || 4}%
+
+BACKTEST PERFORMANCE:
+- Total Trades: ${backtestResults.total_trades}
+- Win Rate: ${backtestResults.win_rate.toFixed(1)}% (${winningTrades.length} wins, ${losingTrades.length} losses)
+- Net P&L: ₹${backtestResults.net_pnl.toFixed(2)} (${backtestResults.net_pnl_percentage.toFixed(2)}%)
+- Max Drawdown: ${backtestResults.max_drawdown_percentage.toFixed(2)}%
+- Avg Win: ₹${avgWin.toFixed(2)}
+- Avg Loss: ₹${avgLoss.toFixed(2)}
+- Risk/Reward Ratio: ${avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : "N/A"}
+- Avg Holding Period: ${avgHoldingPeriod.toFixed(0)} minutes
+
+EXIT REASON BREAKDOWN:
+${Object.entries(exitReasons).map(([reason, count]) => `- ${reason}: ${count} trades (${((count/trades.length)*100).toFixed(1)}%)`).join('\n')}
+${marketContext}
+
+SAMPLE TRADES (most recent):
+${JSON.stringify(trades.slice(-5).map(t => ({
+  type: t.type,
+  entry: t.entry_price,
+  exit: t.exit_price,
+  pnl: t.pnl?.toFixed(2),
+  reason: t.exit_reason
+})), null, 2)}
+
+EXECUTABLE STRATEGY RULES:
+${JSON.stringify(strategy.executable_strategy, null, 2)}
+
+Based on this analysis, create an IMPROVED strategy that:
+1. Increases win rate if currently below 50%
+2. Improves risk/reward ratio
+3. Reduces max drawdown
+4. Adds appropriate filters based on market conditions`,
         },
       ];
   
       const result = await aiSharedService.executeAnalysis("strategy_improve", messages, {
-        maxTokens: 3000,
+        maxTokens: 4000,
         skipCache: true,
       });
   
@@ -574,31 +744,41 @@ class StrategyService {
         }
         const parsed = JSON.parse(jsonString);
         
-        // Robust field insurance
         const ensureFields = (obj: any) => {
-          if (!obj) return { name: "Improved Strategy", description: "Improved by AI" };
+          if (!obj) return { 
+            name: strategy.name + " (Improved)", 
+            description: strategy.description,
+            strategy_type: strategy.strategy_type || "SWING"
+          };
           const fields = [
             "buy_entry_logic", "buy_stop_loss", "buy_target", "buy_trailing_sl",
             "sell_entry_logic", "sell_stop_loss", "sell_target", "sell_trailing_sl",
             "hold_logic"
           ];
           fields.forEach(field => {
-            if (!obj[field]) obj[field] = { conditions: [] };
+            if (!obj[field]) obj[field] = { conditions: [], parameters: {} };
             if (!obj[field].conditions) obj[field].conditions = [];
           });
           if (!obj.name) obj.name = strategy.name + " (Improved)";
           if (!obj.description) obj.description = strategy.description;
           if (!obj.strategy_type) obj.strategy_type = strategy.strategy_type || "SWING";
+          
+          // Ensure executable_strategy is valid
+          if (obj.executable_strategy) {
+            obj.executable_strategy = this.sanitizeExecutableStrategy(obj.executable_strategy);
+          } else {
+            obj.executable_strategy = this.createFallbackExecutableStrategy(obj);
+          }
+          
           return obj;
         };
   
         if (parsed.improved) {
           parsed.improved = ensureFields(parsed.improved);
-          if (!parsed.notes) parsed.notes = "Strategy improved with optimized parameters.";
+          if (!parsed.notes) parsed.notes = "Strategy optimized based on backtest analysis.";
         } else if (parsed.name) {
-          // If AI returned the strategy directly instead of wrapped in "improved"
           const improved = ensureFields(parsed);
-          return { improved, notes: parsed.notes || "Strategy improved with optimized parameters." };
+          return { improved, notes: parsed.notes || "Strategy optimized based on backtest analysis." };
         }
   
         return parsed as { improved: StructuredStrategy; notes: string };

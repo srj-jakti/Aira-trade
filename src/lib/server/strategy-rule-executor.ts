@@ -97,10 +97,17 @@ export class StrategyRuleExecutor {
 
     const defaultIndicators = [
       { name: "RSI", period: 14 },
+      { name: "RSI", period: 7 },
+      { name: "RSI", period: 21 },
       { name: "SMA", period: 20 },
       { name: "SMA", period: 50 },
+      { name: "SMA", period: 200 },
       { name: "EMA", period: 9 },
+      { name: "EMA", period: 20 },
       { name: "EMA", period: 21 },
+      { name: "EMA", period: 50 },
+      { name: "EMA", period: 100 },
+      { name: "EMA", period: 200 },
     ];
 
     for (const ind of defaultIndicators) {
@@ -175,30 +182,33 @@ export class StrategyRuleExecutor {
     return candle[field];
   }
 
-  private compare(left: number, operator: ComparisonOperator, right: number, prevLeft?: number, prevRight?: number): boolean {
-    if (isNaN(left) || isNaN(right)) return false;
+    private compare(left: number, operator: ComparisonOperator | string, right: number, prevLeft?: number, prevRight?: number, secondValue?: number): boolean {
+      if (isNaN(left) || isNaN(right)) return false;
 
-    switch (operator) {
-      case ">":
-        return left > right;
-      case "<":
-        return left < right;
-      case ">=":
-        return left >= right;
-      case "<=":
-        return left <= right;
-      case "==":
-        return Math.abs(left - right) < 0.0001;
-      case "CROSS_ABOVE":
-        if (prevLeft === undefined || prevRight === undefined || isNaN(prevLeft) || isNaN(prevRight)) return false;
-        return prevLeft < prevRight && left >= right;
-      case "CROSS_BELOW":
-        if (prevLeft === undefined || prevRight === undefined || isNaN(prevLeft) || isNaN(prevRight)) return false;
-        return prevLeft > prevRight && left <= right;
-      default:
-        return false;
+      switch (operator) {
+        case ">":
+          return left > right;
+        case "<":
+          return left < right;
+        case ">=":
+          return left >= right;
+        case "<=":
+          return left <= right;
+        case "==":
+          return Math.abs(left - right) < 0.0001;
+        case "CROSS_ABOVE":
+          if (prevLeft === undefined || prevRight === undefined || isNaN(prevLeft) || isNaN(prevRight)) return false;
+          return prevLeft < prevRight && left >= right;
+        case "CROSS_BELOW":
+          if (prevLeft === undefined || prevRight === undefined || isNaN(prevLeft) || isNaN(prevRight)) return false;
+          return prevLeft > prevRight && left <= right;
+        case "BETWEEN":
+          if (secondValue === undefined || isNaN(secondValue)) return false;
+          return left >= right && left <= secondValue;
+        default:
+          return false;
+      }
     }
-  }
 
   private evaluateRule(rule: StrategyRule, index: number): RuleEvaluationResult {
     const candle = this.candles[index];
@@ -209,6 +219,7 @@ export class StrategyRuleExecutor {
         const actualValue = this.getIndicatorValue(rule.name, index, rule.period);
         const expectedValue = rule.value;
         const prevActual = index > 0 ? this.getIndicatorValue(rule.name, index - 1, rule.period) : undefined;
+        const secondValue = (rule as any).value2 || (rule as any).maxValue;
 
         if (isNaN(actualValue)) {
           return {
@@ -219,14 +230,15 @@ export class StrategyRuleExecutor {
           };
         }
 
-        const passed = this.compare(actualValue, rule.operator, expectedValue, prevActual, expectedValue);
+        const passed = this.compare(actualValue, rule.operator, expectedValue, prevActual, expectedValue, secondValue);
+        const opDisplay = rule.operator === "BETWEEN" ? `BETWEEN ${expectedValue},${secondValue}` : `${rule.operator} ${expectedValue}`;
         return {
           passed,
           actualValue,
           expectedValue,
           reason: passed
-            ? `${rule.name}(${rule.period || 14}) = ${actualValue.toFixed(2)} ${rule.operator} ${expectedValue}`
-            : `${rule.name}(${rule.period || 14}) = ${actualValue.toFixed(2)} NOT ${rule.operator} ${expectedValue}`,
+            ? `${rule.name}(${rule.period || 14}) = ${actualValue.toFixed(2)} ${opDisplay}`
+            : `${rule.name}(${rule.period || 14}) = ${actualValue.toFixed(2)} NOT ${opDisplay}`,
         };
       }
 

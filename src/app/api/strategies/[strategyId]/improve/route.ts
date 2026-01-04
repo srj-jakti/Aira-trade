@@ -18,7 +18,7 @@ export async function POST(
   try {
     await params;
     const body = await request.json();
-    const { strategy, backtestResults } = body;
+    const { strategy, backtestResults, candleData } = body;
 
     if (!strategy || !backtestResults) {
       return badRequestResponse("Missing required fields: strategy, backtestResults");
@@ -26,7 +26,8 @@ export async function POST(
 
     const improvement = await strategyService.improveStrategyWithAI(
       strategy,
-      backtestResults
+      backtestResults,
+      candleData
     );
 
     return successResponse(improvement);

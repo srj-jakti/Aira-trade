@@ -1243,39 +1243,39 @@ function CreateStrategyTab({
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <StrategySection
-                  title="BUY Side"
-                  icon={<TrendingUp className="w-4 h-4 text-green-400" />}
-                  sections={[
-                    { label: "Entry Logic", data: strategy.buy_entry_logic },
-                    { label: "Stop Loss", data: strategy.buy_stop_loss },
-                    { label: "Target", data: strategy.buy_target },
-                    { label: "Trailing SL", data: strategy.buy_trailing_sl },
-                  ]}
-                />
-                <StrategySection
-                  title="SELL Side"
-                  icon={<TrendingDown className="w-4 h-4 text-red-400" />}
-                  sections={[
-                    { label: "Entry Logic", data: strategy.sell_entry_logic },
-                    { label: "Stop Loss", data: strategy.sell_stop_loss },
-                    { label: "Target", data: strategy.sell_target },
-                    { label: "Trailing SL", data: strategy.sell_trailing_sl },
-                  ]}
-                />
-              </div>
-
-              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Shield className="w-4 h-4 text-yellow-400" />
-                  <span className="text-yellow-400 font-medium">Hold / No-Trade Logic</span>
+                  <StrategySection
+                    title="BUY Side"
+                    icon={<TrendingUp className="w-4 h-4 text-green-400" />}
+                    sections={[
+                      { label: "Entry Logic", data: strategy.buy_entry_logic || { conditions: [] } },
+                      { label: "Stop Loss", data: strategy.buy_stop_loss || { conditions: [] } },
+                      { label: "Target", data: strategy.buy_target || { conditions: [] } },
+                      { label: "Trailing SL", data: strategy.buy_trailing_sl || { conditions: [] } },
+                    ]}
+                  />
+                  <StrategySection
+                    title="SELL Side"
+                    icon={<TrendingDown className="w-4 h-4 text-red-400" />}
+                    sections={[
+                      { label: "Entry Logic", data: strategy.sell_entry_logic || { conditions: [] } },
+                      { label: "Stop Loss", data: strategy.sell_stop_loss || { conditions: [] } },
+                      { label: "Target", data: strategy.sell_target || { conditions: [] } },
+                      { label: "Trailing SL", data: strategy.sell_trailing_sl || { conditions: [] } },
+                    ]}
+                  />
                 </div>
-                <ul className="text-white/60 text-sm space-y-1">
-                  {strategy.hold_logic.conditions?.map((c, i) => (
-                    <li key={i}>• {c}</li>
-                  ))}
-                </ul>
-              </div>
+
+                <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Shield className="w-4 h-4 text-yellow-400" />
+                    <span className="text-yellow-400 font-medium">Hold / No-Trade Logic</span>
+                  </div>
+                  <ul className="text-white/60 text-sm space-y-1">
+                    {strategy.hold_logic?.conditions?.map((c, i) => (
+                      <li key={i}>• {c}</li>
+                    )) || <li>• No specific hold conditions</li>}
+                  </ul>
+                </div>
             </CardContent>
           </Card>
 
@@ -1575,15 +1575,15 @@ function StrategySection({
                     <li key={i}>• {c}</li>
                   ))}
                 </ul>
-                {section.data.parameters && Object.keys(section.data.parameters).length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {Object.entries(section.data.parameters).map(([k, v]) => (
-                      <Badge key={k} variant="outline" className="text-xs border-white/10 text-white/50">
-                        {k}: {v}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+                  {section.data.parameters && typeof section.data.parameters === "object" && Object.keys(section.data.parameters).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {Object.entries(section.data.parameters).map(([k, v]) => (
+                        <Badge key={k} variant="outline" className="text-xs border-white/10 text-white/50">
+                          {k}: {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
               </div>
             </div>
           ))}
@@ -1647,29 +1647,29 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
         </span>
       </div>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setShowTrades(!showTrades)}
-        className="mt-4 text-white/40 hover:text-white"
-      >
-        {showTrades ? "Hide" : "Show"} Trade Log ({result.trade_log.length})
-      </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowTrades(!showTrades)}
+          className="mt-4 text-white/40 hover:text-white"
+        >
+          {showTrades ? "Hide" : "Show"} Trade Log ({(result.trade_log || []).length})
+        </Button>
 
-      {showTrades && (
-        <div className="mt-4 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <div className="min-w-[600px]">
-            <table className="w-full text-sm">
-              <thead className="text-white/40 text-xs">
-                <tr>
-                  <th className="text-left py-2">Type</th>
-                  <th className="text-left py-2">Entry</th>
-                  <th className="text-left py-2">Exit</th>
-                  <th className="text-right py-2">P&L</th>
-                </tr>
-              </thead>
-              <tbody className="text-white/80">
-                {result.trade_log.slice(0, 20).map((trade) => (
+        {showTrades && result.trade_log && (
+          <div className="mt-4 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="min-w-[600px]">
+              <table className="w-full text-sm">
+                <thead className="text-white/40 text-xs">
+                  <tr>
+                    <th className="text-left py-2">Type</th>
+                    <th className="text-left py-2">Entry</th>
+                    <th className="text-left py-2">Exit</th>
+                    <th className="text-right py-2">P&L</th>
+                  </tr>
+                </thead>
+                <tbody className="text-white/80">
+                  {result.trade_log.slice(0, 20).map((trade) => (
                   <tr key={trade.id} className="border-t border-white/5">
                     <td className="py-2">
                       <Badge

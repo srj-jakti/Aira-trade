@@ -9,8 +9,12 @@
       "schedule": "*/30 * * * *"
     },
     {
-      "path": "/api/cron/refresh-subscriptions",
-      "schedule": "0 3 * * *"
+      "path": "/api/cron/refresh-subscriptions?action=daily_sync",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-subscriptions?action=atm_refresh",
+      "schedule": "*/5 9-15 * * 1-5"
     }
   ]
 }

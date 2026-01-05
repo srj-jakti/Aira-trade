@@ -5,6 +5,7 @@ import { decrypt } from "./encryption";
 import { IndicatorCalculator, type Candle as CalcCandle } from "./indicator-calculator";
 import { StrategyEvaluator } from "./strategy-evaluator";
 import { StrategyRuleExecutor, formatEvaluationLogForDisplay } from "./strategy-rule-executor";
+import { processZairoth } from "@/lib/zairoth";
 import {
   type ExecutableStrategy,
   type EvaluationLog,
@@ -126,13 +127,33 @@ class StrategyService {
     return StrategyService.instance;
   }
 
-    async formatStrategyWithAI(rawInput: string): Promise<StructuredStrategy> {
+    async formatStrategyWithAI(rawInput: string): Promise<StructuredStrategy & { zairoth_intent?: string }> {
+      // Phase 1: Generate ZAIROTH Intent (Backend only, hidden from user)
+      const zairothResult = await aiSharedService.generateZairothIntent(rawInput);
+      let zairothContext = "";
+      let zairothIntent = "";
+      
+      if (zairothResult.success && zairothResult.zairoth) {
+        zairothIntent = zairothResult.zairoth.raw;
+        zairothContext = `INTERNAL INTENT (ZAIROTH):\n${zairothIntent}\n\n`;
+        
+        // Log the intent
+        await aiSharedService.logZairothIntent(
+          rawInput,
+          zairothIntent,
+          { valid: true },
+          zairothResult.zairoth.canonical,
+          "Strategy formatting initiated"
+        );
+      }
+
       const messages = [
           {
             role: "system",
             content: `You are a Senior Quant creating PROFITABLE trading strategies for Indian NSE/BSE markets.
 Your output must be precise, executable, and follow TradingView Pine Script / Chartink screener logic.
 
+${zairothContext}
 ### STRATEGY TYPES:
 - INTRADAY: Same-day entry/exit. Must exit by 3:15 PM IST.
 - SWING: Positions held 2-15 days.
@@ -728,13 +749,34 @@ MARKET ANALYSIS (from ${candles.length} candles):
 - Current Price: ₹${lastPrice.toFixed(2)}`;
       }
 
-        const messages = [
-          {
-            role: "system",
-            content: `You are an expert algorithmic trading strategist optimizing strategies for Indian markets.
-  Analyze the strategy performance and market data to create an IMPROVED, MORE PROFITABLE version.
-  
-  ### YOUR OPTIMIZATION APPROACH (PRIORITY ORDER):
+      // Phase 1: Generate ZAIROTH Intent (Internal)
+      const zairothResult = await aiSharedService.generateZairothIntent(
+        `Improve strategy: ${strategy.name}. Backtest result: ${backtestResults.win_rate.toFixed(1)}% win rate, ₹${backtestResults.net_pnl.toFixed(2)} P&L.`
+      );
+      let zairothContext = "";
+      
+      if (zairothResult.success && zairothResult.zairoth) {
+        zairothContext = `INTERNAL IMPROVEMENT INTENT (ZAIROTH):\n${zairothResult.zairoth.raw}\n\n`;
+        
+        await aiSharedService.logZairothIntent(
+          "Improve strategy request",
+          zairothResult.zairoth.raw,
+          { valid: true },
+          zairothResult.zairoth.canonical,
+          "Strategy improvement initiated",
+          strategyId?.toString()
+        );
+      }
+
+      const messages = [
+            {
+              role: "system",
+              content: `You are an expert algorithmic trading strategist optimizing strategies for Indian markets.
+    Analyze the strategy performance and market data to create an IMPROVED, MORE PROFITABLE version.
+    
+    ${zairothContext}
+    ### YOUR OPTIMIZATION APPROACH (PRIORITY ORDER):
+
   1. **Tweak Existing Parameters**: First, try adjusting the periods or thresholds of the indicators already present in the strategy (e.g., change EMA 9 to EMA 12, or RSI 14 to RSI 10).
   2. **Refine Exit Logic**: Adjust Stop Loss % and Target % based on the win rate and average holding period.
   3. **Add Filters (ONLY IF NECESSARY)**: Only add new indicators or conditions if the current ones cannot be optimized further to achieve a >60% win rate.
@@ -1421,47 +1463,49 @@ MARKET ANALYSIS (from ${candles.length} candles):
     return Array.from(timeframes);
   }
 
-  async saveStrategy(
-    userId: string,
-    strategy: StructuredStrategy,
-    rawInput: string,
-    selectedTimeframes: string[],
-    visibility: "private" | "public" | "invite_only",
-    isPaperTrading: boolean = false,
-    selectedInstruments: number[] = []
-  ): Promise<number> {
-    if (strategy.executable_strategy) {
-      const validation = validateStrategy(strategy.executable_strategy);
-      if (!validation.valid) {
-        console.warn("[StrategyService] Saving strategy with validation issues:", validation.errors);
+    async saveStrategy(
+      userId: string,
+      strategy: StructuredStrategy & { zairoth_intent?: string },
+      rawInput: string,
+      selectedTimeframes: string[],
+      visibility: "private" | "public" | "invite_only",
+      isPaperTrading: boolean = false,
+      selectedInstruments: number[] = []
+    ): Promise<number> {
+      if (strategy.executable_strategy) {
+        const validation = validateStrategy(strategy.executable_strategy);
+        if (!validation.valid) {
+          console.warn("[StrategyService] Saving strategy with validation issues:", validation.errors);
+        }
       }
-    }
+  
+      const { data, error } = await supabaseAdmin
+        .from("strategies")
+        .insert({
+          user_id: userId,
+          name: strategy.name,
+          description: strategy.description,
+          raw_input: rawInput,
+          buy_entry_logic: strategy.buy_entry_logic,
+          buy_stop_loss: strategy.buy_stop_loss,
+          buy_target: strategy.buy_target,
+          buy_trailing_sl: strategy.buy_trailing_sl,
+          sell_entry_logic: strategy.sell_entry_logic,
+          sell_stop_loss: strategy.sell_stop_loss,
+          sell_target: strategy.sell_target,
+          sell_trailing_sl: strategy.sell_trailing_sl,
+          hold_logic: strategy.hold_logic,
+          executable_strategy: strategy.executable_strategy || null,
+          zairoth_intent: strategy.zairoth_intent || null,
+          selected_timeframes: selectedTimeframes,
+          selected_instruments: selectedInstruments,
+          is_paper_trading: isPaperTrading,
+          visibility,
+          is_finalized: true,
+          status: "finalized",
+          version: 1,
+        })
 
-    const { data, error } = await supabaseAdmin
-      .from("strategies")
-      .insert({
-        user_id: userId,
-        name: strategy.name,
-        description: strategy.description,
-        raw_input: rawInput,
-        buy_entry_logic: strategy.buy_entry_logic,
-        buy_stop_loss: strategy.buy_stop_loss,
-        buy_target: strategy.buy_target,
-        buy_trailing_sl: strategy.buy_trailing_sl,
-        sell_entry_logic: strategy.sell_entry_logic,
-        sell_stop_loss: strategy.sell_stop_loss,
-        sell_target: strategy.sell_target,
-        sell_trailing_sl: strategy.sell_trailing_sl,
-        hold_logic: strategy.hold_logic,
-        executable_strategy: strategy.executable_strategy || null,
-        selected_timeframes: selectedTimeframes,
-        selected_instruments: selectedInstruments,
-        is_paper_trading: isPaperTrading,
-        visibility,
-        is_finalized: true,
-        status: "finalized",
-        version: 1,
-      })
       .select("id")
       .single();
 
@@ -1551,15 +1595,24 @@ MARKET ANALYSIS (from ${candles.length} candles):
     });
   }
 
-  async getUserStrategies(userId: string): Promise<unknown[]> {
-    const { data } = await supabaseAdmin
-      .from("strategies")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+    async getUserStrategies(userId: string): Promise<unknown[]> {
+      const { data } = await supabaseAdmin
+        .from("strategies")
+        .select(`
+          id, name, description, raw_input, visibility, is_active,
+          buy_entry_logic, buy_stop_loss, buy_target, buy_trailing_sl,
+          sell_entry_logic, sell_stop_loss, sell_target, sell_trailing_sl,
+          hold_logic, executable_strategy, selected_timeframes,
+          selected_instruments, is_paper_trading, is_finalized,
+          status, version, improvement_count, admin_approved,
+          created_at, updated_at
+        `)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+  
+      return data || [];
+    }
 
-    return data || [];
-  }
 
   async getPublicStrategies(): Promise<unknown[]> {
     const { data } = await supabaseAdmin

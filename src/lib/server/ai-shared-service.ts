@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt } from "@/lib/server/encryption";
 import crypto from "crypto";
 import { getToolsForAIContext, getRandomArchetype, STRATEGY_ARCHETYPES, TRADING_TOOLS } from "@/lib/trading-tools";
+import { processZairoth, evaluateSafety, ZairothResult } from "@/lib/zairoth";
 
 export interface AIConfig {
   id: string;
@@ -534,6 +535,85 @@ If confidence < 0.70 → WAIT. If confidence ≥ 0.70 → PROCEED.
     ];
 
     return this.executeAnalysis("trading_signal", messages, { cacheTTL: 15 });
+  }
+
+  async logZairothIntent(
+    userInput: string,
+    zairoth: string,
+    validationResult: any,
+    compiledJson: any,
+    outcome: string,
+    strategyId?: string
+  ): Promise<void> {
+    await supabaseAdmin.from("zairoth_intent_logs").insert({
+      user_input: userInput,
+      generated_zairoth: zairoth,
+      validation_result: validationResult,
+      compiled_json: compiledJson,
+      execution_outcome: outcome,
+      strategy_id: strategyId,
+    });
+  }
+
+  async generateZairothIntent(
+    userInput: string,
+    context: string = ""
+  ): Promise<AIAnalysisResult & { zairoth?: ZairothResult }> {
+    const systemPrompt = `ROLE:
+You are an internal Aira AI intent generator. Your job is to convert user natural language into ZAIROTH v1.0, a deterministic intent DSL.
+
+🧠 ZAIROTH RULES (v1.0)
+1. Core Structure: [STATE] [INTENT] [ACTION] [OBJECT] [CONTEXT] [CERTAINTY]
+2. State Markers:
+   RA → Known / factual
+   NA → Active / executable now
+   VA → Intended / optional
+   XA → Prohibited / hard stop
+3. Certainty Encoding:
+   • → low confidence (0.3)
+   •• → high confidence (0.8)
+   ••• → absolute / non-negotiable (1.0)
+4. Requirements:
+   - One instruction per line
+   - No natural language filler
+   - Use VA if unsure
+   - Assign CERTAINTY to EVERY line
+
+VALID INTENTS: trade-buy, trade-sell, signal, market-condition, risk-param, capital-rule
+VALID ACTIONS: Lun, condition, alert, set, restrict
+
+EXAMPLE:
+User: "I want to buy Nifty if RSI is below 40"
+ZAIROTH:
+VA trade-buy Lun NIFTY cond:rsi<40••
+
+${context}
+
+Generate ONLY the ZAIROTH lines. No explanations.`;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userInput },
+    ];
+
+    const result = await this.executeAnalysis("zairoth_generation", messages, {
+      maxTokens: 500,
+      skipCache: true,
+    });
+
+    if (result.success && typeof result.result === "string") {
+      try {
+        const zairoth = processZairoth(result.result);
+        return { ...result, zairoth };
+      } catch (error: any) {
+        return {
+          success: false,
+          error: `ZAIROTH Validation Failed: ${error.message}`,
+        };
+      }
+    }
+
+    return result;
   }
 
   async generateStrategyIdea(userInput?: string, referenceInstrument?: string): Promise<AIAnalysisResult> {

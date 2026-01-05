@@ -8,6 +8,7 @@ import {
 } from "@/lib/server/auth";
 import { strategyService } from "@/lib/server/strategy-service";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { aiTradingEngine } from "@/lib/server/ai-trading-engine";
 
 export async function POST(
   request: NextRequest,
@@ -76,31 +77,56 @@ export async function POST(
       zerodhaConfigId
     );
 
-    if (strategyId !== "preview") {
-      const id = parseInt(strategyId);
-      await strategyService.saveBacktestResult(
-        id,
-        1,
-        tokens,
-        timeframe,
-        result,
-        strategy
-      );
-    }
+      if (strategyId !== "preview") {
+        const id = parseInt(strategyId);
+        await strategyService.saveBacktestResult(
+          id,
+          1,
+          tokens,
+          timeframe,
+          result,
+          strategy
+        );
 
-    await supabaseAdmin.from("brain_events").insert({
-      event_type: "BACKTEST_COMPLETE",
-      details: {
-        strategyId,
-        totalTrades: result.total_trades,
-        netPnl: result.net_pnl,
-        winRate: result.win_rate,
-        userId: user.user.id,
-      },
-      created_at: new Date().toISOString(),
-    });
+        // AI Learning: Feed backtest results to AI Trading Engine
+        if (result.trades && result.trades.length > 0) {
+          const trades = result.trades.map((t: { pnl: number; entry_price: number; exit_price: number; entry_time: string; exit_time: string }) => ({
+            pnl: t.pnl,
+            entryPrice: t.entry_price,
+            exitPrice: t.exit_price,
+            duration: `${Math.round((new Date(t.exit_time).getTime() - new Date(t.entry_time).getTime()) / 60000)}m`
+          }));
+          
+          await aiTradingEngine.updateStrategyPerformance(
+            id,
+            user.user.id,
+            "backtest",
+            trades
+          );
+        }
+      }
 
-    return successResponse({ result });
+      await supabaseAdmin.from("brain_events").insert({
+        event_type: "BACKTEST_COMPLETE",
+        details: {
+          strategyId,
+          totalTrades: result.total_trades,
+          netPnl: result.net_pnl,
+          winRate: result.win_rate,
+          userId: user.user.id,
+        },
+        created_at: new Date().toISOString(),
+      });
+
+      // Generate AI Insights for the strategy
+      let aiInsights = null;
+      if (strategyId !== "preview") {
+        const id = parseInt(strategyId);
+        const improvements = await aiTradingEngine.suggestStrategyImprovements(id);
+        aiInsights = improvements;
+      }
+
+      return successResponse({ result, aiInsights });
   } catch (error) {
     console.error("Error running backtest:", error);
     const message = error instanceof Error ? error.message : "Backtest failed";

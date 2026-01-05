@@ -118,6 +118,18 @@ interface BacktestResult {
   max_drawdown: number;
   max_drawdown_percentage: number;
   trade_log: TradeEntry[];
+  aiInsights?: AIInsights;
+}
+
+interface AIInsights {
+  suggestions: string[];
+  optimizedParams?: {
+    stop_loss_pct?: number;
+    target_pct?: number;
+    trailing_stop?: boolean;
+    additional_filter?: string;
+  };
+  expectedImprovement: number;
 }
 
 interface TradeEntry {
@@ -862,37 +874,41 @@ function CreateStrategyTab({
     }
   };
 
-  const runBacktest = async (timeframe: string) => {
-    if (!strategy || selectedInstruments.length === 0) return;
-    setBacktesting(true);
-    try {
-      const res = await fetch("/api/strategies/preview/backtest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          strategy,
-          instrumentTokens: selectedInstruments.map(i => i.instrument_token),
-          timeframe,
-          capital: 100000,
-          fromDate: fromDate || undefined,
-          toDate: toDate || undefined,
-          zerodhaConfigId: "b9b6056a-29ca-4327-9d6c-3fbb7b80f223", // Using ACCOUNT 3 as requested
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setBacktestResults((prev) => ({ ...prev, [timeframe]: data.result }));
-        if (step === "review") setStep("backtest");
-      } else {
-        const error = await res.json();
-        alert(error.error || "Backtest failed");
+    const runBacktest = async (timeframe: string) => {
+      if (!strategy || selectedInstruments.length === 0) return;
+      setBacktesting(true);
+      try {
+        const res = await fetch("/api/strategies/preview/backtest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            strategy,
+            instrumentTokens: selectedInstruments.map(i => i.instrument_token),
+            timeframe,
+            capital: 100000,
+            fromDate: fromDate || undefined,
+            toDate: toDate || undefined,
+            zerodhaConfigId: "b9b6056a-29ca-4327-9d6c-3fbb7b80f223",
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const resultWithInsights = {
+            ...data.result,
+            aiInsights: data.aiInsights || null
+          };
+          setBacktestResults((prev) => ({ ...prev, [timeframe]: resultWithInsights }));
+          if (step === "review") setStep("backtest");
+        } else {
+          const error = await res.json();
+          alert(error.error || "Backtest failed");
+        }
+      } catch {
+        alert("Error running backtest");
+      } finally {
+        setBacktesting(false);
       }
-    } catch {
-      alert("Error running backtest");
-    } finally {
-      setBacktesting(false);
-    }
-  };
+    };
 
     const improveStrategy = async () => {
       const currentResult = backtestResults[selectedTf];
@@ -1697,15 +1713,66 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
       </div>
 
       <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setShowTrades(!showTrades)}
-        className="mt-4 text-white/40 hover:text-white h-8"
-      >
-        {showTrades ? "Hide" : "Show"} Position Log ({(result.trade_log || []).length})
-      </Button>
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowTrades(!showTrades)}
+          className="mt-4 text-white/40 hover:text-white h-8"
+        >
+          {showTrades ? "Hide" : "Show"} Position Log ({(result.trade_log || []).length})
+        </Button>
 
-      {showTrades && result.trade_log && (
+        {/* AI Insights Panel */}
+        {result.aiInsights && result.aiInsights.suggestions && result.aiInsights.suggestions.length > 0 && (
+          <div className="mt-4 p-4 bg-gradient-to-r from-purple-500/10 to-cyan-500/10 border border-purple-500/20 rounded-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <Bot className="w-4 h-4 text-purple-400" />
+              <span className="text-white font-medium text-sm">AI Trading Engine Insights</span>
+              {result.aiInsights.expectedImprovement > 0 && (
+                <Badge className="bg-green-500/20 text-green-400 border-none text-[10px]">
+                  +{result.aiInsights.expectedImprovement}% Expected
+                </Badge>
+              )}
+            </div>
+            <div className="space-y-2">
+              {result.aiInsights.suggestions.map((suggestion, i) => (
+                <div key={i} className="flex items-start gap-2 text-xs text-white/70">
+                  <Sparkles className="w-3 h-3 text-cyan-400 mt-0.5 shrink-0" />
+                  <span>{suggestion}</span>
+                </div>
+              ))}
+            </div>
+            {result.aiInsights.optimizedParams && (
+              <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-2">
+                {result.aiInsights.optimizedParams.stop_loss_pct && (
+                  <div className="p-2 bg-white/5 rounded text-center">
+                    <p className="text-[10px] text-white/40">Stop Loss</p>
+                    <p className="text-sm font-bold text-red-400">{result.aiInsights.optimizedParams.stop_loss_pct}%</p>
+                  </div>
+                )}
+                {result.aiInsights.optimizedParams.target_pct && (
+                  <div className="p-2 bg-white/5 rounded text-center">
+                    <p className="text-[10px] text-white/40">Target</p>
+                    <p className="text-sm font-bold text-green-400">{result.aiInsights.optimizedParams.target_pct}%</p>
+                  </div>
+                )}
+                {result.aiInsights.optimizedParams.trailing_stop && (
+                  <div className="p-2 bg-white/5 rounded text-center">
+                    <p className="text-[10px] text-white/40">Trailing SL</p>
+                    <p className="text-sm font-bold text-yellow-400">Enabled</p>
+                  </div>
+                )}
+                {result.aiInsights.optimizedParams.additional_filter && (
+                  <div className="p-2 bg-white/5 rounded text-center col-span-2 md:col-span-1">
+                    <p className="text-[10px] text-white/40">Filter</p>
+                    <p className="text-xs font-medium text-cyan-400">{result.aiInsights.optimizedParams.additional_filter}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {showTrades && result.trade_log && (
         <div className="mt-4 overflow-x-auto border border-white/5 rounded-lg">
           <table className="w-full text-sm">
             <thead className="text-white/40 text-[10px] uppercase tracking-wider bg-white/5">

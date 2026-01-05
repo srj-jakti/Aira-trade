@@ -680,7 +680,8 @@ ${aiAnalysisEnabled ? `
       strategy: StructuredStrategy,
       backtestResults: BacktestResult,
       candleData?: { candles: Candle[]; indicatorValues?: Record<string, number[]> },
-      strategyId?: number
+      strategyId?: number,
+      aiEngineSuggestions?: { suggestions: string[]; optimizedParams?: Record<string, unknown>; expectedImprovement: number }
     ): Promise<{ improved: StructuredStrategy; notes: string }> {
       
       // Fetch past backtests to compare performance
@@ -698,6 +699,25 @@ ${aiAnalysisEnabled ? `
             `- v${pb.strategy_version}: Win Rate ${pb.win_rate.toFixed(1)}%, P&L ${pb.net_pnl_percentage.toFixed(2)}%, Trades: ${pb.total_trades} (${new Date(pb.created_at).toLocaleDateString()})`
           ).join("\n");
         }
+      }
+
+      // AI Trading Engine Learnings Context
+      let aiEngineContext = "";
+      if (aiEngineSuggestions && aiEngineSuggestions.suggestions.length > 0) {
+        aiEngineContext = `
+
+🤖 AI TRADING ENGINE LEARNINGS (From Historical Trade Analysis):
+${aiEngineSuggestions.suggestions.map(s => `- ${s}`).join("\n")}
+${aiEngineSuggestions.optimizedParams ? `
+Suggested Parameter Changes:
+- Stop Loss: ${aiEngineSuggestions.optimizedParams.stop_loss_pct || "No change"}%
+- Target: ${aiEngineSuggestions.optimizedParams.target_pct || "No change"}%
+- Trailing Stop: ${aiEngineSuggestions.optimizedParams.trailing_stop ? "Enable" : "No change"}
+- Additional Filter: ${aiEngineSuggestions.optimizedParams.additional_filter || "None"}
+` : ""}
+Expected Improvement: ${aiEngineSuggestions.expectedImprovement}%
+CRITICAL: Incorporate these learnings into your improvements. The AI Engine has analyzed real trade outcomes to provide these insights.
+`;
       }
 
       // Analyze trade patterns
@@ -783,7 +803,7 @@ MARKET ANALYSIS (from ${candles.length} candles):
               content: `You are an expert algorithmic trading strategist optimizing strategies for Indian markets.
     Analyze the strategy performance and market data to create an IMPROVED, MORE PROFITABLE version.
     
-    ${zairothContext}
+    ${zairothContext}${aiEngineContext}
     ### YOUR OPTIMIZATION APPROACH (PRIORITY ORDER):
 
   1. **Tweak Existing Parameters**: First, try adjusting the periods or thresholds of the indicators already present in the strategy (e.g., change EMA 9 to EMA 12, or RSI 14 to RSI 10).

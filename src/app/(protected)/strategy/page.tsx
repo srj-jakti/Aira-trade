@@ -613,8 +613,9 @@ function CreateStrategyTab({
 }) {
   const [step, setStep] = useState<"input" | "review" | "backtest" | "improve" | "save">("input");
   const [rawInput, setRawInput] = useState("");
-  const [formatting, setFormatting] = useState(false);
-  const [generating, setGenerating] = useState(false);
+    const [formatting, setFormatting] = useState(false);
+    const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false);
+    const [generating, setGenerating] = useState(false);
   const [strategy, setStrategy] = useState<StructuredStrategy | null>(null);
   const [backtestResults, setBacktestResults] = useState<Record<string, BacktestResult>>({});
   const [selectedTimeframes, setSelectedTimeframes] = useState<string[]>([]);
@@ -814,28 +815,28 @@ function CreateStrategyTab({
     setSelectedInstruments(prev => prev.filter(i => i.instrument_token !== token));
   };
 
-  const formatStrategy = async () => {
-    if (!rawInput.trim()) return;
-    setFormatting(true);
-    try {
-      const res = await fetch("/api/strategies/format", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rawInput }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setStrategy(data.strategy);
-        setStep("review");
-      } else {
-        alert("Failed to format strategy. Please try again.");
+    const formatStrategy = async () => {
+      if (!rawInput.trim()) return;
+      setFormatting(true);
+      try {
+        const res = await fetch("/api/strategies/format", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rawInput, aiAnalysisEnabled }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStrategy(data.strategy);
+          setStep("review");
+        } else {
+          alert("Failed to format strategy. Please try again.");
+        }
+      } catch {
+        alert("Error formatting strategy");
+      } finally {
+        setFormatting(false);
       }
-    } catch {
-      alert("Error formatting strategy");
-    } finally {
-      setFormatting(false);
-    }
-  };
+    };
 
   const generateStrategy = async () => {
     setGenerating(true);
@@ -1109,14 +1110,32 @@ function CreateStrategyTab({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Textarea
-                placeholder="Example: Buy when RSI is low and price is above 20 SMA. Use 2% stop loss and 4% target. Avoid trading during high volatility..."
-                value={rawInput}
-                onChange={(e) => setRawInput(e.target.value)}
-                className="min-h-[200px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none"
-              />
+                <Textarea
+                  placeholder="Example: Buy when RSI is low and price is above 20 SMA. Use 2% stop loss and 4% target. Avoid trading during high volatility..."
+                  value={rawInput}
+                  onChange={(e) => setRawInput(e.target.value)}
+                  className="min-h-[200px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none"
+                />
 
-              <div className="p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-cyan-400" />
+                    </div>
+                    <div>
+                      <Label className="text-white text-sm font-medium">AI Performance Analysis</Label>
+                      <p className="text-white/40 text-xs">
+                        Enable deep analysis to optimize win rate and performance
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={aiAnalysisEnabled}
+                    onCheckedChange={setAiAnalysisEnabled}
+                  />
+                </div>
+
+                <div className="p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
                 <Label className="text-white/60 text-sm mb-2 flex items-center gap-2">
                   <Link2 className="w-4 h-4" />
                   Reference Instrument (Optional)

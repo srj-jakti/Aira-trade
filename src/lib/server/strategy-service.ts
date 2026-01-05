@@ -34,6 +34,7 @@ export interface StructuredStrategy {
   sell_trailing_sl: StrategyLogic;
   hold_logic: StrategyLogic;
   executable_strategy?: ExecutableStrategy;
+  ai_analysis_enabled?: boolean;
 }
 
 export interface BacktestResult {
@@ -127,7 +128,7 @@ class StrategyService {
     return StrategyService.instance;
   }
 
-    async formatStrategyWithAI(rawInput: string): Promise<StructuredStrategy & { zairoth_intent?: string }> {
+    async formatStrategyWithAI(rawInput: string, aiAnalysisEnabled: boolean = false): Promise<StructuredStrategy & { zairoth_intent?: string }> {
       // Phase 1: Generate ZAIROTH Intent (Backend only, hidden from user)
       const zairothResult = await aiSharedService.generateZairothIntent(rawInput);
       let zairothContext = "";
@@ -154,6 +155,14 @@ class StrategyService {
 Your output must be precise, executable, and follow TradingView Pine Script / Chartink screener logic.
 
 ${zairothContext}
+${aiAnalysisEnabled ? `
+### AI PERFORMANCE ANALYSIS MODE: ENABLED
+- Focus on maximizing WIN RATE and Risk/Reward ratio.
+- Optimize indicator periods and thresholds for the current market regime.
+- Add necessary filters (like ADX or Volume) to avoid false breakouts.
+- Ensure Stop Loss and Target are statistically sound for the strategy type.
+` : ""}
+
 ### STRATEGY TYPES:
 - INTRADAY: Same-day entry/exit. Must exit by 3:15 PM IST.
 - SWING: Positions held 2-15 days.
@@ -1500,6 +1509,7 @@ MARKET ANALYSIS (from ${candles.length} candles):
           selected_timeframes: selectedTimeframes,
           selected_instruments: selectedInstruments,
           is_paper_trading: isPaperTrading,
+          ai_analysis_enabled: strategy.ai_analysis_enabled || false,
           visibility,
           is_finalized: true,
           status: "finalized",

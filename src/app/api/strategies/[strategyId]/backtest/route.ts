@@ -7,6 +7,7 @@ import {
   successResponse,
 } from "@/lib/server/auth";
 import { strategyService } from "@/lib/server/strategy-service";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(
   request: NextRequest,
@@ -26,7 +27,8 @@ export async function POST(
       capital,
       fromDate,
       toDate,
-      zerodhaConfigId
+      zerodhaConfigId,
+      zairothIntent
     } = body;
 
     if (!strategy || !timeframe) {
@@ -51,6 +53,19 @@ export async function POST(
     const from = fromDate ? new Date(fromDate) : undefined;
     const to = toDate ? new Date(toDate) : undefined;
 
+    await supabaseAdmin.from("brain_events").insert({
+      event_type: "BACKTEST_START",
+      details: {
+        strategyId,
+        instrumentTokens: tokens,
+        timeframe,
+        capital: capital || 100000,
+        userId: user.user.id,
+        hasZairothIntent: !!zairothIntent,
+      },
+      created_at: new Date().toISOString(),
+    });
+
     const result = await strategyService.runBacktest(
       strategy,
       tokens,
@@ -72,6 +87,18 @@ export async function POST(
         strategy
       );
     }
+
+    await supabaseAdmin.from("brain_events").insert({
+      event_type: "BACKTEST_COMPLETE",
+      details: {
+        strategyId,
+        totalTrades: result.total_trades,
+        netPnl: result.net_pnl,
+        winRate: result.win_rate,
+        userId: user.user.id,
+      },
+      created_at: new Date().toISOString(),
+    });
 
     return successResponse({ result });
   } catch (error) {

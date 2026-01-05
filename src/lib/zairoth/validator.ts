@@ -1,25 +1,35 @@
 import { ZairothInstruction } from './parser';
 import { ZairothError, ZairothErrorCode } from './errors';
 
-const VALID_INTENTS = ['trade-buy', 'trade-sell', 'signal', 'market-condition', 'risk-param', 'capital-rule'];
-const VALID_ACTIONS = ['Lun', 'condition', 'alert', 'set', 'restrict'];
+const VALID_INTENTS = ['trade-buy', 'trade-sell', 'signal', 'market-condition', 'risk-param', 'capital-rule', 'strategy-create', 'strategy-update', 'backtest-run'];
+const VALID_ACTIONS = ['Lun', 'condition', 'alert', 'set', 'restrict', 'create', 'update', 'execute'];
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: Array<{ line: number; code: string; message: string }>;
+  warnings: Array<{ line: number; message: string }>;
+}
 
 export function validateZairoth(instructions: ZairothInstruction[]): void {
   const actionsByObject: Record<string, Set<string>> = {};
 
   instructions.forEach((inst, index) => {
-    // Check keywords
     if (!VALID_INTENTS.includes(inst.intent)) {
-      // Allow dynamic intents but maybe log or warn? The requirement says "Reject unknown keywords"
-      // However, the example uses 'trade-buy' which is in my list.
-      // I'll stick to a whitelist or at least basic validation.
+      throw new ZairothError(
+        ZairothErrorCode.UNKNOWN_KEYWORD,
+        `Unknown intent: ${inst.intent}. Valid intents: ${VALID_INTENTS.join(', ')}`,
+        index + 1
+      );
     }
 
-    // Reject unknown tokens (basic implementation)
-    // In a real system, we'd have a full dictionary. 
-    // For v1.0, I'll focus on the core rules.
+    if (!VALID_ACTIONS.includes(inst.action)) {
+      throw new ZairothError(
+        ZairothErrorCode.UNKNOWN_KEYWORD,
+        `Unknown action: ${inst.action}. Valid actions: ${VALID_ACTIONS.join(', ')}`,
+        index + 1
+      );
+    }
 
-    // Conflicting rules (e.g., VA + XA same action)
     const key = `${inst.intent}:${inst.action}:${inst.object}`;
     if (!actionsByObject[key]) {
       actionsByObject[key] = new Set();
@@ -45,13 +55,72 @@ export function validateZairoth(instructions: ZairothInstruction[]): void {
     
     actionsByObject[key].add(inst.state);
 
-    // Ambiguous condition check
     if (inst.state === 'VA' && inst.certainty === 1.0) {
-      // VA is optional/intended, but certainty is absolute? 
-      // This might be considered ambiguous but maybe allowed.
-      // Rule 4 says: "Reject unknown tokens", "Reject mixed states"
+      throw new ZairothError(
+        ZairothErrorCode.AMBIGUOUS_CONDITION,
+        `VA state with absolute certainty (•••) is ambiguous. Use NA for executable actions.`,
+        index + 1
+      );
+    }
+
+    if (inst.state === 'NA' && inst.certainty === 0.3) {
+      throw new ZairothError(
+        ZairothErrorCode.AMBIGUOUS_CONDITION,
+        `NA (active/executable) state with low certainty (•) is dangerous. Use VA for uncertain intents.`,
+        index + 1
+      );
     }
   });
+}
+
+export function validateZairothSafe(instructions: ZairothInstruction[]): ValidationResult {
+  const result: ValidationResult = { valid: true, errors: [], warnings: [] };
+  const actionsByObject: Record<string, Set<string>> = {};
+
+  instructions.forEach((inst, index) => {
+    if (!VALID_INTENTS.includes(inst.intent)) {
+      result.valid = false;
+      result.errors.push({
+        line: index + 1,
+        code: ZairothErrorCode.UNKNOWN_KEYWORD,
+        message: `Unknown intent: ${inst.intent}`
+      });
+    }
+
+    if (!VALID_ACTIONS.includes(inst.action)) {
+      result.valid = false;
+      result.errors.push({
+        line: index + 1,
+        code: ZairothErrorCode.UNKNOWN_KEYWORD,
+        message: `Unknown action: ${inst.action}`
+      });
+    }
+
+    const key = `${inst.intent}:${inst.action}:${inst.object}`;
+    if (!actionsByObject[key]) {
+      actionsByObject[key] = new Set();
+    }
+    
+    if (inst.state === 'XA' && (actionsByObject[key].has('VA') || actionsByObject[key].has('NA'))) {
+      result.valid = false;
+      result.errors.push({
+        line: index + 1,
+        code: ZairothErrorCode.CONFLICTING_RULES,
+        message: `Conflicting state for ${key}: XA cannot coexist with NA/VA`
+      });
+    }
+    
+    actionsByObject[key].add(inst.state);
+
+    if (inst.state === 'VA' && inst.certainty === 1.0) {
+      result.warnings.push({
+        line: index + 1,
+        message: `VA state with absolute certainty (•••) may be ambiguous`
+      });
+    }
+  });
+
+  return result;
 }
 
 /**

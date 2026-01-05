@@ -3,6 +3,7 @@ import { IndicatorCalculator, type Candle } from "./indicator-calculator";
 import { type StructuredStrategy } from "./strategy-service";
 import { StrategyEvaluator } from "./strategy-evaluator";
 import { processZairoth, evaluateSafety } from "@/lib/zairoth";
+import { brainAuditLogger } from "./brain-audit-logger";
 
 export class StrategyExecutionEngine {
   private static instance: StrategyExecutionEngine;
@@ -20,7 +21,6 @@ export class StrategyExecutionEngine {
   async start() {
     if (this.interval) return;
     
-    // Check active strategies every 1 minute
     this.interval = setInterval(() => this.processActiveStrategies(), 60 * 1000);
     console.log("[StrategyExecutionEngine] Started");
   }
@@ -50,18 +50,33 @@ export class StrategyExecutionEngine {
   }
 
     private async evaluateStrategy(strategy: any) {
-      // Phase 1: ZAIROTH Safety Check (XA Kill-Switches)
       if (strategy.zairoth_intent) {
         try {
           const zairoth = processZairoth(strategy.zairoth_intent);
-          const safety = evaluateSafety(zairoth.instructions, {
-            capitalUsed: 0, // In a real system, we'd fetch this from user's account
-            volatility: "medium" // This would come from real-time market data
+          
+          const { data: userCapital } = await supabaseAdmin
+            .from("trading_preferences")
+            .select("capital_used_percentage")
+            .eq("user_id", strategy.user_id)
+            .single();
+
+          const safetyContext = {
+            capitalUsed: userCapital?.capital_used_percentage || 0,
+            volatility: "medium"
+          };
+
+          const safety = evaluateSafety(zairoth.instructions, safetyContext);
+          
+          await brainAuditLogger.logSafetyCheck({
+            userId: strategy.user_id,
+            zairothIntent: strategy.zairoth_intent,
+            context: safetyContext,
+            result: safety,
+            sourceModule: "StrategyExecutionEngine",
           });
           
           if (safety.stop) {
             console.warn(`[ZAIROTH SAFETY] Kill-switch triggered for ${strategy.name}: ${safety.reason}`);
-            // Log the safety violation
             await supabaseAdmin.from("audit_logs").insert({
               action: "STRATEGY_SAFETY_STOP",
               entity_type: "strategy",
@@ -69,7 +84,19 @@ export class StrategyExecutionEngine {
               user_id: strategy.user_id,
               details: { reason: safety.reason, intent: strategy.zairoth_intent }
             });
-            return; // STOP EXECUTION
+            
+            await supabaseAdmin.from("brain_events").insert({
+              event_type: "EXECUTION_BLOCKED",
+              details: {
+                strategyId: strategy.id,
+                strategyName: strategy.name,
+                userId: strategy.user_id,
+                reason: safety.reason,
+              },
+              created_at: new Date().toISOString(),
+            });
+            
+            return;
           }
         } catch (e) {
           console.error(`[ZAIROTH] Safety evaluation failed for ${strategy.name}`, e);

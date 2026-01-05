@@ -123,6 +123,63 @@ export function validateZairothSafe(instructions: ZairothInstruction[]): Validat
   return result;
 }
 
+export interface VolatilityContext {
+  level: 'normal' | 'high' | 'extreme';
+  vix?: number;
+  atr?: number;
+}
+
+export function applyVolatilityGating(
+  instructions: ZairothInstruction[],
+  volatility: VolatilityContext
+): { 
+  gatedInstructions: ZairothInstruction[]; 
+  violations: Array<{ line: number; message: string; severity: 'warning' | 'error' }>;
+} {
+  const gatedInstructions: ZairothInstruction[] = [];
+  const violations: Array<{ line: number; message: string; severity: 'warning' | 'error' }> = [];
+
+  instructions.forEach((inst, index) => {
+    // Rule 1: High Volatility requires High Certainty (1.0) for execution intents (NA)
+    if (volatility.level === 'high' || volatility.level === 'extreme') {
+      if (inst.state === 'NA' && inst.certainty < 1.0) {
+        violations.push({
+          line: index + 1,
+          message: `Volatility Gating: Execution intent '${inst.intent}' requires absolute certainty (•••) during high/extreme volatility.`,
+          severity: 'error'
+        });
+        return; // Gated out
+      }
+    }
+
+    // Rule 2: Extreme Volatility invalidates specific intents (e.g., scalping or high-frequency targets)
+    if (volatility.level === 'extreme') {
+      const restrictedObjects = ['scalp', 'scalping', 'hft', 'quick-flip'];
+      if (restrictedObjects.some(obj => inst.object.toLowerCase().includes(obj))) {
+        violations.push({
+          line: index + 1,
+          message: `Volatility Gating: Intent '${inst.intent}' with object '${inst.object}' is restricted during extreme volatility.`,
+          severity: 'error'
+        });
+        return; // Gated out
+      }
+    }
+
+    // Rule 3: Warning for moderate volatility with medium certainty
+    if (volatility.level === 'high' && inst.certainty === 0.6) {
+      violations.push({
+        line: index + 1,
+        message: `Volatility Warning: Medium certainty (••) intent during high volatility. Proceed with caution.`,
+        severity: 'warning'
+      });
+    }
+
+    gatedInstructions.push(inst);
+  });
+
+  return { gatedInstructions, violations };
+}
+
 /**
  * Check if any instruction is a hard kill-switch (XA) that should stop execution.
  */

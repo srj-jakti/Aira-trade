@@ -1,21 +1,27 @@
 import { parseZairoth, ZairothInstruction } from './parser';
 import { validateZairoth, validateZairothSafe, checkHardKillSwitches, ValidationResult } from './validator';
-import { compileZairoth, CanonicalIntent } from './compiler';
+import { compileZairoth } from './compiler';
 import { ZairothError, ZairothErrorCode } from './errors';
+import { processZairothV2, ZairothResultV2 } from './v2';
 
 export * from './parser';
 export * from './validator';
 export * from './compiler';
 export * from './errors';
+export * from './v2';
 
 export interface ZairothResult {
   instructions: ZairothInstruction[];
-  canonical: CanonicalIntent[];
-  raw: string;
   validation: ValidationResult;
+  canonical: string;
+  version?: '1.0' | '2.0';
 }
 
-export function processZairoth(input: string): ZairothResult {
+export function processZairoth(input: string, version: '1.0' | '2.0' = '1.0'): ZairothResult | ZairothResultV2 {
+  if (version === '2.0') {
+    return processZairothV2(input);
+  }
+
   try {
     const instructions = parseZairoth(input);
     validateZairoth(instructions);
@@ -24,9 +30,9 @@ export function processZairoth(input: string): ZairothResult {
     
     return {
       instructions,
+      validation,
       canonical,
-      raw: input,
-      validation
+      version: '1.0'
     };
   } catch (error) {
     if (error instanceof ZairothError) {
@@ -39,9 +45,9 @@ export function processZairoth(input: string): ZairothResult {
   }
 }
 
-export function processZairothSafe(input: string): { success: true; result: ZairothResult } | { success: false; error: string; validation?: ValidationResult } {
+export function processZairothSafe(input: string, version: '1.0' | '2.0' = '1.0'): { success: true; result: ZairothResult | ZairothResultV2 } | { success: false; error: string; validation?: ValidationResult } {
   try {
-    const result = processZairoth(input);
+    const result = processZairoth(input, version);
     return { success: true, result };
   } catch (error) {
     if (error instanceof ZairothError) {

@@ -111,25 +111,32 @@ class SelfLearningEngine {
       .eq("pattern_hash", patternHash)
       .single();
 
-    if (existing) {
-      const totalOccurrences = existing.total_occurrences + 1;
-      const successCount = existing.success_count + (success ? 1 : 0);
-      const newAvgPnl = ((existing.avg_pnl * existing.total_occurrences) + (metrics.netPnl || metrics.pnl || 0)) / totalOccurrences;
-      const newAvgWinRate = ((existing.avg_win_rate * existing.total_occurrences) + (metrics.winRate || (success ? 100 : 0))) / totalOccurrences;
+      if (existing) {
+        const totalOccurrences = existing.total_occurrences + 1;
+        const successCount = existing.success_count + (success ? 1 : 0);
+        const newAvgPnl = ((existing.avg_pnl * existing.total_occurrences) + (metrics.netPnl || metrics.pnl || 0)) / totalOccurrences;
+        const newAvgWinRate = ((existing.avg_win_rate * existing.total_occurrences) + (metrics.winRate || (success ? 100 : 0))) / totalOccurrences;
+        const confidence = successCount / totalOccurrences;
 
-      await supabaseAdmin
-        .from("learning_patterns")
-        .update({
-          total_occurrences: totalOccurrences,
-          success_count: successCount,
-          failure_count: totalOccurrences - successCount,
-          avg_pnl: newAvgPnl,
-          avg_win_rate: newAvgWinRate,
-          confidence: successCount / totalOccurrences,
-          last_seen_at: new Date().toISOString(),
-        })
-        .eq("id", existing.id);
-    } else {
+        await supabaseAdmin
+          .from("learning_patterns")
+          .update({
+            total_occurrences: totalOccurrences,
+            success_count: successCount,
+            failure_count: totalOccurrences - successCount,
+            avg_pnl: newAvgPnl,
+            avg_win_rate: newAvgWinRate,
+            confidence: confidence,
+            last_seen_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+
+        // Auto-Immune: Check for rollback if confidence is too low after minimum threshold
+        if (totalOccurrences >= 3 && confidence < 0.4) {
+          await this.rollbackPattern(existing.id, patternHash, confidence, "Confidence dropped below 40% after 3+ occurrences");
+        }
+      } else {
+
       await supabaseAdmin.from("learning_patterns").insert({
         pattern_hash: patternHash,
         zairoth_pattern: pattern.slice(0, 500),
@@ -154,10 +161,37 @@ class SelfLearningEngine {
     return `pat_${Math.abs(hash).toString(36)}`;
   }
 
+  private async rollbackPattern(id: number, hash: string, confidence: number, reason: string): Promise<void> {
+    try {
+      await supabaseAdmin
+        .from("learning_patterns")
+        .update({
+          is_blacklisted: true,
+          blacklisted_at: new Date().toISOString(),
+          blacklist_reason: reason,
+        })
+        .eq("id", id);
+
+      await supabaseAdmin.from("brain_audit_logs").insert({
+        event_type: "PATTERN_ROLLBACK",
+        entity_type: "learning_pattern",
+        entity_id: id.toString(),
+        old_value: { confidence },
+        new_value: { is_blacklisted: true },
+        reason: reason,
+      });
+
+      console.log(`[SelfLearningEngine] Pattern ${hash} rolled back: ${reason}`);
+    } catch (error) {
+      console.error("[SelfLearningEngine] Rollback failed:", error);
+    }
+  }
+
   async getTopPatterns(limit: number = 10): Promise<PatternMetrics[]> {
     const { data } = await supabaseAdmin
       .from("learning_patterns")
       .select("*")
+      .eq("is_blacklisted", false) // AUTO-IMMUNE: Only return non-blacklisted patterns
       .gte("total_occurrences", 5)
       .order("confidence", { ascending: false })
       .order("total_occurrences", { ascending: false })
@@ -214,6 +248,21 @@ class SelfLearningEngine {
       });
     }
 
+    const { count: blacklistedCount } = await supabaseAdmin
+      .from("learning_patterns")
+      .select("*", { count: "exact", head: true })
+      .eq("is_blacklisted", true);
+
+    if (blacklistedCount && blacklistedCount > 0) {
+      insights.push({
+        type: "pattern",
+        description: `Auto-Immune system has blacklisted ${blacklistedCount} unstable patterns`,
+        confidence: 1.0,
+        evidence: [`Health check: Self-correction active`],
+        createdAt: new Date(),
+      });
+    }
+
     return insights;
   }
 
@@ -221,6 +270,7 @@ class SelfLearningEngine {
     totalObservations: number;
     successRate: number;
     patternsLearned: number;
+    blacklistedPatterns: number;
     topConfidencePattern: PatternMetrics | null;
   }> {
     const { count: totalObservations } = await supabaseAdmin
@@ -235,7 +285,13 @@ class SelfLearningEngine {
     const { count: patternsLearned } = await supabaseAdmin
       .from("learning_patterns")
       .select("*", { count: "exact", head: true })
+      .eq("is_blacklisted", false)
       .gte("total_occurrences", 3);
+
+    const { count: blacklistedPatterns } = await supabaseAdmin
+      .from("learning_patterns")
+      .select("*", { count: "exact", head: true })
+      .eq("is_blacklisted", true);
 
     const topPatterns = await this.getTopPatterns(1);
 
@@ -243,6 +299,7 @@ class SelfLearningEngine {
       totalObservations: totalObservations || 0,
       successRate: totalObservations ? ((successCount || 0) / totalObservations) * 100 : 0,
       patternsLearned: patternsLearned || 0,
+      blacklistedPatterns: blacklistedPatterns || 0,
       topConfidencePattern: topPatterns[0] || null,
     };
   }

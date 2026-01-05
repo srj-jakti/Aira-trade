@@ -52,25 +52,27 @@ export async function GET(request: NextRequest) {
       .from("intent_gateway_violations")
       .select("*", { count: "exact", head: true });
 
-    return successResponse({
-      brain: {
-        state: brainHealth.state,
-        uptime: brainHealth.uptime,
-        requestsProcessed: brainHealth.requestsProcessed,
-        errorsCount: brainHealth.errorsCount,
-        lastHeartbeat: brainHealth.lastHeartbeat,
-      },
-      aiKeys: aiKeyStatus,
-      learning: learningStats,
-      audit: {
-        ...auditStats,
-        gatewayLogsLast24h: gatewayLogsCount || 0,
-        totalViolations: gatewayViolationsCount || 0,
-      },
-      recentHeartbeats: recentHeartbeats || [],
-      recentEvents: recentEvents || [],
-      systemStatus: determineSystemStatus(brainHealth, aiKeyStatus, gatewayViolationsCount || 0),
-    });
+      return successResponse({
+        brain: {
+          state: brainHealth.state,
+          uptime: brainHealth.uptime,
+          requestsProcessed: brainHealth.requestsProcessed,
+          errorsCount: brainHealth.errorsCount,
+          lastHeartbeat: brainHealth.lastHeartbeat,
+          volatility: brainHealth.volatility,
+        },
+        aiKeys: aiKeyStatus,
+        learning: learningStats,
+        audit: {
+          ...auditStats,
+          gatewayLogsLast24h: gatewayLogsCount || 0,
+          totalViolations: gatewayViolationsCount || 0,
+        },
+        recentHeartbeats: recentHeartbeats || [],
+        recentEvents: recentEvents || [],
+        systemStatus: determineSystemStatus(brainHealth, aiKeyStatus, gatewayViolationsCount || 0),
+      });
+
   } catch (error) {
     console.error("[Admin Brain Health] Error:", error);
     return serverErrorResponse("Failed to fetch brain health");

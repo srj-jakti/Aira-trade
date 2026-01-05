@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt } from "@/lib/server/encryption";
 import crypto from "crypto";
 import { getToolsForAIContext, getRandomArchetype, STRATEGY_ARCHETYPES, TRADING_TOOLS } from "@/lib/trading-tools";
-import { processZairoth, evaluateSafety, ZairothResult } from "@/lib/zairoth";
+import { processZairoth, evaluateSafety, ZairothResult, applyVolatilityGating, VolatilityContext } from "@/lib/zairoth";
 
 export type BrainState = "IDLE" | "ACTIVE" | "PROCESSING" | "SHUTDOWN";
 
@@ -12,6 +12,7 @@ export interface BrainHeartbeat {
   uptime: number;
   requestsProcessed: number;
   errorsCount: number;
+  volatility?: VolatilityContext;
 }
 
 export interface AIConfig {
@@ -54,6 +55,7 @@ class AiraBrain {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private requestsProcessed: number = 0;
   private errorsCount: number = 0;
+  private volatility: VolatilityContext = { level: "normal" };
   private readonly HEARTBEAT_INTERVAL_MS = 30000;
   private requestQueue: Map<string, Promise<AIAnalysisResult>> = new Map();
 
@@ -111,6 +113,7 @@ class AiraBrain {
       uptime: this.getUptime(),
       requestsProcessed: this.requestsProcessed,
       errorsCount: this.errorsCount,
+      volatility: this.volatility,
     };
 
     try {
@@ -119,6 +122,9 @@ class AiraBrain {
         uptime_seconds: heartbeat.uptime,
         requests_processed: heartbeat.requestsProcessed,
         errors_count: heartbeat.errorsCount,
+        volatility_level: heartbeat.volatility?.level || "normal",
+        vix_value: heartbeat.volatility?.vix,
+        atr_value: heartbeat.volatility?.atr,
         created_at: heartbeat.lastHeartbeat.toISOString(),
       });
     } catch (error) {
@@ -142,7 +148,14 @@ class AiraBrain {
       uptime: this.getUptime(),
       requestsProcessed: this.requestsProcessed,
       errorsCount: this.errorsCount,
+      volatility: this.volatility,
     };
+  }
+
+  setVolatility(level: 'normal' | 'high' | 'extreme', vix?: number, atr?: number): void {
+    this.volatility = { level, vix, atr };
+    this.logEvent("VOLATILITY_CHANGE", { level, vix, atr });
+    this.emitHeartbeat(); // Force heartbeat update on change
   }
 
   private async logEvent(event: string, details: Record<string, unknown>): Promise<void> {
@@ -403,6 +416,63 @@ class AiraBrain {
       result: data.choices[0]?.message?.content,
       tokensUsed: data.usage?.total_tokens || 0,
     };
+  }
+
+  async generateEmbedding(text: string): Promise<number[]> {
+    const config = await this.getActiveConfig(); // Default to active config, assuming it's OpenAI-compatible
+    if (!config || config.provider !== 'openai') {
+      // If no OpenAI config, we might need a fallback or specific embedding config
+      const { data: embeddingConfigs } = await supabaseAdmin
+        .from("admin_ai_configs")
+        .select("*")
+        .eq("provider", "openai")
+        .eq("is_active", true)
+        .limit(1);
+      
+      if (!embeddingConfigs?.[0]) throw new Error("No OpenAI config found for embeddings");
+      var embeddingConfig = embeddingConfigs[0];
+    } else {
+      var embeddingConfig = config;
+    }
+
+    const apiKey = decrypt(embeddingConfig.api_key);
+    const response = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "text-embedding-3-small",
+        input: text,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || "Embedding API error");
+    }
+
+    const data = await response.json();
+    return data.data[0].embedding;
+  }
+
+  async retrieveSemanticMemory(text: string, userId: string, limit: number = 3): Promise<any[]> {
+    try {
+      const embedding = await this.generateEmbedding(text);
+      const { data, error } = await supabaseAdmin.rpc("match_memory", {
+        query_embedding: embedding,
+        match_threshold: 0.5,
+        match_count: limit,
+        p_user_id: userId
+      });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("[AiraBrain] Semantic retrieval failed:", error);
+      return [];
+    }
   }
 
   async executeAnalysis(
@@ -673,27 +743,34 @@ Invalidate ONLY IF: Candle closes beyond invalidation zone, Market regime change
     context: string = "",
     userId?: string
   ): Promise<AIAnalysisResult & { zairoth?: ZairothResult }> {
+    const memories = userId ? await this.retrieveSemanticMemory(userInput, userId) : [];
+    const memoryContext = memories.length > 0 
+      ? `\n🧠 RELEVANT PAST EXPERIENCES (Read-Only Context):
+${memories.map(m => `- ${m.key}: ${JSON.stringify(m.value)}`).join('\n')}
+(Use these to avoid past mistakes and follow successful patterns. Never create new intents based on these alone.)`
+      : "";
+
     const systemPrompt = `ROLE:
 You are an internal Aira AI intent generator. Your job is to convert user natural language into ZAIROTH v1.0, a deterministic intent DSL.
 
 🧠 ZAIROTH RULES (v1.0)
 1. Core Structure: [STATE] [INTENT] [ACTION] [OBJECT] [CONTEXT] [CERTAINTY]
 2. State Markers:
-   RA → Known / factual (past data, confirmed events)
-   NA → Active / executable now (ready to execute)
-   VA → Intended / optional (user wants but uncertain)
-   XA → Prohibited / hard stop (must never happen)
+RA → Known / factual (past data, confirmed events)
+NA → Active / executable now (ready to execute)
+VA → Intended / optional (user wants but uncertain)
+XA → Prohibited / hard stop (must never happen)
 3. Certainty Encoding:
-   • → low confidence (0.3) - uncertain, needs confirmation
-   •• → high confidence (0.8) - likely correct
-   ••• → absolute / non-negotiable (1.0) - must be exact
+• → low confidence (0.3) - uncertain, needs confirmation
+•• → high confidence (0.8) - likely correct
+••• → absolute / non-negotiable (1.0) - must be exact
 4. Requirements:
-   - One instruction per line
-   - No natural language filler
-   - Use VA if unsure about user intent
-   - Assign CERTAINTY to EVERY line
-   - Never use NA with • (dangerous)
-   - Never use VA with ••• (ambiguous)
+- One instruction per line
+- No natural language filler
+- Use VA if unsure about user intent
+- Assign CERTAINTY to EVERY line
+- Never use NA with • (dangerous)
+- Never use VA with ••• (ambiguous)
 
 VALID INTENTS: trade-buy, trade-sell, signal, market-condition, risk-param, capital-rule, strategy-create, strategy-update, backtest-run
 VALID ACTIONS: Lun, condition, alert, set, restrict, create, update, execute
@@ -712,9 +789,10 @@ ZAIROTH:
 XA trade-buy restrict all capital:50 •••
 XA trade-sell restrict all capital:50 •••
 
-${context}
+${context}${memoryContext}
 
 Generate ONLY the ZAIROTH lines. No explanations. No markdown. No code blocks.`;
+
 
     const messages = [
       { role: "system", content: systemPrompt },
@@ -726,21 +804,35 @@ Generate ONLY the ZAIROTH lines. No explanations. No markdown. No code blocks.`;
       skipCache: true,
     });
 
-    if (result.success && typeof result.result === "string") {
-      try {
-        const zairoth = processZairoth(result.result);
-        
-        await this.logZairothIntent(
-          userInput,
-          result.result,
-          zairoth.validation,
-          zairoth.canonical,
-          "success",
-          undefined
-        );
-        
-        return { ...result, zairoth };
-      } catch (error: unknown) {
+      if (result.success && typeof result.result === "string") {
+        try {
+          let zairoth = processZairoth(result.result);
+          
+          // Apply Volatility Gating
+          const gating = applyVolatilityGating(zairoth.instructions, this.volatility);
+          
+          await this.logZairothIntent(
+            userInput,
+            result.result,
+            { 
+              ...zairoth.validation, 
+              volatility_gating: gating.violations,
+              gated_count: zairoth.instructions.length - gating.gatedInstructions.length
+            },
+            gating.gatedInstructions, // Log gated instructions as canonical if needed, or keeping it as is
+            gating.violations.some(v => v.severity === 'error') ? "gated" : "success",
+            undefined
+          );
+
+          // Update zairoth object with gated instructions
+          zairoth = {
+            ...zairoth,
+            instructions: gating.gatedInstructions,
+          };
+          
+          return { ...result, zairoth };
+        } catch (error: unknown) {
+
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         
         await this.logZairothIntent(

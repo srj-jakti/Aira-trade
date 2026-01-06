@@ -24,6 +24,8 @@ export interface StructuredStrategy {
   name: string;
   description: string;
   strategy_type?: "SWING" | "INTRADAY" | "SCALPING" | "OPTIONS";
+  creation_mode?: "TRADITIONAL" | "AI_POWERED" | "AI_ASSISTED";
+  intelligence_profile?: any;
   buy_entry_logic: StrategyLogic;
   buy_stop_loss: StrategyLogic;
   buy_target: StrategyLogic;
@@ -1641,6 +1643,8 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
           name: strategy.name,
           description: strategy.description,
           raw_input: rawInput,
+          creation_mode: strategy.creation_mode || "TRADITIONAL",
+          intelligence_profile: strategy.intelligence_profile || null,
           buy_entry_logic: strategy.buy_entry_logic,
           buy_stop_loss: strategy.buy_stop_loss,
           buy_target: strategy.buy_target,

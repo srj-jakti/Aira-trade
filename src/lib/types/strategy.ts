@@ -103,6 +103,12 @@ export interface VolumeRule {
   averagePeriod?: number;
 }
 
+export interface AIInferenceRule {
+  type: "ai_inference";
+  intent: string;
+  confidence_threshold: number;
+}
+
 export type StrategyRule =
   | IndicatorRule
   | PriceVsIndicatorRule
@@ -110,7 +116,8 @@ export type StrategyRule =
   | TrendRule
   | PatternRule
   | PriceActionRule
-  | VolumeRule;
+  | VolumeRule
+  | AIInferenceRule;
 
 export interface RuleSet {
   logic: RuleLogic;
@@ -124,12 +131,21 @@ export interface ExitParameters {
 }
 
 export type StrategyType = "SWING" | "INTRADAY" | "SCALPING" | "OPTIONS";
+export type CreationMode = "TRADITIONAL" | "AI_POWERED" | "AI_ASSISTED";
+
+export interface IntelligenceProfile {
+  focus_areas: string[];
+  risk_bias: "CONSERVATIVE" | "MODERATE" | "AGGRESSIVE";
+  market_context?: string;
+}
 
 export interface ExecutableStrategy {
   name: string;
   description: string;
   version: number;
   strategyType?: StrategyType;
+  creationMode?: CreationMode;
+  intelligenceProfile?: IntelligenceProfile;
   
   buy: RuleSet;
   sell: RuleSet;
@@ -280,11 +296,15 @@ export function validateStrategy(strategy: ExecutableStrategy): { valid: boolean
       case "price_action":
         if (!rule.action) errors.push(`${context}: Action type is required`);
         break;
-      case "volume":
-        if (!rule.operator) errors.push(`${context}: Operator is required`);
-        break;
-    }
-  };
+        case "volume":
+          if (!rule.operator) errors.push(`${context}: Operator is required`);
+          break;
+        case "ai_inference":
+          if (!rule.intent) errors.push(`${context}: Intent is required`);
+          if (rule.confidence_threshold === undefined) errors.push(`${context}: Confidence threshold is required`);
+          break;
+      }
+    };
   
   strategy.buy?.rules?.forEach((rule, i) => validateRule(rule, `BUY rule ${i + 1}`));
   strategy.sell?.rules?.forEach((rule, i) => validateRule(rule, `SELL rule ${i + 1}`));

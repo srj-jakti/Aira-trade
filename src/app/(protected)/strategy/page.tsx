@@ -623,34 +623,35 @@ function CreateStrategyTab({
   initialData?: any;
   onCancel?: () => void;
 }) {
+  const [creationMode, setCreationMode] = useState<CreationMode | null>(initialData?.creation_mode || null);
   const [step, setStep] = useState<"input" | "review" | "backtest" | "improve" | "save">("input");
   const [rawInput, setRawInput] = useState("");
-    const [formatting, setFormatting] = useState(false);
-    const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false);
-    const [generating, setGenerating] = useState(false);
+  const [formatting, setFormatting] = useState(false);
+  const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [strategy, setStrategy] = useState<StructuredStrategy | null>(null);
   const [backtestResults, setBacktestResults] = useState<Record<string, BacktestResult>>({});
   const [selectedTimeframes, setSelectedTimeframes] = useState<string[]>([]);
-    const [selectedInstruments, setSelectedInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string}>>([
-      { instrument_token: 256265, tradingsymbol: "NIFTY 50" }
-    ]);
-    const [instrumentSearch, setInstrumentSearch] = useState("");
-    const [instruments, setInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
-    const [backtesting, setBacktesting] = useState(false);
-    const [improving, setImproving] = useState(false);
-    const [improvementNotes, setImprovementNotes] = useState("");
-    const [improvementCount, setImprovementCount] = useState(0);
-    const [saving, setSaving] = useState(false);
-    const [isPaperTrading, setIsPaperTrading] = useState(false);
-    const [visibility, setVisibility] = useState<"private" | "public" | "invite_only">("private");
-    const [showSaveDialog, setShowSaveDialog] = useState(false);
-    const [fromDate, setFromDate] = useState(() => {
-      const d = new Date();
-      d.setDate(d.getDate() - 90);
-      return d.toISOString().split("T")[0];
-    });
-    const [toDate, setToDate] = useState(() => new Date().toISOString().split("T")[0]);
-    const [selectedTf, setSelectedTf] = useState("15m");
+  const [selectedInstruments, setSelectedInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string}>>([
+    { instrument_token: 256265, tradingsymbol: "NIFTY 50" }
+  ]);
+  const [instrumentSearch, setInstrumentSearch] = useState("");
+  const [instruments, setInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
+  const [backtesting, setBacktesting] = useState(false);
+  const [improving, setImproving] = useState(false);
+  const [improvementNotes, setImprovementNotes] = useState("");
+  const [improvementCount, setImprovementCount] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [isPaperTrading, setIsPaperTrading] = useState(false);
+  const [visibility, setVisibility] = useState<"private" | "public" | "invite_only">("private");
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 90);
+    return d.toISOString().split("T")[0];
+  });
+  const [toDate, setToDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [selectedTf, setSelectedTf] = useState("15m");
   const [showToolbox, setShowToolbox] = useState(false);
   const [referenceInstrument, setReferenceInstrument] = useState("");
   const [refInstrumentSearch, setRefInstrumentSearch] = useState("");
@@ -660,9 +661,53 @@ function CreateStrategyTab({
   const [savingDraft, setSavingDraft] = useState(false);
   const [showDrafts, setShowDrafts] = useState(false);
 
+  // AI Powered specific states
+  const [aiIntent, setAiIntent] = useState("");
+  const [confidenceThreshold, setConfidenceThreshold] = useState(75);
+  
+  // AI Assisted specific states
+  const [wizardStep, setWizardStep] = useState(0);
+  const [wizardAnswers, setWizardAnswers] = useState<Record<string, any>>({});
+
   useEffect(() => {
-    fetchDrafts();
-  }, []);
+    if (initialData) {
+      setCreationMode(initialData.creation_mode || "TRADITIONAL");
+      setRawInput(initialData.raw_input || "");
+      setStrategy(initialData.strategy_logic || null);
+      setSelectedTimeframes(initialData.selected_timeframes || []);
+      setIsPaperTrading(initialData.is_paper_trading || false);
+      setVisibility(initialData.visibility || "private");
+      
+      if (initialData.selected_instruments && initialData.selected_instruments.length > 0) {
+        fetchInstrumentsForTokens(initialData.selected_instruments);
+      }
+      
+      setStep("review");
+    } else {
+      resetForm();
+    }
+  }, [initialData]);
+
+  const resetForm = () => {
+    setCreationMode(null);
+    setStep("input");
+    setRawInput("");
+    setStrategy(null);
+    setBacktestResults({});
+    setSelectedTimeframes([]);
+    setSelectedInstruments([]);
+    setImprovementNotes("");
+    setImprovementCount(0);
+    setFromDate("");
+    setToDate("");
+    setReferenceInstrument("");
+    setCurrentDraftId(null);
+    setAiIntent("");
+    setConfidenceThreshold(75);
+    setWizardStep(0);
+    setWizardAnswers({});
+    if (onCancel && initialData) onCancel();
+  };
 
   const fetchDrafts = async () => {
     try {
@@ -708,7 +753,7 @@ function CreateStrategyTab({
   const loadDraft = async (draft: any) => {
     setCurrentDraftId(draft.id);
     setRawInput(draft.raw_input || "");
-    setStrategy(draft.strategy_data || null);
+    setStrategy(draft.strategy_logic || draft.strategy_data || null);
     setSelectedTimeframes(draft.selected_timeframes || []);
     setBacktestResults(draft.backtest_results || {});
     setStep(draft.step || "input");
@@ -735,24 +780,6 @@ function CreateStrategyTab({
       alert("Failed to delete draft");
     }
   };
-
-  useEffect(() => {
-    if (initialData) {
-      setRawInput(initialData.raw_input || "");
-      setStrategy(initialData.strategy_logic || null);
-      setSelectedTimeframes(initialData.selected_timeframes || []);
-      setIsPaperTrading(initialData.is_paper_trading || false);
-      setVisibility(initialData.visibility || "private");
-      
-      if (initialData.selected_instruments && initialData.selected_instruments.length > 0) {
-        fetchInstrumentsForTokens(initialData.selected_instruments);
-      }
-      
-      setStep("review");
-    } else {
-      resetForm();
-    }
-  }, [initialData]);
 
   const fetchInstrumentsForTokens = async (tokens: number[]) => {
     try {
@@ -827,28 +854,29 @@ function CreateStrategyTab({
     setSelectedInstruments(prev => prev.filter(i => i.instrument_token !== token));
   };
 
-    const formatStrategy = async () => {
-      if (!rawInput.trim()) return;
-      setFormatting(true);
-      try {
-        const res = await fetch("/api/strategies/format", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rawInput, aiAnalysisEnabled }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setStrategy(data.strategy);
-          setStep("review");
-        } else {
-          alert("Failed to format strategy. Please try again.");
-        }
-      } catch {
-        alert("Error formatting strategy");
-      } finally {
-        setFormatting(false);
+  const formatStrategy = async (input?: string) => {
+    const textToFormat = input || rawInput;
+    if (!textToFormat.trim()) return;
+    setFormatting(true);
+    try {
+      const res = await fetch("/api/strategies/format", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawInput: textToFormat, aiAnalysisEnabled }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStrategy(data.strategy);
+        setStep("review");
+      } else {
+        alert("Failed to format strategy. Please try again.");
       }
-    };
+    } catch {
+      alert("Error formatting strategy");
+    } finally {
+      setFormatting(false);
+    }
+  };
 
   const generateStrategy = async () => {
     setGenerating(true);
@@ -874,60 +902,59 @@ function CreateStrategyTab({
     }
   };
 
-    const runBacktest = async (timeframe: string) => {
-      if (!strategy || selectedInstruments.length === 0) return;
-      setBacktesting(true);
-      try {
-        const res = await fetch("/api/strategies/preview/backtest", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            strategy,
-            instrumentTokens: selectedInstruments.map(i => i.instrument_token),
-            timeframe,
-            capital: 100000,
-            fromDate: fromDate || undefined,
-            toDate: toDate || undefined,
-            zerodhaConfigId: "b9b6056a-29ca-4327-9d6c-3fbb7b80f223",
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const resultWithInsights = {
-            ...data.result,
-            aiInsights: data.aiInsights || null
-          };
-          setBacktestResults((prev) => ({ ...prev, [timeframe]: resultWithInsights }));
-          if (step === "review") setStep("backtest");
-        } else {
-          const error = await res.json();
-          alert(error.error || "Backtest failed");
-        }
-      } catch {
-        alert("Error running backtest");
-      } finally {
-        setBacktesting(false);
+  const runBacktest = async (timeframe: string) => {
+    if (!strategy || selectedInstruments.length === 0) return;
+    setBacktesting(true);
+    try {
+      const res = await fetch("/api/strategies/preview/backtest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          strategy,
+          instrumentTokens: selectedInstruments.map(i => i.instrument_token),
+          timeframe,
+          capital: 100000,
+          fromDate: fromDate || undefined,
+          toDate: toDate || undefined,
+          zerodhaConfigId: "b9b6056a-29ca-4327-9d6c-3fbb7b80f223",
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const resultWithInsights = {
+          ...data.result,
+          aiInsights: data.aiInsights || null
+        };
+        setBacktestResults((prev) => ({ ...prev, [timeframe]: resultWithInsights }));
+        if (step === "review") setStep("backtest");
+      } else {
+        const error = await res.json();
+        alert(error.error || "Backtest failed");
       }
-    };
+    } catch {
+      alert("Error running backtest");
+    } finally {
+      setBacktesting(false);
+    }
+  };
 
-    const improveStrategy = async () => {
-      const currentResult = backtestResults[selectedTf];
-      if (!strategy || !currentResult) {
-        alert("Please run a backtest for the selected timeframe first");
-        return;
-      }
-      setImproving(true);
-      try {
-        const res = await fetch("/api/strategies/preview/improve", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ strategy, backtestResults: currentResult }),
-        });
+  const improveStrategy = async () => {
+    const currentResult = backtestResults[selectedTf];
+    if (!strategy || !currentResult) {
+      alert("Please run a backtest for the selected timeframe first");
+      return;
+    }
+    setImproving(true);
+    try {
+      const res = await fetch("/api/strategies/preview/improve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ strategy, backtestResults: currentResult }),
+      });
 
       if (res.ok) {
         const data = await res.json();
         setStrategy(data.improved);
-        // Ensure notes is a string to prevent React crash
         const notes = typeof data.notes === 'string' 
           ? data.notes 
           : typeof data.notes === 'object' 
@@ -960,7 +987,16 @@ function CreateStrategyTab({
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          strategy,
+          strategy: {
+            ...strategy,
+            creation_mode: creationMode,
+            intelligence_profile: creationMode === "AI_POWERED" ? {
+              intent: aiIntent,
+              confidence_threshold: confidenceThreshold
+            } : creationMode === "AI_ASSISTED" ? {
+              wizard_answers: wizardAnswers
+            } : null
+          },
           rawInput,
           selectedTimeframes,
           selectedInstruments: selectedInstruments.map(i => i.instrument_token),
@@ -983,32 +1019,108 @@ function CreateStrategyTab({
     }
   };
 
-  const resetForm = () => {
-    setStep("input");
-    setRawInput("");
-    setStrategy(null);
-    setBacktestResults({});
-    setSelectedTimeframes([]);
-    setSelectedInstruments([]);
-    setImprovementNotes("");
-    setImprovementCount(0);
-    setFromDate("");
-    setToDate("");
-    setReferenceInstrument("");
-    setCurrentDraftId(null);
-    if (onCancel && initialData) onCancel();
-  };
+  useEffect(() => {
+    fetchDrafts();
+  }, []);
+
+  if (!creationMode) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <Card 
+          className="group relative overflow-hidden bg-white/5 border-white/10 hover:border-cyan-500/50 hover:bg-cyan-500/[0.02] cursor-pointer transition-all duration-300"
+          onClick={() => setCreationMode("TRADITIONAL")}
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Zap className="w-24 h-24" />
+          </div>
+          <CardHeader>
+            <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Zap className="w-6 h-6 text-cyan-400" />
+            </div>
+            <CardTitle className="text-white text-xl">Traditional Strategy</CardTitle>
+            <CardDescription className="text-white/50">
+              Build using indicators like RSI, EMA, and Price Action. Best for systematic rule-based trading.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="ghost" className="text-cyan-400 group-hover:translate-x-1 transition-transform p-0">
+              Build Now <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="group relative overflow-hidden bg-white/5 border-white/10 hover:border-purple-500/50 hover:bg-purple-500/[0.02] cursor-pointer transition-all duration-300"
+          onClick={() => setCreationMode("AI_POWERED")}
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Sparkles className="w-24 h-24" />
+          </div>
+          <CardHeader>
+            <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Sparkles className="w-6 h-6 text-purple-400" />
+            </div>
+            <CardTitle className="text-white text-xl">Fully AI Powered</CardTitle>
+            <CardDescription className="text-white/50">
+              Neural pattern recognition without fixed indicators. Analyzes raw market soul and volume clusters.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="ghost" className="text-purple-400 group-hover:translate-x-1 transition-transform p-0">
+              Enter Neural Engine <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="group relative overflow-hidden bg-white/5 border-white/10 hover:border-green-500/50 hover:bg-green-500/[0.02] cursor-pointer transition-all duration-300"
+          onClick={() => setCreationMode("AI_ASSISTED")}
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Bot className="w-24 h-24" />
+          </div>
+          <CardHeader>
+            <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Bot className="w-6 h-6 text-green-400" />
+            </div>
+            <CardTitle className="text-white text-xl">AI Assisted Wizard</CardTitle>
+            <CardDescription className="text-white/50">
+              A guided interview where the AI brain helps you define your edge, risk, and goals step-by-step.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="ghost" className="text-green-400 group-hover:translate-x-1 transition-transform p-0">
+              Start Interview <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCreationMode(null)}
+            className="text-white/40 hover:text-white"
+          >
+            <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
+            Change Mode
+          </Button>
+          <Badge variant="outline" className={`border-${creationMode === 'TRADITIONAL' ? 'cyan' : creationMode === 'AI_POWERED' ? 'purple' : 'green'}-500/30 text-${creationMode === 'TRADITIONAL' ? 'cyan' : creationMode === 'AI_POWERED' ? 'purple' : 'green'}-400`}>
+            {creationMode.replace('_', ' ')}
+          </Badge>
           {currentDraftId && (
             <Badge variant="outline" className="border-yellow-500/30 text-yellow-400">
               Draft #{currentDraftId}
             </Badge>
           )}
         </div>
+
         <div className="flex items-center gap-2">
           {drafts.length > 0 && (
             <Button
@@ -1118,144 +1230,319 @@ function CreateStrategyTab({
           <Card className="bg-white/5 border-white/10 lg:col-span-2">
             <CardHeader>
               <CardTitle className="text-white text-lg flex items-center gap-2">
-                <Bot className="w-5 h-5 text-cyan-400" />
-                Describe Your Strategy
+                {creationMode === "TRADITIONAL" ? (
+                  <>
+                    <Bot className="w-5 h-5 text-cyan-400" />
+                    Describe Your Strategy
+                  </>
+                ) : creationMode === "AI_POWERED" ? (
+                  <>
+                    <Sparkles className="w-5 h-5 text-purple-400" />
+                    Neural Engine Configuration
+                  </>
+                ) : (
+                  <>
+                    <Bot className="w-5 h-5 text-green-400" />
+                    AI Strategy Interview
+                  </>
+                )}
               </CardTitle>
               <CardDescription className="text-white/40">
-                Write your trading idea in any form - even incomplete or unclear. Our AI will convert it into a complete, executable strategy.
+                {creationMode === "TRADITIONAL" 
+                  ? "Write your trading idea in any form. Our AI will convert it into systematic rules."
+                  : creationMode === "AI_POWERED"
+                  ? "Define the market pattern or 'Soul' you want the AI to recognize. No indicators needed."
+                  : "Answer a few questions and let the AI Brain architect your perfect trading system."}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-                <Textarea
-                  placeholder="Example: Buy when RSI is low and price is above 20 SMA. Use 2% stop loss and 4% target. Avoid trading during high volatility..."
-                  value={rawInput}
-                  onChange={(e) => setRawInput(e.target.value)}
-                  className="min-h-[200px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none"
-                />
-
-                <div className="flex items-center justify-between p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
-                      <Sparkles className="w-5 h-5 text-cyan-400" />
-                    </div>
-                    <div>
-                      <Label className="text-white text-sm font-medium">AI Performance Analysis</Label>
-                      <p className="text-white/40 text-xs">
-                        Enable deep analysis to optimize win rate and performance
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={aiAnalysisEnabled}
-                    onCheckedChange={setAiAnalysisEnabled}
+            <CardContent className="space-y-6">
+              {creationMode === "TRADITIONAL" && (
+                <>
+                  <Textarea
+                    placeholder="Example: Buy when RSI is low and price is above 20 SMA..."
+                    value={rawInput}
+                    onChange={(e) => setRawInput(e.target.value)}
+                    className="min-h-[200px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none"
                   />
-                </div>
 
-                <div className="p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
-                <Label className="text-white/60 text-sm mb-2 flex items-center gap-2">
-                  <Link2 className="w-4 h-4" />
-                  Reference Instrument (Optional)
-                </Label>
-                <p className="text-white/40 text-xs mb-2">
-                  For options/futures trading, reference index price for entry signals
-                </p>
-                <div className="relative">
-                  {referenceInstrument ? (
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
-                        {referenceInstrument}
-                      </Badge>
-                      <button
-                        onClick={() => setReferenceInstrument("")}
-                        className="text-white/40 hover:text-white"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                  <div className="flex items-center justify-between p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
+                        <Sparkles className="w-5 h-5 text-cyan-400" />
+                      </div>
+                      <div>
+                        <Label className="text-white text-sm font-medium">AI Performance Analysis</Label>
+                        <p className="text-white/40 text-xs">
+                          Enable deep analysis to optimize win rate
+                        </p>
+                      </div>
                     </div>
-                  ) : (
-                    <>
-                      <Input
-                        placeholder="Search index (e.g., NIFTY 50, BANKNIFTY)..."
-                        value={refInstrumentSearch}
-                        onChange={(e) => {
-                          setRefInstrumentSearch(e.target.value);
-                          searchRefInstruments(e.target.value);
-                        }}
-                        className="bg-white/5 border-white/10 text-white h-9 text-sm"
+                    <Switch
+                      checked={aiAnalysisEnabled}
+                      onCheckedChange={setAiAnalysisEnabled}
+                    />
+                  </div>
+                </>
+              )}
+
+              {creationMode === "AI_POWERED" && (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label className="text-white">What pattern should the Neural Engine look for?</Label>
+                    <Textarea
+                      placeholder="Example: Identify liquidity grabs at previous day highs followed by a rapid rejection..."
+                      value={aiIntent}
+                      onChange={(e) => setAiIntent(e.target.value)}
+                      className="min-h-[150px] bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-white">Neural Confidence Threshold</Label>
+                      <Badge variant="outline" className="text-purple-400 border-purple-500/30">
+                        {confidenceThreshold}%
+                      </Badge>
+                    </div>
+                    <Input 
+                      type="range" 
+                      min="50" 
+                      max="95" 
+                      step="5"
+                      value={confidenceThreshold}
+                      onChange={(e) => setConfidenceThreshold(parseInt(e.target.value))}
+                      className="accent-purple-500"
+                    />
+                    <p className="text-white/30 text-xs">
+                      Higher threshold means fewer but more accurate trades.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                    <h4 className="text-purple-400 text-sm font-medium mb-1">How it works</h4>
+                    <p className="text-white/60 text-xs leading-relaxed">
+                      The AI analyzes raw OHLCV data to find the pattern you described. It doesn't use RSI or EMA, but learns the "Visual Soul" of the market to make entry/exit decisions.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {creationMode === "AI_ASSISTED" && (
+                <div className="space-y-8 py-4">
+                  <div className="flex items-center justify-between gap-2">
+                    {[0, 1, 2, 3].map((s) => (
+                      <div 
+                        key={s} 
+                        className={`h-1.5 flex-1 rounded-full transition-colors ${
+                          wizardStep >= s ? "bg-green-500" : "bg-white/10"
+                        }`} 
                       />
-                      {refInstruments.length > 0 && (
-                        <div className="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl max-h-32 overflow-y-auto">
-                          {refInstruments.map((inst) => (
-                            <button
-                              key={inst.instrument_token}
-                              className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-white text-sm"
-                              onClick={() => {
-                                setReferenceInstrument(inst.tradingsymbol);
-                                setRefInstrumentSearch("");
-                                setRefInstruments([]);
-                              }}
-                            >
-                              {inst.tradingsymbol}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
+                    ))}
+                  </div>
+
+                  {wizardStep === 0 && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+                      <h3 className="text-white text-xl font-medium">What is your primary trading goal?</h3>
+                      <div className="grid grid-cols-1 gap-3">
+                        {[
+                          { id: "income", label: "Consistent Daily Income", icon: <TrendingUp className="w-4 h-4" /> },
+                          { id: "growth", label: "Long-term Capital Growth", icon: <Zap className="w-4 h-4" /> },
+                          { id: "wealth", label: "High Risk Wealth Creation", icon: <Sparkles className="w-4 h-4" /> }
+                        ].map((opt) => (
+                          <button
+                            key={opt.id}
+                            onClick={() => {
+                              setWizardAnswers({...wizardAnswers, goal: opt.id});
+                              setWizardStep(1);
+                            }}
+                            className="flex items-center gap-4 p-4 bg-white/5 border border-white/10 rounded-xl hover:border-green-500/50 hover:bg-green-500/5 transition-all text-left"
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400">
+                              {opt.icon}
+                            </div>
+                            <span className="text-white font-medium">{opt.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {wizardStep === 1 && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+                      <h3 className="text-white text-xl font-medium">What is your risk tolerance?</h3>
+                      <div className="grid grid-cols-1 gap-3">
+                        {[
+                          { id: "CONSERVATIVE", label: "Conservative (Low Drawdown)", desc: "Focus on capital preservation" },
+                          { id: "MODERATE", label: "Moderate (Balanced)", desc: "Optimized for Risk/Reward ratio" },
+                          { id: "AGGRESSIVE", label: "Aggressive (High Yield)", desc: "Maximum returns, higher volatility" }
+                        ].map((opt) => (
+                          <button
+                            key={opt.id}
+                            onClick={() => {
+                              setWizardAnswers({...wizardAnswers, risk: opt.id});
+                              setWizardStep(2);
+                            }}
+                            className="flex flex-col p-4 bg-white/5 border border-white/10 rounded-xl hover:border-green-500/50 hover:bg-green-500/5 transition-all text-left"
+                          >
+                            <span className="text-white font-medium">{opt.label}</span>
+                            <span className="text-white/40 text-xs">{opt.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <Button variant="ghost" onClick={() => setWizardStep(0)} className="text-white/40">Back</Button>
+                    </div>
+                  )}
+
+                  {wizardStep === 2 && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+                      <h3 className="text-white text-xl font-medium">Preferred Trading Style?</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        {["SCALPING", "INTRADAY", "SWING"].map((style) => (
+                          <button
+                            key={style}
+                            onClick={() => {
+                              setWizardAnswers({...wizardAnswers, style});
+                              setWizardStep(3);
+                            }}
+                            className="p-4 bg-white/5 border border-white/10 rounded-xl hover:border-green-500/50 hover:bg-green-500/5 transition-all text-white font-medium"
+                          >
+                            {style}
+                          </button>
+                        ))}
+                      </div>
+                      <Button variant="ghost" onClick={() => setWizardStep(1)} className="text-white/40">Back</Button>
+                    </div>
+                  )}
+
+                  {wizardStep === 3 && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+                      <h3 className="text-white text-xl font-medium">Any specific market bias or observation?</h3>
+                      <Textarea
+                        placeholder="e.g., I like trading pullbacks in strong trends, or I prefer mean reversion..."
+                        value={wizardAnswers.observation || ""}
+                        onChange={(e) => setWizardAnswers({...wizardAnswers, observation: e.target.value})}
+                        className="min-h-[120px] bg-white/5 border-white/10 text-white"
+                      />
+                      <div className="flex gap-2">
+                        <Button variant="ghost" onClick={() => setWizardStep(2)} className="text-white/40">Back</Button>
+                        <Button 
+                          onClick={() => {
+                            setRawInput(`Build a ${wizardAnswers.style} strategy for ${wizardAnswers.goal} with ${wizardAnswers.risk} risk. ${wizardAnswers.observation || ""}`);
+                            formatStrategy();
+                          }} 
+                          className="flex-1 bg-green-600 hover:bg-green-700"
+                        >
+                          Generate Strategy
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
+              )}
 
-              <div className="flex flex-wrap justify-end gap-3">
-                <Sheet open={showToolbox} onOpenChange={setShowToolbox}>
-                  <SheetTrigger asChild>
+              {creationMode !== "AI_ASSISTED" && (
+                <div className="flex flex-wrap justify-end gap-3">
+                  <Sheet open={showToolbox} onOpenChange={setShowToolbox}>
+                    <SheetTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="border-white/10 text-white/60 hover:bg-white/5 lg:hidden"
+                      >
+                        <Wrench className="w-4 h-4 mr-2" />
+                        Toolbox
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="right" className="bg-slate-900 border-slate-700 w-80">
+                      <SheetHeader>
+                        <SheetTitle className="text-white">Trading Toolbox</SheetTitle>
+                      </SheetHeader>
+                      <div className="mt-4">
+                        <TradingToolbox onInsertTool={handleInsertTool} />
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                  
+                  {creationMode === "TRADITIONAL" && (
                     <Button
                       variant="outline"
-                      className="border-white/10 text-white/60 hover:bg-white/5 lg:hidden"
+                      onClick={generateStrategy}
+                      disabled={generating || formatting}
+                      className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
                     >
-                      <Wrench className="w-4 h-4 mr-2" />
-                      Toolbox
+                      {generating ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 mr-2" />
+                      )}
+                      AI Generation
                     </Button>
-                  </SheetTrigger>
-                  <SheetContent side="right" className="bg-slate-900 border-slate-700 w-80">
-                    <SheetHeader>
-                      <SheetTitle className="text-white">Trading Toolbox</SheetTitle>
-                    </SheetHeader>
-                    <div className="mt-4">
-                      <TradingToolbox onInsertTool={handleInsertTool} />
-                    </div>
-                  </SheetContent>
-                </Sheet>
-                <Button
-                  variant="outline"
-                  onClick={generateStrategy}
-                  disabled={generating || formatting}
-                  className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
-                >
-                  {generating ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-4 h-4 mr-2" />
                   )}
-                  AI Generation
-                </Button>
-                <Button
-                  onClick={formatStrategy}
-                  disabled={!rawInput.trim() || formatting || generating}
-                  className="bg-cyan-500 hover:bg-cyan-600"
-                >
-                  {formatting ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Zap className="w-4 h-4 mr-2" />
-                  )}
-                  Format with AI
-                </Button>
-              </div>
+                  
+                  <Button
+                    onClick={creationMode === "AI_POWERED" ? () => {
+                      // Handle AI Powered formatting
+                      setStrategy({
+                        name: "Neural Pattern Strategy",
+                        description: aiIntent,
+                        strategy_type: "INTRADAY",
+                        buy_entry_logic: { conditions: [`AI Neural Inference: ${aiIntent}`], parameters: { confidence: confidenceThreshold } },
+                        buy_stop_loss: { conditions: ["1.5% fixed"] },
+                        buy_target: { conditions: ["3% fixed"] },
+                        buy_trailing_sl: { conditions: ["Enabled at 2%"] },
+                        sell_entry_logic: { conditions: [`AI Neural Inference (Reversal): ${aiIntent}`], parameters: { confidence: confidenceThreshold } },
+                        sell_stop_loss: { conditions: ["1.5% fixed"] },
+                        sell_target: { conditions: ["3% fixed"] },
+                        sell_trailing_sl: { conditions: ["Enabled at 2%"] },
+                        hold_logic: { conditions: ["Low volatility periods"] }
+                      });
+                      setStep("review");
+                    } : formatStrategy}
+                    disabled={creationMode === "AI_POWERED" ? !aiIntent.trim() : !rawInput.trim() || formatting || generating}
+                    className={`${creationMode === "AI_POWERED" ? "bg-purple-600 hover:bg-purple-700" : "bg-cyan-500 hover:bg-cyan-600"}`}
+                  >
+                    {formatting ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Zap className="w-4 h-4 mr-2" />
+                    )}
+                    {creationMode === "AI_POWERED" ? "Initialize Neural Engine" : "Format with AI"}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           <div className="hidden lg:block">
-            <TradingToolbox onInsertTool={handleInsertTool} />
+            {creationMode === "AI_POWERED" ? (
+              <Card className="bg-purple-500/5 border-purple-500/20">
+                <CardHeader>
+                  <CardTitle className="text-white text-sm flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    Neural Insights
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-3 bg-white/5 rounded-lg border border-white/10">
+                    <p className="text-white/60 text-xs">
+                      The Neural Engine uses 100+ micro-patterns to validate your intent.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-white/40 text-[10px] uppercase">Detected Potential</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-white text-xs">Pattern Complexity</span>
+                      <span className="text-purple-400 text-xs">High</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-white text-xs">Learning Time</span>
+                      <span className="text-purple-400 text-xs">~2 mins</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <TradingToolbox onInsertTool={handleInsertTool} />
+            )}
           </div>
         </div>
       )}

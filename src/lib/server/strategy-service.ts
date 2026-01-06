@@ -128,30 +128,27 @@ class StrategyService {
     return StrategyService.instance;
   }
 
-    async formatStrategyWithAI(rawInput: string, aiAnalysisEnabled: boolean = false): Promise<StructuredStrategy & { zairoth_intent?: string }> {
-      // Phase 1: Generate ZAIROTH Intent (Backend only, hidden from user)
-      const zairothResult = await aiSharedService.generateZairothIntent(rawInput);
-      let zairothContext = "";
-      let zairothIntent = "";
+  async formatStrategyWithAI(rawInput: string, aiAnalysisEnabled: boolean = false, mode: "traditional" | "neural" = "traditional"): Promise<StructuredStrategy & { zairoth_intent?: string }> {
+    // Phase 1: Generate ZAIROTH Intent (Backend only, hidden from user)
+    const zairothResult = await aiSharedService.generateZairothIntent(rawInput);
+    let zairothContext = "";
+    let zairothIntent = "";
+    
+    if (zairothResult.success && zairothResult.zairoth) {
+      zairothIntent = zairothResult.zairoth.raw;
+      zairothContext = `INTERNAL INTENT (ZAIROTH):\n${zairothIntent}\n\n`;
       
-      if (zairothResult.success && zairothResult.zairoth) {
-        zairothIntent = zairothResult.zairoth.raw;
-        zairothContext = `INTERNAL INTENT (ZAIROTH):\n${zairothIntent}\n\n`;
-        
-        // Log the intent
-        await aiSharedService.logZairothIntent(
-          rawInput,
-          zairothIntent,
-          { valid: true },
-          zairothResult.zairoth.canonical,
-          "Strategy formatting initiated"
-        );
-      }
+      // Log the intent
+      await aiSharedService.logZairothIntent(
+        rawInput,
+        zairothIntent,
+        { valid: true },
+        zairothResult.zairoth.canonical,
+        "Strategy formatting initiated"
+      );
+    }
 
-      const messages = [
-          {
-            role: "system",
-            content: `You are an Expert Professional Trader AI with 10+ years of discretionary trading experience.
+    const TRADITIONAL_PROMPT = `You are an Expert Professional Trader AI with 10+ years of discretionary trading experience.
 You are NOT an indicator calculator. You are a DECISION-MAKING TRADER.
 
 ${zairothContext}
@@ -287,13 +284,69 @@ ${aiAnalysisEnabled ? `
 3. RSI thresholds: oversold 30-40, overbought 60-70 (NOT extreme 20/80)
 4. Stop loss: 1-2% for intraday, 2-4% for swing
 5. Target: 1.5x to 2x of stop loss (risk-reward ratio)
-6. NEVER add more than 2 entry rules per direction - this kills trade frequency`,
-          },
-      {
-        role: "user",
-        content: `Create a profitable trading strategy based on this idea. Make it simple and tradeable:\n\n${rawInput}`,
-      },
-    ];
+6. NEVER add more than 2 entry rules per direction - this kills trade frequency`;
+
+    const NEURAL_PROMPT = `You are a Lead Neural Quant Strategist. You specialize in Price Action Sequences (PAS).
+Your goal is to format a Neural Strategy Idea into a structured JSON for execution.
+
+### THE NEURAL ARCHITECTURE:
+Neural mode focuses on Market Structure (HH/HL), Liquidity Grabs, and Imbalances.
+Instead of retail indicators (RSI/EMA), you must prioritize 'price_action' and 'pattern' rules.
+
+### AVAILABLE NEURAL RULES:
+1. **price_action**: 
+   \`{ "type": "price_action", "action": "HIGHER_HIGH" | "LOWER_LOW" | "HIGHER_LOW" | "LOWER_HIGH" | "BULLISH_CANDLE" | "BEARISH_CANDLE" }\`
+   - Use these to define structure shifts (e.g., BULLISH_CANDLE after HIGHER_HIGH).
+
+2. **pattern**:
+   \`{ "type": "pattern", "pattern": "HAMMER" | "SHOOTING_STAR" | "DOJI" | "BULLISH_ENGULFING" | "BEARISH_ENGULFING" }\`
+   - Use these for entry confirmation (e.g., HAMMER at a demand zone).
+
+3. **trend**:
+   \`{ "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" | "BEARISH" }\`
+   \`{ "type": "trend", "indicator": "ADX", "threshold": 25 }\`
+   - Use these for Market Regime filtering.
+
+### MAPPING SEQUENCES TO EXECUTABLE RULES:
+"Wait for Liquidity Sweep (Lower Low) followed by a Bullish Candle"
+-> Rules: [{ "type": "price_action", "action": "LOWER_LOW" }, { "type": "price_action", "action": "BULLISH_CANDLE" }]
+-> Logic: "AND" (This forces the executor's "Time-Aware" logic to wait for the sequence).
+
+### OUTPUT JSON:
+Same structure as traditional, but rules must focus on price action.
+{
+  "name": "Neural Strategy Name",
+  "description": "Institutional Price Action Sequence...",
+  "strategy_type": "INTRADAY" | "SWING",
+  "buy_entry_logic": { "conditions": ["Liquidity Grab (Lower Low)", "Bullish Market Structure Shift"], "indicators": [] },
+  "sell_entry_logic": { "conditions": ["Liquidity Grab (Higher High)", "Bearish Market Structure Shift"], "indicators": [] },
+  "executable_strategy": {
+    "name": "Neural Strategy Name",
+    "buy": { "logic": "AND", "rules": [{ "type": "price_action", "action": "LOWER_LOW" }, { "type": "price_action", "action": "BULLISH_CANDLE" }] },
+    "sell": { "logic": "AND", "rules": [{ "type": "price_action", "action": "HIGHER_HIGH" }, { "type": "price_action", "action": "BEARISH_CANDLE" }] },
+    "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.0 }, "target": { "type": "PERCENTAGE", "value": 3.0 } },
+    "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.0 }, "target": { "type": "PERCENTAGE", "value": 3.0 } },
+    "requiredIndicators": [],
+    "minWarmupCandles": 5
+  }
+}
+
+### CRITICAL NEURAL RULES:
+1. Always use "AND" logic for price action sequences - it enables the engine's memory-based sequence tracking.
+2. If the user mentions RSI or EMA, you CAN include them as confirmation, but the CORE must be price action.
+3. Stop losses in neural mode are usually tighter (0.5% - 1.2%). Targets are higher (3% - 5%).`;
+
+    const messages = [
+        {
+          role: "system",
+          content: mode === "neural" ? NEURAL_PROMPT : TRADITIONAL_PROMPT,
+        },
+    {
+      role: "user",
+      content: `Create a profitable trading strategy based on this idea. Make it simple and tradeable:\n\n${rawInput}`,
+    },
+  ];
+
 
     const result = await aiSharedService.executeAnalysis("strategy_format", messages, {
       maxTokens: 3000,

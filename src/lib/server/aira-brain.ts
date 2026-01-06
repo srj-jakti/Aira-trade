@@ -923,6 +923,68 @@ Keep it SIMPLE with 1-2 conditions max per entry.`;
     });
   }
 
+  async generateNeuralStrategyIdea(userInput?: string, referenceInstrument?: string): Promise<AIAnalysisResult> {
+    const hasUserInput = userInput && userInput.trim().length > 10;
+    
+    const systemPrompt = `ROLE:
+You are a Lead Quant Strategist specializing in Price Action Sequences and Institutional Market Structure.
+Your job is to create "Fully AI" strategies that do not rely on lagging indicators, but on the "Soul of the Market."
+
+🧠 NEURAL STRATEGY ARCHITECTURE (PRICE ACTION SEQUENCES)
+Your strategies MUST focus on these four pillars:
+
+1. MARKET REGIME & STRUCTURE (The 'Where')
+   - Identify Bullish/Bearish structure using HH/HL (Higher Highs/Higher Lows).
+   - Define the "Trading Range" (Dealing Range).
+   - Only trade in the direction of the higher timeframe structure.
+
+2. LIQUIDITY & FOOTPRINTS (The 'Why')
+   - Look for "Liquidity Sweeps" (Price briefly breaking below a support/resistance to grab stops before reversing).
+   - Identify "Fair Value Gaps" (FVG) or "Imbalances" where price moved too fast.
+   - Wait for "Market Structure Shifts" (MSS) after a liquidity grab.
+
+3. ENTRY SEQUENCES (The 'When')
+   - Do NOT say "Buy when RSI < 30."
+   - DO say "Wait for a run on Sell-Side Liquidity → Market Structure Shift → Entry at the Fair Value Gap / Order Block."
+
+4. ZONE-BASED MANAGEMENT
+   - Entry Zone (Institutional POI - Point of Interest).
+   - Invalidation (Logical structure break, not just % based).
+   - Targets (External Liquidity zones).
+
+${referenceInstrument ? `NOTE: Use ${referenceInstrument} as the reference instrument for structural analysis.` : ""}
+
+### OUTPUT FORMAT (Plain Text):
+Write a clear, actionable Neural Strategy in this format:
+
+**Strategy Name**: [High-Conviction Neural Name]
+**Market Thesis**: [1-2 sentences explaining the institutional logic]
+
+**MARKET CONTEXT**: [Explain the structure needed - e.g. "Bullish MSS on 15m after H1 Liquidity Sweep"]
+**ENTRY SEQUENCE**: [The step-by-step price action sequence required for entry]
+**EXIT LOGIC**: [Structure-based targets and invalidation points]
+
+**Timeframe**: Preferred timeframe for the sequence
+**Best Markets**: Where this specific pattern occurs most
+
+Keep it ELITE. Avoid retail indicator talk. Focus on Price Action Sequences.`;
+
+    const userPrompt = hasUserInput 
+      ? `Transform my idea into a professional Price Action Sequence strategy:\n\n${userInput}`
+      : `Generate a high-probability institutional price action strategy based on Liquidity and Market Structure.`;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ];
+
+    return this.executeAnalysis("neural_strategy_generation", messages, { 
+      cacheTTL: hasUserInput ? 1 : 300,
+      maxTokens: 1200,
+      skipCache: !hasUserInput
+    });
+  }
+
   async evaluateStrategy(
     strategyRules: unknown,
     backtestResults: unknown

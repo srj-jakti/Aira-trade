@@ -651,8 +651,9 @@ function CreateStrategyTab({
     });
     const [toDate, setToDate] = useState(() => new Date().toISOString().split("T")[0]);
     const [selectedTf, setSelectedTf] = useState("15m");
-  const [showToolbox, setShowToolbox] = useState(false);
-  const [referenceInstrument, setReferenceInstrument] = useState("");
+    const [showToolbox, setShowToolbox] = useState(false);
+    const [creationMode, setCreationMode] = useState<"traditional" | "neural">("traditional");
+    const [referenceInstrument, setReferenceInstrument] = useState("");
   const [refInstrumentSearch, setRefInstrumentSearch] = useState("");
   const [refInstruments, setRefInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
   const [drafts, setDrafts] = useState<any[]>([]);
@@ -859,6 +860,7 @@ function CreateStrategyTab({
         body: JSON.stringify({
           userInput: rawInput.trim() || undefined,
           referenceInstrument: referenceInstrument || undefined,
+          mode: creationMode,
         }),
       });
       if (res.ok) {
@@ -1133,7 +1135,32 @@ function CreateStrategyTab({
                   className="min-h-[200px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none"
                 />
 
-                <div className="flex items-center justify-between p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
+                  <div className="flex items-center justify-between p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
+                        <Activity className="w-5 h-5 text-cyan-400" />
+                      </div>
+                      <div>
+                        <Label className="text-white text-sm font-medium">Strategy Creation Engine</Label>
+                        <p className="text-white/40 text-xs">
+                          {creationMode === "traditional" 
+                            ? "Indicator-based logic (RSI, EMA, Supertrend)" 
+                            : "Neural logic (Price Action Sequences, Liquidity, Structure)"}
+                        </p>
+                      </div>
+                    </div>
+                    <Select value={creationMode} onValueChange={(v: any) => setCreationMode(v)}>
+                      <SelectTrigger className="w-[180px] bg-white/5 border-white/10 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#1a1a1a] border-white/10">
+                        <SelectItem value="traditional" className="text-white">Traditional Engine</SelectItem>
+                        <SelectItem value="neural" className="text-white">Neural Engine 🧠</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
                       <Sparkles className="w-5 h-5 text-cyan-400" />

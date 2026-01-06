@@ -98,6 +98,10 @@ class AISharedService {
     return airaBrain.generateStrategyIdea(userInput, referenceInstrument);
   }
 
+  async generateNeuralStrategyIdea(userInput?: string, referenceInstrument?: string): Promise<AIAnalysisResult> {
+    return airaBrain.generateNeuralStrategyIdea(userInput, referenceInstrument);
+  }
+
   async evaluateStrategy(
     strategyRules: unknown,
     backtestResults: unknown

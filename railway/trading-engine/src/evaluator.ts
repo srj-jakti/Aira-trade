@@ -33,8 +33,32 @@ export interface TradeSetup {
 }
 
 // In-memory persistent state for Signal Memory
-const signalMemoryState = new Map<string, { memory: SignalMemory[], setup: TradeSetup }>();
 const SIGNAL_WINDOW = 5;
+
+async function loadSignalMemory(userId: string, strategyId: string, instrumentToken: number): Promise<{ memory: SignalMemory[], setup: TradeSetup } | null> {
+  const { data, error } = await supabase
+    .from("railway_signal_memory")
+    .select("state")
+    .eq("user_id", userId)
+    .eq("strategy_id", strategyId)
+    .eq("instrument_token", instrumentToken)
+    .single();
+
+  if (error || !data) return null;
+  return data.state as { memory: SignalMemory[], setup: TradeSetup };
+}
+
+async function saveSignalMemory(userId: string, strategyId: string, instrumentToken: number, state: { memory: SignalMemory[], setup: TradeSetup }): Promise<void> {
+  await supabase
+    .from("railway_signal_memory")
+    .upsert({
+      user_id: userId,
+      strategy_id: strategyId,
+      instrument_token: instrumentToken,
+      state,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,strategy_id,instrument_token" });
+}
 
 function getSetupKey(userId: string, strategyId: string, instrumentToken: number): string {
   return `${userId}:${strategyId}:${instrumentToken}`;
@@ -88,7 +112,7 @@ export async function evaluateWithAI(
     }
   }
 
-  const ruleResult = evaluateWithRules(strategy, candles, userConfig.user_id);
+  const ruleResult = await evaluateWithRules(strategy, candles, userConfig.user_id);
   if (ruleResult) return ruleResult;
 
   const aiConfig = await getActiveAIConfig();
@@ -102,13 +126,41 @@ export async function evaluateWithAI(
   const messages = [
     {
       role: "system",
-      content: `You are a trading signal generator. Analyze price data and strategy rules.
-Respond ONLY with JSON: {"signal":"BUY"|"SELL"|"HOLD","confidence":0-100,"reasoning":"brief"}`,
+      content: `ROLE:
+You are a professional discretionary trader with institutional discipline.
+Your job is to analyze price charts like a human, not like a tick-reactive machine.
+
+🔒 CORE NON-NEGOTIABLE RULES
+- ONLY analyze on CLOSED candles.
+- If market regime is CHOP/SIDEWAYS, return HOLD.
+- Trend alignment across timeframes is mandatory.
+- WAIT is a valid and preferred outcome.
+
+🧠 ANALYSIS FLOW:
+1. MARKET REGIME: Is it TRENDING or RANGING?
+2. STRUCTURE: Identify Higher Highs/Lows.
+3. QUALITY: Check RSI (avoid 40-60 neutral zones).
+4. CONVICTION: Only signal if confidence > 75%.
+
+Respond ONLY with JSON:
+{
+  "signal": "BUY" | "SELL" | "HOLD",
+  "confidence": 0-100,
+  "market_regime": "string",
+  "reasoning": "brief technical justification"
+}`,
     },
     {
       role: "user",
       content: `Analyze data for ${strategy.name}. 
-Recent candles: ${JSON.stringify(recentCandles)}
+Recent candles: ${JSON.stringify(recentCandles.map(c => ({
+  t: c.bucket_start,
+  o: c.open,
+  h: c.high,
+  l: c.low,
+  c: c.close,
+  v: c.volume
+})))}
 Buy Logic: ${JSON.stringify(strategy.buy_entry_logic)}
 Sell Logic: ${JSON.stringify(strategy.sell_entry_logic)}`,
     },
@@ -275,7 +327,7 @@ function calculateSimpleIndicators(candles: CandleData[]): Map<string, number[]>
   return cache;
 }
 
-export function evaluateWithRules(strategy: Strategy, candles: CandleData[], userId: string): Signal | null {
+export async function evaluateWithRules(strategy: Strategy, candles: CandleData[], userId: string): Promise<Signal | null> {
   if (candles.length < 5) return null;
 
   const instrumentToken = candles[0]?.instrument_token;
@@ -292,9 +344,8 @@ export function evaluateWithRules(strategy: Strategy, candles: CandleData[], use
     const exec = strategy.executable_strategy;
     const indicatorCache = calculateSimpleIndicators(instrumentCandles);
     
-    // SIGNAL MEMORY WINDOW LOGIC
-    const setupKey = getSetupKey(userId, strategy.id, instrumentToken);
-    let state = signalMemoryState.get(setupKey);
+    // SIGNAL MEMORY WINDOW LOGIC - Persistent via Supabase
+    let state = await loadSignalMemory(userId, strategy.id, instrumentToken);
     
     if (!state) {
       state = {
@@ -308,7 +359,6 @@ export function evaluateWithRules(strategy: Strategy, candles: CandleData[], use
           reason: "Initialized"
         }
       };
-      signalMemoryState.set(setupKey, state);
     }
 
     // Clean expired signals
@@ -321,6 +371,8 @@ export function evaluateWithRules(strategy: Strategy, candles: CandleData[], use
     const buyRules = exec.buy?.rules || [];
     const sellRules = exec.sell?.rules || [];
 
+    let hasMemoryChange = false;
+
     // Evaluate Buy Rules
     for (let i = 0; i < buyRules.length; i++) {
       const rule = buyRules[i];
@@ -328,6 +380,7 @@ export function evaluateWithRules(strategy: Strategy, candles: CandleData[], use
       const role = classifyRuleRole(rule, i, buyRules.length);
 
       if (passed) {
+        hasMemoryChange = true;
         const signal: SignalMemory = {
           role,
           ruleName: getRuleName(rule),
@@ -364,6 +417,7 @@ export function evaluateWithRules(strategy: Strategy, candles: CandleData[], use
       const role = classifyRuleRole(rule, i, sellRules.length);
 
       if (passed) {
+        hasMemoryChange = true;
         const signal: SignalMemory = {
           role,
           ruleName: getRuleName(rule),
@@ -426,8 +480,17 @@ export function evaluateWithRules(strategy: Strategy, candles: CandleData[], use
       }
     }
 
+    // Save state back to Supabase
+    if (hasMemoryChange || finalAction) {
+      if (finalAction) {
+        // Reset state after confirmed signal to avoid duplicate entries
+        state.setup.state = "IDLE";
+        state.memory = [];
+      }
+      await saveSignalMemory(userId, strategy.id, instrumentToken, state);
+    }
+
     if (finalAction) {
-      state.setup.state = "CONFIRMED";
       const sl = (finalAction === "BUY" ? exec.buyExit?.stopLoss?.value : exec.sellExit?.stopLoss?.value) || 2;
       const tgt = (finalAction === "BUY" ? exec.buyExit?.target?.value : exec.sellExit?.target?.value) || 4;
       
@@ -441,10 +504,6 @@ export function evaluateWithRules(strategy: Strategy, candles: CandleData[], use
         confidence: 90,
         reasoning: reasoning
       };
-      
-      // Reset state after confirmed signal to avoid duplicate entries
-      state.setup.state = "IDLE";
-      state.memory = [];
       
       return sig;
     }

@@ -350,15 +350,61 @@ class AITradingEngine {
   async recordTradeOutcome(
     decisionId: number,
     outcome: "win" | "loss" | "breakeven",
-    pnl: number
+    pnl: number,
+    exitData?: { price: number; time: string; reason: string; candles?: any[] }
   ): Promise<void> {
+    const updatePayload: any = {
+      actual_outcome: outcome,
+      pnl_result: pnl,
+      was_correct: outcome === "win"
+    };
+
+    // Deep Analysis for Losses
+    if (outcome === "loss" && exitData) {
+      try {
+        const { data: decision } = await supabaseAdmin
+          .from("ai_trading_decisions")
+          .select("ai_reasoning, market_context")
+          .eq("id", decisionId)
+          .single();
+
+        const analysisResult = await airaBrain.executeAnalysis("failure_analysis", [
+          {
+            role: "system",
+            content: `You are a Trading Forensic Analyst. Analyze a losing trade and categorize the failure.
+            CATEGORIES:
+            - WHIPSAW: Price hit SL then moved to Target.
+            - FAKEOUT: Trend indicator gave signal but price immediately reversed.
+            - OVEREXTENDED: Entry was at the top/bottom of a massive move.
+            - CHOP: Market has no direction.
+            - LATE_ENTRY: Entry was delayed.
+            - UNKNOWN: Other technical failures.
+            
+            Respond ONLY with JSON: { "category": "STRING", "analysis": "brief 1 sentence why" }`
+          },
+          {
+            role: "user",
+            content: `Trade analysis:
+            Original Reasoning: ${decision?.ai_reasoning}
+            Market Context: ${JSON.stringify(decision?.market_context)}
+            Outcome: PnL ${pnl}, Exit Reason: ${exitData.reason}
+            Exit Price: ${exitData.price}`
+          }
+        ], { maxTokens: 200 });
+
+        if (analysisResult.success && typeof analysisResult.result === 'string') {
+          const parsed = JSON.parse(analysisResult.result.replace(/```json\n?|\n?```/g, ''));
+          updatePayload.failure_category = parsed.category;
+          updatePayload.failure_analysis = parsed.analysis;
+        }
+      } catch (e) {
+        console.error("[AITradingEngine] Failure analysis failed:", e);
+      }
+    }
+
     await supabaseAdmin
       .from("ai_trading_decisions")
-      .update({
-        actual_outcome: outcome,
-        pnl_result: pnl,
-        was_correct: outcome === "win"
-      })
+      .update(updatePayload)
       .eq("id", decisionId);
   }
 

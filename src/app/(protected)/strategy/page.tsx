@@ -210,7 +210,7 @@ export default function StrategyPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#030303] overflow-y-auto">
+    <div className="flex flex-col bg-[#030303]">
       <div className="flex-1 p-4 md:p-8 pt-6 space-y-6 max-w-7xl mx-auto w-full pb-20">
         <div className="flex items-center justify-between">
           <div>

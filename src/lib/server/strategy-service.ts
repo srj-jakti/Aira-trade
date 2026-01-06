@@ -177,6 +177,17 @@ ${aiAnalysisEnabled ? `
   🔹 Risk Avoidance:
      - Block trades on overextended candles (>2x ATR)
   
+  🧠 SIGNAL DECOMPOSITION (HUMAN-LIKE TRADING):
+  Internally, each strategy must be understood as:
+  - INTENT SIGNAL (Primary Trigger): The earliest sign (e.g., EMA crossover, Supertrend change)
+  - CONFIRMATION SIGNAL: Quality filter (e.g., RSI level, volume spike)
+  - INVALIDATION SIGNAL: What cancels the setup (e.g., opposite crossover)
+  
+  TIME-AWARE EXECUTION:
+  Signals don't need to happen on the SAME candle. 
+  Intent can occur, then confirmation within 3-5 candles is valid.
+  This is how human traders think - in SEQUENCES, not SNAPSHOTS.
+  
   INSTRUCTIONS:
   When this mode is enabled, you MUST add these filters as actual rules in 'executable_strategy.buy.rules' and 'executable_strategy.sell.rules'. 
   Use 'AND' logic for the executable strategy to ensure only high-quality trades are taken.
@@ -272,10 +283,11 @@ ${aiAnalysisEnabled ? `
 
 ### CRITICAL RULES:
 1. Use "OR" logic for buy/sell to generate more signals
-2. Keep rules simple: 1-2 conditions max per entry
+2. Keep rules simple: 1-2 conditions max per entry - MORE CONDITIONS = FEWER TRADES = WORSE RESULTS
 3. RSI thresholds: oversold 30-40, overbought 60-70 (NOT extreme 20/80)
 4. Stop loss: 1-2% for intraday, 2-4% for swing
-5. Target: 1.5x to 2x of stop loss (risk-reward ratio)`,
+5. Target: 1.5x to 2x of stop loss (risk-reward ratio)
+6. NEVER add more than 2 entry rules per direction - this kills trade frequency`,
           },
       {
         role: "user",
@@ -871,8 +883,14 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
       - Logic can be 'OR' if the filters are alternatives.
 
       🚫 WHAT YOU MUST NEVER DO:
-      - ❌ Overfit to these specific 10 trades. Think about the market REGIME.
-      - ❌ Add more than 2 additional filters. Keep it clean.
+        - ❌ Overfit to these specific 10 trades. Think about the market REGIME.
+        - ❌ Add more than 2 additional filters. Keep it clean.
+        - ❌ Use AND logic with more than 3 total rules - this kills trade frequency
+        - ❌ Add conditions that rarely trigger (patterns, extreme RSI levels)
+
+      ⚠️ TRADE FREQUENCY WARNING:
+      More conditions = Fewer trades = Worse backtests
+      Keep entry rules to MAX 2-3 per direction. Use OR logic to maintain signal frequency.
 
       KEY PHILOSOPHY:
       "A good trader does not trade often. A good trader trades WELL-SELECTED moments."

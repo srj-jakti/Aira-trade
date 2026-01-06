@@ -17,13 +17,98 @@ interface RuleEvaluationResult {
   reason?: string;
 }
 
+export type SignalRole = "INTENT" | "CONFIRMATION" | "INVALIDATION";
+export type TradeState = "IDLE" | "SETUP_DETECTED" | "AWAITING_CONFIRMATION" | "CONFIRMED" | "INVALIDATED";
+
+export interface SignalMemory {
+  role: SignalRole;
+  ruleName: string;
+  triggeredAt: number;
+  expiresAt: number;
+  value: number;
+  direction: "LONG" | "SHORT";
+}
+
+export interface TradeSetup {
+  state: TradeState;
+  direction: "LONG" | "SHORT" | null;
+  intentSignal: SignalMemory | null;
+  confirmations: SignalMemory[];
+  invalidations: SignalMemory[];
+  setupCandleIndex: number;
+  reason: string;
+}
+
 export class StrategyRuleExecutor {
   private indicatorCache: Map<string, number[]> = new Map();
   private candles: Candle[] = [];
   private debugMode: boolean = false;
+  
+  private signalMemory: SignalMemory[] = [];
+  private currentSetup: TradeSetup = {
+    state: "IDLE",
+    direction: null,
+    intentSignal: null,
+    confirmations: [],
+    invalidations: [],
+    setupCandleIndex: -1,
+    reason: "",
+  };
+  private signalWindowCandles: number = 5;
 
   constructor(debugMode: boolean = false) {
     this.debugMode = debugMode;
+  }
+
+  setSignalWindow(candles: number): void {
+    this.signalWindowCandles = candles;
+  }
+
+  resetTradeState(): void {
+    this.currentSetup = {
+      state: "IDLE",
+      direction: null,
+      intentSignal: null,
+      confirmations: [],
+      invalidations: [],
+      setupCandleIndex: -1,
+      reason: "",
+    };
+    this.signalMemory = [];
+  }
+
+  getTradeState(): TradeSetup {
+    return { ...this.currentSetup };
+  }
+
+  private cleanExpiredSignals(currentIndex: number): void {
+    this.signalMemory = this.signalMemory.filter(s => s.expiresAt >= currentIndex);
+  }
+
+  private addSignalToMemory(signal: SignalMemory): void {
+    const existing = this.signalMemory.findIndex(
+      s => s.role === signal.role && s.ruleName === signal.ruleName && s.direction === signal.direction
+    );
+    if (existing >= 0) {
+      this.signalMemory[existing] = signal;
+    } else {
+      this.signalMemory.push(signal);
+    }
+  }
+
+  private classifyRuleRole(rule: StrategyRule, ruleIndex: number, totalRules: number): SignalRole {
+    if (rule.type === "trend" && rule.indicator === "SUPERTREND") return "INTENT";
+    if (rule.type === "price_vs_indicator" && (rule.operator === "CROSS_ABOVE" || rule.operator === "CROSS_BELOW")) return "INTENT";
+    if (rule.type === "indicator_vs_indicator" && (rule.operator === "CROSS_ABOVE" || rule.operator === "CROSS_BELOW")) return "INTENT";
+    
+    if (rule.type === "indicator" && rule.name === "RSI") return "CONFIRMATION";
+    if (rule.type === "indicator" && rule.name === "ADX") return "CONFIRMATION";
+    if (rule.type === "volume") return "CONFIRMATION";
+    if (rule.type === "pattern") return "CONFIRMATION";
+    if (rule.type === "price_action") return "CONFIRMATION";
+    
+    if (ruleIndex === 0) return "INTENT";
+    return "CONFIRMATION";
   }
 
   precalculateIndicators(candles: Candle[], strategy: ExecutableStrategy): void {
@@ -545,6 +630,205 @@ export class StrategyRuleExecutor {
 
   getIndicatorCache(): Map<string, number[]> {
     return this.indicatorCache;
+  }
+
+  evaluateWithMemory(strategy: ExecutableStrategy, index: number): ExecutionResult & { tradeSetup: TradeSetup } {
+    const candle = this.candles[index];
+    const warmupPeriod = getRequiredWarmupPeriod(strategy);
+
+    if (index < warmupPeriod) {
+      return {
+        buySignal: false,
+        sellSignal: false,
+        holdInfo: false,
+        log: {
+          candle: { index, timestamp: candle?.timestamp || "", open: candle?.open || 0, high: candle?.high || 0, low: candle?.low || 0, close: candle?.close || 0, volume: candle?.volume || 0 },
+          buyEvaluation: { result: false, ruleResults: [] },
+          sellEvaluation: { result: false, ruleResults: [] },
+          finalSignal: "HOLD",
+          signalReason: `Warmup period (index ${index} < ${warmupPeriod})`,
+        },
+        indicatorValues: {},
+        tradeSetup: this.currentSetup,
+      };
+    }
+
+    this.cleanExpiredSignals(index);
+
+    const buyRules = strategy.buy.rules;
+    const sellRules = strategy.sell.rules;
+
+    for (let i = 0; i < buyRules.length; i++) {
+      const rule = buyRules[i];
+      const evalResult = this.evaluateRule(rule, index);
+      const role = this.classifyRuleRole(rule, i, buyRules.length);
+      
+      if (evalResult.passed) {
+        const signal: SignalMemory = {
+          role,
+          ruleName: this.getRuleName(rule),
+          triggeredAt: index,
+          expiresAt: index + this.signalWindowCandles,
+          value: evalResult.actualValue || 0,
+          direction: "LONG",
+        };
+        this.addSignalToMemory(signal);
+        
+        if (role === "INTENT" && this.currentSetup.state === "IDLE") {
+          this.currentSetup = {
+            state: "SETUP_DETECTED",
+            direction: "LONG",
+            intentSignal: signal,
+            confirmations: [],
+            invalidations: [],
+            setupCandleIndex: index,
+            reason: `LONG setup: ${signal.ruleName} triggered`,
+          };
+        } else if (role === "CONFIRMATION" && this.currentSetup.state === "SETUP_DETECTED" && this.currentSetup.direction === "LONG") {
+          this.currentSetup.confirmations.push(signal);
+        }
+      }
+    }
+
+    for (let i = 0; i < sellRules.length; i++) {
+      const rule = sellRules[i];
+      const evalResult = this.evaluateRule(rule, index);
+      const role = this.classifyRuleRole(rule, i, sellRules.length);
+      
+      if (evalResult.passed) {
+        const signal: SignalMemory = {
+          role,
+          ruleName: this.getRuleName(rule),
+          triggeredAt: index,
+          expiresAt: index + this.signalWindowCandles,
+          value: evalResult.actualValue || 0,
+          direction: "SHORT",
+        };
+        this.addSignalToMemory(signal);
+        
+        if (role === "INTENT" && this.currentSetup.state === "IDLE") {
+          this.currentSetup = {
+            state: "SETUP_DETECTED",
+            direction: "SHORT",
+            intentSignal: signal,
+            confirmations: [],
+            invalidations: [],
+            setupCandleIndex: index,
+            reason: `SHORT setup: ${signal.ruleName} triggered`,
+          };
+        } else if (role === "CONFIRMATION" && this.currentSetup.state === "SETUP_DETECTED" && this.currentSetup.direction === "SHORT") {
+          this.currentSetup.confirmations.push(signal);
+        }
+        
+        if (this.currentSetup.direction === "LONG" && role === "INTENT") {
+          this.currentSetup.state = "INVALIDATED";
+          this.currentSetup.reason = `LONG setup invalidated by SHORT signal: ${signal.ruleName}`;
+        }
+      }
+    }
+
+    if (this.currentSetup.state === "SETUP_DETECTED" && this.currentSetup.intentSignal) {
+      if (index > this.currentSetup.intentSignal.expiresAt) {
+        this.currentSetup.state = "INVALIDATED";
+        this.currentSetup.reason = "Setup expired without confirmation";
+      }
+    }
+
+    let finalSignal: "BUY" | "SELL" | "HOLD" = "HOLD";
+    let signalReason = "";
+
+    const intentSignals = this.signalMemory.filter(s => s.role === "INTENT");
+    const confirmSignals = this.signalMemory.filter(s => s.role === "CONFIRMATION");
+
+    const longIntent = intentSignals.find(s => s.direction === "LONG");
+    const shortIntent = intentSignals.find(s => s.direction === "SHORT");
+    const longConfirm = confirmSignals.find(s => s.direction === "LONG");
+    const shortConfirm = confirmSignals.find(s => s.direction === "SHORT");
+
+    if (strategy.buy.logic === "AND") {
+      if (longIntent && longConfirm) {
+        finalSignal = "BUY";
+        signalReason = `LONG: Intent (${longIntent.ruleName}) + Confirmation (${longConfirm.ruleName}) within ${this.signalWindowCandles} candles`;
+        this.currentSetup.state = "CONFIRMED";
+        this.currentSetup.reason = signalReason;
+      }
+    } else {
+      if (longIntent || longConfirm) {
+        finalSignal = "BUY";
+        signalReason = longIntent ? `LONG Intent: ${longIntent.ruleName}` : `LONG Confirm: ${longConfirm!.ruleName}`;
+        this.currentSetup.state = "CONFIRMED";
+        this.currentSetup.reason = signalReason;
+      }
+    }
+
+    if (finalSignal === "HOLD") {
+      if (strategy.sell.logic === "AND") {
+        if (shortIntent && shortConfirm) {
+          finalSignal = "SELL";
+          signalReason = `SHORT: Intent (${shortIntent.ruleName}) + Confirmation (${shortConfirm.ruleName}) within ${this.signalWindowCandles} candles`;
+          this.currentSetup.state = "CONFIRMED";
+          this.currentSetup.reason = signalReason;
+        }
+      } else {
+        if (shortIntent || shortConfirm) {
+          finalSignal = "SELL";
+          signalReason = shortIntent ? `SHORT Intent: ${shortIntent.ruleName}` : `SHORT Confirm: ${shortConfirm!.ruleName}`;
+          this.currentSetup.state = "CONFIRMED";
+          this.currentSetup.reason = signalReason;
+        }
+      }
+    }
+
+    if (finalSignal === "HOLD") {
+      if (this.currentSetup.state === "SETUP_DETECTED") {
+        signalReason = `Awaiting confirmation for ${this.currentSetup.direction} setup (${this.currentSetup.intentSignal?.ruleName})`;
+      } else if (this.currentSetup.state === "INVALIDATED") {
+        signalReason = this.currentSetup.reason;
+        this.resetTradeState();
+      } else {
+        signalReason = "No setup detected";
+      }
+    } else {
+      this.resetTradeState();
+    }
+
+    const indicatorValues: Record<string, number> = {};
+    for (const [key, values] of this.indicatorCache.entries()) {
+      if (values[index] !== undefined && !isNaN(values[index])) {
+        indicatorValues[key] = values[index];
+      }
+    }
+
+    const buyEval = this.evaluateRuleSet(strategy.buy, index);
+    const sellEval = this.evaluateRuleSet(strategy.sell, index);
+
+    return {
+      buySignal: finalSignal === "BUY",
+      sellSignal: finalSignal === "SELL",
+      holdInfo: false,
+      log: {
+        candle: { index, timestamp: candle?.timestamp || "", open: candle?.open || 0, high: candle?.high || 0, low: candle?.low || 0, close: candle?.close || 0, volume: candle?.volume || 0 },
+        buyEvaluation: buyEval,
+        sellEvaluation: sellEval,
+        finalSignal,
+        signalReason,
+      },
+      indicatorValues,
+      tradeSetup: { ...this.currentSetup },
+    };
+  }
+
+  private getRuleName(rule: StrategyRule): string {
+    switch (rule.type) {
+      case "indicator": return `${rule.name}(${rule.period || 14})`;
+      case "price_vs_indicator": return `Price vs ${rule.indicator}(${rule.indicatorPeriod})`;
+      case "indicator_vs_indicator": return `${rule.indicator1} vs ${rule.indicator2}`;
+      case "trend": return `${rule.indicator} ${rule.direction || ""}`;
+      case "pattern": return rule.pattern || "Pattern";
+      case "price_action": return rule.action || "Price Action";
+      case "volume": return "Volume";
+      default: return "Unknown";
+    }
   }
 }
 

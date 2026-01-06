@@ -3,208 +3,92 @@ import { supabase } from "./utils/supabase";
 import { logger } from "./utils/logger";
 import { Signal } from "./executor";
 import { createDecipheriv } from "crypto";
+import { processZairothSafe, evaluateSafety } from "../../../src/lib/zairoth";
 
 const ALGORITHM = "aes-256-gcm";
 
 const MIN_CANDLES_FOR_EVALUATION = 20;
 const RECOMMENDED_CANDLES = 50;
 
-function getEncryptionKey(): Buffer {
-  const key = process.env.ENCRYPTION_KEY;
-  if (!key || key.length !== 64) {
-    throw new Error("ENCRYPTION_KEY must be 32 bytes (64 hex characters)");
+// Signal Memory Window types
+export type SignalRole = "INTENT" | "CONFIRMATION" | "INVALIDATION";
+export type TradeState = "IDLE" | "SETUP_DETECTED" | "AWAITING_CONFIRMATION" | "CONFIRMED" | "INVALIDATED";
+
+export interface SignalMemory {
+  role: SignalRole;
+  ruleName: string;
+  triggeredAt: number;
+  expiresAt: number;
+  value: number;
+  direction: "LONG" | "SHORT";
+}
+
+export interface TradeSetup {
+  state: TradeState;
+  direction: "LONG" | "SHORT" | null;
+  intentSignal: SignalMemory | null;
+  confirmations: SignalMemory[];
+  setupCandleIndex: number;
+  reason: string;
+}
+
+// In-memory persistent state for Signal Memory
+const signalMemoryState = new Map<string, { memory: SignalMemory[], setup: TradeSetup }>();
+const SIGNAL_WINDOW = 5;
+
+function getSetupKey(userId: string, strategyId: string, instrumentToken: number): string {
+  return `${userId}:${strategyId}:${instrumentToken}`;
+}
+
+function getRuleName(rule: any): string {
+  switch (rule.type) {
+    case "indicator": return `${rule.name}(${rule.period || 14})`;
+    case "price_vs_indicator": return `Price vs ${rule.indicator}(${rule.indicatorPeriod})`;
+    case "indicator_vs_indicator": return `${rule.indicator1} vs ${rule.indicator2}`;
+    case "trend": return `${rule.indicator} ${rule.direction || ""}`;
+    case "pattern": return rule.pattern || "Pattern";
+    case "price_action": return rule.action || "Price Action";
+    case "volume": return "Volume";
+    default: return "Unknown";
   }
-  return Buffer.from(key, "hex");
 }
 
-function decrypt(ciphertext: string): string {
-  const [ivHex, authTagHex, encrypted] = ciphertext.split(":");
-  if (!ivHex || !authTagHex || !encrypted) {
-    throw new Error("Invalid encrypted format");
-  }
-  const iv = Buffer.from(ivHex, "hex");
-  const authTag = Buffer.from(authTagHex, "hex");
-  const decipher = createDecipheriv(ALGORITHM, getEncryptionKey(), iv);
-  decipher.setAuthTag(authTag);
-  let decrypted = decipher.update(encrypted, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-  return decrypted;
-}
-
-interface ExecutableStrategy {
-  name: string;
-  description: string;
-  version: number;
-  buy: { logic: "AND" | "OR"; rules: any[] };
-  sell: { logic: "AND" | "OR"; rules: any[] };
-  hold?: { logic: "AND" | "OR"; rules: any[] };
-  buyExit: { stopLoss: { type: string; value: number }; target: { type: string; value: number } };
-  sellExit: { stopLoss: { type: string; value: number }; target: { type: string; value: number } };
-  requiredIndicators: Array<{ name: string; period?: number }>;
-  minWarmupCandles: number;
-}
-
-interface Strategy {
-  id: string;
-  name: string;
-  buy_entry_logic: any;
-  sell_entry_logic: any;
-  hold_logic: any;
-  instruments: number[];
-  timeframe: string;
-  executable_strategy?: ExecutableStrategy;
-}
-
-interface CandleData {
-  instrument_token: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  bucket_start: string;
-}
-
-interface AIConfig {
-  provider: string;
-  model: string;
-  api_key: string;
-}
-
-export async function getStrategy(strategyId: string): Promise<Strategy | null> {
-  const { data } = await supabase
-    .from("strategies")
-    .select("*")
-    .eq("id", strategyId)
-    .single();
-
-  if (!data) return null;
-
-  return {
-    id: data.id,
-    name: data.name,
-    buy_entry_logic: data.buy_entry_logic || {},
-    sell_entry_logic: data.sell_entry_logic || {},
-    hold_logic: data.hold_logic || {},
-    instruments: data.selected_instruments || [],
-    timeframe: data.selected_timeframes?.[0] || "5m",
-    executable_strategy: data.executable_strategy || undefined,
-  };
-}
-
-export async function getLatestCandles(
-  instruments: number[],
-  timeframe: string
-): Promise<CandleData[]> {
-  const tfMap: Record<string, string> = {
-    "1m": "1m",
-    "5m": "5m",
-    "15m": "15m",
-    "1h": "1h",
-  };
+function classifyRuleRole(rule: any, ruleIndex: number, totalRules: number): SignalRole {
+  if (rule.type === "trend" && rule.indicator === "SUPERTREND") return "INTENT";
+  if (rule.type === "price_vs_indicator" && (rule.operator === "CROSS_ABOVE" || rule.operator === "CROSS_BELOW")) return "INTENT";
+  if (rule.type === "indicator_vs_indicator" && (rule.operator === "CROSS_ABOVE" || rule.operator === "CROSS_BELOW")) return "INTENT";
   
-  const tf = tfMap[timeframe] || "5m";
-  const allCandles: CandleData[] = [];
+  if (rule.type === "indicator" && rule.name === "RSI") return "CONFIRMATION";
+  if (rule.type === "indicator" && rule.name === "ADX") return "CONFIRMATION";
   
-  for (const instrumentToken of instruments) {
-    const { data, error } = await supabase
-      .from("live_candles")
-      .select("instrument_token, open, high, low, close, volume, timestamp")
-      .eq("instrument_token", instrumentToken)
-      .eq("timeframe", tf)
-      .order("timestamp", { ascending: false })
-      .limit(RECOMMENDED_CANDLES);
-    
-    if (error) {
-      logger.error(`Failed to fetch candles for ${instrumentToken}:`, error.message);
-      continue;
-    }
-    
-    if (data && data.length > 0) {
-      const instrumentCandles = data.map(d => ({
-        instrument_token: d.instrument_token,
-        open: parseFloat(d.open),
-        high: parseFloat(d.high),
-        low: parseFloat(d.low),
-        close: parseFloat(d.close),
-        volume: parseInt(d.volume) || 0,
-        bucket_start: d.timestamp,
-      }));
-      
-      allCandles.push(...instrumentCandles);
-    }
-  }
-
-  return allCandles;
-}
-
-export function hasSufficientData(candles: CandleData[], instrumentToken: number): boolean {
-  const instrumentCandles = candles.filter(c => c.instrument_token === instrumentToken);
-  return instrumentCandles.length >= MIN_CANDLES_FOR_EVALUATION;
-}
-
-async function getActiveAIConfig(): Promise<AIConfig | null> {
-  const { data } = await supabase
-    .from("admin_ai_configs")
-    .select("provider, model, api_key")
-    .eq("is_active", true)
-    .order("is_default", { ascending: false })
-    .order("priority", { ascending: true })
-    .limit(1)
-    .single();
-
-  if (!data) return null;
-
-  return {
-    provider: data.provider,
-    model: data.model,
-    api_key: decrypt(data.api_key),
-  };
-}
-
-async function callAI(
-  config: AIConfig,
-  messages: Array<{ role: string; content: string }>
-): Promise<string | null> {
-  try {
-    let response: Response;
-    switch (config.provider) {
-      case "openai":
-        response = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${config.api_key}`,
-          },
-          body: JSON.stringify({
-            model: config.model,
-            messages,
-            max_tokens: 500,
-            temperature: 0.1,
-          }),
-        });
-        break;
-      default:
-        return null;
-    }
-
-    if (!response.ok) return null;
-    const data = await response.json() as any;
-    return data.choices?.[0]?.message?.content || null;
-  } catch {
-    return null;
-  }
+  if (ruleIndex === 0) return "INTENT";
+  return "CONFIRMATION";
 }
 
 export async function evaluateWithAI(
   strategy: Strategy,
   candles: CandleData[],
-  userConfig: { risk_per_trade: number; max_daily_loss: number }
+  userConfig: { risk_per_trade: number; max_daily_loss: number; user_id: string; capital_used?: number }
 ): Promise<Signal | null> {
   const instrumentToken = candles.length > 0 ? candles[0].instrument_token : null;
   if (!instrumentToken) return null;
 
-  const ruleResult = evaluateWithRules(strategy, candles);
+  // Zairoth Validation Check
+  if (strategy.zairoth_intent) {
+    const zairoth = processZairothSafe(strategy.zairoth_intent);
+    if (zairoth.success) {
+      const safety = evaluateSafety(zairoth.result.instructions, { 
+        capital_used: userConfig.capital_used || 0,
+        risk_per_trade: userConfig.risk_per_trade 
+      });
+      if (!safety.safe) {
+        logger.warn(`[ZAIROTH] Safety check failed for ${strategy.name}: ${safety.reason}`);
+        return null; // Block trade
+      }
+    }
+  }
+
+  const ruleResult = evaluateWithRules(strategy, candles, userConfig.user_id);
   if (ruleResult) return ruleResult;
 
   const aiConfig = await getActiveAIConfig();
@@ -391,7 +275,7 @@ function calculateSimpleIndicators(candles: CandleData[]): Map<string, number[]>
   return cache;
 }
 
-export function evaluateWithRules(strategy: Strategy, candles: CandleData[]): Signal | null {
+export function evaluateWithRules(strategy: Strategy, candles: CandleData[], userId: string): Signal | null {
   if (candles.length < 5) return null;
 
   const instrumentToken = candles[0]?.instrument_token;
@@ -408,43 +292,161 @@ export function evaluateWithRules(strategy: Strategy, candles: CandleData[]): Si
     const exec = strategy.executable_strategy;
     const indicatorCache = calculateSimpleIndicators(instrumentCandles);
     
-    const evaluateRuleSet = (ruleSet: { logic: "AND" | "OR"; rules: any[] }): boolean => {
-      if (!ruleSet?.rules || ruleSet.rules.length === 0) return false;
-      const results = ruleSet.rules.map(rule => evaluateExecutableRule(rule, instrumentCandles, latestIdx, indicatorCache));
-      return ruleSet.logic === "AND" ? results.every(r => r) : results.some(r => r);
-    };
-
-    const buySignal = evaluateRuleSet(exec.buy);
-    const sellSignal = evaluateRuleSet(exec.sell);
-
-    if (buySignal && !sellSignal) {
-      const sl = exec.buyExit?.stopLoss?.value || 2;
-      const tgt = exec.buyExit?.target?.value || 4;
-      return {
-        action: "BUY",
-        instrument: `TOKEN_${latest.instrument_token}`,
-        instrumentToken: latest.instrument_token,
-        price: latest.close,
-        stopLoss: latest.close * (1 - sl / 100),
-        target: latest.close * (1 + tgt / 100),
-        confidence: 85,
-        reasoning: "Executable strategy BUY rules passed",
+    // SIGNAL MEMORY WINDOW LOGIC
+    const setupKey = getSetupKey(userId, strategy.id, instrumentToken);
+    let state = signalMemoryState.get(setupKey);
+    
+    if (!state) {
+      state = {
+        memory: [],
+        setup: {
+          state: "IDLE",
+          direction: null,
+          intentSignal: null,
+          confirmations: [],
+          setupCandleIndex: -1,
+          reason: "Initialized"
+        }
       };
+      signalMemoryState.set(setupKey, state);
     }
 
-    if (sellSignal && !buySignal) {
-      const sl = exec.sellExit?.stopLoss?.value || 2;
-      const tgt = exec.sellExit?.target?.value || 4;
-      return {
-        action: "SELL",
+    // Clean expired signals
+    state.memory = state.memory.filter(s => s.expiresAt >= latestIdx);
+    if (state.setup.intentSignal && state.setup.intentSignal.expiresAt < latestIdx) {
+      state.setup.state = "INVALIDATED";
+      state.setup.reason = "Setup expired";
+    }
+
+    const buyRules = exec.buy?.rules || [];
+    const sellRules = exec.sell?.rules || [];
+
+    // Evaluate Buy Rules
+    for (let i = 0; i < buyRules.length; i++) {
+      const rule = buyRules[i];
+      const passed = evaluateExecutableRule(rule, instrumentCandles, latestIdx, indicatorCache);
+      const role = classifyRuleRole(rule, i, buyRules.length);
+
+      if (passed) {
+        const signal: SignalMemory = {
+          role,
+          ruleName: getRuleName(rule),
+          triggeredAt: latestIdx,
+          expiresAt: latestIdx + SIGNAL_WINDOW,
+          value: latest.close,
+          direction: "LONG"
+        };
+        
+        // Add to memory
+        const existingIdx = state.memory.findIndex(s => s.role === role && s.ruleName === signal.ruleName && s.direction === "LONG");
+        if (existingIdx >= 0) state.memory[existingIdx] = signal;
+        else state.memory.push(signal);
+
+        if (role === "INTENT" && state.setup.state === "IDLE") {
+          state.setup = {
+            state: "SETUP_DETECTED",
+            direction: "LONG",
+            intentSignal: signal,
+            confirmations: [],
+            setupCandleIndex: latestIdx,
+            reason: `LONG setup: ${signal.ruleName} triggered`
+          };
+        } else if (role === "CONFIRMATION" && state.setup.state === "SETUP_DETECTED" && state.setup.direction === "LONG") {
+          state.setup.confirmations.push(signal);
+        }
+      }
+    }
+
+    // Evaluate Sell Rules
+    for (let i = 0; i < sellRules.length; i++) {
+      const rule = sellRules[i];
+      const passed = evaluateExecutableRule(rule, instrumentCandles, latestIdx, indicatorCache);
+      const role = classifyRuleRole(rule, i, sellRules.length);
+
+      if (passed) {
+        const signal: SignalMemory = {
+          role,
+          ruleName: getRuleName(rule),
+          triggeredAt: latestIdx,
+          expiresAt: latestIdx + SIGNAL_WINDOW,
+          value: latest.close,
+          direction: "SHORT"
+        };
+        
+        const existingIdx = state.memory.findIndex(s => s.role === role && s.ruleName === signal.ruleName && s.direction === "SHORT");
+        if (existingIdx >= 0) state.memory[existingIdx] = signal;
+        else state.memory.push(signal);
+
+        if (role === "INTENT" && state.setup.state === "IDLE") {
+          state.setup = {
+            state: "SETUP_DETECTED",
+            direction: "SHORT",
+            intentSignal: signal,
+            confirmations: [],
+            setupCandleIndex: latestIdx,
+            reason: `SHORT setup: ${signal.ruleName} triggered`
+          };
+        } else if (role === "CONFIRMATION" && state.setup.state === "SETUP_DETECTED" && state.setup.direction === "SHORT") {
+          state.setup.confirmations.push(signal);
+        }
+      }
+    }
+
+    // Determine Final Signal
+    const intentSignals = state.memory.filter(s => s.role === "INTENT");
+    const confirmSignals = state.memory.filter(s => s.role === "CONFIRMATION");
+
+    const longIntent = intentSignals.find(s => s.direction === "LONG");
+    const longConfirm = confirmSignals.find(s => s.direction === "LONG");
+    const shortIntent = intentSignals.find(s => s.direction === "SHORT");
+    const shortConfirm = confirmSignals.find(s => s.direction === "SHORT");
+
+    let finalAction: "BUY" | "SELL" | null = null;
+    let reasoning = "";
+
+    if (exec.buy.logic === "AND") {
+      if (longIntent && longConfirm) {
+        finalAction = "BUY";
+        reasoning = `LONG: Intent (${longIntent.ruleName}) + Confirmation (${longConfirm.ruleName})`;
+      }
+    } else if (longIntent || longConfirm) {
+      finalAction = "BUY";
+      reasoning = longIntent ? `LONG Intent: ${longIntent.ruleName}` : `LONG Confirm: ${longConfirm!.ruleName}`;
+    }
+
+    if (!finalAction) {
+      if (exec.sell.logic === "AND") {
+        if (shortIntent && shortConfirm) {
+          finalAction = "SELL";
+          reasoning = `SHORT: Intent (${shortIntent.ruleName}) + Confirmation (${shortConfirm.ruleName})`;
+        }
+      } else if (shortIntent || shortConfirm) {
+        finalAction = "SELL";
+        reasoning = shortIntent ? `SHORT Intent: ${shortIntent.ruleName}` : `SHORT Confirm: ${shortConfirm!.ruleName}`;
+      }
+    }
+
+    if (finalAction) {
+      state.setup.state = "CONFIRMED";
+      const sl = (finalAction === "BUY" ? exec.buyExit?.stopLoss?.value : exec.sellExit?.stopLoss?.value) || 2;
+      const tgt = (finalAction === "BUY" ? exec.buyExit?.target?.value : exec.sellExit?.target?.value) || 4;
+      
+      const sig: Signal = {
+        action: finalAction,
         instrument: `TOKEN_${latest.instrument_token}`,
         instrumentToken: latest.instrument_token,
         price: latest.close,
-        stopLoss: latest.close * (1 + sl / 100),
-        target: latest.close * (1 - tgt / 100),
-        confidence: 85,
-        reasoning: "Executable strategy SELL rules passed",
+        stopLoss: latest.close * (finalAction === "BUY" ? (1 - sl / 100) : (1 + sl / 100)),
+        target: latest.close * (finalAction === "BUY" ? (1 + tgt / 100) : (1 - tgt / 100)),
+        confidence: 90,
+        reasoning: reasoning
       };
+      
+      // Reset state after confirmed signal to avoid duplicate entries
+      state.setup.state = "IDLE";
+      state.memory = [];
+      
+      return sig;
     }
 
     return null;

@@ -1286,20 +1286,21 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
     let buySignalCount = 0;
     let sellSignalCount = 0;
 
-    for (let i = warmupPeriod; i < candles.length; i++) {
-      const candle = candles[i];
-      
-      let buySignal = false;
-      let sellSignal = false;
-      let holdInfo = false;
-
-      if (useNewExecutor && executor && strategy.executable_strategy) {
-        const result = executor.evaluate(strategy.executable_strategy, i);
-        buySignal = result.buySignal;
-        sellSignal = result.sellSignal;
-        holdInfo = result.holdInfo;
+      for (let i = warmupPeriod; i < candles.length; i++) {
+        const candle = candles[i];
         
-        if (i === warmupPeriod || i === warmupPeriod + 1 || i === warmupPeriod + 2) {
+        let buySignal = false;
+        let sellSignal = false;
+        let holdInfo = false;
+
+        if (useNewExecutor && executor && strategy.executable_strategy) {
+          // Use evaluateWithMemory for human-like time-aware execution in backtests
+          const result = executor.evaluateWithMemory(strategy.executable_strategy, i);
+          buySignal = result.buySignal;
+          sellSignal = result.sellSignal;
+          holdInfo = result.holdInfo;
+          
+          if (i === warmupPeriod || i === warmupPeriod + 1 || i === warmupPeriod + 2) {
           console.log(`[Backtest] Sample eval candle ${i}:`, JSON.stringify({
             close: candle.close,
             buyResult: result.log.buyEvaluation.result,

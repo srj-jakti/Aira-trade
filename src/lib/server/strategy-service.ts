@@ -805,11 +805,16 @@ MARKET ANALYSIS (from ${candles.length} candles):
     
     ${zairothContext}${aiEngineContext}
     ### YOUR OPTIMIZATION APPROACH (PRIORITY ORDER):
+    1. **WIN BIG & LOSE SMALL**:
+       - Ensure Risk-Reward ratio is at least 1:2.
+       - Implement aggressive trailing stops for winning trades.
+       - Tighten stop losses for entries with lower historical confidence.
+    2. **FILTER NOISE (VETO ENGINE)**:
+       - Add a "Veto Condition" like ADX < 20 or Volume < 1.5x Avg to skip choppy markets.
+       - Use higher-timeframe trend alignment as a mandatory filter.
+    3. **Tweak Parameters**: Adjust indicator periods to match recent volatility.
+    4. **Automatic Evolution**: Incorporate AI Engine learnings to avoid past "Traps".
 
-  1. **Tweak Existing Parameters**: First, try adjusting the periods or thresholds of the indicators already present in the strategy (e.g., change EMA 9 to EMA 12, or RSI 14 to RSI 10).
-  2. **Refine Exit Logic**: Adjust Stop Loss % and Target % based on the win rate and average holding period.
-  3. **Add Filters (ONLY IF NECESSARY)**: Only add new indicators or conditions if the current ones cannot be optimized further to achieve a >60% win rate.
-  4. **Compare with Past Performance**: Ensure your suggested changes are likely to outperform the previous versions provided in the history.
   
   ### OPTIMIZATION RULES:
   - **If Win Rate < 40%**: Tighten entry conditions (use AND logic), or adjust indicator periods to better match market volatility.

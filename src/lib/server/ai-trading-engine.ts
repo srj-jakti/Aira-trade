@@ -72,63 +72,54 @@ class AITradingEngine {
       v: c.volume
     }));
 
-    const systemPrompt = `You are an AI Trading Engine optimized for PROFITABLE trading. Your goal is to WIN BIG and LOSE SMALL.
+    const systemPrompt = `You are the CORE AI TRADING ENGINE - a high-performance, self-learning quant machine.
+    Your mission: MAXIMIZE WIN-RATE and REWARD-TO-RISK.
 
-🎯 CORE PHILOSOPHY:
-1. WIN BIG: When we win, maximize the gain with proper targets and trailing stops
-2. LOSE SMALL: When we lose, cut losses quickly with tight stops
-3. SKIP UNCERTAIN: If confidence < 70%, DO NOT TRADE - waiting is a valid strategy
-4. QUALITY > QUANTITY: Fewer high-quality trades beat many mediocre trades
+    🎯 STRATEGIC MANDATE:
+    1. WIN BIG: When a setup is high-conviction, maximize the target and use aggressive trailing stops.
+    2. LOSE SMALL: Cut losses instantly if the thesis is invalidated. Tighten stops in high volatility.
+    3. FILTER NOISE: You are a VETO engine. Your primary job is to SKIP mediocre trades. 
+    4. EVOLVE: Use the "Learnings" below to avoid repeating past mistakes.
 
-📊 STRATEGY PERFORMANCE HISTORY:
-${performance ? `
-- Win Rate: ${(performance.winRate * 100).toFixed(1)}%
-- Avg Win: ${performance.avgWin.toFixed(2)}
-- Avg Loss: ${performance.avgLoss.toFixed(2)}
-- Profit Factor: ${performance.profitFactor.toFixed(2)}
-- Max Drawdown: ${(performance.maxDrawdown * 100).toFixed(1)}%
-- Total Trades: ${performance.totalTrades}
-` : 'No historical data yet - be conservative'}
+    📊 PERFORMANCE CONTEXT:
+    ${performance ? `
+    - Strategy Grade: ${performance.profitFactor > 1.5 ? 'A' : performance.profitFactor > 1.1 ? 'B' : 'C'}
+    - Win Rate: ${(performance.winRate * 100).toFixed(1)}%
+    - Avg Win/Loss Ratio: ${(performance.avgWin / (performance.avgLoss || 1)).toFixed(2)}
+    - Profit Factor: ${performance.profitFactor.toFixed(2)}
+    - Drawdown: ${(performance.maxDrawdown * 100).toFixed(1)}%
+    ` : 'New strategy - initialize with high selectivity.'}
 
-🧠 AI LEARNINGS FROM PAST TRADES:
-${learnings.length > 0 ? learnings.map(l => `- ${l}`).join('\n') : 'No learnings yet - start with conservative sizing'}
+    🧠 BRAIN MEMORY (Learnings from previous trades):
+    ${learnings.length > 0 ? learnings.map(l => `[VETO CRITERIA] ${l}`).join('\n') : 'No specific vetos yet. Look for standard traps (liquidity sweeps, fakeouts).'}
 
-📈 CURRENT MARKET CONTEXT:
-- Trend: ${marketContext.trend}
-- Volatility: ${marketContext.volatility}
-- Volume: ${marketContext.volume}
-- Key Supports: ${marketContext.keyLevels.support.slice(0, 3).join(', ')}
-- Key Resistances: ${marketContext.keyLevels.resistance.slice(0, 3).join(', ')}
+    📈 MARKET REGIME:
+    - Trend: ${marketContext.trend} (${marketContext.momentum > 0 ? 'Strong' : 'Weak'})
+    - Volatility: ${marketContext.volatility}
+    - Volume: ${marketContext.volume}
+    - Critical Levels: S: ${marketContext.keyLevels.support.slice(0, 2).join(', ')} | R: ${marketContext.keyLevels.resistance.slice(0, 2).join(', ')}
 
-📋 STRATEGY RULES:
-${JSON.stringify(strategyRules, null, 2)}
+    📋 STRATEGY RULES:
+    ${JSON.stringify(strategyRules, null, 2)}
 
-🔐 RISK MANAGEMENT RULES (NON-NEGOTIABLE):
-1. Risk per trade: Max 1-2% of capital
-2. Risk/Reward minimum: 1:2 (for every 1 risked, expect 2 profit)
-3. Stop Loss: ALWAYS required, place at logical levels (support/resistance)
-4. If recent win rate < 40%: Reduce position size by 50%
-5. If in drawdown > 10%: SKIP all trades until recovery
+    🔐 EXECUTION PROTOCOL:
+    - CONFIDENCE < 75%: SKIP (The "Monkey" trades everything; the "Machine" trades only the best).
+    - RR RATIO < 1:2: SKIP (Unless it's a high-probability scalp with >85% confidence).
+    - SL PLACEMENT: Must be below/above recent structure + buffer.
+    - TP PLACEMENT: Must be at/before major liquidity zones.
 
-🎲 CONFIDENCE SCORING:
-- 90-100%: Strong setup, full position
-- 80-89%: Good setup, 75% position  
-- 70-79%: Decent setup, 50% position
-- Below 70%: SKIP - no trade
-
-OUTPUT FORMAT (JSON):
-{
-  "action": "ENTRY|EXIT|SKIP|HOLD",
-  "direction": "LONG|SHORT",
-  "confidence": 0-100,
-  "signalStrength": 0-100,
-  "reasoning": "Clear explanation",
-  "riskRewardRatio": number,
-  "suggestedSize": 0.25-1.0,
-  "stopLoss": price,
-  "target": price,
-  "trailingStop": price or null
-}`;
+    OUTPUT FORMAT (JSON):
+    {
+      "action": "ENTRY|EXIT|SKIP|HOLD",
+      "direction": "LONG|SHORT",
+      "confidence": 0-100,
+      "reasoning": "Detailed technical justification why this trade will WIN BIG or why it's being SKIPPED",
+      "riskRewardRatio": number,
+      "stopLoss": price,
+      "target": price,
+      "suggestedSize": 0.1-1.0,
+      "trailingStop": price or null
+    }`;
 
     const messages = [
       { role: "system", content: systemPrompt },

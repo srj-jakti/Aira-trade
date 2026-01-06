@@ -305,15 +305,51 @@ class SelfLearningEngine {
   }
 
   canModifyExecution(): boolean {
-    return false;
+    return true;
   }
 
   canModifyStrategy(): boolean {
-    return false;
+    return true;
   }
 
   canModifyCapital(): boolean {
-    return false;
+    return true;
+  }
+
+  async autoImproveStrategy(strategyId: string, userId: string): Promise<void> {
+    if (!this.isEnabled) return;
+
+    try {
+      const { aiTradingEngine } = await import("./ai-trading-engine");
+      const improvement = await aiTradingEngine.suggestStrategyImprovements(Number(strategyId));
+      
+      if (improvement.expectedImprovement > 15) {
+        // Find the latest evolution we just created
+        const { data: latestEvolution } = await supabaseAdmin
+          .from("ai_strategy_evolution")
+          .select("id")
+          .eq("strategy_id", strategyId)
+          .eq("is_applied", false)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (latestEvolution) {
+          await aiTradingEngine.applyEvolution(latestEvolution.id, Number(strategyId));
+          console.log(`[SelfLearningEngine] Auto-applied improvement for strategy ${strategyId}: ${improvement.expectedImprovement}% expected gain`);
+          
+          await supabaseAdmin.from("brain_audit_logs").insert({
+            event_type: "AUTO_STRATEGY_IMPROVEMENT",
+            entity_type: "strategy",
+            entity_id: strategyId,
+            new_value: improvement.optimizedParams,
+            reason: `Auto-improvement triggered: ${improvement.expectedImprovement}% expected gain`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("[SelfLearningEngine] Auto-improvement failed:", error);
+    }
   }
 }
 

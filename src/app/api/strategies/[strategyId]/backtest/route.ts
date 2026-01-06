@@ -77,34 +77,55 @@ export async function POST(
       zerodhaConfigId
     );
 
-      if (strategyId !== "preview") {
-        const id = parseInt(strategyId);
-        await strategyService.saveBacktestResult(
-          id,
-          1,
-          tokens,
-          timeframe,
-          result,
-          strategy
-        );
-
-        // AI Learning: Feed backtest results to AI Trading Engine
-        if (result.trades && result.trades.length > 0) {
-          const trades = result.trades.map((t: { pnl: number; entry_price: number; exit_price: number; entry_time: string; exit_time: string }) => ({
-            pnl: t.pnl,
-            entryPrice: t.entry_price,
-            exitPrice: t.exit_price,
-            duration: `${Math.round((new Date(t.exit_time).getTime() - new Date(t.entry_time).getTime()) / 60000)}m`
-          }));
-          
-          await aiTradingEngine.updateStrategyPerformance(
+        if (strategyId !== "preview") {
+          const id = parseInt(strategyId);
+          await strategyService.saveBacktestResult(
             id,
-            user.user.id,
-            "backtest",
-            trades
+            1,
+            tokens,
+            timeframe,
+            result,
+            strategy
           );
+
+          // AI Learning: Feed backtest results to AI Trading Engine and Self-Learning Engine
+          if (result.trades && result.trades.length > 0) {
+            const trades = result.trades.map((t: { pnl: number; entry_price: number; exit_price: number; entry_time: string; exit_time: string }) => ({
+              pnl: t.pnl,
+              entryPrice: t.entry_price,
+              exitPrice: t.exit_price,
+              duration: `${Math.round((new Date(t.exit_time).getTime() - new Date(t.entry_time).getTime()) / 60000)}m`
+            }));
+            
+            await aiTradingEngine.updateStrategyPerformance(
+              id,
+              user.user.id,
+              "backtest",
+              trades
+            );
+
+            // Trigger Self-Learning Engine observation
+            const { selfLearningEngine } = await import("@/lib/server/self-learning-engine");
+            await selfLearningEngine.observeBacktestResult({
+              strategyId: id.toString(),
+              userId: user.user.id,
+              zairothIntent: strategy.zairoth_intent,
+              result: {
+                netPnl: result.net_pnl,
+                winRate: result.win_rate,
+                totalTrades: result.total_trades,
+                maxDrawdown: result.max_drawdown,
+              }
+            });
+
+            // Automatically trigger improvement if performance is poor or after N backtests
+            // For now, let's be proactive: if win rate < 45% or P&L is negative, auto-improve
+            if (result.win_rate < 45 || result.net_pnl < 0) {
+              await selfLearningEngine.autoImproveStrategy(id.toString(), user.user.id);
+            }
+          }
         }
-      }
+
 
       await supabaseAdmin.from("brain_events").insert({
         event_type: "BACKTEST_COMPLETE",

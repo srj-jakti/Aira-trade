@@ -6,7 +6,7 @@ import {
   serverErrorResponse,
   successResponse,
 } from "@/lib/server/auth";
-import { strategyService } from "@/lib/server/strategy-service-v2";
+import { strategyService } from "@/lib/server/strategy-service";
 
 export async function POST(request: NextRequest) {
   const user = await getAuthenticatedUser();

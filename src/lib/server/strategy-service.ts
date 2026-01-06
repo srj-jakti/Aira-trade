@@ -156,49 +156,32 @@ You are NOT an indicator calculator. You are a DECISION-MAKING TRADER.
 
 ${zairothContext}
 ${aiAnalysisEnabled ? `
-### 🧠 EXPERT AI TRADER MODE: ENABLED
-CORE PRINCIPLE (NON-NEGOTIABLE):
-- Strategies define WHEN to trade.
-- AI Analysis defines WHEN NOT to trade.
-- Your job is TRADE SELECTION, not rule explosion.
-
-HOW YOU MUST THINK:
-1. "Is this setup valid in this market context?"
-2. "Is this a high-probability trade or just a valid signal?"
-3. "Would an experienced trader skip this trade?"
-4. "Where do most traders lose money with this strategy?"
-
-AI ANALYSIS GATES (Add these as execution filters):
-🔹 Market Regime Check:
-   - Is market Trending, Ranging, or Choppy?
-   - ADX > 25 = Trending (good for momentum strategies)
-   - ADX < 20 = Ranging (good for mean reversion, avoid breakouts)
-
-🔹 Trade Quality Check:
-   - Momentum strength (RSI slope, MACD histogram direction)
-   - Volatility expansion vs contraction (ATR comparison)
-   - Proximity to key levels (VWAP, Day High/Low)
-
-🔹 Risk Avoidance Rules:
-   - Block trades during sudden volatility spikes
-   - Block trades on overextended candles (>2x ATR)
-   - Skip re-entry if just stopped out
-
-COMBINED EXECUTION OUTPUT:
-For each entry condition, AI must provide:
-- Strategy Rule (original logic) 
-- AI Analysis Gate (expert judgment)
-- Execution Decision (✅ Allowed / ❌ Blocked)
-- Reason (human-readable)
-
-TARGET OUTCOME:
-Improve effective trade quality from ~20-30% to 60-80% win rate
-by AVOIDING bad trades, not forcing more trades.
-
-KEY PHILOSOPHY:
-"A good trader does not trade often. A good trader trades well-selected moments."
-"The edge is not in the strategy. The edge is in TRADE SELECTION."
-` : ""}
+  ### 🧠 EXPERT AI TRADER MODE: ENABLED
+  CORE PRINCIPLE (NON-NEGOTIABLE):
+  - "Strategies define WHEN to trade. AI Analysis defines WHEN NOT to trade."
+  - Your job is TRADE SELECTION.
+  
+  HOW YOU MUST THINK:
+  1. "Is this setup valid in this market context?"
+  2. "Would an experienced trader SKIP this trade?"
+  
+  AI ANALYSIS GATES (YOU MUST INJECT THESE INTO THE EXECUTABLE RULES):
+  🔹 Market Regime Check:
+     - ADX > 25 = Trending (Required for Trend following)
+     - ADX < 20 = Ranging (Required for Mean Reversion)
+  
+  🔹 Trade Quality Check:
+     - RSI not between 40-60 (Avoid neutral zones)
+     - Momentum confirmation (e.g. MACD Histogram direction)
+  
+  🔹 Risk Avoidance:
+     - Block trades on overextended candles (>2x ATR)
+  
+  INSTRUCTIONS:
+  When this mode is enabled, you MUST add these filters as actual rules in 'executable_strategy.buy.rules' and 'executable_strategy.sell.rules'. 
+  Use 'AND' logic for the executable strategy to ensure only high-quality trades are taken.
+  Target outcome: Improve win rate from 20% to 60-80% by AVOIDING junk trades.
+  ` : ""}
 
 ### STRATEGY TYPES:
 - INTRADAY: Same-day entry/exit. Must exit by 3:15 PM IST.
@@ -785,6 +768,14 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
         exitReasons[reason] = (exitReasons[reason] || 0) + 1;
       });
 
+      // Analyze Loss Patterns (New: Deep analysis for AI)
+      const lossPatterns = {
+        slHit: losingTrades.filter(t => t.exit_reason === "Stop Loss Hit").length,
+        intradayExit: losingTrades.filter(t => t.exit_reason?.includes("Intraday")).length,
+        avgLossPct: losingTrades.reduce((a, b) => a + (b.pnl_percentage || 0), 0) / (losingTrades.length || 1),
+        consecutiveLosses: 0 // Simplistic check
+      };
+
       // Build market context from candle data
       let marketContext = "";
       if (candleData?.candles && candleData.candles.length > 0) {
@@ -806,18 +797,18 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
         const support = lows[Math.floor(lows.length * 0.1)];
 
         marketContext = `
-MARKET ANALYSIS (from ${candles.length} candles):
-- Period Trend: ${trendPercent > 0 ? "BULLISH" : "BEARISH"} (${trendPercent.toFixed(2)}%)
-- Volatility: ${volatility.toFixed(2)}% (${volatility < 1 ? "LOW" : volatility < 2 ? "MEDIUM" : "HIGH"})
-- Price Range: ₹${lows[0].toFixed(2)} to ₹${highs[0].toFixed(2)}
-- Key Resistance: ₹${resistance.toFixed(2)}
-- Key Support: ₹${support.toFixed(2)}
-- Current Price: ₹${lastPrice.toFixed(2)}`;
+  MARKET ANALYSIS (from ${candles.length} candles):
+  - Period Trend: ${trendPercent > 0 ? "BULLISH" : "BEARISH"} (${trendPercent.toFixed(2)}%)
+  - Volatility: ${volatility.toFixed(2)}% (${volatility < 1 ? "LOW" : volatility < 2 ? "MEDIUM" : "HIGH"})
+  - Price Range: ₹${lows[0].toFixed(2)} to ₹${highs[0].toFixed(2)}
+  - Key Resistance: ₹${resistance.toFixed(2)}
+  - Key Support: ₹${support.toFixed(2)}
+  - Current Price: ₹${lastPrice.toFixed(2)}`;
       }
 
       // Phase 1: Generate ZAIROTH Intent (Internal)
       const zairothResult = await aiSharedService.generateZairothIntent(
-        `Improve strategy: ${strategy.name}. Backtest result: ${backtestResults.win_rate.toFixed(1)}% win rate, ₹${backtestResults.net_pnl.toFixed(2)} P&L.`
+        `Improve strategy: ${strategy.name}. Backtest result: ${backtestResults.win_rate.toFixed(1)}% win rate, ₹${backtestResults.net_pnl.toFixed(2)} P&L. Focus on cutting losses.`
       );
       let zairothContext = "";
       
@@ -838,201 +829,130 @@ MARKET ANALYSIS (from ${candles.length} candles):
             {
               role: "system",
               content: `You are an EXPERT PROFESSIONAL TRADER AI with 10+ years of discretionary trading experience.
-    You are NOT an indicator calculator. You are a DECISION-MAKING TRADER optimizing strategies.
+      You are NOT an indicator calculator. You are a DECISION-MAKING TRADER optimizing strategies for maximum profitability.
 
-    ${zairothContext}${aiEngineContext}
+      ${zairothContext}${aiEngineContext}
 
-    🔒 CORE PRINCIPLE (NON-NEGOTIABLE):
-    "Strategies define WHEN to trade. AI Analysis defines WHEN NOT to trade."
+      🔒 CORE PRINCIPLE (NON-NEGOTIABLE):
+      "Strategies define WHEN to trade. AI Analysis defines WHEN NOT to trade."
+      
+      Your goal is to IMPROVE effective win rate from ~20-30% to 60-80% 
+      by AVOIDING bad trades, NOT by forcing more trades.
+
+      🎯 OPTIMIZATION PHILOSOPHY:
+      1. ANALYZE LOSSES FIRST: Identify WHY trades are losing. Are they entering in chop? Is the stop loss too tight? Is the trend weak?
+      2. ANALYZE PROFITS: What conditions were present during big wins? Strengthen those rules.
+      3. CUT LOSSES: Add filters (Market Regime, Volatility, Momentum) to "Veto" entries that look like common loss patterns.
+      4. WIN BIG: Use aggressive targets or trailing stops for high-confidence setups.
+      5. LOSE SMALL: Tighten SL and ensure R:R is at least 1:2.
+
+      📋 STEP-BY-STEP IMPROVEMENT PROCESS:
+
+      STEP 1 — Understand the Strategy (DO NOT CHANGE IT)
+      - Identify: Entry logic, Exit logic, Timeframe, Indicator dependency
+      - Assume the strategy logic is CORRECT but INCOMPLETE
+
+      STEP 2 — Analyze Historical Weaknesses (Trader Mindset)
+      - Look at the LOSING TRADES provided.
+      - If many losses are "Stop Loss Hit", suggest adding a "Volatility Filter" (e.g., ATR < threshold) or "Trend Filter" (e.g., ADX > 25).
+      - If win rate is low (<35%), the strategy is likely taking too many "junk" trades. Focus on quality.
+
+      STEP 3 — Add AI ANALYSIS FILTERS (INBUILT IN LOGIC)
+      You MUST add these as actual rules in the 'executable_strategy.buy.rules' and 'executable_strategy.sell.rules' if they improve performance.
+      Common Filters to add:
+      - ADX(14) > 25 (Trend confirmation)
+      - RSI(14) not between 40-60 (Momentum confirmation)
+      - Price > EMA(200) (Major trend filter)
+      - ATR(14) < [value] (Volatility filter)
+      
+      STEP 4 — Combine & Validate
+      - Ensure 'executable_strategy' includes the new filters.
+      - Logic should be 'AND' if you want high quality (fewer trades).
+      - Logic can be 'OR' if the filters are alternatives.
+
+      🚫 WHAT YOU MUST NEVER DO:
+      - ❌ Overfit to these specific 10 trades. Think about the market REGIME.
+      - ❌ Add more than 2 additional filters. Keep it clean.
+
+      KEY PHILOSOPHY:
+      "A good trader does not trade often. A good trader trades WELL-SELECTED moments."
+      "The edge is not in the strategy. The edge is in TRADE SELECTION."
     
-    Your goal is to IMPROVE effective win rate from ~20-30% to 60-80% 
-    by AVOIDING bad trades, NOT by forcing more trades.
-
-    🎯 OPTIMIZATION PHILOSOPHY:
-    1. PRESERVE the original strategy logic - don't change the core idea
-    2. ADD expert AI analysis as EXECUTION FILTERS (gates)
-    3. IMPROVE effective win rate by FILTERING low-quality trades
-    4. NEVER overfit to backtest data
-    5. Make every decision EXPLAINABLE
-
-    📋 STEP-BY-STEP IMPROVEMENT PROCESS:
-
-    STEP 1 — Understand the Strategy (DO NOT CHANGE IT)
-    - Identify: Entry logic, Exit logic, Timeframe, Indicator dependency
-    - Assume the strategy logic is CORRECT but INCOMPLETE
-    - DO NOT optimize parameters yet
-
-    STEP 2 — Analyze Historical Weaknesses (Trader Mindset)
-    Based on the strategy type, identify:
-    - Where it usually fails
-    - Typical loss scenarios
-    - Market conditions where it underperforms
-    Examples:
-    - RSI strategies fail in STRONG TRENDS
-    - Breakouts fail in LOW VOLATILITY
-    - Mean reversion fails during NEWS EVENTS
-
-    STEP 3 — Add AI ANALYSIS FILTERS (THIS IS THE EDGE)
-    Add gates that evaluate:
-    
-    🔹 Market Regime:
-    - Trending / Ranging / High volatility / Low liquidity
-    - ADX > 25 = Trending (good for momentum)
-    - ADX < 20 = Ranging (avoid breakouts)
-    
-    🔹 Trade Quality:
-    - Momentum strength (RSI slope, MACD histogram)
-    - Volatility expansion vs contraction
-    - Proximity to key levels (VWAP, Day High/Low)
-    
-    🔹 Risk Conditions:
-    - Sudden volatility spikes
-    - News-like behavior
-    - Overextended candles (>2x ATR)
-
-    STEP 4 — Combine Strategy + AI Analysis
-    For EVERY entry, produce:
-    - Strategy Rule (original logic)
-    - AI Analysis Gate (expert judgment)
-    - Execution Decision (allowed / blocked)
-    - Reason (human-readable)
-
-    AI Analysis must:
-    - BLOCK bad trades
-    - NOT force trades
-    - Reduce frequency, INCREASE quality
-
-    STEP 5 — Risk & Loss Control
-    Explicitly decide:
-    - When to SKIP a trade even if signal exists
-    - When to cut loss EARLY
-    - When to avoid RE-ENTRY
-    Rules: Protect capital > maximize profit
-
-    🚫 WHAT YOU MUST NEVER DO:
-    - ❌ Inflate win rate by curve fitting
-    - ❌ Add 10 indicators to feel safe
-    - ❌ Optimize for backtest only
-    - ❌ Remove all losses (unrealistic)
-    - ❌ Hide why a trade is blocked
-
-    KEY PHILOSOPHY:
-    "A good trader does not trade often. A good trader trades WELL-SELECTED moments."
-    "The edge is not in the strategy. The edge is in TRADE SELECTION."
-    "Losses are normal. BAD losses are not."
-  
-    ### AVAILABLE INDICATORS:
-    | Indicator | Periods | Entry Signal |
-    |-----------|---------|--------------|
-    | RSI | 7, 14, 21 | <35 oversold (buy), >65 overbought (sell) |
-    | EMA | 9, 20, 50, 200 | Price crossover, EMA crossover |
-    | SMA | 20, 50, 200 | Trend direction |
-    | MACD | 12,26,9 | Signal line cross, histogram reversal |
-    | SUPERTREND | 10,3 | Direction change |
-    | ADX | 14 | >25 = trending (take trades), <20 = ranging (SKIP) |
-    | BB | 20,2 | Band squeeze breakout |
-    | ATR | 14 | Volatility measurement, stop loss sizing |
-    
-    ### RULE STRUCTURE:
-    \`\`\`json
-    { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 35 }
-    { "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 }
-    { "type": "indicator_vs_indicator", "indicator1": "EMA", "period1": 9, "indicator2": "EMA", "period2": 21, "operator": "CROSS_ABOVE" }
-    { "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" }
-    { "type": "trend", "indicator": "ADX", "operator": ">", "value": 25 }
-    \`\`\`
-    
-    ### OUTPUT FORMAT:
-    {
-      "improved": {
-        "name": "Strategy Name vX",
-        "description": "Improved with AI Analysis Gates: [list key changes]",
-        "strategy_type": "INTRADAY" | "SWING",
-        "buy_entry_logic": { "conditions": [...], "indicators": [...] },
-        "sell_entry_logic": { "conditions": [...], "indicators": [...] },
-        "buy_stop_loss": { "parameters": { "percentage": X } },
-        "buy_target": { "parameters": { "percentage": Y } },
-        "sell_stop_loss": { "parameters": { "percentage": X } },
-        "sell_target": { "parameters": { "percentage": Y } },
-        "buy_trailing_sl": { "conditions": [] },
-        "sell_trailing_sl": { "conditions": [] },
-        "hold_logic": { "conditions": [] },
-        "ai_analysis_layer": {
-          "market_regime_check": "ADX > 25 required for trend trades",
-          "trade_quality_check": "RSI not in neutral zone (40-60)",
-          "risk_avoidance": "Skip if candle > 2x ATR"
+      ### RULE STRUCTURE:
+      { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 35 }
+      { "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 }
+      { "type": "trend", "indicator": "ADX", "operator": ">", "value": 25 }
+      
+      ### OUTPUT FORMAT (STRICT JSON):
+      {
+        "improved": {
+          "name": "Strategy Name vX",
+          "description": "Improved with AI Filters to cut losses and increase R:R. [Specific changes explained]",
+          "strategy_type": "INTRADAY" | "SWING",
+          "buy_entry_logic": { "conditions": [...], "indicators": [...] },
+          "sell_entry_logic": { "conditions": [...], "indicators": [...] },
+          "buy_stop_loss": { "parameters": { "percentage": X } },
+          "buy_target": { "parameters": { "percentage": Y } },
+          "ai_analysis_layer": {
+            "loss_analysis": "Explanation of why trades were losing and how we fixed it",
+            "profit_analysis": "Explanation of how we increased profit potential",
+            "market_regime_check": "What regime we are now filtering for"
+          },
+          "executable_strategy": {
+            "name": "...",
+            "strategyType": "...",
+            "version": X,
+            "buy": { "logic": "AND", "rules": [...] }, // Use AND for better quality
+            "sell": { "logic": "AND", "rules": [...] },
+            "buyExit": { "stopLoss": {...}, "target": {...} },
+            "sellExit": { "stopLoss": {...}, "target": {...} },
+            "requiredIndicators": [...],
+            "minWarmupCandles": 30
+          }
         },
-        "executable_strategy": {
-          "name": "...",
-          "strategyType": "...",
-          "version": X,
-          "buy": { "logic": "OR"|"AND", "rules": [...] },
-          "sell": { "logic": "OR"|"AND", "rules": [...] },
-          "buyExit": { "stopLoss": {...}, "target": {...} },
-          "sellExit": { "stopLoss": {...}, "target": {...} },
-          "requiredIndicators": [...],
-          "minWarmupCandles": 30
-        }
-      },
-      "notes": "SECTION 1: Strategy preserved. SECTION 2: AI Analysis Gates added - [list]. SECTION 3: Expected improvement - fewer trades, higher win rate."
-    }`,
-          },
-          {
-            role: "user",
-            content: `Analyze and improve this trading strategy using EXPERT AI TRADER methodology.
-
-    CURRENT STRATEGY (SECTION 1 - DO NOT CHANGE CORE LOGIC):
-    Name: ${strategy.name}
-    Type: ${strategy.strategy_type || "SWING"}
-    Buy Conditions: ${JSON.stringify(strategy.buy_entry_logic?.conditions || [])}
-    Sell Conditions: ${JSON.stringify(strategy.sell_entry_logic?.conditions || [])}
-    Stop Loss: ${strategy.buy_stop_loss?.parameters?.percentage || 2}%
-    Target: ${strategy.buy_target?.parameters?.percentage || 4}%
-    
-    BACKTEST PERFORMANCE (SECTION 2 - AI ANALYSIS NEEDED):
-    - Total Trades: ${backtestResults.total_trades}
-    - Win Rate: ${backtestResults.win_rate.toFixed(1)}% (${winningTrades.length} wins, ${losingTrades.length} losses)
-    - Net P&L: ₹${backtestResults.net_pnl.toFixed(2)} (${backtestResults.net_pnl_percentage.toFixed(2)}%)
-    - Max Drawdown: ${backtestResults.max_drawdown_percentage.toFixed(2)}%
-    - Avg Win: ₹${avgWin.toFixed(2)}
-    - Avg Loss: ₹${avgLoss.toFixed(2)}
-    - Risk/Reward Ratio: ${avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : "N/A"}
-    - Avg Holding Period: ${avgHoldingPeriod.toFixed(0)} minutes
-    
-    EXIT REASON BREAKDOWN:
-    ${Object.entries(exitReasons).map(([reason, count]) => `- ${reason}: ${count} trades (${((count/trades.length)*100).toFixed(1)}%)`).join('\n')}
-    ${marketContext}
-    ${pastPerformanceContext}
-    
-    SAMPLE LOSING TRADES (to understand weaknesses):
-    ${JSON.stringify(losingTrades.slice(-3).map(t => ({
-      type: t.type,
-      entry: t.entry_price,
-      exit: t.exit_price,
-      pnl: t.pnl?.toFixed(2),
-      reason: t.exit_reason
-    })), null, 2)}
-
-    SAMPLE WINNING TRADES (to understand strengths):
-    ${JSON.stringify(winningTrades.slice(-3).map(t => ({
-      type: t.type,
-      entry: t.entry_price,
-      exit: t.exit_price,
-      pnl: t.pnl?.toFixed(2),
-      reason: t.exit_reason
-    })), null, 2)}
-    
-    EXECUTABLE STRATEGY RULES:
-    ${JSON.stringify(strategy.executable_strategy, null, 2)}
-    
-    Based on this analysis, create an IMPROVED strategy that:
-    1. PRESERVES the original strategy logic
-    2. ADDS AI Analysis Gates to FILTER out bad trades
-    3. REDUCES trade frequency but INCREASES win rate
-    4. Targets 60-80% effective win rate through TRADE SELECTION
-    5. Makes every decision EXPLAINABLE`,
-          },
-        ];
+        "notes": "Detailed expert notes on the optimization."
+      }`,
+            },
+            {
+              role: "user",
+              content: `Analyze and improve this trading strategy. Focus on CUTTING LOSSES and INCREASING PROFITS.
+  
+      CURRENT STRATEGY:
+      Name: ${strategy.name}
+      Buy Conditions: ${JSON.stringify(strategy.buy_entry_logic?.conditions || [])}
+      Sell Conditions: ${JSON.stringify(strategy.sell_entry_logic?.conditions || [])}
+      
+      BACKTEST PERFORMANCE:
+      - Win Rate: ${backtestResults.win_rate.toFixed(1)}% (${winningTrades.length} wins, ${losingTrades.length} losses)
+      - Net P&L: ₹${backtestResults.net_pnl.toFixed(2)}
+      - Exit Reasons: ${JSON.stringify(exitReasons)}
+      - Loss Pattern Summary: ${JSON.stringify(lossPatterns)}
+      ${marketContext}
+      
+      SAMPLE LOSING TRADES (FIX THESE):
+      ${JSON.stringify(losingTrades.slice(-10).map(t => ({
+        type: t.type,
+        entry: t.entry_price,
+        exit: t.exit_price,
+        pnl: t.pnl?.toFixed(2),
+        reason: t.exit_reason
+      })), null, 2)}
+  
+      SAMPLE WINNING TRADES (STRENGTHEN THESE):
+      ${JSON.stringify(winningTrades.slice(-10).map(t => ({
+        type: t.type,
+        entry: t.entry_price,
+        exit: t.exit_price,
+        pnl: t.pnl?.toFixed(2),
+        reason: t.exit_reason
+      })), null, 2)}
+      
+      EXECUTABLE STRATEGY RULES:
+      ${JSON.stringify(strategy.executable_strategy, null, 2)}
+      
+      Goal: Cut the losses, increase the profits, and target a 60%+ win rate by adding smart AI filters.`,
+            },
+          ];
   
       const result = await aiSharedService.executeAnalysis("strategy_improve", messages, {
         maxTokens: 4000,

@@ -5,6 +5,7 @@ import { BrainCircuit, LineChart, Target, TrendingUp, TrendingDown, Minus, Alert
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InstrumentSearch, type Instrument } from "@/components/InstrumentSearch";
 import { TradingViewChart, type CandleData } from "@/components/TradingViewChart";
 import { cn } from "@/lib/utils";
@@ -271,6 +272,20 @@ const response = await fetch(
           className="flex-1 min-w-[280px]"
         />
         <div className="flex items-center gap-2">
+          <Select value={timeframe} onValueChange={handleTimeframeChange}>
+            <SelectTrigger className="w-[100px] bg-white/5 border-white/10 text-white h-9">
+              <SelectValue placeholder="Timeframe" />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-900 border-white/10 text-white">
+              <SelectItem value="1m">1 min</SelectItem>
+              <SelectItem value="5m">5 min</SelectItem>
+              <SelectItem value="15m">15 min</SelectItem>
+              <SelectItem value="1h">1 hour</SelectItem>
+              <SelectItem value="4h">4 hours</SelectItem>
+              <SelectItem value="1d">1 day</SelectItem>
+            </SelectContent>
+          </Select>
+
           <div className="relative">
             <Button
               variant="outline"
@@ -370,16 +385,18 @@ const response = await fetch(
               </CardHeader>
             <CardContent className="p-0">
               <div className="h-[280px] md:h-[350px]">
-                <TradingViewChart
-                  data={chartData}
-                  symbol={selectedInstrument?.tradingsymbol}
-                  support={analysis?.support || undefined}
-                  resistance={analysis?.resistance || undefined}
-                  isLoading={isLoadingChart}
-                  timeframe={timeframe}
-                  onTimeframeChange={handleTimeframeChange}
-                  indicators={indicators}
-                />
+                  <TradingViewChart
+                    data={chartData}
+                    symbol={selectedInstrument?.tradingsymbol}
+                    support={analysis?.support || undefined}
+                    resistance={analysis?.resistance || undefined}
+                    isLoading={isLoadingChart}
+                    timeframe={timeframe}
+                    onTimeframeChange={handleTimeframeChange}
+                    indicators={indicators}
+                    lastPrice={currentPrice}
+                  />
+
               </div>
             </CardContent>
           </Card>

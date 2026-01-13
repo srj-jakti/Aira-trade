@@ -31,6 +31,7 @@ interface TradingViewChartProps {
   onTimeframeChange: (tf: string) => void;
   indicators?: IndicatorOverlay[];
   className?: string;
+  lastPrice?: number | null;
 }
 
 const TIMEFRAMES = [
@@ -77,6 +78,7 @@ export function TradingViewChart({
   onTimeframeChange,
   indicators = [],
   className,
+  lastPrice,
 }: TradingViewChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<any>(null);
@@ -437,6 +439,31 @@ export function TradingViewChart({
     updateIndicators();
   }, [indicators, data, chartReady]);
 
+  // Update last candle with real-time price
+  useEffect(() => {
+    if (!chartReady || !candleSeriesRef.current || lastPrice === null || lastPrice === undefined || !data || data.length === 0) {
+      return;
+    }
+
+    try {
+      const sortedData = deduplicateAndSortCandles(data);
+      const lastDataPoint = sortedData[sortedData.length - 1];
+      
+      if (!lastDataPoint) return;
+
+      const lastCandle = {
+        time: (new Date(lastDataPoint.timestamp).getTime() / 1000) as import("lightweight-charts").Time,
+        open: lastDataPoint.open,
+        high: Math.max(lastDataPoint.high, lastPrice),
+        low: Math.min(lastDataPoint.low, lastPrice),
+        close: lastPrice,
+      };
+
+      candleSeriesRef.current.update(lastCandle);
+    } catch (error) {
+      console.error("[TradingViewChart] Error updating real-time price:", error);
+    }
+  }, [lastPrice, chartReady]);
 
   return (
     <div className={cn("w-full h-full flex flex-col bg-[#0a0a0a] relative", className)}>

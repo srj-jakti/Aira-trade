@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Zap, Lock, Loader2 } from "lucide-react";
+import { Zap, Lock, Loader2, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -16,72 +16,59 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
   const supabase = createClient();
   const router = useRouter();
 
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setError("Invalid or expired reset link. Please request a new one.");
-      }
-      setCheckingSession(false);
-    };
-    checkSession();
-  }, [supabase.auth]);
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
 
-    const handleUpdatePassword = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (password !== confirmPassword) {
-        toast.error("Passwords do not match");
-        setError("Passwords do not match");
-        return;
-      }
-  
-      setLoading(true);
-      setError(null);
-  
-      const { error } = await supabase.auth.updateUser({
-        password: password,
-      });
-  
-      if (error) {
-        toast.error(error.message);
-        setError(error.message);
-        setLoading(false);
-      } else {
-        toast.success("Password updated successfully");
-        setSuccess(true);
-        setLoading(false);
-        setTimeout(() => {
-          router.push("/signin");
-        }, 3000);
-      }
-    };
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
 
-  if (checkingSession) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-      </div>
-    );
-  }
+    setLoading(true);
+    setError(null);
+
+    const { error } = await supabase.auth.updateUser({
+      password: password,
+    });
+
+    if (error) {
+      toast.error(error.message);
+      setError(error.message);
+      setLoading(false);
+    } else {
+      toast.success("Password updated successfully");
+      setSuccess(true);
+      setLoading(false);
+      
+      // Auto redirect to signin after 3 seconds
+      setTimeout(() => {
+        router.push("/signin");
+      }, 3000);
+    }
+  };
 
   if (success) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-white/5 border border-white/10 p-8 rounded-2xl space-y-6 text-center backdrop-blur-sm">
           <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-8 h-8 text-green-400" />
+            <CheckCircle2 className="w-8 h-8 text-green-400" />
           </div>
           <h1 className="text-2xl font-bold text-white">Password Updated</h1>
           <p className="text-white/50">
-            Your password has been successfully reset. Redirecting you to sign in...
+            Your password has been changed successfully. You will be redirected to the sign-in page in a few seconds.
           </p>
           <Link href="/signin">
             <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11">
-              Go to Sign In
+              Go to Sign In Now
             </Button>
           </Link>
         </div>
@@ -101,14 +88,14 @@ export default function ResetPasswordPage() {
             <Zap className="w-8 h-8 text-blue-400" />
             <span className="text-2xl font-bold text-white">AiRA</span>
           </Link>
-          <h1 className="text-3xl font-bold text-white">New Password</h1>
-          <p className="text-white/50 text-sm">Enter your new password below</p>
+          <h1 className="text-3xl font-bold text-white">Set New Password</h1>
+          <p className="text-white/50 text-sm">Please enter your new password below</p>
         </div>
 
         <div className="bg-white/5 border border-white/10 p-8 rounded-2xl space-y-6 backdrop-blur-sm">
           <form onSubmit={handleUpdatePassword} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-white/70">New Password</Label>
+              <Label htmlFor="password" university-id="new-password-label" className="text-white/70">New Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                 <Input
@@ -124,7 +111,7 @@ export default function ResetPasswordPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-white/70">Confirm New Password</Label>
+              <Label htmlFor="confirmPassword" underline-id="confirm-password-label" className="text-white/70">Confirm New Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                 <Input

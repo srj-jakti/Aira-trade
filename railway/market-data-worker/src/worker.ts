@@ -670,8 +670,14 @@ class MarketDataWorker {
             redis.set(REDIS_KEYS.LIVE_CANDLE(instrumentToken, timeframe), candlePayload, "EX", 3600);
 
             if (now >= bucketEnd) {
+              // Candle is closing, push to Redis List for history
+              const listKey = REDIS_KEYS.CANDLE_LIST(instrumentToken, timeframe);
+              redis.rpush(listKey, candlePayload);
+              redis.ltrim(listKey, -100, -1); // Keep last 100 candles
+              redis.expire(listKey, 86400); // 24 hours expiry
 
-            // Candle is closing, add to history
+              // Candle is closing, add to history
+
             history.push(buffer.close);
             if (history.length > 50) history.shift(); // Keep last 50
             this.priceHistory.set(historyKey, history);

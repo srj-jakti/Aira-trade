@@ -19,4 +19,5 @@ export const REDIS_KEYS = {
   LIVE_CANDLE: (token: number, timeframe: string) => `live_candle:${token}:${timeframe}`,
   TICK_CHANNEL: (token: number) => `ticker:${token}`,
   CANDLE_CHANNEL: (token: number, timeframe: string) => `candles:${timeframe}:${token}`,
+  CANDLE_LIST: (token: number, timeframe: string) => `candle_list:${token}:${timeframe}`,
 };

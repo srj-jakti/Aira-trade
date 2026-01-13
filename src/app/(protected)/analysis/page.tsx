@@ -92,10 +92,11 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     enabled: !!selectedInstrument,
   });
 
-  const { price: currentPrice, isConnected: isPriceConnected } = useLatestPrice({
-    instrumentToken: selectedInstrument?.instrument_token || 0,
-    enabled: !!selectedInstrument,
-  });
+    const { price: currentPrice, tick: currentTick, isConnected: isPriceConnected } = useLatestPrice({
+      instrumentToken: selectedInstrument?.instrument_token || 0,
+      enabled: !!selectedInstrument,
+    });
+
 
   const requestSubscription = useCallback(async (instrumentToken: number) => {
     try {
@@ -272,19 +273,30 @@ const response = await fetch(
           className="flex-1 min-w-[280px]"
         />
         <div className="flex items-center gap-2">
-          <Select value={timeframe} onValueChange={handleTimeframeChange}>
-            <SelectTrigger className="w-[100px] bg-white/5 border-white/10 text-white h-9">
-              <SelectValue placeholder="Timeframe" />
-            </SelectTrigger>
-            <SelectContent className="bg-zinc-900 border-white/10 text-white">
-              <SelectItem value="1m">1 min</SelectItem>
-              <SelectItem value="5m">5 min</SelectItem>
-              <SelectItem value="15m">15 min</SelectItem>
-              <SelectItem value="1h">1 hour</SelectItem>
-              <SelectItem value="4h">4 hours</SelectItem>
-              <SelectItem value="1d">1 day</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Timeframe Switcher */}
+          <div className="flex items-center gap-1 bg-white/5 border border-white/10 p-1 rounded-md">
+            {[
+              { label: "1m", value: "1m" },
+              { label: "5m", value: "5m" },
+              { label: "15m", value: "15m" },
+              { label: "1H", value: "1h" },
+              { label: "4H", value: "4h" },
+              { label: "1D", value: "1d" },
+            ].map((tf) => (
+              <button
+                key={tf.value}
+                onClick={() => handleTimeframeChange(tf.value)}
+                className={cn(
+                  "px-2.5 py-1 text-xs rounded transition-all",
+                  timeframe === tf.value
+                    ? "bg-blue-500/20 text-blue-400 font-semibold ring-1 ring-blue-500/30"
+                    : "text-white/40 hover:text-white/70 hover:bg-white/5"
+                )}
+              >
+                {tf.label}
+              </button>
+            ))}
+          </div>
 
           <div className="relative">
             <Button
@@ -385,17 +397,19 @@ const response = await fetch(
               </CardHeader>
             <CardContent className="p-0">
               <div className="h-[280px] md:h-[350px]">
-                  <TradingViewChart
-                    data={chartData}
-                    symbol={selectedInstrument?.tradingsymbol}
-                    support={analysis?.support || undefined}
-                    resistance={analysis?.resistance || undefined}
-                    isLoading={isLoadingChart}
-                    timeframe={timeframe}
-                    onTimeframeChange={handleTimeframeChange}
-                    indicators={indicators}
-                    lastPrice={currentPrice}
-                  />
+                    <TradingViewChart
+                      data={chartData}
+                      symbol={selectedInstrument?.tradingsymbol}
+                      support={analysis?.support || undefined}
+                      resistance={analysis?.resistance || undefined}
+                      isLoading={isLoadingChart}
+                      timeframe={timeframe}
+                      onTimeframeChange={handleTimeframeChange}
+                      indicators={indicators}
+                      lastPrice={currentPrice}
+                      tick={currentTick}
+                    />
+
 
               </div>
             </CardContent>

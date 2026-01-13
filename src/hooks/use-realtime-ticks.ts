@@ -147,14 +147,6 @@ export function useLatestPrice(options: UseLatestPriceOptions) {
     },
   });
 
-  useEffect(() => {
-    const latestTick = getTickForToken(instrumentToken);
-    if (latestTick) {
-      setPrice(latestTick.last_price);
-      setTick(latestTick);
-    }
-  }, [instrumentToken, getTickForToken]);
-
   return {
     price,
     tick,

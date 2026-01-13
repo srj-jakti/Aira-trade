@@ -32,6 +32,7 @@ interface TradingViewChartProps {
   indicators?: IndicatorOverlay[];
   className?: string;
   lastPrice?: number | null;
+  tick?: import("@/hooks/use-realtime-ticks").RealtimeTick | null;
 }
 
 const TIMEFRAMES = [
@@ -445,17 +446,38 @@ export function TradingViewChart({
       return;
     }
 
+    const timeframeSeconds: Record<string, number> = {
+      "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400
+    };
+    const seconds = timeframeSeconds[timeframe] || 60;
+
     try {
+      // Use tick timestamp if available, otherwise fallback to last data point timestamp
+      const tickTime = tick?.tick_timestamp ? new Date(tick.tick_timestamp).getTime() : Date.now();
+      const bucketStart = Math.floor(tickTime / (seconds * 1000)) * (seconds * 1000) / 1000;
+
       const sortedData = deduplicateAndSortCandles(data);
       const lastDataPoint = sortedData[sortedData.length - 1];
       
-      if (!lastDataPoint) return;
+      let baseOpen = lastPrice;
+      let baseHigh = lastPrice;
+      let baseLow = lastPrice;
+
+      if (lastDataPoint) {
+        const lastDataTime = new Date(lastDataPoint.timestamp).getTime() / 1000;
+        // If we are still in the same candle as the last data point
+        if (bucketStart === lastDataTime) {
+          baseOpen = lastDataPoint.open;
+          baseHigh = Math.max(lastDataPoint.high, lastPrice);
+          baseLow = Math.min(lastDataPoint.low, lastPrice);
+        }
+      }
 
       const lastCandle = {
-        time: (new Date(lastDataPoint.timestamp).getTime() / 1000) as import("lightweight-charts").Time,
-        open: lastDataPoint.open,
-        high: Math.max(lastDataPoint.high, lastPrice),
-        low: Math.min(lastDataPoint.low, lastPrice),
+        time: bucketStart as import("lightweight-charts").Time,
+        open: baseOpen,
+        high: baseHigh,
+        low: baseLow,
         close: lastPrice,
       };
 
@@ -463,7 +485,7 @@ export function TradingViewChart({
     } catch (error) {
       console.error("[TradingViewChart] Error updating real-time price:", error);
     }
-  }, [lastPrice, chartReady]);
+  }, [lastPrice, tick, chartReady, timeframe]);
 
   return (
     <div className={cn("w-full h-full flex flex-col bg-[#0a0a0a] relative", className)}>
@@ -476,26 +498,9 @@ export function TradingViewChart({
         </div>
       )}
 
-      <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-white/5 backdrop-blur-md z-10">
-        <div className="flex items-center gap-1.5">
-          {TIMEFRAMES.map((tf) => (
-            <button
-              key={tf.value}
-              onClick={() => onTimeframeChange(tf.value)}
-              className={cn(
-                "px-2.5 py-1 text-xs rounded-md transition-all",
-                timeframe === tf.value
-                  ? "bg-blue-500/20 text-blue-400 font-semibold ring-1 ring-blue-500/30"
-                  : "text-white/40 hover:text-white/70 hover:bg-white/10"
-              )}
-            >
-              {tf.label}
-            </button>
-          ))}
-        </div>
-        
-        {ohlcData && (
-          <div className="flex items-center gap-4 text-[11px] font-mono">
+      <div className="flex items-center justify-between px-4 py-1.5 border-b border-white/5 bg-white/5 backdrop-blur-md z-10 min-h-[32px]">
+        {ohlcData ? (
+          <div className="flex items-center gap-4 text-[11px] font-mono w-full justify-between">
             <span className="text-white/30 hidden sm:inline">{ohlcData.time}</span>
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1"><span className="text-white/40">O</span> <span className="text-white">{formatPrice(ohlcData.o)}</span></span>
@@ -503,6 +508,10 @@ export function TradingViewChart({
               <span className="flex items-center gap-1"><span className="text-white/40">L</span> <span className="text-red-400">{formatPrice(ohlcData.l)}</span></span>
               <span className="flex items-center gap-1"><span className="text-white/40">C</span> <span className={ohlcData.c >= ohlcData.o ? "text-green-400" : "text-red-400"}>{formatPrice(ohlcData.c)}</span></span>
             </div>
+          </div>
+        ) : (
+          <div className="text-[10px] text-white/20 uppercase tracking-wider font-semibold">
+            {symbol} • {timeframe}
           </div>
         )}
       </div>

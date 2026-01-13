@@ -166,7 +166,8 @@ class MarketDataWorker {
       const legacyConfigs = await this.getLegacyAdminConfigs();
       if (legacyConfigs.length === 0) {
         await this.enterSafeMode("No Zerodha API configs available");
-        process.exit(1);
+        console.log("[MarketDataWorker] No configs available. Staying alive for heartbeat...");
+        return; // Don't exit, let heartbeat keep running
       }
       for (const c of legacyConfigs) {
         configs.push({
@@ -895,9 +896,15 @@ async function heartbeatLoop(): Promise<void> {
   let consecutiveFailures = 0;
   const MAX_CONSECUTIVE_FAILURES = 3;
   
-  while (!getShutdownFlag()) {
-      try {
-        const { error } = await supabase.from("data_engine_status").upsert({
+    while (!getShutdownFlag()) {
+        try {
+          // If worker is not running, try to start it periodically
+          if (!worker["isRunning"]) {
+            console.log("[MarketDataWorker] Worker not running, attempting periodic restart...");
+            await worker.start().catch(err => console.error("[MarketDataWorker] Restart failed:", err));
+          }
+
+          const { error } = await supabase.from("data_engine_status").upsert({
           engine_type: "market_data",
           status: "running",
           last_heartbeat: new Date().toISOString(),

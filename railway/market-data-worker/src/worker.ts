@@ -28,13 +28,13 @@ import {
   SubscriptionRequest 
 } from "./subscription-manager";
 import { BackfillService } from "./backfill-service";
-
 import { TechnicalIndicators } from "./utils/indicators";
+import { redis, REDIS_KEYS } from "./utils/redis";
 
 const ALGORITHM = "aes-256-gcm";
 const MAX_INSTRUMENTS_PER_CONNECTION = 3000;
-const TICK_FLUSH_INTERVAL = 1000;
-const CANDLE_FLUSH_INTERVAL = 500;
+const TICK_FLUSH_INTERVAL = 5000;
+const CANDLE_FLUSH_INTERVAL = 5000;
 const HEALTH_CHECK_INTERVAL = 30000;
 const SUBSCRIPTION_REFRESH_INTERVAL = 300000;
 const BACKFILL_CHECK_INTERVAL = 3600000; // 1 hour
@@ -522,6 +522,15 @@ class MarketDataWorker {
     for (const tick of ticks) {
       this.subscriptionManager.touchSubscription(tick.instrument_token);
 
+      // Publish to Redis Pub/Sub for immediate AI reaction
+      const redisPayload = JSON.stringify({
+        token: tick.instrument_token,
+        price: tick.last_price,
+        timestamp: now,
+      });
+      redis.publish(REDIS_KEYS.TICK_CHANNEL(tick.instrument_token), redisPayload);
+      redis.set(REDIS_KEYS.LATEST_TICK(tick.instrument_token), redisPayload, "EX", 3600);
+
       this.tickBuffer.push({
         instrument_token: tick.instrument_token,
         last_price: tick.last_price,
@@ -633,20 +642,35 @@ class MarketDataWorker {
             indicators.rsi_14 = TechnicalIndicators.calculateRSI(currentPrices, 14);
           }
 
-          liveCandles.push({
-            instrument_token: instrumentToken,
-            timeframe: timeframe,
-            timestamp: new Date(bucketStart).toISOString(),
-            open: buffer.open,
-            high: buffer.high,
-            low: buffer.low,
-            close: buffer.close,
-            volume: buffer.volume,
-            oi: buffer.oi,
-            indicators: indicators
-          });
+            liveCandles.push({
+              instrument_token: instrumentToken,
+              timeframe: timeframe,
+              timestamp: new Date(bucketStart).toISOString(),
+              open: buffer.open,
+              high: buffer.high,
+              low: buffer.low,
+              close: buffer.close,
+              volume: buffer.volume,
+              oi: buffer.oi,
+              indicators: indicators
+            });
 
-          if (now >= bucketEnd) {
+            // Push live candle update to Redis
+            const candlePayload = JSON.stringify({
+              token: instrumentToken,
+              timeframe,
+              bucketStart,
+              open: buffer.open,
+              high: buffer.high,
+              low: buffer.low,
+              close: buffer.close,
+              indicators
+            });
+            redis.publish(REDIS_KEYS.CANDLE_CHANNEL(instrumentToken, timeframe), candlePayload);
+            redis.set(REDIS_KEYS.LIVE_CANDLE(instrumentToken, timeframe), candlePayload, "EX", 3600);
+
+            if (now >= bucketEnd) {
+
             // Candle is closing, add to history
             history.push(buffer.close);
             if (history.length > 50) history.shift(); // Keep last 50

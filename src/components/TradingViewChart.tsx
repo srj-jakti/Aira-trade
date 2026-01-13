@@ -70,17 +70,18 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
   );
 }
 
-export function TradingViewChart({
-  data,
-  support,
-  resistance,
-  isLoading,
-  timeframe,
-  onTimeframeChange,
-  indicators = [],
-  className,
-  lastPrice,
-}: TradingViewChartProps) {
+  export function TradingViewChart({
+    data,
+    support,
+    resistance,
+    isLoading,
+    timeframe,
+    onTimeframeChange,
+    indicators = [],
+    className,
+    lastPrice,
+    tick,
+  }: TradingViewChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);

@@ -150,8 +150,8 @@ export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
   
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    console.log("[Auto-Login Cron] Unauthorized request");
+  if (!cronSecret || (authHeader !== `Bearer ${cronSecret}` && authHeader !== `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`)) {
+    console.log("[Auto-Login Cron] Unauthorized request. Provided:", authHeader?.substring(0, 15), "...");
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

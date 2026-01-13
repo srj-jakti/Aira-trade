@@ -166,7 +166,8 @@ class MarketDataWorker {
       const legacyConfigs = await this.getLegacyAdminConfigs();
       if (legacyConfigs.length === 0) {
         await this.enterSafeMode("No Zerodha API configs available");
-        process.exit(1);
+        console.log("[MarketDataWorker] No configs available. Staying alive for heartbeat...");
+        return; // Don't exit, let heartbeat keep running
       }
       for (const c of legacyConfigs) {
         configs.push({
@@ -201,11 +202,11 @@ class MarketDataWorker {
 
     const connectedCount = Array.from(this.connections.values()).filter(c => c.isConnected).length;
     
-    if (connectedCount === 0) {
-      console.error("[MarketDataWorker] All connections failed. Entering SAFE MODE.");
-      await this.enterSafeMode("All admin WebSocket connections failed");
-      process.exit(1);
-    }
+      if (connectedCount === 0) {
+        console.error("[MarketDataWorker] All connections failed. Will retry in next heartbeat cycle.");
+        await this.logSystemHealth("connection_failed", { reason: "All connections failed" }, "warning", "All WebSocket connections failed - will retry");
+        return; // Don't exit, let heartbeat retry
+      }
 
     this.isRunning = true;
 
@@ -888,22 +889,97 @@ function setupGracefulShutdown(): void {
   });
 }
 
+async function checkAndTriggerAutoLogin(): Promise<void> {
+  try {
+    const { data: expiredConfigs } = await supabase
+      .from("admin_zerodha_configs")
+      .select("id, name, token_expires_at, connection_status")
+      .eq("is_active", true)
+      .eq("auto_login_enabled", true);
+
+    if (!expiredConfigs || expiredConfigs.length === 0) return;
+
+    const now = new Date();
+    const needsLogin: string[] = [];
+
+    for (const config of expiredConfigs) {
+      const expiresAt = config.token_expires_at ? new Date(config.token_expires_at) : null;
+      const isExpired = !expiresAt || expiresAt <= now;
+      const isDisconnected = config.connection_status !== "connected";
+
+      if (isExpired || isDisconnected) {
+        needsLogin.push(config.name);
+      }
+    }
+
+    if (needsLogin.length > 0) {
+      console.log(`[MarketDataWorker] Event-based auto-login triggered for: ${needsLogin.join(", ")}`);
+      
+      const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      
+      try {
+        const response = await fetch(`${appUrl}/api/cron/zerodha-auto-login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({ triggerType: "event_based_worker" }),
+        });
+
+        if (response.ok) {
+          console.log("[MarketDataWorker] Event-based auto-login completed successfully");
+          await supabase.from("system_health_logs").insert({
+            metric_type: "event_auto_login",
+            metric_value: { accounts: needsLogin, source: "market_data_worker" },
+            severity: "info",
+            message: `Event-based auto-login triggered for ${needsLogin.length} accounts`,
+          });
+        } else {
+          console.error("[MarketDataWorker] Event-based auto-login failed:", await response.text());
+        }
+      } catch (fetchErr) {
+        console.error("[MarketDataWorker] Failed to call auto-login endpoint:", fetchErr);
+      }
+    }
+  } catch (err) {
+    console.error("[MarketDataWorker] Error checking token expiry:", err);
+  }
+}
+
 async function heartbeatLoop(): Promise<void> {
   console.log("[MarketDataWorker] Starting heartbeat loop...");
   console.log("[MarketDataWorker] Market Data Worker ONLINE and heartbeat active");
   
   let consecutiveFailures = 0;
   const MAX_CONSECUTIVE_FAILURES = 3;
+  let lastAutoLoginCheck = 0;
+  const AUTO_LOGIN_CHECK_INTERVAL = 300000; // 5 minutes
   
-  while (!getShutdownFlag()) {
-    try {
-      const { error } = await supabase.from("data_engine_status").upsert({
-        engine_type: "market_data",
-        last_heartbeat: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "engine_type" });
-      
-      if (error) {
+    while (!getShutdownFlag()) {
+        try {
+          // If worker is not running, try to start it periodically
+          if (!worker["isRunning"]) {
+            console.log("[MarketDataWorker] Worker not running, attempting periodic restart...");
+            await worker.start().catch(err => console.error("[MarketDataWorker] Restart failed:", err));
+          }
+
+          // Check for expired tokens and trigger auto-login if needed (every 5 minutes)
+          const now = Date.now();
+          if (now - lastAutoLoginCheck >= AUTO_LOGIN_CHECK_INTERVAL) {
+            lastAutoLoginCheck = now;
+            await checkAndTriggerAutoLogin();
+          }
+
+          const { error } = await supabase.from("data_engine_status").upsert({
+          engine_type: "market_data",
+          status: "running",
+          last_heartbeat: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "engine_type" });
+        
+        if (error) {
         throw error;
       }
       

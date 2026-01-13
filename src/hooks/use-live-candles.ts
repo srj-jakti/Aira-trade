@@ -91,14 +91,16 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
         return;
       }
 
-      const candleData: CandleData = {
-        timestamp: newCandle.timestamp,
-        open: Number(newCandle.open),
-        high: Number(newCandle.high),
-        low: Number(newCandle.low),
-        close: Number(newCandle.close),
-        volume: Number(newCandle.volume) || 0,
-      };
+    const candleData: CandleData = {
+      timestamp: newCandle.timestamp,
+      open: Number(newCandle.open),
+      high: Number(newCandle.high),
+      low: Number(newCandle.low),
+      close: Number(newCandle.close),
+      volume: Number(newCandle.volume) || 0,
+      indicators: newCandle.indicators,
+    };
+
 
       setCandles((prev) => {
         const existingIndex = prev.findIndex(

@@ -11,6 +11,7 @@ export interface LiveCandle {
   close: number;
   volume: number;
   oi: number;
+  indicators?: Record<string, any>;
 }
 
 export interface CandleData {
@@ -20,4 +21,5 @@ export interface CandleData {
   low: number;
   close: number;
   volume: number;
+  indicators?: Record<string, any>;
 }

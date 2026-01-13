@@ -29,6 +29,8 @@ import {
 } from "./subscription-manager";
 import { BackfillService } from "./backfill-service";
 
+import { TechnicalIndicators } from "./utils/indicators";
+
 const ALGORITHM = "aes-256-gcm";
 const MAX_INSTRUMENTS_PER_CONNECTION = 3000;
 const TICK_FLUSH_INTERVAL = 1000;
@@ -122,6 +124,8 @@ class MarketDataWorker {
   private backfillCheckInterval: NodeJS.Timeout | null = null;
   private pendingSubscriptionRequests: SubscriptionRequest[] = [];
   private backfillService: BackfillService | null = null;
+  private priceHistory: Map<string, number[]> = new Map();
+  private indicatorStates: Map<string, any> = new Map();
 
     constructor() {
       this.subscriptionManager = new SubscriptionManager(supabase);
@@ -611,29 +615,46 @@ class MarketDataWorker {
         "1s": 1, "5s": 5, "15s": 15, "1m": 60, "5m": 300, "15m": 900, "1h": 3600
       };
 
-      for (const [key, buffer] of this.candleBuffers.entries()) {
-        const [tokenStr, timeframe, bucketStartStr] = key.split(":");
-        const instrumentToken = parseInt(tokenStr);
-        const bucketStart = parseInt(bucketStartStr);
-        const seconds = timeframeSeconds[timeframe] || 1;
-        const bucketEnd = bucketStart + (seconds * 1000);
+        for (const [key, buffer] of this.candleBuffers.entries()) {
+          const [tokenStr, timeframe, bucketStartStr] = key.split(":");
+          const instrumentToken = parseInt(tokenStr);
+          const bucketStart = parseInt(bucketStartStr);
+          const seconds = timeframeSeconds[timeframe] || 1;
+          const bucketEnd = bucketStart + (seconds * 1000);
 
-        liveCandles.push({
-          instrument_token: instrumentToken,
-          timeframe: timeframe,
-          timestamp: new Date(bucketStart).toISOString(),
-          open: buffer.open,
-          high: buffer.high,
-          low: buffer.low,
-          close: buffer.close,
-          volume: buffer.volume,
-          oi: buffer.oi,
-        });
+          const historyKey = `${instrumentToken}:${timeframe}`;
+          const history = this.priceHistory.get(historyKey) || [];
+          
+          // Calculate indicators
+          const indicators: any = {};
+          if (history.length > 0) {
+            const currentPrices = [...history, buffer.close];
+            indicators.ema_20 = TechnicalIndicators.calculateEMA(buffer.close, history[history.length - 1], 20);
+            indicators.rsi_14 = TechnicalIndicators.calculateRSI(currentPrices, 14);
+          }
 
-        if (now >= bucketEnd) {
-          keysToRemove.push(key);
+          liveCandles.push({
+            instrument_token: instrumentToken,
+            timeframe: timeframe,
+            timestamp: new Date(bucketStart).toISOString(),
+            open: buffer.open,
+            high: buffer.high,
+            low: buffer.low,
+            close: buffer.close,
+            volume: buffer.volume,
+            oi: buffer.oi,
+            indicators: indicators
+          });
+
+          if (now >= bucketEnd) {
+            // Candle is closing, add to history
+            history.push(buffer.close);
+            if (history.length > 50) history.shift(); // Keep last 50
+            this.priceHistory.set(historyKey, history);
+            keysToRemove.push(key);
+          }
         }
-      }
+
 
       keysToRemove.forEach(k => this.candleBuffers.delete(k));
 

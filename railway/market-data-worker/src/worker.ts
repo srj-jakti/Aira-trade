@@ -842,6 +842,7 @@ class MarketDataWorker {
       ticks_per_second: this.ticksPerSecond,
       last_tick_at: this.lastTickAt,
       updated_at: new Date().toISOString(),
+      last_heartbeat: new Date().toISOString(),
     }, { onConflict: "engine_type" });
   }
 
@@ -1024,11 +1025,15 @@ async function heartbeatLoop(): Promise<void> {
           }
 
           const { error } = await supabase.from("data_engine_status").upsert({
-          engine_type: "market_data",
-          status: "running",
-          last_heartbeat: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "engine_type" });
+            engine_type: "market_data",
+            status: "running",
+            last_heartbeat: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            websocket_status: worker["connections"].size > 0 ? "connected" : "disconnected",
+            subscribed_instruments: worker["subscriptionManager"].getStats().totalSubscriptions,
+            ticks_per_second: worker["ticksPerSecond"],
+            last_tick_at: worker["lastTickAt"],
+          }, { onConflict: "engine_type" });
         
         if (error) {
         throw error;

@@ -676,6 +676,19 @@ async function main(): Promise<void> {
 
   await updateEngineStatus("running");
 
+  // NEW: Heartbeat loop for trading engine
+  const heartbeatInterval = setInterval(async () => {
+    if (getShutdownFlag()) {
+      clearInterval(heartbeatInterval);
+      return;
+    }
+    try {
+      await updateEngineStatus("running");
+    } catch (err) {
+      logger.error("Heartbeat error", err);
+    }
+  }, 30000);
+
   await Promise.all([
     evaluationLoop(),
     tokenRefreshLoop(),

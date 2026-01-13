@@ -8,6 +8,9 @@ import { logger } from "./utils/logger";
 import { redis, REDIS_KEYS } from "./utils/redis";
 import { setupGracefulShutdown, getShutdownFlag } from "./utils/shutdown";
 import { isRateLimited, isOrderRateLimited, incrementRateLimit } from "./rate-limiter";
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 import {
 getBrokerCredentials,
 isTokenExpired,
@@ -641,6 +644,85 @@ async function cleanupLoop(): Promise<void> {
   }
 }
 
+async function processScannerUser(user: any): Promise<void> {
+  const { user_id, strategy_id } = user;
+
+  try {
+    if (!strategy_id) return;
+
+    const strategy = await getStrategy(strategy_id);
+    if (!strategy) return;
+
+    const instruments = strategy.instruments.length > 0 
+      ? strategy.instruments 
+      : [256265]; // NIFTY 50 default
+
+    const candles = await getLatestCandles(instruments, strategy.timeframe);
+    if (candles.length === 0) return;
+
+    const signal = await evaluateWithAI(strategy, candles, {
+      risk_per_trade: user.risk_per_trade || 1,
+      max_daily_loss: user.max_daily_loss || 1000,
+      user_id: user_id,
+      capital_used: 0
+    });
+
+    if (signal && signal.action !== "HOLD") {
+      // Check for duplicate signals in last 5 minutes
+      const { data: existing } = await supabase
+        .from("ai_signals")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("strategy_id", strategy_id)
+        .eq("tradingsymbol", signal.instrument)
+        .eq("signal_type", "SCANNER")
+        .gt("created_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        logger.debug(`Duplicate scanner signal for ${user_id} on ${signal.instrument}, skipping`);
+        return;
+      }
+
+      await createSignal(user_id, strategy.id, signal, "PENDING", "SCANNER");
+      logger.info(`[SCANNER] New signal for ${user_id}: ${signal.action} ${signal.instrument}`);
+    }
+  } catch (error) {
+    logger.error(`Error in processScannerUser for ${user_id}:`, error);
+  }
+}
+
+async function scannerLoop(): Promise<void> {
+  logger.info("Starting scanner loop...");
+
+  while (!getShutdownFlag()) {
+    try {
+      const { data: users, error } = await supabase
+        .from("trading_preferences")
+        .select(`
+          user_id,
+          strategy_id,
+          strategy_type,
+          is_scanner_active
+        `)
+        .eq("is_scanner_active", true)
+        .limit(20);
+
+      if (error) throw error;
+
+      for (const user of users || []) {
+        if (getShutdownFlag()) break;
+        await processScannerUser(user);
+      }
+
+      await sleep(15000); // Scan every 15 seconds
+    } catch (error) {
+      logger.error("Scanner loop error", error);
+      await sleep(30000);
+    }
+  }
+}
+
 async function updateEngineStatus(status: string, errorMessage?: string): Promise<void> {
   const { data: activeUsers } = await supabase
     .from("trading_preferences")
@@ -689,14 +771,15 @@ async function main(): Promise<void> {
     }
   }, 30000);
 
-  await Promise.all([
-    evaluationLoop(),
-    tokenRefreshLoop(),
-    orderSyncLoop(),
-    positionMonitorLoop(),
-    priorityUpdateLoop(),
-    cleanupLoop(),
-  ]);
+    await Promise.all([
+      evaluationLoop(),
+      scannerLoop(),
+      tokenRefreshLoop(),
+      orderSyncLoop(),
+      positionMonitorLoop(),
+      priorityUpdateLoop(),
+      cleanupLoop(),
+    ]);
 }
 
 main().catch((err) => {

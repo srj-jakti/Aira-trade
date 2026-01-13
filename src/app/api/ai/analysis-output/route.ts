@@ -12,14 +12,22 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: outputs, error } = await supabase
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get("type");
+
+    let query = supabase
       .from("ai_signals")
       .select(`
         *,
         strategies:strategy_id (name)
       `)
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+      .eq("user_id", user.id);
+
+    if (type) {
+      query = query.eq("signal_type", type.toUpperCase());
+    }
+
+    const { data: outputs, error } = await query.order("created_at", { ascending: false });
 
     if (error) throw error;
 

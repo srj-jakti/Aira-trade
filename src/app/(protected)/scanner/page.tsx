@@ -110,7 +110,7 @@ export default function ScannerPage() {
   const fetchAnalysisOutputs = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/ai/analysis-output');
+      const response = await fetch('/api/ai/analysis-output?type=SCANNER');
       const data = await response.json();
       
       if (data.success) {
@@ -140,7 +140,7 @@ export default function ScannerPage() {
       const data = await response.json();
       if (data.success) {
         setIsActive(!isActive);
-        toast.success(`Scanner ${!isActive ? 'started' : 'stopped'}`);
+        toast.success(`Background Scanner ${!isActive ? 'activated' : 'deactivated'}`);
       } else {
         toast.error(data.error || "Failed to toggle scanner");
       }
@@ -152,23 +152,13 @@ export default function ScannerPage() {
   };
 
   const runScannerNow = async () => {
-    try {
-      setProcessing(true);
-      toast.info("Scanning market for analytical patterns...");
-      const response = await fetch('/api/scanner/process', { method: 'POST' });
-      const data = await response.json();
-      
-      if (data.success) {
-        toast.success(`Scan complete! Found ${data.found} analysis outputs.`);
-        fetchAnalysisOutputs();
-      } else {
-        toast.error(data.error || "Scan failed");
-      }
-    } catch (error) {
-      toast.error("Scan failed");
-    } finally {
+    setProcessing(true);
+    toast.info("Refreshing scanner outputs from background engine...");
+    await fetchAnalysisOutputs();
+    setTimeout(() => {
       setProcessing(false);
-    }
+      toast.success("Scanner data synchronized");
+    }, 500);
   };
 
   const getStatusBadge = (status: string) => {

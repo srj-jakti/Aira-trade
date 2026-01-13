@@ -18,7 +18,8 @@ export async function createSignal(
   userId: string,
   strategyId: string | null,
   signal: Signal,
-  status: SignalStatus
+  status: SignalStatus,
+  signalType: "TRADING" | "SCANNER" = "TRADING"
 ): Promise<string> {
   const { data, error } = await supabase
     .from("ai_signals")
@@ -33,6 +34,7 @@ export async function createSignal(
       target_price: signal.target,
       confidence: signal.confidence,
       signal_status: status,
+      signal_type: signalType,
       status_updated_at: new Date().toISOString(),
     })
     .select("id")

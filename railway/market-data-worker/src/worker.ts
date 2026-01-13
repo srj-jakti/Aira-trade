@@ -1024,23 +1024,11 @@ async function heartbeatLoop(): Promise<void> {
             await checkAndTriggerAutoLogin();
           }
 
-          const { error } = await supabase.from("data_engine_status").upsert({
-            engine_type: "market_data",
-            status: "running",
-            last_heartbeat: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            websocket_status: worker["connections"].size > 0 ? "connected" : "disconnected",
-            subscribed_instruments: worker["subscriptionManager"].getStats().totalSubscriptions,
-            ticks_per_second: worker["ticksPerSecond"],
-            last_tick_at: worker["lastTickAt"],
-          }, { onConflict: "engine_type" });
+          // Use the worker's own update method which is more robust
+          await (worker as any).updateEngineStatus();
         
-        if (error) {
-        throw error;
-      }
-      
-      consecutiveFailures = 0;
-      await sleep(30000);
+        consecutiveFailures = 0;
+        await sleep(30000);
     } catch (error) {
       consecutiveFailures++;
       console.error(`[MarketDataWorker] Heartbeat error (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}):`, error);

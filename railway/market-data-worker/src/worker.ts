@@ -231,12 +231,20 @@ class MarketDataWorker {
   }
 
   private async getApiKeyConfigs(): Promise<ApiKeyConfig[]> {
+    console.log("[MarketDataWorker] Fetching api_key_configs...");
     const { data: apiKeyData, error: apiKeyError } = await supabase
       .from("api_key_configs")
       .select("id, label, tier_assignment, zerodha_config_id")
       .eq("is_active", true);
 
-    if (apiKeyError || !apiKeyData || apiKeyData.length === 0) {
+    if (apiKeyError) {
+      console.error("[MarketDataWorker] Error fetching api_key_configs:", apiKeyError);
+      return [];
+    }
+    
+    console.log(`[MarketDataWorker] Found ${apiKeyData?.length || 0} active api_key_configs`);
+
+    if (!apiKeyData || apiKeyData.length === 0) {
       console.log("[MarketDataWorker] No api_key_configs found, checking legacy configs...");
       return [];
     }
@@ -244,7 +252,8 @@ class MarketDataWorker {
     const configs: ApiKeyConfig[] = [];
 
     for (const akc of apiKeyData) {
-      const { data: zerodhaConfig } = await supabase
+      console.log(`[MarketDataWorker] Fetching Zerodha config for ${akc.label} (ID: ${akc.zerodha_config_id})...`);
+      const { data: zerodhaConfig, error: zError } = await supabase
         .from("admin_zerodha_configs")
         .select("id, name, api_key, access_token")
         .eq("id", akc.zerodha_config_id)
@@ -252,8 +261,14 @@ class MarketDataWorker {
         .eq("connection_status", "connected")
         .single();
 
+      if (zError) {
+        console.warn(`[MarketDataWorker] Zerodha config ${akc.zerodha_config_id} not found or not connected:`, zError.message);
+        continue;
+      }
+
       if (zerodhaConfig && zerodhaConfig.access_token) {
         try {
+          console.log(`[MarketDataWorker] Decrypting keys for ${zerodhaConfig.name}...`);
           configs.push({
             id: akc.id,
             tierAssignment: akc.tier_assignment as SubscriptionTier,
@@ -494,6 +509,10 @@ class MarketDataWorker {
     const now = new Date().toISOString();
     this.tickCount += ticks.length;
     this.lastTickAt = now;
+
+    if (this.tickCount % 100 === 0) {
+      console.log(`[MarketDataWorker] Received ${this.tickCount} ticks since start. Last at ${now}`);
+    }
 
     for (const tick of ticks) {
       this.subscriptionManager.touchSubscription(tick.instrument_token);

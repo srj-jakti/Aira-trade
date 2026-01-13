@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "services": {
+    "cron-maintenance": {
+      "root": "railway/cron-maintenance"
+    },
+    "trading-engine": {
+      "root": "railway/trading-engine"
+    },
+    "market-data-worker": {
+      "root": "railway/market-data-worker"
+    }
+  }
+}

@@ -367,11 +367,17 @@ const response = await fetch(
                       <span>
                         {selectedInstrument.tradingsymbol}
                         <span className="text-white/50 ml-2 text-xs">{selectedInstrument.exchange}</span>
-                        {currentPrice && (
-                          <span className="ml-2 font-mono text-green-400">
-                            ₹{currentPrice.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                        )}
+                          {currentPrice && (
+                            <div className="flex flex-col ml-2">
+                              <span className="font-mono text-green-400">
+                                ₹{currentPrice.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              <span className="text-[10px] text-blue-400 font-bold -mt-1 uppercase">
+                                {timeframe} LIVE TRACKING
+                              </span>
+                            </div>
+                          )}
+
                       </span>
                     ) : (
                       "Market Chart"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
 export interface CandleData {
@@ -90,9 +90,14 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
   const indicatorSeriesRef = useRef<Map<string, any>>(new Map());
   const [ohlcData, setOhlcData] = useState<{ o: number; h: number; l: number; c: number; time: string } | null>(null);
   const [chartReady, setChartReady] = useState(false);
+  const [countdown, setCountdown] = useState<string>("");
+
+  // Memoize sorted data to prevent expensive recalculations
+  const sortedData = useMemo(() => deduplicateAndSortCandles(data), [data]);
 
   const formatPrice = useCallback((price: number) => {
-    if (price >= 10000) return price.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+    if (price === undefined || price === null) return "0.00";
+    if (price >= 10000) return price.toLocaleString("en-IN", { maximumFractionDigits: 2 });
     return price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }, []);
 
@@ -105,9 +110,39 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      second: "2-digit",
       hour12: true,
     });
   }, []);
+
+  // Real-time countdown timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!timeframe) return;
+      
+      const timeframeSeconds: Record<string, number> = {
+        "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400, "1w": 604800
+      };
+      const seconds = timeframeSeconds[timeframe] || 60;
+      
+      const now = Date.now();
+      const nextCandleTime = Math.ceil(now / (seconds * 1000)) * (seconds * 1000);
+      const diff = Math.max(0, nextCandleTime - now);
+      
+      const totalSeconds = Math.floor(diff / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      
+      if (hours > 0) {
+        setCountdown(`${hours}h ${minutes}m ${secs}s`);
+      } else {
+        setCountdown(`${minutes}:${secs.toString().padStart(2, '0')}`);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeframe]);
 
   // Initialize chart
   useEffect(() => {
@@ -278,48 +313,41 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
     };
   }, [formatTime]);
 
-  // Update chart data when data changes
-  useEffect(() => {
-    if (!chartReady || !chartInstanceRef.current || !candleSeriesRef.current || !volumeSeriesRef.current) {
-      return;
-    }
-    
-    if (!data || data.length === 0) {
-      candleSeriesRef.current.setData([]);
-      volumeSeriesRef.current.setData([]);
-      return;
-    }
-
-    try {
-      // Deduplicate and sort data to prevent duplicate timestamp errors
-      const sortedData = deduplicateAndSortCandles(data);
-
-      if (sortedData.length === 0) {
+    // Update chart data when data changes
+    useEffect(() => {
+      if (!chartReady || !chartInstanceRef.current || !candleSeriesRef.current || !volumeSeriesRef.current) {
+        return;
+      }
+      
+      if (!sortedData || sortedData.length === 0) {
+        candleSeriesRef.current.setData([]);
+        volumeSeriesRef.current.setData([]);
         return;
       }
 
-      const candleData = sortedData.map((d) => ({
-        time: (new Date(d.timestamp).getTime() / 1000) as import("lightweight-charts").Time,
-        open: d.open,
-        high: d.high,
-        low: d.low,
-        close: d.close,
-      }));
+      try {
+        const candleData = sortedData.map((d) => ({
+          time: (new Date(d.timestamp).getTime() / 1000) as import("lightweight-charts").Time,
+          open: d.open,
+          high: d.high,
+          low: d.low,
+          close: d.close,
+        }));
 
-      const volumeData = sortedData.map((d) => ({
-        time: (new Date(d.timestamp).getTime() / 1000) as import("lightweight-charts").Time,
-        value: d.volume || 0,
-        color: d.close >= d.open ? "rgba(34, 197, 94, 0.25)" : "rgba(239, 68, 68, 0.25)",
-      }));
+        const volumeData = sortedData.map((d) => ({
+          time: (new Date(d.timestamp).getTime() / 1000) as import("lightweight-charts").Time,
+          value: d.volume || 0,
+          color: d.close >= d.open ? "rgba(34, 197, 94, 0.25)" : "rgba(239, 68, 68, 0.25)",
+        }));
 
-      candleSeriesRef.current.setData(candleData);
-      volumeSeriesRef.current.setData(volumeData);
+        candleSeriesRef.current.setData(candleData);
+        volumeSeriesRef.current.setData(volumeData);
 
-      chartInstanceRef.current.timeScale().fitContent();
-    } catch (error) {
-      console.error("[TradingViewChart] Error setting data:", error);
-    }
-  }, [data, chartReady]);
+        chartInstanceRef.current.timeScale().fitContent();
+      } catch (error) {
+        console.error("[TradingViewChart] Error setting data:", error);
+      }
+    }, [sortedData, chartReady]);
 
   // Add support/resistance price lines
   useEffect(() => {
@@ -444,21 +472,21 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
 
   // Update last candle with real-time price
   useEffect(() => {
-    if (!chartReady || !candleSeriesRef.current || lastPrice === null || lastPrice === undefined || !data || data.length === 0) {
+    if (!chartReady || !candleSeriesRef.current || lastPrice === null || lastPrice === undefined) {
       return;
     }
 
     const timeframeSeconds: Record<string, number> = {
-      "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400
+      "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400, "1w": 604800
     };
     const seconds = timeframeSeconds[timeframe] || 60;
 
     try {
-      // Use tick timestamp if available, otherwise fallback to last data point timestamp
+      // Use tick timestamp if available, otherwise fallback to now
       const tickTime = tick?.tick_timestamp ? new Date(tick.tick_timestamp).getTime() : Date.now();
       const bucketStart = Math.floor(tickTime / (seconds * 1000)) * (seconds * 1000) / 1000;
 
-      const sortedData = deduplicateAndSortCandles(data);
+      // Find the last known data point to base our open/high/low on
       const lastDataPoint = sortedData[sortedData.length - 1];
       
       let baseOpen = lastPrice;
@@ -484,10 +512,21 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
       };
 
       candleSeriesRef.current.update(lastCandle);
+      
+      // Update OHLC display if not hovering
+      if (!ohlcData || ohlcData.time === formatTime(bucketStart)) {
+        setOhlcData({
+          o: baseOpen,
+          h: baseHigh,
+          l: baseLow,
+          c: lastPrice,
+          time: formatTime(bucketStart),
+        });
+      }
     } catch (error) {
       console.error("[TradingViewChart] Error updating real-time price:", error);
     }
-  }, [lastPrice, tick, chartReady, timeframe]);
+  }, [lastPrice, tick, chartReady, timeframe, sortedData, formatTime]);
 
   return (
     <div className={cn("w-full h-full flex flex-col bg-[#0a0a0a] relative", className)}>
@@ -500,23 +539,31 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
         </div>
       )}
 
-      <div className="flex items-center justify-between px-4 py-1.5 border-b border-white/5 bg-white/5 backdrop-blur-md z-10 min-h-[32px]">
-        {ohlcData ? (
-          <div className="flex items-center gap-4 text-[11px] font-mono w-full justify-between">
-            <span className="text-white/30 hidden sm:inline">{ohlcData.time}</span>
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1"><span className="text-white/40">O</span> <span className="text-white">{formatPrice(ohlcData.o)}</span></span>
-              <span className="flex items-center gap-1"><span className="text-white/40">H</span> <span className="text-green-400">{formatPrice(ohlcData.h)}</span></span>
-              <span className="flex items-center gap-1"><span className="text-white/40">L</span> <span className="text-red-400">{formatPrice(ohlcData.l)}</span></span>
-              <span className="flex items-center gap-1"><span className="text-white/40">C</span> <span className={ohlcData.c >= ohlcData.o ? "text-green-400" : "text-red-400"}>{formatPrice(ohlcData.c)}</span></span>
+        <div className="flex items-center justify-between px-4 py-1.5 border-b border-white/5 bg-white/5 backdrop-blur-md z-10 min-h-[40px]">
+          {ohlcData ? (
+            <div className="flex items-center gap-4 text-[11px] font-mono w-full justify-between">
+              <div className="flex flex-col">
+                <span className="text-white/30 hidden sm:inline">{ohlcData.time}</span>
+                <span className="text-[10px] text-blue-400 font-bold">NEXT: {countdown}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1"><span className="text-white/40">O</span> <span className="text-white">{formatPrice(ohlcData.o)}</span></span>
+                <span className="flex items-center gap-1"><span className="text-white/40">H</span> <span className="text-green-400">{formatPrice(ohlcData.h)}</span></span>
+                <span className="flex items-center gap-1"><span className="text-white/40">L</span> <span className="text-red-400">{formatPrice(ohlcData.l)}</span></span>
+                <span className="flex items-center gap-1"><span className="text-white/40">C</span> <span className={ohlcData.c >= ohlcData.o ? "text-green-400" : "text-red-400"}>{formatPrice(ohlcData.c)}</span></span>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="text-[10px] text-white/20 uppercase tracking-wider font-semibold">
-            {symbol} • {timeframe}
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="flex items-center justify-between w-full">
+              <div className="text-[10px] text-white/20 uppercase tracking-wider font-semibold">
+                {symbol} • {timeframe}
+              </div>
+              <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">
+                NEXT: {countdown}
+              </div>
+            </div>
+          )}
+        </div>
       
       <div ref={chartContainerRef} className="flex-1 min-h-0 w-full" />
       

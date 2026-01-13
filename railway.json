@@ -8,9 +8,13 @@
         "dockerfilePath": "Dockerfile"
       }
     },
-    "trading-engine": {
-      "root": "railway/trading-engine"
-    },
+      "trading-engine": {
+        "root": "railway/trading-engine",
+        "build": {
+          "builder": "DOCKERFILE",
+          "dockerfilePath": "Dockerfile"
+        }
+      },
     "market-data-worker": {
       "root": "railway/market-data-worker",
       "build": {

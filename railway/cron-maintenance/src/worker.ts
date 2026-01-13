@@ -102,7 +102,6 @@ cron.schedule("0 * * * *", async () => {
 cron.schedule("0 0 * * *", async () => {
   console.log("[CronWorker] Running Database Cleanup...");
   try {
-    // Keep only last 3 days of realtime_ticks
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
@@ -114,7 +113,6 @@ cron.schedule("0 0 * * *", async () => {
     if (error) throw error;
     console.log(`[CronWorker] Cleaned up ${count} old ticks`);
 
-    // Keep only last 30 days of system_health_logs
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
@@ -125,6 +123,55 @@ cron.schedule("0 0 * * *", async () => {
 
   } catch (err) {
     console.error("[CronWorker] Error during database cleanup:", err);
+  }
+});
+
+/**
+ * 5. EXPIRED INSTRUMENTS CLEANUP
+ * Runs every day at 6:00 AM IST (00:30 UTC)
+ * Removes expired F&O from instruments and unsubscribes them
+ */
+cron.schedule("30 0 * * *", async () => {
+  console.log("[CronWorker] Running Expired Instruments Cleanup...");
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    
+    const { data: expired, error: fetchError } = await supabase
+      .from("instruments")
+      .select("instrument_token, tradingsymbol, expiry")
+      .lt("expiry", today)
+      .not("expiry", "is", null)
+      .eq("is_subscribed", true);
+
+    if (fetchError) throw fetchError;
+    
+    if (expired && expired.length > 0) {
+      const tokens = expired.map(e => e.instrument_token);
+      
+      const { error: updateError } = await supabase
+        .from("instruments")
+        .update({
+          is_subscribed: false,
+          subscription_priority: "expired",
+          updated_at: new Date().toISOString(),
+        })
+        .in("instrument_token", tokens);
+
+      if (updateError) throw updateError;
+      
+      console.log(`[CronWorker] Unsubscribed ${tokens.length} expired instruments`);
+      
+      await supabase.from("system_health_logs").insert({
+        metric_type: "expired_cleanup",
+        metric_value: { count: tokens.length, symbols: expired.slice(0, 10).map(e => e.tradingsymbol) },
+        severity: "info",
+        message: `Cleaned up ${tokens.length} expired instruments`,
+      });
+    } else {
+      console.log("[CronWorker] No expired instruments to clean up");
+    }
+  } catch (err) {
+    console.error("[CronWorker] Error during expired instruments cleanup:", err);
   }
 });
 

@@ -126,10 +126,13 @@ export async function GET(request: NextRequest) {
   const segment = searchParams.get("segment");
   const limit = parseInt(searchParams.get("limit") || "50");
 
+  const today = new Date().toISOString().split("T")[0];
+
   try {
     let query = supabaseAdmin
       .from("instruments")
       .select("instrument_token, tradingsymbol, name, exchange, segment, instrument_type, lot_size, tick_size, is_subscribed, expiry, strike")
+      .or(`expiry.is.null,expiry.gte.${today}`)
       .limit(500);
 
     if (search) {

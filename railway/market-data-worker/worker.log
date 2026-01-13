@@ -1125,3 +1125,170 @@
 [STDOUT] [MarketDataWorker] Market data disabled. Waiting for enable signal (polling every 30s)...
 [STDOUT] [MarketDataWorker] Market data disabled. Waiting for enable signal (polling every 30s)...
 [STDOUT] [MarketDataWorker] Market data disabled. Waiting for enable signal (polling every 30s)...
+--- Started at 2026-01-13T06:41:47.243Z ---
+[STDOUT] [MarketDataWorker] Starting Market Data Worker (24/7 Persistent Mode)...
+[STDOUT] [MarketDataWorker] Starting Multi-API-Key Architecture...
+[MarketDataWorker] Supabase URL: https://fhkathpufpbkwzdfczgj.supabase.co
+[STDOUT] [MarketDataWorker] Market data enabled. Proceeding with initialization...
+[STDOUT] [MarketDataWorker] Fetching api_key_configs...
+[STDOUT] [MarketDataWorker] Found 3 active api_key_configs
+[MarketDataWorker] Fetching Zerodha config for CORE Tier - Account 1 (ID: d642c648-3857-477a-ae2e-67bc22acc07a)...
+[STDOUT] [MarketDataWorker] Decrypting keys for Account 1...
+[STDOUT] [MarketDataWorker] Fetching Zerodha config for POPULAR Tier - Account 2 (ID: b068070d-1cf8-4fef-8955-3e92c7c57c6d)...
+[STDOUT] [MarketDataWorker] Decrypting keys for account 2...
+[STDOUT] [MarketDataWorker] Fetching Zerodha config for TEMP Tier - ACCOUNT 3 (ID: b9b6056a-29ca-4327-9d6c-3fbb7b80f223)...
+[STDOUT] [MarketDataWorker] Decrypting keys for ACCOUNT 3...
+[STDOUT] [MarketDataWorker] Found 3 API key config(s)
+[STDOUT] [MarketDataWorker] Backfill service initialized
+[STDOUT] [SubscriptionManager] Initializing with 3 API keys
+[STDOUT] [SubscriptionManager] Loaded 1000 existing subscriptions
+[STDOUT] [SubscriptionManager] Initialized. Tiers: CORE=core-tier, POPULAR=popular-tier, TEMP=temp-tier
+[STDOUT] [MarketDataWorker][core-tier_primary] Connected
+[STDOUT] [MarketDataWorker][core-tier_primary] Resubscribing 1000 tokens in PRIORITY ORDER (CORE: 1000, POPULAR: 0, TEMP: 0)
+[STDOUT] [MarketDataWorker][core-tier_primary] Subscribing CORE: 1000 tokens
+[STDOUT] [MarketDataWorker] Received 25900 ticks since start. Last at 2026-01-13T06:42:09.266Z
+[STDOUT] [MarketDataWorker] Received 33100 ticks since start. Last at 2026-01-13T06:42:13.524Z
+[STDOUT] [MarketDataWorker] Received 39400 ticks since start. Last at 2026-01-13T06:42:17.374Z
+[STDERR] [MarketDataWorker][popular-tier_primary] Connection timeout
+[STDOUT] [MarketDataWorker] Received 57700 ticks since start. Last at 2026-01-13T06:42:27.373Z
+[STDOUT] [MarketDataWorker] Received 66900 ticks since start. Last at 2026-01-13T06:42:31.322Z
+[STDOUT] [MarketDataWorker] Received 80500 ticks since start. Last at 2026-01-13T06:42:36.457Z
+[STDERR] [MarketDataWorker][temp-tier_primary] Connection timeout
+[STDOUT] [MarketDataWorker] Listening for subscription requests
+[STDOUT] [MarketDataWorker] Subscribing to CORE instruments...
+[STDOUT] [MarketDataWorker] Received 133800 ticks since start. Last at 2026-01-13T06:42:57.267Z
+[STDOUT] [SubscriptionManager] Core instruments: 1042 (NSE preferred, including index options for next 2 weeks)
+[STDOUT] [SubscriptionManager] Subscribed 265 (CORE) to core-tier_primary. Total: 1001
+[STDOUT] [SubscriptionManager] Subscribed 6401 (CORE) to core-tier_primary. Total: 1002
+[STDOUT] [SubscriptionManager] Subscribed 3861249 (CORE) to core-tier_primary. Total: 1003
+[STDOUT] [SubscriptionManager] Subscribed 40193 (CORE) to core-tier_primary. Total: 1004
+[STDOUT] [SubscriptionManager] Subscribed 60417 (CORE) to core-tier_primary. Total: 1005
+[STDOUT] [SubscriptionManager] Subscribed 1510401 (CORE) to core-tier_primary. Total: 1006
+[STDOUT] [SubscriptionManager] Subscribed 4267265 (CORE) to core-tier_primary. Total: 1007
+[STDOUT] [SubscriptionManager] Subscribed 4268801 (CORE) to core-tier_primary. Total: 1008
+[STDOUT] [SubscriptionManager] Subscribed 81153 (CORE) to core-tier_primary. Total: 1009
+[STDOUT] [MarketDataWorker] Received 150900 ticks since start. Last at 2026-01-13T06:43:04.420Z
+[STDOUT] [MarketDataWorker] Received 160500 ticks since start. Last at 2026-01-13T06:43:08.008Z
+[STDOUT] [MarketDataWorker] Received 169100 ticks since start. Last at 2026-01-13T06:43:11.509Z
+[STDOUT] [MarketDataWorker] Received 192200 ticks since start. Last at 2026-01-13T06:43:20.814Z
+[STDOUT] [SubscriptionManager] Subscribed 292361 (CORE) to core-tier_primary. Total: 1010
+[STDOUT] [SubscriptionManager] Subscribed 292873 (CORE) to core-tier_primary. Total: 1011
+[STDOUT] [SubscriptionManager] Subscribed 293385 (CORE) to core-tier_primary. Total: 1012
+[STDOUT] [SubscriptionManager] Subscribed 401929 (CORE) to core-tier_primary. Total: 1013
+[STDOUT] [SubscriptionManager] Subscribed 402697 (CORE) to core-tier_primary. Total: 1014
+[STDOUT] [SubscriptionManager] Subscribed 402953 (CORE) to core-tier_primary. Total: 1015
+[STDOUT] [SubscriptionManager] Subscribed 403209 (CORE) to core-tier_primary. Total: 1016
+[STDOUT] [SubscriptionManager] Subscribed 403465 (CORE) to core-tier_primary. Total: 1017
+[STDOUT] [SubscriptionManager] Subscribed 403721 (CORE) to core-tier_primary. Total: 1018
+[STDOUT] [SubscriptionManager] Subscribed 403977 (CORE) to core-tier_primary. Total: 1019
+[STDOUT] [SubscriptionManager] Subscribed 404233 (CORE) to core-tier_primary. Total: 1020
+[STDOUT] [SubscriptionManager] Subscribed 404489 (CORE) to core-tier_primary. Total: 1021
+[STDOUT] [SubscriptionManager] Subscribed 414729 (CORE) to core-tier_primary. Total: 1022
+[STDOUT] [MarketDataWorker] Stats: 1023 subscriptions (CORE: 1023, POPULAR: 0, TEMP: 0)
+[STDOUT] [SubscriptionManager] Subscribed 414985 (CORE) to core-tier_primary. Total: 1023
+[STDOUT] [SubscriptionManager] Subscribed 415241 (CORE) to core-tier_primary. Total: 1024
+[STDOUT] [SubscriptionManager] Subscribed 415497 (CORE) to core-tier_primary. Total: 1025
+[STDOUT] [SubscriptionManager] Subscribed 415753 (CORE) to core-tier_primary. Total: 1026
+[STDOUT] [SubscriptionManager] Subscribed 416009 (CORE) to core-tier_primary. Total: 1027
+[STDOUT] [SubscriptionManager] Subscribed 416265 (CORE) to core-tier_primary. Total: 1028
+[STDOUT] [SubscriptionManager] Subscribed 278537 (CORE) to core-tier_primary. Total: 1029
+[STDOUT] [SubscriptionManager] Subscribed 278793 (CORE) to core-tier_primary. Total: 1030
+[STDOUT] [SubscriptionManager] Subscribed 279049 (CORE) to core-tier_primary. Total: 1031
+[STDOUT] [SubscriptionManager] Subscribed 279305 (CORE) to core-tier_primary. Total: 1032
+[STDOUT] [SubscriptionManager] Subscribed 279561 (CORE) to core-tier_primary. Total: 1033
+[STDOUT] [SubscriptionManager] Subscribed 279817 (CORE) to core-tier_primary. Total: 1034
+[STDOUT] [SubscriptionManager] Subscribed 280073 (CORE) to core-tier_primary. Total: 1035
+[STDOUT] [SubscriptionManager] Subscribed 280329 (CORE) to core-tier_primary. Total: 1036
+[STDOUT] [SubscriptionManager] Subscribed 280585 (CORE) to core-tier_primary. Total: 1037
+[STDOUT] [SubscriptionManager] Subscribed 280841 (CORE) to core-tier_primary. Total: 1038
+[STDOUT] [SubscriptionManager] Subscribed 281097 (CORE) to core-tier_primary. Total: 1039
+[STDOUT] [SubscriptionManager] Subscribed 281353 (CORE) to core-tier_primary. Total: 1040
+[STDOUT] [SubscriptionManager] Subscribed 281865 (CORE) to core-tier_primary. Total: 1041
+[STDOUT] [SubscriptionManager] Subscribed 282121 (CORE) to core-tier_primary. Total: 1042
+[STDOUT] [MarketDataWorker] Received 13200 ticks since start. Last at 2026-01-13T06:43:31.349Z
+[STDOUT] [MarketDataWorker] Received 14200 ticks since start. Last at 2026-01-13T06:43:31.761Z
+[STDOUT] [MarketDataWorker] Received 34000 ticks since start. Last at 2026-01-13T06:43:39.550Z
+[STDOUT] [MarketDataWorker] Received 55400 ticks since start. Last at 2026-01-13T06:43:49.073Z
+[STDOUT] [MarketDataWorker] Received 57400 ticks since start. Last at 2026-01-13T06:43:49.180Z
+[STDOUT] [MarketDataWorker] Received 57900 ticks since start. Last at 2026-01-13T06:43:49.184Z
+[STDOUT] [MarketDataWorker] Stats: 1042 subscriptions (CORE: 1042, POPULAR: 0, TEMP: 0)
+[STDOUT] [MarketDataWorker] Received 36000 ticks since start. Last at 2026-01-13T06:44:10.682Z
+[STDOUT] [MarketDataWorker] Received 44100 ticks since start. Last at 2026-01-13T06:44:13.320Z
+[STDOUT] [MarketDataWorker] Received 63900 ticks since start. Last at 2026-01-13T06:44:20.770Z
+[STDOUT] [MarketDataWorker] Stats: 1042 subscriptions (CORE: 1042, POPULAR: 0, TEMP: 0)
+[STDOUT] [MarketDataWorker] Received 59000 ticks since start. Last at 2026-01-13T06:44:48.764Z
+[STDOUT] [MarketDataWorker] Received 60300 ticks since start. Last at 2026-01-13T06:44:49.044Z
+[STDOUT] [MarketDataWorker] Received 66000 ticks since start. Last at 2026-01-13T06:44:51.516Z
+[STDOUT] [MarketDataWorker] Stats: 1042 subscriptions (CORE: 1042, POPULAR: 0, TEMP: 0)
+[STDOUT] [MarketDataWorker] Received 62400 ticks since start. Last at 2026-01-13T06:45:18.490Z
+[STDOUT] [SubscriptionManager] Subscribed 13139714 (CORE) to core-tier_primary. Total: 1043
+[STDOUT] [SubscriptionManager] Subscribed 13139970 (CORE) to core-tier_primary. Total: 1044
+[STDOUT] [SubscriptionManager] Subscribed 13129474 (CORE) to core-tier_primary. Total: 1045
+[STDOUT] [SubscriptionManager] Subscribed 13138946 (CORE) to core-tier_primary. Total: 1046
+[STDOUT] [SubscriptionManager] Subscribed 13122818 (CORE) to core-tier_primary. Total: 1047
+[STDOUT] [SubscriptionManager] Subscribed 13129218 (CORE) to core-tier_primary. Total: 1048
+[STDOUT] [SubscriptionManager] Subscribed 13118210 (CORE) to core-tier_primary. Total: 1049
+[STDOUT] [SubscriptionManager] Subscribed 13122562 (CORE) to core-tier_primary. Total: 1050
+[STDOUT] [SubscriptionManager] Subscribed 13115650 (CORE) to core-tier_primary. Total: 1051
+[STDOUT] [MarketDataWorker] Stats: 1052 subscriptions (CORE: 1052, POPULAR: 0, TEMP: 0)
+[STDOUT] [SubscriptionManager] Subscribed 13117954 (CORE) to core-tier_primary. Total: 1052
+[STDOUT] [SubscriptionManager] Subscribed 13115138 (CORE) to core-tier_primary. Total: 1053
+[STDOUT] [MarketDataWorker] Received 1800 ticks since start. Last at 2026-01-13T06:45:27.104Z
+[STDOUT] [SubscriptionManager] Subscribed 13115394 (CORE) to core-tier_primary. Total: 1054
+[STDOUT] [SubscriptionManager] Subscribed 13114626 (CORE) to core-tier_primary. Total: 1055
+[STDOUT] [SubscriptionManager] Subscribed 13114882 (CORE) to core-tier_primary. Total: 1056
+[STDOUT] [SubscriptionManager] Subscribed 13114114 (CORE) to core-tier_primary. Total: 1057
+[STDOUT] [SubscriptionManager] Subscribed 13114370 (CORE) to core-tier_primary. Total: 1058
+[STDOUT] [SubscriptionManager] Subscribed 13100290 (CORE) to core-tier_primary. Total: 1059
+[STDOUT] [SubscriptionManager] Subscribed 13113858 (CORE) to core-tier_primary. Total: 1060
+[STDOUT] [SubscriptionManager] Subscribed 13098754 (CORE) to core-tier_primary. Total: 1061
+[STDOUT] [SubscriptionManager] Subscribed 13100034 (CORE) to core-tier_primary. Total: 1062
+[STDOUT] [SubscriptionManager] Subscribed 13096194 (CORE) to core-tier_primary. Total: 1063
+[STDOUT] [SubscriptionManager] Subscribed 13098498 (CORE) to core-tier_primary. Total: 1064
+[STDOUT] [SubscriptionManager] Subscribed 13042434 (CORE) to core-tier_primary. Total: 1065
+[STDOUT] [SubscriptionManager] Subscribed 13095938 (CORE) to core-tier_primary. Total: 1066
+[STDOUT] [SubscriptionManager] Subscribed 13033730 (CORE) to core-tier_primary. Total: 1067
+[STDOUT] [SubscriptionManager] Subscribed 13042178 (CORE) to core-tier_primary. Total: 1068
+[STDOUT] [SubscriptionManager] Subscribed 13029378 (CORE) to core-tier_primary. Total: 1069
+[STDOUT] [SubscriptionManager] Subscribed 13033474 (CORE) to core-tier_primary. Total: 1070
+[STDOUT] [SubscriptionManager] Subscribed 13028354 (CORE) to core-tier_primary. Total: 1071
+[STDOUT] [SubscriptionManager] Subscribed 13028610 (CORE) to core-tier_primary. Total: 1072
+[STDOUT] [SubscriptionManager] Subscribed 13027842 (CORE) to core-tier_primary. Total: 1073
+[STDOUT] [SubscriptionManager] Subscribed 13028098 (CORE) to core-tier_primary. Total: 1074
+[STDOUT] [SubscriptionManager] Subscribed 13027330 (CORE) to core-tier_primary. Total: 1075
+[STDOUT] [SubscriptionManager] Subscribed 13027586 (CORE) to core-tier_primary. Total: 1076
+[STDOUT] [SubscriptionManager] Subscribed 13026306 (CORE) to core-tier_primary. Total: 1077
+[STDOUT] [SubscriptionManager] Subscribed 13026562 (CORE) to core-tier_primary. Total: 1078
+[STDOUT] [SubscriptionManager] Subscribed 13025794 (CORE) to core-tier_primary. Total: 1079
+[STDOUT] [SubscriptionManager] Subscribed 13026050 (CORE) to core-tier_primary. Total: 1080
+[STDOUT] [SubscriptionManager] Subscribed 13025282 (CORE) to core-tier_primary. Total: 1081
+[STDOUT] [SubscriptionManager] Subscribed 13025538 (CORE) to core-tier_primary. Total: 1082
+[STDOUT] [SubscriptionManager] Subscribed 13024770 (CORE) to core-tier_primary. Total: 1083
+[STDOUT] [SubscriptionManager] Subscribed 13025026 (CORE) to core-tier_primary. Total: 1084
+[STDOUT] [SubscriptionManager] Subscribed 13024258 (CORE) to core-tier_primary. Total: 1085
+[STDOUT] [SubscriptionManager] Subscribed 13024514 (CORE) to core-tier_primary. Total: 1086
+[STDOUT] [SubscriptionManager] Subscribed 13023746 (CORE) to core-tier_primary. Total: 1087
+[STDOUT] [MarketDataWorker] Received 28500 ticks since start. Last at 2026-01-13T06:45:36.513Z
+[STDOUT] [MarketDataWorker] Received 57200 ticks since start. Last at 2026-01-13T06:45:47.532Z
+[STDOUT] [MarketDataWorker] Received 70700 ticks since start. Last at 2026-01-13T06:45:52.008Z
+[STDOUT] [MarketDataWorker] Received 71900 ticks since start. Last at 2026-01-13T06:45:52.542Z
+[STDOUT] [MarketDataWorker] Stats: 1087 subscriptions (CORE: 1087, POPULAR: 0, TEMP: 0)
+[STDOUT] [MarketDataWorker] Received 64300 ticks since start. Last at 2026-01-13T06:46:20.012Z
+[STDOUT] [MarketDataWorker] Stats: 1087 subscriptions (CORE: 1087, POPULAR: 0, TEMP: 0)
+[STDOUT] [MarketDataWorker] Received 7000 ticks since start. Last at 2026-01-13T06:46:29.272Z
+[STDOUT] [MarketDataWorker] Received 20400 ticks since start. Last at 2026-01-13T06:46:34.039Z
+[STDOUT] [MarketDataWorker] Stats: 1087 subscriptions (CORE: 1087, POPULAR: 0, TEMP: 0)
+[STDOUT] [MarketDataWorker] Received 38800 ticks since start. Last at 2026-01-13T06:47:11.209Z
+[STDOUT] [MarketDataWorker] Received 41600 ticks since start. Last at 2026-01-13T06:47:12.141Z
+[STDOUT] [MarketDataWorker] Received 51600 ticks since start. Last at 2026-01-13T06:47:15.963Z
+[STDOUT] [MarketDataWorker] Received 77700 ticks since start. Last at 2026-01-13T06:47:25.623Z
+[STDOUT] [MarketDataWorker] Stats: 1087 subscriptions (CORE: 1087, POPULAR: 0, TEMP: 0)
+[STDOUT] [MarketDataWorker] CORE subscription complete: 1042 success, 0 failed
+[STDOUT] [MarketDataWorker] Starting initial Live-Historical backfill...
+[STDOUT] [BackfillService] Starting CORE instrument backfill...
+[STDOUT] [MarketDataWorker] Running with 1/3 connections
+[STDOUT] [MarketDataWorker] Worker initialized, entering persistent mode...
+[STDOUT] [MarketDataWorker] Starting heartbeat loop...
+[MarketDataWorker] Market Data Worker ONLINE and heartbeat active
+[STDOUT] [BackfillService] No CORE instruments to backfill
+[STDOUT] [MarketDataWorker] Received 6000 ticks since start. Last at 2026-01-13T06:47:33.001Z

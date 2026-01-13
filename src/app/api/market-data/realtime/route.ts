@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getAuthenticatedUser } from "@/lib/server/auth";
-import Redis from "ioredis";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -17,33 +17,52 @@ export async function GET(request: NextRequest) {
   const writer = responseStream.writable.getWriter();
   const encoder = new TextEncoder();
 
-  // Create a dedicated Redis subscriber for this connection
-  const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-  const subscriber = new Redis(redisUrl);
-
-  // Send initial connection message
   writer.write(encoder.encode(`data: ${JSON.stringify({ type: "connected", timestamp: new Date().toISOString() })}\n\n`));
 
-  // Subscribe to Redis channels for each instrument
-  const channels = instrumentTokens.length > 0 
-    ? instrumentTokens.flatMap(token => [`ticker:${token}`, `candles:1minute:${token}`])
-    : []; 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  if (channels.length > 0) {
-    await subscriber.subscribe(...channels);
-  }
+  const channel = supabase
+    .channel(`realtime-ticks-${user.userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "realtime_ticks",
+        filter: instrumentTokens.length > 0 
+          ? `instrument_token=in.(${instrumentTokens.join(",")})` 
+          : undefined,
+      },
+      (payload) => {
+        try {
+          writer.write(encoder.encode(`data: ${JSON.stringify({ type: "tick", data: payload.new })}\n\n`));
+        } catch (e) {
+          console.error("[SSE] Error sending tick:", e);
+        }
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "live_candles",
+        filter: instrumentTokens.length > 0 
+          ? `instrument_token=in.(${instrumentTokens.join(",")})` 
+          : undefined,
+      },
+      (payload) => {
+        try {
+          writer.write(encoder.encode(`data: ${JSON.stringify({ type: "candle", data: payload.new })}\n\n`));
+        } catch (e) {
+          console.error("[SSE] Error sending candle:", e);
+        }
+      }
+    )
+    .subscribe();
 
-  subscriber.on("message", (channel, message) => {
-    try {
-      const data = JSON.parse(message);
-      const type = channel.startsWith("ticker:") ? "tick" : "candle";
-      writer.write(encoder.encode(`data: ${JSON.stringify({ type, data })}\n\n`));
-    } catch (e) {
-      console.error("[SSE] Error processing Redis message:", e);
-    }
-  });
-
-  // Keep connection alive with a heartbeat every 30 seconds
   const heartbeatInterval = setInterval(() => {
     try {
       writer.write(encoder.encode(`data: ${JSON.stringify({ type: "heartbeat" })}\n\n`));
@@ -53,12 +72,12 @@ export async function GET(request: NextRequest) {
   }, 30000);
 
   request.signal.onabort = async () => {
-    console.log(`[SSE] User ${user.session?.user.id} disconnected`);
+    console.log(`[SSE] User ${user.userId} disconnected`);
     clearInterval(heartbeatInterval);
     try {
-      await subscriber.quit();
+      await supabase.removeChannel(channel);
     } catch (e) {
-      console.error("[SSE] Error closing Redis subscriber:", e);
+      console.error("[SSE] Error removing channel:", e);
     }
     writer.close();
   };

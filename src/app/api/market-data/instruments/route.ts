@@ -128,35 +128,43 @@ export async function GET(request: NextRequest) {
 
   const today = new Date().toISOString().split("T")[0];
 
-  try {
-    let query = supabaseAdmin
-      .from("instruments")
-      .select("instrument_token, tradingsymbol, name, exchange, segment, instrument_type, lot_size, tick_size, is_subscribed, expiry, strike")
-      .or(`expiry.is.null,expiry.gte.${today}`)
-      .limit(500);
+    try {
+      const expiryFilter = `expiry.is.null,expiry.gte.${today}`;
+      let query = supabaseAdmin
+        .from("instruments")
+        .select("instrument_token, tradingsymbol, name, exchange, segment, instrument_type, lot_size, tick_size, is_subscribed, expiry, strike")
+        .filter("expiry", "is", null).or(`expiry.gte.${today}`) // Initial expiry filter
+        .limit(500);
 
-    if (search) {
-      const searchLower = search.toLowerCase();
-      const hasStrike = /\d{4,}/.test(search);
-      
-      if (hasStrike) {
-        const baseSymbol = search.replace(/\d+/g, "").replace(/CE|PE/gi, "").trim();
-        const strikeMatch = search.match(/\d+/);
-        const strike = strikeMatch ? strikeMatch[0] : "";
-        const optionType = search.match(/CE|PE/i)?.[0]?.toUpperCase();
+      if (search) {
+        const searchLower = search.toLowerCase();
+        const hasStrike = /\d{4,}/.test(search);
         
-        if (baseSymbol && strike) {
-          query = query.ilike("tradingsymbol", `%${baseSymbol}%${strike}%`);
-          if (optionType) {
-            query = query.ilike("tradingsymbol", `%${optionType}`);
+        // Group the search and expiry filters using .and()
+        if (hasStrike) {
+          const baseSymbol = search.replace(/\d+/g, "").replace(/CE|PE/gi, "").trim();
+          const strikeMatch = search.match(/\d+/);
+          const strike = strikeMatch ? strikeMatch[0] : "";
+          const optionType = search.match(/CE|PE/i)?.[0]?.toUpperCase();
+          
+          if (baseSymbol && strike) {
+            query = query.ilike("tradingsymbol", `%${baseSymbol}%${strike}%`);
+            if (optionType) {
+              query = query.ilike("tradingsymbol", `%${optionType}`);
+            }
+            // Add expiry constraint to the strike search
+            query = query.or(expiryFilter);
+          } else {
+            query = query.and(`tradingsymbol.ilike.%${search}%,name.ilike.%${search}%,or(${expiryFilter})`);
           }
         } else {
-          query = query.or(`tradingsymbol.ilike.%${search}%,name.ilike.%${search}%`);
+          // Correctly combine search OR with expiry AND
+          query = query.and(`or(tradingsymbol.ilike.%${search}%,name.ilike.%${search}%),or(${expiryFilter})`);
         }
       } else {
-        query = query.or(`tradingsymbol.ilike.%${search}%,name.ilike.%${search}%`);
+        query = query.or(expiryFilter);
       }
-    }
+
 
     if (exchange) {
       query = query.eq("exchange", exchange);

@@ -145,21 +145,43 @@ cron.schedule("30 0 * * *", async () => {
 
     if (fetchError) throw fetchError;
     
-    if (expired && expired.length > 0) {
-      const tokens = expired.map(e => e.instrument_token);
-      
-      const { error: updateError } = await supabase
-        .from("instruments")
-        .update({
-          is_subscribed: false,
-          subscription_priority: "expired",
-          updated_at: new Date().toISOString(),
-        })
-        .in("instrument_token", tokens);
+      if (expired && expired.length > 0) {
+        const tokens = expired.map(e => e.instrument_token);
+        
+        // 1. Mark as unsubscribed in instruments table
+        const { error: updateError } = await supabase
+          .from("instruments")
+          .update({
+            is_subscribed: false,
+            subscription_priority: "expired",
+            updated_at: new Date().toISOString(),
+          })
+          .in("instrument_token", tokens);
 
-      if (updateError) throw updateError;
-      
-      console.log(`[CronWorker] Unsubscribed ${tokens.length} expired instruments`);
+        if (updateError) throw updateError;
+
+        // 2. Remove from instrument_subscriptions (Multi-API-Key persistency)
+        const { error: subDeleteError } = await supabase
+          .from("instrument_subscriptions")
+          .delete()
+          .in("instrument_token", tokens);
+          
+        if (subDeleteError) {
+          console.error("[CronWorker] Error deleting from instrument_subscriptions:", subDeleteError);
+        }
+
+        // 3. Remove from market_data_subscriptions (Legacy persistency)
+        const { error: mdsDeleteError } = await supabase
+          .from("market_data_subscriptions")
+          .delete()
+          .in("instrument_token", tokens);
+
+        if (mdsDeleteError) {
+          console.error("[CronWorker] Error deleting from market_data_subscriptions:", mdsDeleteError);
+        }
+        
+        console.log(`[CronWorker] Unsubscribed and deleted ${tokens.length} expired instruments from all subscription tables`);
+
       
       await supabase.from("system_health_logs").insert({
         metric_type: "expired_cleanup",

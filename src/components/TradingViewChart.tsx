@@ -72,6 +72,7 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
 
   export function TradingViewChart({
     data,
+    symbol,
     support,
     resistance,
     isLoading,

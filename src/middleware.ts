@@ -45,6 +45,7 @@ export async function middleware(request: NextRequest) {
       pathname === "/favicon.ico";
 
   // Redirect to dashboard if logged in and trying to access auth pages or landing page
+  // IMPORTANT: Do NOT redirect from /reset-password - users need to be logged in to update password
   if (user && (
     pathname === "/signin" || 
     pathname === "/signup" || 

@@ -28,7 +28,8 @@ export async function POST(
       capital,
       fromDate,
       toDate,
-      zerodhaConfigId
+      zerodhaConfigId,
+      zairothIntent
     } = body;
 
     if (!strategy || !timeframe) {
@@ -53,6 +54,19 @@ export async function POST(
     const from = fromDate ? new Date(fromDate) : undefined;
     const to = toDate ? new Date(toDate) : undefined;
 
+    await supabaseAdmin.from("brain_events").insert({
+      event_type: "BACKTEST_START",
+      details: {
+        strategyId,
+        instrumentTokens: tokens,
+        timeframe,
+        capital: capital || 100000,
+        userId: user.user.id,
+        hasZairothIntent: !!zairothIntent,
+      },
+      created_at: new Date().toISOString(),
+    });
+
     const result = await strategyService.runBacktest(
       strategy,
       tokens,
@@ -63,17 +77,16 @@ export async function POST(
       zerodhaConfigId
     );
 
-    if (strategyId !== "preview") {
-      const id = parseInt(strategyId);
-      await strategyService.saveBacktestResult(
-        id,
-        1,
-        tokens,
-        timeframe,
-        result,
-        strategy
-      );
-    }
+        if (strategyId !== "preview") {
+          const id = parseInt(strategyId);
+          await strategyService.saveBacktestResult(
+            id,
+            1,
+            tokens,
+            timeframe,
+            result,
+            strategy
+          );
 
           // AI Learning: Feed backtest results to AI Trading Engine and Self-Learning Engine
           if (result.trades && result.trades.length > 0) {

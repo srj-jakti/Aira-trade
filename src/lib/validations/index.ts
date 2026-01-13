@@ -11,12 +11,11 @@ export const credentialsSchema = z.object({
 
 // Trading Settings Schemas
 export const tradingSettingsSchema = z.object({
-  ai_trading_enabled: z.boolean().optional(),
-  max_daily_loss: z.number().min(0).max(100).optional(),
-  max_position_size: z.number().min(0).max(100).optional(),
-  max_daily_trades: z.number().min(1).max(1000).optional(),
-  risk_per_trade: z.number().min(0.1).max(10).optional(),
-  capital_allocation: z.number().min(0).optional(),
+  auto_trading_enabled: z.boolean().optional(),
+  risk_appetite: z.enum(["low", "medium", "high"]).optional(),
+  preferred_markets: z.array(z.string()).optional(),
+  daily_profit_limit: z.number().min(0).optional(),
+  daily_loss_limit: z.number().min(0).optional(),
 });
 
 // Profile Schema

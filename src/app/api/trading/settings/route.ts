@@ -29,7 +29,6 @@ export async function GET() {
 
       const { data: countsData } = await supabaseAdmin.rpc('get_segment_counts');
 
-
       return successResponse({ 
         settings: data || {},
         counts: countsData || {

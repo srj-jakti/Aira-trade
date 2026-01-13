@@ -4,7 +4,6 @@ import { decrypt } from "./encryption";
 import { atmStrikeManager } from "./atm-strike-manager";
 
 const CURRENCY_PAIRS = ["USDINR", "EURINR", "GBPINR", "JPYINR"];
-const INDEX_TOKENS = [256265, 260105, 257801, 258057]; // Nifty, BankNifty, FinNifty, Midcap
 
 interface SyncStats {
   totalFetched: number;
@@ -49,7 +48,7 @@ class DailyInstrumentSyncManager {
     };
 
     try {
-      const key = await apiKeyPoolManager.getScannerKey();
+      const key = await apiKeyPoolManager.getLeastLoadedKey();
       if (!key || !key.access_token) {
         throw new Error("No API key available for sync");
       }
@@ -57,7 +56,7 @@ class DailyInstrumentSyncManager {
       const apiKey = decrypt(key.api_key);
       const accessToken = decrypt(key.access_token);
 
-      console.log("[DailySync] Fetching latest instruments from Zerodha...");
+      console.log("[DailySync] Fetching instruments from Zerodha...");
       const response = await fetch("https://api.kite.trade/instruments", {
         headers: {
           "X-Kite-Version": "3",
@@ -88,6 +87,7 @@ class DailyInstrumentSyncManager {
       const today = new Date().toISOString().split("T")[0];
       const expiredCount = await this.removeExpiredInstruments(today);
       stats.expiredRemoved = expiredCount;
+      console.log(`[DailySync] Removed ${expiredCount} expired instruments`);
 
       const rows = instruments.map(i => ({
         instrument_token: parseInt(i.instrument_token),
@@ -103,7 +103,6 @@ class DailyInstrumentSyncManager {
         strike: parseFloat(i.strike) || null,
       }));
 
-      // Upsert in batches
       const batchSize = 5000;
       for (let i = 0; i < rows.length; i += batchSize) {
         const batch = rows.slice(i, i + batchSize);
@@ -116,12 +115,11 @@ class DailyInstrumentSyncManager {
         }
       }
 
-      // Refresh dynamic subscriptions for scanner and trading engine
-      await this.refreshDynamicSubscriptions();
-
-      // Trigger ATM Strike refresh for active indices
+      console.log("[DailySync] Refreshing option chain subscriptions...");
       await atmStrikeManager.forceRefresh();
-      stats.optionChainsRefreshed = INDEX_TOKENS.length;
+      stats.optionChainsRefreshed = 5;
+
+      await this.refreshDynamicSubscriptions();
 
       this.lastSyncAt = new Date();
 
@@ -135,7 +133,7 @@ class DailyInstrumentSyncManager {
       return {
         success: true,
         stats,
-        message: `Synced ${stats.totalFetched} instruments, updated subscriptions for scanner/trading`,
+        message: `Synced ${stats.totalFetched} instruments, removed ${stats.expiredRemoved} expired`,
       };
     } catch (error) {
       console.error("[DailySync] Error:", error);
@@ -173,34 +171,21 @@ class DailyInstrumentSyncManager {
   }
 
   async refreshDynamicSubscriptions(): Promise<void> {
-    console.log("[DailySync] Refreshing subscriptions for Scanner and Trading Engine...");
+    console.log("[DailySync] Refreshing dynamic subscriptions...");
 
     const today = new Date().toISOString().split("T")[0];
 
-    // Reset auto-subscriptions
     await supabaseAdmin
       .from("instruments")
       .update({ is_subscribed: false, updated_at: new Date().toISOString() })
       .eq("subscription_priority", "auto");
 
-    // 1. Subscribe to Indices (Priority)
-    await supabaseAdmin
-      .from("instruments")
-      .update({
-        is_subscribed: true,
-        subscription_mode: "full",
-        subscription_priority: "auto",
-        updated_at: new Date().toISOString(),
-      })
-      .in("instrument_token", INDEX_TOKENS);
-
-    // 2. Subscribe to Nifty 50 Stocks
     const { data: nseStocks } = await supabaseAdmin
       .from("instruments")
       .select("instrument_token")
       .eq("exchange", "NSE")
       .eq("instrument_type", "EQ")
-      .limit(100); // Fixed limit for high-performance scanning
+      .limit(800);
 
     if (nseStocks) {
       const tokens = nseStocks.map(s => s.instrument_token);
@@ -215,20 +200,18 @@ class DailyInstrumentSyncManager {
         .in("instrument_token", tokens);
     }
 
-    // 3. Subscribe to Current Month Futures (Liquid instruments)
     const { data: futs } = await supabaseAdmin
       .from("instruments")
       .select("instrument_token, name")
       .eq("segment", "NFO-FUT")
       .gte("expiry", today)
-      .order("expiry", { ascending: true })
-      .limit(200);
+      .order("expiry", { ascending: true });
 
     if (futs) {
       const addedNames = new Set<string>();
       const futTokens: number[] = [];
       for (const fut of futs) {
-        if (!addedNames.has(fut.name) && futTokens.length < 100) {
+        if (!addedNames.has(fut.name)) {
           futTokens.push(fut.instrument_token);
           addedNames.add(fut.name);
         }
@@ -247,7 +230,70 @@ class DailyInstrumentSyncManager {
       }
     }
 
-    console.log("[DailySync] Dynamic subscriptions refreshed for scanner/trading engine");
+    for (const pair of CURRENCY_PAIRS) {
+      const { data: cds } = await supabaseAdmin
+        .from("instruments")
+        .select("instrument_token, segment")
+        .eq("name", pair)
+        .gte("expiry", today)
+        .order("expiry", { ascending: true })
+        .limit(50);
+
+      if (cds) {
+        const cdTokens = cds.map(c => c.instrument_token);
+        if (cdTokens.length > 0) {
+          await supabaseAdmin
+            .from("instruments")
+            .update({
+              is_subscribed: true,
+              subscription_mode: "quote",
+              subscription_priority: "auto",
+              updated_at: new Date().toISOString(),
+            })
+            .in("instrument_token", cdTokens);
+        }
+      }
+    }
+
+    console.log("[DailySync] Dynamic subscriptions refreshed");
+  }
+
+  async cleanupOldTicks(): Promise<number> {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const { count } = await supabaseAdmin
+      .from("realtime_ticks")
+      .delete()
+      .lt("tick_timestamp", cutoff)
+      .select("*", { count: "exact", head: true });
+
+    return count || 0;
+  }
+
+  async getSyncStatus(): Promise<{
+    lastSyncAt: Date | null;
+    isSyncing: boolean;
+    subscribedCount: number;
+    expiredCount: number;
+  }> {
+    const { count: subscribedCount } = await supabaseAdmin
+      .from("instruments")
+      .select("*", { count: "exact", head: true })
+      .eq("is_subscribed", true);
+
+    const today = new Date().toISOString().split("T")[0];
+    const { count: expiredCount } = await supabaseAdmin
+      .from("instruments")
+      .select("*", { count: "exact", head: true })
+      .lt("expiry", today)
+      .not("expiry", "is", null);
+
+    return {
+      lastSyncAt: this.lastSyncAt,
+      isSyncing: this.isSyncing,
+      subscribedCount: subscribedCount || 0,
+      expiredCount: expiredCount || 0,
+    };
   }
 
   private emptyStats(): SyncStats {

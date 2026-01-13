@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
+import { BrainStatusDashboard } from "@/components/BrainStatusDashboard";
+import { 
   Database, 
   Key, 
   BrainCircuit, 
@@ -276,14 +277,22 @@ export default function AdminPage() {
                     <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                     <span className="truncate w-full text-center sm:text-left">Users</span>
                   </TabsTrigger>
-                <TabsTrigger 
-                  value="strategies" 
-                  className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-yellow-500 data-[state=active]:text-white rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
-                >
-                  <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span className="truncate w-full text-center sm:text-left">Strats</span>
-                </TabsTrigger>
-                </TabsList>
+                  <TabsTrigger 
+                    value="strategies" 
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-yellow-500 data-[state=active]:text-white rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
+                  >
+                    <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Strats</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="brain" 
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
+                  >
+                    <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Brain</span>
+                  </TabsTrigger>
+                  </TabsList>
+
               </div>
 
           <TabsContent value="zerodha" className="mt-0">
@@ -302,10 +311,15 @@ export default function AdminPage() {
             <UserManagement />
           </TabsContent>
 
-          <TabsContent value="strategies" className="mt-0">
-            <StrategyApprovalManager />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="strategies" className="mt-0">
+              <StrategyApprovalManager />
+            </TabsContent>
+
+            <TabsContent value="brain" className="mt-0">
+              <BrainStatusDashboard />
+            </TabsContent>
+          </Tabs>
+
       </div>
     </div>
   );

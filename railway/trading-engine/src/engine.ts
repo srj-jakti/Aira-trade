@@ -161,9 +161,24 @@ async function processUser(user: TradingPreference): Promise<void> {
       return;
     }
 
+    // NEW: Check Aira Brain Volatility Health
+    const { data: heartbeat } = await supabase
+      .from("brain_heartbeats")
+      .select("volatility_level")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (heartbeat && heartbeat.volatility_level === 'extreme') {
+      logger.warn(`[HEALTH] Extreme volatility detected by Aira Brain. Blocking trades for ${user_id}`);
+      return;
+    }
+
     const signal = await evaluateWithAI(strategy, candles, {
       risk_per_trade: user.risk_per_trade || 1,
       max_daily_loss: user.max_daily_loss || 1000,
+      user_id: user_id,
+      capital_used: user.daily_pnl_realized || 0 // Use PnL as a proxy for capital state if needed
     });
 
     if (signal && signal.action !== "HOLD") {

@@ -3,6 +3,13 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+  export async function GET(request: Request) {
+    const requestUrl = new URL(request.url);
+    const code = requestUrl.searchParams.get("code");
+    const type = requestUrl.searchParams.get("type");
+    const next = requestUrl.searchParams.get("next") ?? (type === "recovery" ? "reset-password" : "dashboard");
+    const origin = requestUrl.origin;
+
 
   if (code) {
     const cookieStore = await cookies();

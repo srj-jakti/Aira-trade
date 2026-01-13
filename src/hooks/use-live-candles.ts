@@ -85,7 +85,7 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
       const candleTimeframe = normalizeTimeframe(newCandle.timeframe);
 
       if (
-        newCandle.instrument_token !== instrumentToken ||
+        String(newCandle.instrument_token) !== String(instrumentToken) ||
         candleTimeframe !== normalizedTimeframe
       ) {
         return;

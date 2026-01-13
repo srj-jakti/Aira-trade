@@ -376,3 +376,752 @@
 [STDOUT] [SubscriptionManager] Subscribed 11809282 (CORE) to core-tier_primary. Total: 396
 [STDOUT] [SubscriptionManager] Subscribed 11808514 (CORE) to core-tier_primary. Total: 397
 [STDOUT] [SubscriptionManager] Subscribed 11808770 (CORE) to core-tier_primary. Total: 398
+[STDOUT] [SubscriptionManager] Subscribed 11806466 (CORE) to core-tier_primary. Total: 399
+[STDOUT] [SubscriptionManager] Subscribed 11808258 (CORE) to core-tier_primary. Total: 400
+[STDOUT] [SubscriptionManager] Subscribed 11805442 (CORE) to core-tier_primary. Total: 401
+[STDOUT] [SubscriptionManager] Subscribed 11805698 (CORE) to core-tier_primary. Total: 402
+[STDOUT] [SubscriptionManager] Subscribed 11804418 (CORE) to core-tier_primary. Total: 403
+[STDOUT] [SubscriptionManager] Subscribed 11805186 (CORE) to core-tier_primary. Total: 404
+[STDOUT] [SubscriptionManager] Subscribed 11802882 (CORE) to core-tier_primary. Total: 405
+[STDOUT] [SubscriptionManager] Subscribed 11804162 (CORE) to core-tier_primary. Total: 406
+[STDOUT] [SubscriptionManager] Subscribed 11802370 (CORE) to core-tier_primary. Total: 407
+[STDOUT] [SubscriptionManager] Subscribed 11802626 (CORE) to core-tier_primary. Total: 408
+[STDOUT] [MarketDataWorker] Stats: 409 subscriptions (CORE: 409, POPULAR: 0, TEMP: 0)
+[STDOUT] [SubscriptionManager] Subscribed 11800834 (CORE) to core-tier_primary. Total: 409
+[STDOUT] [SubscriptionManager] Subscribed 11802114 (CORE) to core-tier_primary. Total: 410
+[STDOUT] [SubscriptionManager] Subscribed 11800322 (CORE) to core-tier_primary. Total: 411
+[STDOUT] [SubscriptionManager] Subscribed 11800578 (CORE) to core-tier_primary. Total: 412
+[STDOUT] [SubscriptionManager] Subscribed 11799298 (CORE) to core-tier_primary. Total: 413
+[STDOUT] [SubscriptionManager] Subscribed 11800066 (CORE) to core-tier_primary. Total: 414
+[STDOUT] [SubscriptionManager] Subscribed 11798018 (CORE) to core-tier_primary. Total: 415
+[STDOUT] [SubscriptionManager] Subscribed 11799042 (CORE) to core-tier_primary. Total: 416
+[STDOUT] [SubscriptionManager] Subscribed 11797506 (CORE) to core-tier_primary. Total: 417
+[STDOUT] [SubscriptionManager] Subscribed 11797762 (CORE) to core-tier_primary. Total: 418
+[STDOUT] [SubscriptionManager] Subscribed 11795202 (CORE) to core-tier_primary. Total: 419
+[STDOUT] [SubscriptionManager] Subscribed 11797250 (CORE) to core-tier_primary. Total: 420
+[STDOUT] [SubscriptionManager] Subscribed 11794434 (CORE) to core-tier_primary. Total: 421
+[STDOUT] [SubscriptionManager] Subscribed 11794690 (CORE) to core-tier_primary. Total: 422
+[STDOUT] [SubscriptionManager] Subscribed 11793922 (CORE) to core-tier_primary. Total: 423
+[STDOUT] [SubscriptionManager] Subscribed 11794178 (CORE) to core-tier_primary. Total: 424
+[STDOUT] [SubscriptionManager] Subscribed 11793410 (CORE) to core-tier_primary. Total: 425
+[STDOUT] [SubscriptionManager] Subscribed 11793666 (CORE) to core-tier_primary. Total: 426
+[STDOUT] [MarketDataWorker] Received 700 ticks since start. Last at 2026-01-13T06:15:25.340Z
+[STDOUT] [SubscriptionManager] Subscribed 11792642 (CORE) to core-tier_primary. Total: 427
+[STDOUT] [SubscriptionManager] Subscribed 11792898 (CORE) to core-tier_primary. Total: 428
+[STDOUT] [SubscriptionManager] Subscribed 11792130 (CORE) to core-tier_primary. Total: 429
+[STDOUT] [SubscriptionManager] Subscribed 11792386 (CORE) to core-tier_primary. Total: 430
+[STDOUT] [SubscriptionManager] Subscribed 11791618 (CORE) to core-tier_primary. Total: 431
+[STDOUT] [SubscriptionManager] Subscribed 11791874 (CORE) to core-tier_primary. Total: 432
+[STDOUT] [SubscriptionManager] Subscribed 11791106 (CORE) to core-tier_primary. Total: 433
+[STDOUT] [SubscriptionManager] Subscribed 11791362 (CORE) to core-tier_primary. Total: 434
+[STDOUT] [SubscriptionManager] Subscribed 11790594 (CORE) to core-tier_primary. Total: 435
+[STDOUT] [SubscriptionManager] Subscribed 11790850 (CORE) to core-tier_primary. Total: 436
+[STDOUT] [SubscriptionManager] Subscribed 11790082 (CORE) to core-tier_primary. Total: 437
+[STDOUT] [SubscriptionManager] Subscribed 11790338 (CORE) to core-tier_primary. Total: 438
+[STDOUT] [SubscriptionManager] Subscribed 12191490 (CORE) to core-tier_primary. Total: 439
+[STDOUT] [SubscriptionManager] Subscribed 12191746 (CORE) to core-tier_primary. Total: 440
+[STDOUT] [SubscriptionManager] Subscribed 12190978 (CORE) to core-tier_primary. Total: 441
+[STDOUT] [SubscriptionManager] Subscribed 12191234 (CORE) to core-tier_primary. Total: 442
+[STDOUT] [SubscriptionManager] Subscribed 12192002 (CORE) to core-tier_primary. Total: 443
+[STDOUT] [SubscriptionManager] Subscribed 12192258 (CORE) to core-tier_primary. Total: 444
+[STDOUT] [SubscriptionManager] Subscribed 12190466 (CORE) to core-tier_primary. Total: 445
+[STDOUT] [SubscriptionManager] Subscribed 12190722 (CORE) to core-tier_primary. Total: 446
+[STDOUT] [SubscriptionManager] Subscribed 12192514 (CORE) to core-tier_primary. Total: 447
+[STDOUT] [SubscriptionManager] Subscribed 12192770 (CORE) to core-tier_primary. Total: 448
+[STDOUT] [SubscriptionManager] Subscribed 12189954 (CORE) to core-tier_primary. Total: 449
+[STDOUT] [SubscriptionManager] Subscribed 12190210 (CORE) to core-tier_primary. Total: 450
+[STDOUT] [SubscriptionManager] Subscribed 12193026 (CORE) to core-tier_primary. Total: 451
+[STDOUT] [SubscriptionManager] Subscribed 12193282 (CORE) to core-tier_primary. Total: 452
+[STDOUT] [SubscriptionManager] Subscribed 12189442 (CORE) to core-tier_primary. Total: 453
+[STDOUT] [SubscriptionManager] Subscribed 12189698 (CORE) to core-tier_primary. Total: 454
+[STDOUT] [SubscriptionManager] Subscribed 12193538 (CORE) to core-tier_primary. Total: 455
+[STDOUT] [SubscriptionManager] Subscribed 12193794 (CORE) to core-tier_primary. Total: 456
+[STDOUT] [SubscriptionManager] Subscribed 12188930 (CORE) to core-tier_primary. Total: 457
+[STDOUT] [MarketDataWorker] Received 2100 ticks since start. Last at 2026-01-13T06:15:32.830Z
+[STDOUT] [SubscriptionManager] Subscribed 12189186 (CORE) to core-tier_primary. Total: 458
+[STDOUT] [SubscriptionManager] Subscribed 12194050 (CORE) to core-tier_primary. Total: 459
+[STDOUT] [SubscriptionManager] Subscribed 12199938 (CORE) to core-tier_primary. Total: 460
+[STDOUT] [SubscriptionManager] Subscribed 12188418 (CORE) to core-tier_primary. Total: 461
+[STDOUT] [MarketDataWorker] Received 2400 ticks since start. Last at 2026-01-13T06:15:33.833Z
+[STDOUT] [SubscriptionManager] Subscribed 12188674 (CORE) to core-tier_primary. Total: 462
+[STDOUT] [SubscriptionManager] Subscribed 12200194 (CORE) to core-tier_primary. Total: 463
+[STDOUT] [SubscriptionManager] Subscribed 12201986 (CORE) to core-tier_primary. Total: 464
+[STDOUT] [SubscriptionManager] Subscribed 12186370 (CORE) to core-tier_primary. Total: 465
+[STDOUT] [SubscriptionManager] Subscribed 12188162 (CORE) to core-tier_primary. Total: 466
+[STDOUT] [SubscriptionManager] Subscribed 12202242 (CORE) to core-tier_primary. Total: 467
+[STDOUT] [SubscriptionManager] Subscribed 12202498 (CORE) to core-tier_primary. Total: 468
+[STDOUT] [SubscriptionManager] Subscribed 12204034 (CORE) to core-tier_primary. Total: 469
+[STDOUT] [SubscriptionManager] Subscribed 12225794 (CORE) to core-tier_primary. Total: 470
+[STDOUT] [SubscriptionManager] Subscribed 12227586 (CORE) to core-tier_primary. Total: 471
+[STDOUT] [SubscriptionManager] Subscribed 12225282 (CORE) to core-tier_primary. Total: 472
+[STDOUT] [SubscriptionManager] Subscribed 12225538 (CORE) to core-tier_primary. Total: 473
+[STDOUT] [SubscriptionManager] Subscribed 12224770 (CORE) to core-tier_primary. Total: 474
+[STDOUT] [SubscriptionManager] Subscribed 12225026 (CORE) to core-tier_primary. Total: 475
+[STDOUT] [SubscriptionManager] Subscribed 12224258 (CORE) to core-tier_primary. Total: 476
+[STDOUT] [SubscriptionManager] Subscribed 12224514 (CORE) to core-tier_primary. Total: 477
+[STDOUT] [SubscriptionManager] Subscribed 12222722 (CORE) to core-tier_primary. Total: 478
+[STDOUT] [SubscriptionManager] Subscribed 13660674 (CORE) to core-tier_primary. Total: 479
+[STDOUT] [SubscriptionManager] Subscribed 13660930 (CORE) to core-tier_primary. Total: 480
+[STDOUT] [SubscriptionManager] Subscribed 13636098 (CORE) to core-tier_primary. Total: 481
+[STDOUT] [SubscriptionManager] Subscribed 13636354 (CORE) to core-tier_primary. Total: 482
+[STDOUT] [SubscriptionManager] Subscribed 13626882 (CORE) to core-tier_primary. Total: 483
+[STDOUT] [SubscriptionManager] Subscribed 13627138 (CORE) to core-tier_primary. Total: 484
+[STDOUT] [SubscriptionManager] Subscribed 13619970 (CORE) to core-tier_primary. Total: 485
+[STDOUT] [SubscriptionManager] Subscribed 13620226 (CORE) to core-tier_primary. Total: 486
+[STDOUT] [SubscriptionManager] Subscribed 13618946 (CORE) to core-tier_primary. Total: 487
+[STDOUT] [SubscriptionManager] Subscribed 13619202 (CORE) to core-tier_primary. Total: 488
+[STDOUT] [SubscriptionManager] Subscribed 13617154 (CORE) to core-tier_primary. Total: 489
+[STDOUT] [SubscriptionManager] Subscribed 13617410 (CORE) to core-tier_primary. Total: 490
+[STDOUT] [SubscriptionManager] Subscribed 13616386 (CORE) to core-tier_primary. Total: 491
+[STDOUT] [MarketDataWorker] Received 3600 ticks since start. Last at 2026-01-13T06:15:40.305Z
+[STDOUT] [SubscriptionManager] Subscribed 13616642 (CORE) to core-tier_primary. Total: 492
+[STDOUT] [SubscriptionManager] Subscribed 13615874 (CORE) to core-tier_primary. Total: 493
+[STDOUT] [SubscriptionManager] Subscribed 13616130 (CORE) to core-tier_primary. Total: 494
+[STDOUT] [SubscriptionManager] Subscribed 13615362 (CORE) to core-tier_primary. Total: 495
+[STDOUT] [SubscriptionManager] Subscribed 13615618 (CORE) to core-tier_primary. Total: 496
+[STDOUT] [SubscriptionManager] Subscribed 13612802 (CORE) to core-tier_primary. Total: 497
+[STDOUT] [SubscriptionManager] Subscribed 13613058 (CORE) to core-tier_primary. Total: 498
+[STDOUT] [SubscriptionManager] Subscribed 13612290 (CORE) to core-tier_primary. Total: 499
+[STDOUT] [SubscriptionManager] Subscribed 13612546 (CORE) to core-tier_primary. Total: 500
+[STDOUT] [SubscriptionManager] Subscribed 13611778 (CORE) to core-tier_primary. Total: 501
+[STDOUT] [SubscriptionManager] Subscribed 13612034 (CORE) to core-tier_primary. Total: 502
+[STDOUT] [SubscriptionManager] Subscribed 13611266 (CORE) to core-tier_primary. Total: 503
+[STDOUT] [SubscriptionManager] Subscribed 13611522 (CORE) to core-tier_primary. Total: 504
+[STDOUT] [SubscriptionManager] Subscribed 13610242 (CORE) to core-tier_primary. Total: 505
+[STDOUT] [SubscriptionManager] Subscribed 13610498 (CORE) to core-tier_primary. Total: 506
+[STDOUT] [SubscriptionManager] Subscribed 13609730 (CORE) to core-tier_primary. Total: 507
+[STDOUT] [SubscriptionManager] Subscribed 13609986 (CORE) to core-tier_primary. Total: 508
+[STDOUT] [SubscriptionManager] Subscribed 13609218 (CORE) to core-tier_primary. Total: 509
+[STDOUT] [SubscriptionManager] Subscribed 13609474 (CORE) to core-tier_primary. Total: 510
+[STDOUT] [SubscriptionManager] Subscribed 13608706 (CORE) to core-tier_primary. Total: 511
+[STDOUT] [SubscriptionManager] Subscribed 13608962 (CORE) to core-tier_primary. Total: 512
+[STDOUT] [SubscriptionManager] Subscribed 13606914 (CORE) to core-tier_primary. Total: 513
+[STDOUT] [SubscriptionManager] Subscribed 13607426 (CORE) to core-tier_primary. Total: 514
+[STDOUT] [SubscriptionManager] Subscribed 13606402 (CORE) to core-tier_primary. Total: 515
+[STDOUT] [SubscriptionManager] Subscribed 13606658 (CORE) to core-tier_primary. Total: 516
+[STDOUT] [SubscriptionManager] Subscribed 13603586 (CORE) to core-tier_primary. Total: 517
+[STDOUT] [SubscriptionManager] Subscribed 13606146 (CORE) to core-tier_primary. Total: 518
+[STDOUT] [SubscriptionManager] Subscribed 13602818 (CORE) to core-tier_primary. Total: 519
+[STDOUT] [SubscriptionManager] Subscribed 13603330 (CORE) to core-tier_primary. Total: 520
+[STDOUT] [SubscriptionManager] Subscribed 13602306 (CORE) to core-tier_primary. Total: 521
+[STDOUT] [SubscriptionManager] Subscribed 13602562 (CORE) to core-tier_primary. Total: 522
+[STDOUT] [SubscriptionManager] Subscribed 13601794 (CORE) to core-tier_primary. Total: 523
+[STDOUT] [SubscriptionManager] Subscribed 13602050 (CORE) to core-tier_primary. Total: 524
+[STDOUT] [SubscriptionManager] Subscribed 13599234 (CORE) to core-tier_primary. Total: 525
+[STDOUT] [SubscriptionManager] Subscribed 13601538 (CORE) to core-tier_primary. Total: 526
+[STDOUT] [SubscriptionManager] Subscribed 13594882 (CORE) to core-tier_primary. Total: 527
+[STDOUT] [SubscriptionManager] Subscribed 13598978 (CORE) to core-tier_primary. Total: 528
+[STDOUT] [SubscriptionManager] Subscribed 13590274 (CORE) to core-tier_primary. Total: 529
+[STDOUT] [SubscriptionManager] Subscribed 13594626 (CORE) to core-tier_primary. Total: 530
+[STDOUT] [SubscriptionManager] Subscribed 13263106 (CORE) to core-tier_primary. Total: 531
+[STDOUT] [SubscriptionManager] Subscribed 13262338 (CORE) to core-tier_primary. Total: 532
+[STDOUT] [SubscriptionManager] Subscribed 13262594 (CORE) to core-tier_primary. Total: 533
+[STDOUT] [SubscriptionManager] Subscribed 13261826 (CORE) to core-tier_primary. Total: 534
+[STDOUT] [SubscriptionManager] Subscribed 13262082 (CORE) to core-tier_primary. Total: 535
+[STDOUT] [SubscriptionManager] Subscribed 13261314 (CORE) to core-tier_primary. Total: 536
+[STDOUT] [SubscriptionManager] Subscribed 13261570 (CORE) to core-tier_primary. Total: 537
+[STDOUT] [SubscriptionManager] Subscribed 13260802 (CORE) to core-tier_primary. Total: 538
+[STDOUT] [SubscriptionManager] Subscribed 13261058 (CORE) to core-tier_primary. Total: 539
+[STDOUT] [SubscriptionManager] Subscribed 13260290 (CORE) to core-tier_primary. Total: 540
+[STDOUT] [SubscriptionManager] Subscribed 13260546 (CORE) to core-tier_primary. Total: 541
+[STDOUT] [MarketDataWorker] Stats: 542 subscriptions (CORE: 542, POPULAR: 0, TEMP: 0)
+[STDOUT] [SubscriptionManager] Subscribed 13259266 (CORE) to core-tier_primary. Total: 542
+[STDOUT] [SubscriptionManager] Subscribed 13260034 (CORE) to core-tier_primary. Total: 543
+[STDOUT] [SubscriptionManager] Subscribed 13258754 (CORE) to core-tier_primary. Total: 544
+[STDOUT] [SubscriptionManager] Subscribed 13259010 (CORE) to core-tier_primary. Total: 545
+[STDOUT] [SubscriptionManager] Subscribed 13258242 (CORE) to core-tier_primary. Total: 546
+[STDOUT] [MarketDataWorker] Received 200 ticks since start. Last at 2026-01-13T06:15:52.300Z
+[STDOUT] [SubscriptionManager] Subscribed 13258498 (CORE) to core-tier_primary. Total: 547
+[STDOUT] [SubscriptionManager] Subscribed 13257730 (CORE) to core-tier_primary. Total: 548
+[STDOUT] [MarketDataWorker] Received 300 ticks since start. Last at 2026-01-13T06:15:52.824Z
+[STDOUT] [SubscriptionManager] Subscribed 13257986 (CORE) to core-tier_primary. Total: 549
+[STDOUT] [SubscriptionManager] Subscribed 13257218 (CORE) to core-tier_primary. Total: 550
+[STDOUT] [SubscriptionManager] Subscribed 13257474 (CORE) to core-tier_primary. Total: 551
+[STDOUT] [SubscriptionManager] Subscribed 13256706 (CORE) to core-tier_primary. Total: 552
+[STDOUT] [SubscriptionManager] Subscribed 13256962 (CORE) to core-tier_primary. Total: 553
+[STDOUT] [SubscriptionManager] Subscribed 13256194 (CORE) to core-tier_primary. Total: 554
+[STDOUT] [SubscriptionManager] Subscribed 13256450 (CORE) to core-tier_primary. Total: 555
+[STDOUT] [SubscriptionManager] Subscribed 13255682 (CORE) to core-tier_primary. Total: 556
+[STDOUT] [SubscriptionManager] Subscribed 13255938 (CORE) to core-tier_primary. Total: 557
+[STDOUT] [SubscriptionManager] Subscribed 13255170 (CORE) to core-tier_primary. Total: 558
+[STDOUT] [SubscriptionManager] Subscribed 13255426 (CORE) to core-tier_primary. Total: 559
+[STDOUT] [SubscriptionManager] Subscribed 13254658 (CORE) to core-tier_primary. Total: 560
+[STDOUT] [SubscriptionManager] Subscribed 13254914 (CORE) to core-tier_primary. Total: 561
+[STDOUT] [SubscriptionManager] Subscribed 13211650 (CORE) to core-tier_primary. Total: 562
+[STDOUT] [SubscriptionManager] Subscribed 13254402 (CORE) to core-tier_primary. Total: 563
+[STDOUT] [SubscriptionManager] Subscribed 13210114 (CORE) to core-tier_primary. Total: 564
+[STDOUT] [SubscriptionManager] Subscribed 13211394 (CORE) to core-tier_primary. Total: 565
+[STDOUT] [SubscriptionManager] Subscribed 13207554 (CORE) to core-tier_primary. Total: 566
+[STDOUT] [SubscriptionManager] Subscribed 13209858 (CORE) to core-tier_primary. Total: 567
+[STDOUT] [SubscriptionManager] Subscribed 13200386 (CORE) to core-tier_primary. Total: 568
+[STDOUT] [SubscriptionManager] Subscribed 13207298 (CORE) to core-tier_primary. Total: 569
+[STDOUT] [SubscriptionManager] Subscribed 13196290 (CORE) to core-tier_primary. Total: 570
+[STDOUT] [SubscriptionManager] Subscribed 13200130 (CORE) to core-tier_primary. Total: 571
+[STDOUT] [SubscriptionManager] Subscribed 13193730 (CORE) to core-tier_primary. Total: 572
+[STDOUT] [SubscriptionManager] Subscribed 13196034 (CORE) to core-tier_primary. Total: 573
+[STDOUT] [SubscriptionManager] Subscribed 13188098 (CORE) to core-tier_primary. Total: 574
+[STDOUT] [SubscriptionManager] Subscribed 13192962 (CORE) to core-tier_primary. Total: 575
+[STDOUT] [SubscriptionManager] Subscribed 13185026 (CORE) to core-tier_primary. Total: 576
+[STDOUT] [SubscriptionManager] Subscribed 13187842 (CORE) to core-tier_primary. Total: 577
+[STDOUT] [SubscriptionManager] Subscribed 13170946 (CORE) to core-tier_primary. Total: 578
+[STDOUT] [SubscriptionManager] Subscribed 13184770 (CORE) to core-tier_primary. Total: 579
+[STDOUT] [SubscriptionManager] Subscribed 13164802 (CORE) to core-tier_primary. Total: 580
+[STDOUT] [SubscriptionManager] Subscribed 13168898 (CORE) to core-tier_primary. Total: 581
+[STDOUT] [SubscriptionManager] Subscribed 13164290 (CORE) to core-tier_primary. Total: 582
+[STDOUT] [SubscriptionManager] Subscribed 13297666 (CORE) to core-tier_primary. Total: 583
+[STDOUT] [SubscriptionManager] Subscribed 13297922 (CORE) to core-tier_primary. Total: 584
+[STDOUT] [SubscriptionManager] Subscribed 13294082 (CORE) to core-tier_primary. Total: 585
+[STDOUT] [SubscriptionManager] Subscribed 13297410 (CORE) to core-tier_primary. Total: 586
+[STDOUT] [SubscriptionManager] Subscribed 13298178 (CORE) to core-tier_primary. Total: 587
+[STDOUT] [SubscriptionManager] Subscribed 13300482 (CORE) to core-tier_primary. Total: 588
+[STDOUT] [SubscriptionManager] Subscribed 13290498 (CORE) to core-tier_primary. Total: 589
+[STDOUT] [SubscriptionManager] Subscribed 13293314 (CORE) to core-tier_primary. Total: 590
+[STDOUT] [SubscriptionManager] Subscribed 13300738 (CORE) to core-tier_primary. Total: 591
+[STDOUT] [SubscriptionManager] Subscribed 13309698 (CORE) to core-tier_primary. Total: 592
+[STDOUT] [SubscriptionManager] Subscribed 13289986 (CORE) to core-tier_primary. Total: 593
+[STDOUT] [SubscriptionManager] Subscribed 13290242 (CORE) to core-tier_primary. Total: 594
+[STDOUT] [SubscriptionManager] Subscribed 13309954 (CORE) to core-tier_primary. Total: 595
+[STDOUT] [SubscriptionManager] Subscribed 13314306 (CORE) to core-tier_primary. Total: 596
+[STDOUT] [SubscriptionManager] Subscribed 13283330 (CORE) to core-tier_primary. Total: 597
+[STDOUT] [SubscriptionManager] Subscribed 13289218 (CORE) to core-tier_primary. Total: 598
+[STDOUT] [SubscriptionManager] Subscribed 13317634 (CORE) to core-tier_primary. Total: 599
+[STDOUT] [SubscriptionManager] Subscribed 13318402 (CORE) to core-tier_primary. Total: 600
+[STDOUT] [SubscriptionManager] Subscribed 13278210 (CORE) to core-tier_primary. Total: 601
+[STDOUT] [SubscriptionManager] Subscribed 13283074 (CORE) to core-tier_primary. Total: 602
+[STDOUT] [SubscriptionManager] Subscribed 13320194 (CORE) to core-tier_primary. Total: 603
+[STDOUT] [SubscriptionManager] Subscribed 13323010 (CORE) to core-tier_primary. Total: 604
+[STDOUT] [SubscriptionManager] Subscribed 13275650 (CORE) to core-tier_primary. Total: 605
+[STDOUT] [SubscriptionManager] Subscribed 13277954 (CORE) to core-tier_primary. Total: 606
+[STDOUT] [SubscriptionManager] Subscribed 13324290 (CORE) to core-tier_primary. Total: 607
+[STDOUT] [SubscriptionManager] Subscribed 13338882 (CORE) to core-tier_primary. Total: 608
+[STDOUT] [SubscriptionManager] Subscribed 13263362 (CORE) to core-tier_primary. Total: 609
+[STDOUT] [SubscriptionManager] Subscribed 13275394 (CORE) to core-tier_primary. Total: 610
+[STDOUT] [SubscriptionManager] Subscribed 13339138 (CORE) to core-tier_primary. Total: 611
+[STDOUT] [SubscriptionManager] Subscribed 13347586 (CORE) to core-tier_primary. Total: 612
+[STDOUT] [SubscriptionManager] Subscribed 13433858 (CORE) to core-tier_primary. Total: 613
+[STDOUT] [SubscriptionManager] Subscribed 13760002 (CORE) to core-tier_primary. Total: 614
+[STDOUT] [SubscriptionManager] Subscribed 13760258 (CORE) to core-tier_primary. Total: 615
+[STDOUT] [SubscriptionManager] Subscribed 13749762 (CORE) to core-tier_primary. Total: 616
+[STDOUT] [SubscriptionManager] Subscribed 13750018 (CORE) to core-tier_primary. Total: 617
+[STDOUT] [SubscriptionManager] Subscribed 13690114 (CORE) to core-tier_primary. Total: 618
+[STDOUT] [SubscriptionManager] Subscribed 13693954 (CORE) to core-tier_primary. Total: 619
+[STDOUT] [SubscriptionManager] Subscribed 13586178 (CORE) to core-tier_primary. Total: 620
+[STDOUT] [SubscriptionManager] Subscribed 13590018 (CORE) to core-tier_primary. Total: 621
+[STDOUT] [SubscriptionManager] Subscribed 13585410 (CORE) to core-tier_primary. Total: 622
+[STDOUT] [SubscriptionManager] Subscribed 13585666 (CORE) to core-tier_primary. Total: 623
+[STDOUT] [SubscriptionManager] Subscribed 13584642 (CORE) to core-tier_primary. Total: 624
+[STDOUT] [SubscriptionManager] Subscribed 13584898 (CORE) to core-tier_primary. Total: 625
+[STDOUT] [SubscriptionManager] Subscribed 13584130 (CORE) to core-tier_primary. Total: 626
+[STDOUT] [SubscriptionManager] Subscribed 13584386 (CORE) to core-tier_primary. Total: 627
+[STDOUT] [MarketDataWorker] Stats: 628 subscriptions (CORE: 628, POPULAR: 0, TEMP: 0)
+[STDOUT] [SubscriptionManager] Subscribed 13583618 (CORE) to core-tier_primary. Total: 628
+[STDOUT] [SubscriptionManager] Subscribed 13583874 (CORE) to core-tier_primary. Total: 629
+[STDOUT] [SubscriptionManager] Subscribed 13583106 (CORE) to core-tier_primary. Total: 630
+[STDOUT] [SubscriptionManager] Subscribed 13583362 (CORE) to core-tier_primary. Total: 631
+[STDOUT] [SubscriptionManager] Subscribed 13582594 (CORE) to core-tier_primary. Total: 632
+[STDOUT] [SubscriptionManager] Subscribed 13582850 (CORE) to core-tier_primary. Total: 633
+[STDOUT] [SubscriptionManager] Subscribed 13582082 (CORE) to core-tier_primary. Total: 634
+[STDOUT] [SubscriptionManager] Subscribed 13582338 (CORE) to core-tier_primary. Total: 635
+[STDOUT] [SubscriptionManager] Subscribed 13581058 (CORE) to core-tier_primary. Total: 636
+[STDOUT] [SubscriptionManager] Subscribed 13581314 (CORE) to core-tier_primary. Total: 637
+[STDOUT] [SubscriptionManager] Subscribed 13580546 (CORE) to core-tier_primary. Total: 638
+[STDOUT] [SubscriptionManager] Subscribed 13580802 (CORE) to core-tier_primary. Total: 639
+[STDOUT] [SubscriptionManager] Subscribed 13580034 (CORE) to core-tier_primary. Total: 640
+[STDOUT] [SubscriptionManager] Subscribed 13580290 (CORE) to core-tier_primary. Total: 641
+[STDOUT] [SubscriptionManager] Subscribed 13579522 (CORE) to core-tier_primary. Total: 642
+[STDOUT] [SubscriptionManager] Subscribed 13579778 (CORE) to core-tier_primary. Total: 643
+[STDOUT] [SubscriptionManager] Subscribed 13579010 (CORE) to core-tier_primary. Total: 644
+[STDOUT] [SubscriptionManager] Subscribed 13579266 (CORE) to core-tier_primary. Total: 645
+[STDOUT] [SubscriptionManager] Subscribed 13578498 (CORE) to core-tier_primary. Total: 646
+[STDOUT] [SubscriptionManager] Subscribed 13578754 (CORE) to core-tier_primary. Total: 647
+[STDOUT] [SubscriptionManager] Subscribed 13577986 (CORE) to core-tier_primary. Total: 648
+[STDOUT] [SubscriptionManager] Subscribed 13578242 (CORE) to core-tier_primary. Total: 649
+[STDOUT] [MarketDataWorker] Received 1200 ticks since start. Last at 2026-01-13T06:16:27.267Z
+[STDOUT] [SubscriptionManager] Subscribed 13577218 (CORE) to core-tier_primary. Total: 650
+[STDOUT] [SubscriptionManager] Subscribed 13577474 (CORE) to core-tier_primary. Total: 651
+[STDOUT] [SubscriptionManager] Subscribed 13576450 (CORE) to core-tier_primary. Total: 652
+[STDOUT] [SubscriptionManager] Subscribed 13576706 (CORE) to core-tier_primary. Total: 653
+[STDOUT] [SubscriptionManager] Subscribed 13575938 (CORE) to core-tier_primary. Total: 654
+[STDOUT] [SubscriptionManager] Subscribed 13576194 (CORE) to core-tier_primary. Total: 655
+[STDOUT] [SubscriptionManager] Subscribed 13573122 (CORE) to core-tier_primary. Total: 656
+[STDOUT] [MarketDataWorker] Received 1400 ticks since start. Last at 2026-01-13T06:16:28.859Z
+[STDOUT] [SubscriptionManager] Subscribed 13573378 (CORE) to core-tier_primary. Total: 657
+[STDOUT] [SubscriptionManager] Subscribed 13571842 (CORE) to core-tier_primary. Total: 658
+[STDOUT] [SubscriptionManager] Subscribed 13572098 (CORE) to core-tier_primary. Total: 659
+[STDOUT] [SubscriptionManager] Subscribed 13571330 (CORE) to core-tier_primary. Total: 660
+[STDOUT] [SubscriptionManager] Subscribed 13571586 (CORE) to core-tier_primary. Total: 661
+[STDOUT] [SubscriptionManager] Subscribed 13570818 (CORE) to core-tier_primary. Total: 662
+[STDOUT] [SubscriptionManager] Subscribed 13571074 (CORE) to core-tier_primary. Total: 663
+[STDOUT] [SubscriptionManager] Subscribed 13568258 (CORE) to core-tier_primary. Total: 664
+[STDOUT] [SubscriptionManager] Subscribed 13568514 (CORE) to core-tier_primary. Total: 665
+[STDOUT] [SubscriptionManager] Subscribed 13567234 (CORE) to core-tier_primary. Total: 666
+[STDOUT] [SubscriptionManager] Subscribed 13567490 (CORE) to core-tier_primary. Total: 667
+[STDOUT] [SubscriptionManager] Subscribed 13446146 (CORE) to core-tier_primary. Total: 668
+[STDOUT] [SubscriptionManager] Subscribed 13566722 (CORE) to core-tier_primary. Total: 669
+[STDOUT] [SubscriptionManager] Subscribed 13347842 (CORE) to core-tier_primary. Total: 670
+[STDOUT] [SubscriptionManager] Subscribed 13262850 (CORE) to core-tier_primary. Total: 671
+[STDOUT] [SubscriptionManager] Subscribed 13164546 (CORE) to core-tier_primary. Total: 672
+[STDOUT] [SubscriptionManager] Subscribed 13154562 (CORE) to core-tier_primary. Total: 673
+[STDOUT] [SubscriptionManager] Subscribed 13164034 (CORE) to core-tier_primary. Total: 674
+[STDOUT] [SubscriptionManager] Subscribed 13153026 (CORE) to core-tier_primary. Total: 675
+[STDOUT] [SubscriptionManager] Subscribed 13154306 (CORE) to core-tier_primary. Total: 676
+[STDOUT] [SubscriptionManager] Subscribed 13140738 (CORE) to core-tier_primary. Total: 677
+[STDOUT] [SubscriptionManager] Subscribed 13152770 (CORE) to core-tier_primary. Total: 678
+[STDOUT] [SubscriptionManager] Subscribed 14113026 (CORE) to core-tier_primary. Total: 679
+[STDOUT] [SubscriptionManager] Subscribed 14115330 (CORE) to core-tier_primary. Total: 680
+[STDOUT] [SubscriptionManager] Subscribed 13666050 (CORE) to core-tier_primary. Total: 681
+[STDOUT] [SubscriptionManager] Subscribed 13666306 (CORE) to core-tier_primary. Total: 682
+[STDOUT] [SubscriptionManager] Subscribed 13666562 (CORE) to core-tier_primary. Total: 683
+[STDOUT] [SubscriptionManager] Subscribed 13666818 (CORE) to core-tier_primary. Total: 684
+[STDOUT] [SubscriptionManager] Subscribed 14109954 (CORE) to core-tier_primary. Total: 685
+[STDOUT] [SubscriptionManager] Subscribed 14112770 (CORE) to core-tier_primary. Total: 686
+[STDOUT] [SubscriptionManager] Subscribed 14115586 (CORE) to core-tier_primary. Total: 687
+[STDOUT] [SubscriptionManager] Subscribed 14124290 (CORE) to core-tier_primary. Total: 688
+[STDOUT] [SubscriptionManager] Subscribed 13665538 (CORE) to core-tier_primary. Total: 689
+[STDOUT] [MarketDataWorker] Received 3000 ticks since start. Last at 2026-01-13T06:16:37.331Z
+[STDOUT] [SubscriptionManager] Subscribed 13665794 (CORE) to core-tier_primary. Total: 690
+[STDOUT] [SubscriptionManager] Subscribed 13667074 (CORE) to core-tier_primary. Total: 691
+[STDOUT] [SubscriptionManager] Subscribed 13667330 (CORE) to core-tier_primary. Total: 692
+[STDOUT] [SubscriptionManager] Subscribed 14109442 (CORE) to core-tier_primary. Total: 693
+[STDOUT] [SubscriptionManager] Subscribed 14109698 (CORE) to core-tier_primary. Total: 694
+[STDOUT] [SubscriptionManager] Subscribed 14124546 (CORE) to core-tier_primary. Total: 695
+[STDOUT] [SubscriptionManager] Subscribed 14135298 (CORE) to core-tier_primary. Total: 696
+[STDOUT] [MarketDataWorker] Received 3500 ticks since start. Last at 2026-01-13T06:16:39.766Z
+[STDOUT] [SubscriptionManager] Subscribed 13665026 (CORE) to core-tier_primary. Total: 697
+[STDOUT] [SubscriptionManager] Subscribed 13665282 (CORE) to core-tier_primary. Total: 698
+[STDOUT] [SubscriptionManager] Subscribed 13667586 (CORE) to core-tier_primary. Total: 699
+[STDOUT] [SubscriptionManager] Subscribed 13667842 (CORE) to core-tier_primary. Total: 700
+[STDOUT] [SubscriptionManager] Subscribed 14108930 (CORE) to core-tier_primary. Total: 701
+[STDOUT] [SubscriptionManager] Subscribed 14109186 (CORE) to core-tier_primary. Total: 702
+[STDOUT] [SubscriptionManager] Subscribed 14136066 (CORE) to core-tier_primary. Total: 703
+[STDOUT] [SubscriptionManager] Subscribed 14146306 (CORE) to core-tier_primary. Total: 704
+[STDOUT] [SubscriptionManager] Subscribed 13664514 (CORE) to core-tier_primary. Total: 705
+[STDOUT] [SubscriptionManager] Subscribed 13664770 (CORE) to core-tier_primary. Total: 706
+[STDOUT] [SubscriptionManager] Subscribed 13668098 (CORE) to core-tier_primary. Total: 707
+[STDOUT] [SubscriptionManager] Subscribed 13668354 (CORE) to core-tier_primary. Total: 708
+[STDOUT] [SubscriptionManager] Subscribed 14150146 (CORE) to core-tier_primary. Total: 709
+[STDOUT] [SubscriptionManager] Subscribed 14271746 (CORE) to core-tier_primary. Total: 710
+[STDOUT] [SubscriptionManager] Subscribed 14276610 (CORE) to core-tier_primary. Total: 711
+[STDOUT] [SubscriptionManager] Subscribed 14263554 (CORE) to core-tier_primary. Total: 712
+[STDOUT] [SubscriptionManager] Subscribed 14263810 (CORE) to core-tier_primary. Total: 713
+[STDOUT] [SubscriptionManager] Subscribed 14250242 (CORE) to core-tier_primary. Total: 714
+[STDOUT] [SubscriptionManager] Subscribed 14250498 (CORE) to core-tier_primary. Total: 715
+[STDOUT] [SubscriptionManager] Subscribed 14237186 (CORE) to core-tier_primary. Total: 716
+[STDOUT] [MarketDataWorker] Received 4600 ticks since start. Last at 2026-01-13T06:16:45.586Z
+[STDOUT] [SubscriptionManager] Subscribed 14249986 (CORE) to core-tier_primary. Total: 717
+[STDOUT] [MarketDataWorker] Received 4700 ticks since start. Last at 2026-01-13T06:16:45.783Z
+[STDOUT] [SubscriptionManager] Subscribed 14159362 (CORE) to core-tier_primary. Total: 718
+[STDOUT] [SubscriptionManager] Subscribed 13668610 (CORE) to core-tier_primary. Total: 719
+[STDOUT] [SubscriptionManager] Subscribed 13668866 (CORE) to core-tier_primary. Total: 720
+[STDOUT] [SubscriptionManager] Subscribed 14146562 (CORE) to core-tier_primary. Total: 721
+[STDOUT] [SubscriptionManager] Subscribed 14108418 (CORE) to core-tier_primary. Total: 722
+[STDOUT] [SubscriptionManager] Subscribed 14108674 (CORE) to core-tier_primary. Total: 723
+[STDOUT] [SubscriptionManager] Subscribed 13664002 (CORE) to core-tier_primary. Total: 724
+[STDOUT] [SubscriptionManager] Subscribed 13664258 (CORE) to core-tier_primary. Total: 725
+[STDOUT] [SubscriptionManager] Subscribed 14096642 (CORE) to core-tier_primary. Total: 726
+[STDOUT] [SubscriptionManager] Subscribed 14108162 (CORE) to core-tier_primary. Total: 727
+[STDOUT] [SubscriptionManager] Subscribed 13663490 (CORE) to core-tier_primary. Total: 728
+[STDOUT] [SubscriptionManager] Subscribed 13663746 (CORE) to core-tier_primary. Total: 729
+[STDOUT] [SubscriptionManager] Subscribed 14096130 (CORE) to core-tier_primary. Total: 730
+[STDOUT] [SubscriptionManager] Subscribed 14096386 (CORE) to core-tier_primary. Total: 731
+[STDOUT] [SubscriptionManager] Subscribed 13662978 (CORE) to core-tier_primary. Total: 732
+[STDOUT] [SubscriptionManager] Subscribed 13663234 (CORE) to core-tier_primary. Total: 733
+[STDOUT] [SubscriptionManager] Subscribed 14095618 (CORE) to core-tier_primary. Total: 734
+[STDOUT] [SubscriptionManager] Subscribed 14095874 (CORE) to core-tier_primary. Total: 735
+[STDOUT] [SubscriptionManager] Subscribed 13662466 (CORE) to core-tier_primary. Total: 736
+[STDOUT] [SubscriptionManager] Subscribed 13662722 (CORE) to core-tier_primary. Total: 737
+[STDOUT] [SubscriptionManager] Subscribed 14095106 (CORE) to core-tier_primary. Total: 738
+[STDOUT] [SubscriptionManager] Subscribed 14095362 (CORE) to core-tier_primary. Total: 739
+[STDOUT] [MarketDataWorker] Stats: 740 subscriptions (CORE: 740, POPULAR: 0, TEMP: 0)
+[STDOUT] [SubscriptionManager] Subscribed 13661954 (CORE) to core-tier_primary. Total: 740
+[STDOUT] [SubscriptionManager] Subscribed 13662210 (CORE) to core-tier_primary. Total: 741
+[STDOUT] [SubscriptionManager] Subscribed 14094594 (CORE) to core-tier_primary. Total: 742
+[STDOUT] [SubscriptionManager] Subscribed 14094850 (CORE) to core-tier_primary. Total: 743
+[STDOUT] [SubscriptionManager] Subscribed 13659906 (CORE) to core-tier_primary. Total: 744
+[STDOUT] [SubscriptionManager] Subscribed 13661698 (CORE) to core-tier_primary. Total: 745
+[STDOUT] [SubscriptionManager] Subscribed 14094082 (CORE) to core-tier_primary. Total: 746
+[STDOUT] [SubscriptionManager] Subscribed 14094338 (CORE) to core-tier_primary. Total: 747
+[STDOUT] [SubscriptionManager] Subscribed 13659394 (CORE) to core-tier_primary. Total: 748
+[STDOUT] [SubscriptionManager] Subscribed 13659650 (CORE) to core-tier_primary. Total: 749
+[STDOUT] [SubscriptionManager] Subscribed 14093570 (CORE) to core-tier_primary. Total: 750
+[STDOUT] [SubscriptionManager] Subscribed 14093826 (CORE) to core-tier_primary. Total: 751
+[STDOUT] [SubscriptionManager] Subscribed 13658882 (CORE) to core-tier_primary. Total: 752
+[STDOUT] [SubscriptionManager] Subscribed 13659138 (CORE) to core-tier_primary. Total: 753
+[STDOUT] [SubscriptionManager] Subscribed 14092546 (CORE) to core-tier_primary. Total: 754
+[STDOUT] [SubscriptionManager] Subscribed 14093314 (CORE) to core-tier_primary. Total: 755
+[STDOUT] [SubscriptionManager] Subscribed 13658370 (CORE) to core-tier_primary. Total: 756
+[STDOUT] [SubscriptionManager] Subscribed 13658626 (CORE) to core-tier_primary. Total: 757
+[STDOUT] [SubscriptionManager] Subscribed 14092034 (CORE) to core-tier_primary. Total: 758
+[STDOUT] [SubscriptionManager] Subscribed 14092290 (CORE) to core-tier_primary. Total: 759
+[STDOUT] [SubscriptionManager] Subscribed 14091522 (CORE) to core-tier_primary. Total: 760
+[STDOUT] [SubscriptionManager] Subscribed 14091778 (CORE) to core-tier_primary. Total: 761
+[STDOUT] [SubscriptionManager] Subscribed 14091010 (CORE) to core-tier_primary. Total: 762
+[STDOUT] [SubscriptionManager] Subscribed 14091266 (CORE) to core-tier_primary. Total: 763
+[STDOUT] [SubscriptionManager] Subscribed 14085122 (CORE) to core-tier_primary. Total: 764
+[STDOUT] [SubscriptionManager] Subscribed 14090754 (CORE) to core-tier_primary. Total: 765
+[STDOUT] [SubscriptionManager] Subscribed 14081538 (CORE) to core-tier_primary. Total: 766
+[STDOUT] [SubscriptionManager] Subscribed 14084354 (CORE) to core-tier_primary. Total: 767
+[STDOUT] [SubscriptionManager] Subscribed 14081026 (CORE) to core-tier_primary. Total: 768
+[STDOUT] [SubscriptionManager] Subscribed 14081282 (CORE) to core-tier_primary. Total: 769
+[STDOUT] [SubscriptionManager] Subscribed 14080514 (CORE) to core-tier_primary. Total: 770
+[STDOUT] [SubscriptionManager] Subscribed 14080770 (CORE) to core-tier_primary. Total: 771
+[STDOUT] [SubscriptionManager] Subscribed 14078466 (CORE) to core-tier_primary. Total: 772
+[STDOUT] [SubscriptionManager] Subscribed 14232066 (CORE) to core-tier_primary. Total: 773
+[STDOUT] [SubscriptionManager] Subscribed 14236930 (CORE) to core-tier_primary. Total: 774
+[STDOUT] [SubscriptionManager] Subscribed 14208770 (CORE) to core-tier_primary. Total: 775
+[STDOUT] [SubscriptionManager] Subscribed 14231810 (CORE) to core-tier_primary. Total: 776
+[STDOUT] [SubscriptionManager] Subscribed 14207746 (CORE) to core-tier_primary. Total: 777
+[STDOUT] [SubscriptionManager] Subscribed 14208514 (CORE) to core-tier_primary. Total: 778
+[STDOUT] [SubscriptionManager] Subscribed 14206978 (CORE) to core-tier_primary. Total: 779
+[STDOUT] [SubscriptionManager] Subscribed 14207490 (CORE) to core-tier_primary. Total: 780
+[STDOUT] [SubscriptionManager] Subscribed 14201346 (CORE) to core-tier_primary. Total: 781
+[STDOUT] [SubscriptionManager] Subscribed 14206722 (CORE) to core-tier_primary. Total: 782
+[STDOUT] [SubscriptionManager] Subscribed 14198018 (CORE) to core-tier_primary. Total: 783
+[STDOUT] [SubscriptionManager] Subscribed 14201090 (CORE) to core-tier_primary. Total: 784
+[STDOUT] [SubscriptionManager] Subscribed 14191874 (CORE) to core-tier_primary. Total: 785
+[STDOUT] [SubscriptionManager] Subscribed 14196482 (CORE) to core-tier_primary. Total: 786
+[STDOUT] [MarketDataWorker] Received 2600 ticks since start. Last at 2026-01-13T06:17:02.265Z
+[STDOUT] [SubscriptionManager] Subscribed 14191362 (CORE) to core-tier_primary. Total: 787
+[STDOUT] [SubscriptionManager] Subscribed 14191618 (CORE) to core-tier_primary. Total: 788
+[STDOUT] [SubscriptionManager] Subscribed 14190850 (CORE) to core-tier_primary. Total: 789
+[STDOUT] [SubscriptionManager] Subscribed 14191106 (CORE) to core-tier_primary. Total: 790
+[STDOUT] [SubscriptionManager] Subscribed 14187522 (CORE) to core-tier_primary. Total: 791
+[STDOUT] [SubscriptionManager] Subscribed 14190594 (CORE) to core-tier_primary. Total: 792
+[STDOUT] [SubscriptionManager] Subscribed 14180098 (CORE) to core-tier_primary. Total: 793
+[STDOUT] [SubscriptionManager] Subscribed 14187266 (CORE) to core-tier_primary. Total: 794
+[STDOUT] [SubscriptionManager] Subscribed 14179586 (CORE) to core-tier_primary. Total: 795
+[STDOUT] [SubscriptionManager] Subscribed 14179842 (CORE) to core-tier_primary. Total: 796
+[STDOUT] [SubscriptionManager] Subscribed 13673986 (CORE) to core-tier_primary. Total: 797
+[STDOUT] [SubscriptionManager] Subscribed 13674242 (CORE) to core-tier_primary. Total: 798
+[STDOUT] [SubscriptionManager] Subscribed 14179074 (CORE) to core-tier_primary. Total: 799
+[STDOUT] [SubscriptionManager] Subscribed 14179330 (CORE) to core-tier_primary. Total: 800
+[STDOUT] [SubscriptionManager] Subscribed 13672706 (CORE) to core-tier_primary. Total: 801
+[STDOUT] [SubscriptionManager] Subscribed 13673730 (CORE) to core-tier_primary. Total: 802
+[STDOUT] [SubscriptionManager] Subscribed 14178050 (CORE) to core-tier_primary. Total: 803
+[STDOUT] [SubscriptionManager] Subscribed 14178818 (CORE) to core-tier_primary. Total: 804
+[STDOUT] [SubscriptionManager] Subscribed 13672194 (CORE) to core-tier_primary. Total: 805
+[STDOUT] [SubscriptionManager] Subscribed 13672450 (CORE) to core-tier_primary. Total: 806
+[STDOUT] [SubscriptionManager] Subscribed 14174722 (CORE) to core-tier_primary. Total: 807
+[STDOUT] [SubscriptionManager] Subscribed 14177794 (CORE) to core-tier_primary. Total: 808
+[STDOUT] [SubscriptionManager] Subscribed 13671682 (CORE) to core-tier_primary. Total: 809
+[STDOUT] [SubscriptionManager] Subscribed 13671938 (CORE) to core-tier_primary. Total: 810
+[STDOUT] [SubscriptionManager] Subscribed 14171906 (CORE) to core-tier_primary. Total: 811
+[STDOUT] [SubscriptionManager] Subscribed 14174466 (CORE) to core-tier_primary. Total: 812
+[STDOUT] [SubscriptionManager] Subscribed 13671170 (CORE) to core-tier_primary. Total: 813
+[STDOUT] [SubscriptionManager] Subscribed 13671426 (CORE) to core-tier_primary. Total: 814
+[STDOUT] [SubscriptionManager] Subscribed 14169090 (CORE) to core-tier_primary. Total: 815
+[STDOUT] [SubscriptionManager] Subscribed 14171650 (CORE) to core-tier_primary. Total: 816
+[STDOUT] [SubscriptionManager] Subscribed 13670146 (CORE) to core-tier_primary. Total: 817
+[STDOUT] [SubscriptionManager] Subscribed 13670914 (CORE) to core-tier_primary. Total: 818
+[STDOUT] [SubscriptionManager] Subscribed 14165762 (CORE) to core-tier_primary. Total: 819
+[STDOUT] [SubscriptionManager] Subscribed 14168834 (CORE) to core-tier_primary. Total: 820
+[STDOUT] [SubscriptionManager] Subscribed 13669634 (CORE) to core-tier_primary. Total: 821
+[STDOUT] [SubscriptionManager] Subscribed 13669890 (CORE) to core-tier_primary. Total: 822
+[STDOUT] [SubscriptionManager] Subscribed 14159618 (CORE) to core-tier_primary. Total: 823
+[STDOUT] [SubscriptionManager] Subscribed 14165506 (CORE) to core-tier_primary. Total: 824
+[STDOUT] [SubscriptionManager] Subscribed 13669122 (CORE) to core-tier_primary. Total: 825
+[STDOUT] [SubscriptionManager] Subscribed 13669378 (CORE) to core-tier_primary. Total: 826
+[STDOUT] [SubscriptionManager] Subscribed 14150402 (CORE) to core-tier_primary. Total: 827
+[STDOUT] [SubscriptionManager] Subscribed 14080258 (CORE) to core-tier_primary. Total: 828
+[STDOUT] [SubscriptionManager] Subscribed 14077698 (CORE) to core-tier_primary. Total: 829
+[STDOUT] [SubscriptionManager] Subscribed 14077954 (CORE) to core-tier_primary. Total: 830
+[STDOUT] [SubscriptionManager] Subscribed 14077186 (CORE) to core-tier_primary. Total: 831
+[STDOUT] [SubscriptionManager] Subscribed 14077442 (CORE) to core-tier_primary. Total: 832
+[STDOUT] [SubscriptionManager] Subscribed 14070018 (CORE) to core-tier_primary. Total: 833
+[STDOUT] [SubscriptionManager] Subscribed 14076930 (CORE) to core-tier_primary. Total: 834
+[STDOUT] [SubscriptionManager] Subscribed 14069506 (CORE) to core-tier_primary. Total: 835
+[STDOUT] [SubscriptionManager] Subscribed 14069762 (CORE) to core-tier_primary. Total: 836
+[STDOUT] [SubscriptionManager] Subscribed 14068994 (CORE) to core-tier_primary. Total: 837
+[STDOUT] [SubscriptionManager] Subscribed 14069250 (CORE) to core-tier_primary. Total: 838
+[STDOUT] [SubscriptionManager] Subscribed 14058754 (CORE) to core-tier_primary. Total: 839
+[STDOUT] [SubscriptionManager] Subscribed 14067202 (CORE) to core-tier_primary. Total: 840
+[STDOUT] [SubscriptionManager] Subscribed 14051586 (CORE) to core-tier_primary. Total: 841
+[STDOUT] [SubscriptionManager] Subscribed 14052866 (CORE) to core-tier_primary. Total: 842
+[STDOUT] [SubscriptionManager] Subscribed 297921541 (CORE) to core-tier_primary. Total: 843
+[STDOUT] [SubscriptionManager] Subscribed 298333189 (CORE) to core-tier_primary. Total: 844
+[STDOUT] [SubscriptionManager] Subscribed 298403333 (CORE) to core-tier_primary. Total: 845
+[STDOUT] [SubscriptionManager] Subscribed 298807045 (CORE) to core-tier_primary. Total: 846
+[STDOUT] [SubscriptionManager] Subscribed 298516485 (CORE) to core-tier_primary. Total: 847
+[STDOUT] [SubscriptionManager] Subscribed 298916613 (CORE) to core-tier_primary. Total: 848
+[STDOUT] [SubscriptionManager] Subscribed 297795589 (CORE) to core-tier_primary. Total: 849
+[STDOUT] [SubscriptionManager] Subscribed 298201861 (CORE) to core-tier_primary. Total: 850
+[STDOUT] [SubscriptionManager] Subscribed 298048517 (CORE) to core-tier_primary. Total: 851
+[STDOUT] [SubscriptionManager] Subscribed 298459653 (CORE) to core-tier_primary. Total: 852
+[STDOUT] [SubscriptionManager] Subscribed 298273541 (CORE) to core-tier_primary. Total: 853
+[STDOUT] [SubscriptionManager] Subscribed 298677765 (CORE) to core-tier_primary. Total: 854
+[STDOUT] [SubscriptionManager] Subscribed 297643013 (CORE) to core-tier_primary. Total: 855
+[STDOUT] [SubscriptionManager] Subscribed 299147269 (CORE) to core-tier_primary. Total: 856
+[STDOUT] [MarketDataWorker] Received 6300 ticks since start. Last at 2026-01-13T06:17:16.580Z
+[STDOUT] [SubscriptionManager] Subscribed 298088709 (CORE) to core-tier_primary. Total: 857
+[STDOUT] [SubscriptionManager] Subscribed 298743301 (CORE) to core-tier_primary. Total: 858
+[STDOUT] [SubscriptionManager] Subscribed 297838085 (CORE) to core-tier_primary. Total: 859
+[STDOUT] [SubscriptionManager] Subscribed 299080453 (CORE) to core-tier_primary. Total: 860
+[STDOUT] [SubscriptionManager] Subscribed 298145029 (CORE) to core-tier_primary. Total: 861
+[STDOUT] [SubscriptionManager] Subscribed 298559749 (CORE) to core-tier_primary. Total: 862
+[STDOUT] [SubscriptionManager] Subscribed 297766917 (CORE) to core-tier_primary. Total: 863
+[STDOUT] [SubscriptionManager] Subscribed 299266309 (CORE) to core-tier_primary. Total: 864
+[STDOUT] [SubscriptionManager] Subscribed 298618117 (CORE) to core-tier_primary. Total: 865
+[STDOUT] [SubscriptionManager] Subscribed 299019269 (CORE) to core-tier_primary. Total: 866
+[STDOUT] [SubscriptionManager] Subscribed 298820357 (CORE) to core-tier_primary. Total: 867
+[STDOUT] [SubscriptionManager] Subscribed 299202821 (CORE) to core-tier_primary. Total: 868
+[STDOUT] [SubscriptionManager] Subscribed 298032389 (CORE) to core-tier_primary. Total: 869
+[STDOUT] [SubscriptionManager] Subscribed 298447109 (CORE) to core-tier_primary. Total: 870
+[STDOUT] [SubscriptionManager] Subscribed 297472005 (CORE) to core-tier_primary. Total: 871
+[STDOUT] [SubscriptionManager] Subscribed 297895173 (CORE) to core-tier_primary. Total: 872
+[STDOUT] [SubscriptionManager] Subscribed 298929157 (CORE) to core-tier_primary. Total: 873
+[STDOUT] [SubscriptionManager] Subscribed 297425925 (CORE) to core-tier_primary. Total: 874
+[STDOUT] [SubscriptionManager] Subscribed 298101253 (CORE) to core-tier_primary. Total: 875
+[STDOUT] [SubscriptionManager] Subscribed 297489413 (CORE) to core-tier_primary. Total: 876
+[STDOUT] [SubscriptionManager] Subscribed 297912325 (CORE) to core-tier_primary. Total: 877
+[STDOUT] [SubscriptionManager] Subscribed 297977349 (CORE) to core-tier_primary. Total: 878
+[STDOUT] [SubscriptionManager] Subscribed 298395653 (CORE) to core-tier_primary. Total: 879
+[STDOUT] [MarketDataWorker] Stats: 880 subscriptions (CORE: 880, POPULAR: 0, TEMP: 0)
+[STDOUT] [SubscriptionManager] Subscribed 298115589 (CORE) to core-tier_primary. Total: 880
+[STDOUT] [SubscriptionManager] Subscribed 298775557 (CORE) to core-tier_primary. Total: 881
+[STDOUT] [SubscriptionManager] Subscribed 298174981 (CORE) to core-tier_primary. Total: 882
+[STDOUT] [SubscriptionManager] Subscribed 298588421 (CORE) to core-tier_primary. Total: 883
+[STDOUT] [SubscriptionManager] Subscribed 298647557 (CORE) to core-tier_primary. Total: 884
+[STDOUT] [SubscriptionManager] Subscribed 299044357 (CORE) to core-tier_primary. Total: 885
+[STDOUT] [SubscriptionManager] Subscribed 298065413 (CORE) to core-tier_primary. Total: 886
+[STDOUT] [SubscriptionManager] Subscribed 298473221 (CORE) to core-tier_primary. Total: 887
+[STDOUT] [SubscriptionManager] Subscribed 298530821 (CORE) to core-tier_primary. Total: 888
+[STDOUT] [SubscriptionManager] Subscribed 298934789 (CORE) to core-tier_primary. Total: 889
+[STDOUT] [SubscriptionManager] Subscribed 298352645 (CORE) to core-tier_primary. Total: 890
+[STDOUT] [SubscriptionManager] Subscribed 298993925 (CORE) to core-tier_primary. Total: 891
+[STDOUT] [SubscriptionManager] Subscribed 298422277 (CORE) to core-tier_primary. Total: 892
+[STDOUT] [SubscriptionManager] Subscribed 298826245 (CORE) to core-tier_primary. Total: 893
+[STDOUT] [SubscriptionManager] Subscribed 298884613 (CORE) to core-tier_primary. Total: 894
+[STDOUT] [SubscriptionManager] Subscribed 299273477 (CORE) to core-tier_primary. Total: 895
+[STDOUT] [SubscriptionManager] Subscribed 298291973 (CORE) to core-tier_primary. Total: 896
+[STDOUT] [SubscriptionManager] Subscribed 298695685 (CORE) to core-tier_primary. Total: 897
+[STDOUT] [SubscriptionManager] Subscribed 298761989 (CORE) to core-tier_primary. Total: 898
+[STDOUT] [SubscriptionManager] Subscribed 299153925 (CORE) to core-tier_primary. Total: 899
+[STDOUT] [SubscriptionManager] Subscribed 297628933 (CORE) to core-tier_primary. Total: 900
+[STDOUT] [SubscriptionManager] Subscribed 298053637 (CORE) to core-tier_primary. Total: 901
+[STDOUT] [SubscriptionManager] Subscribed 297439237 (CORE) to core-tier_primary. Total: 902
+[STDOUT] [SubscriptionManager] Subscribed 298958085 (CORE) to core-tier_primary. Total: 903
+[STDOUT] [SubscriptionManager] Subscribed 297500421 (CORE) to core-tier_primary. Total: 904
+[STDOUT] [SubscriptionManager] Subscribed 297926661 (CORE) to core-tier_primary. Total: 905
+[STDOUT] [SubscriptionManager] Subscribed 297992965 (CORE) to core-tier_primary. Total: 906
+[STDOUT] [SubscriptionManager] Subscribed 299233285 (CORE) to core-tier_primary. Total: 907
+[STDOUT] [SubscriptionManager] Subscribed 297388549 (CORE) to core-tier_primary. Total: 908
+[STDOUT] [SubscriptionManager] Subscribed 297799941 (CORE) to core-tier_primary. Total: 909
+[STDOUT] [SubscriptionManager] Subscribed 297867013 (CORE) to core-tier_primary. Total: 910
+[STDOUT] [SubscriptionManager] Subscribed 298279173 (CORE) to core-tier_primary. Total: 911
+[STDOUT] [SubscriptionManager] Subscribed 297672965 (CORE) to core-tier_primary. Total: 912
+[STDOUT] [SubscriptionManager] Subscribed 299177221 (CORE) to core-tier_primary. Total: 913
+[STDOUT] [SubscriptionManager] Subscribed 297735173 (CORE) to core-tier_primary. Total: 914
+[STDOUT] [SubscriptionManager] Subscribed 298149637 (CORE) to core-tier_primary. Total: 915
+[STDOUT] [SubscriptionManager] Subscribed 297547781 (CORE) to core-tier_primary. Total: 916
+[STDOUT] [SubscriptionManager] Subscribed 298214917 (CORE) to core-tier_primary. Total: 917
+[STDOUT] [SubscriptionManager] Subscribed 297613317 (CORE) to core-tier_primary. Total: 918
+[STDOUT] [SubscriptionManager] Subscribed 298037765 (CORE) to core-tier_primary. Total: 919
+[STDOUT] [SubscriptionManager] Subscribed 298433285 (CORE) to core-tier_primary. Total: 920
+[STDOUT] [SubscriptionManager] Subscribed 298839813 (CORE) to core-tier_primary. Total: 921
+[STDOUT] [SubscriptionManager] Subscribed 298237445 (CORE) to core-tier_primary. Total: 922
+[STDOUT] [SubscriptionManager] Subscribed 298894597 (CORE) to core-tier_primary. Total: 923
+[STDOUT] [SubscriptionManager] Subscribed 298304773 (CORE) to core-tier_primary. Total: 924
+[STDOUT] [SubscriptionManager] Subscribed 298706949 (CORE) to core-tier_primary. Total: 925
+[STDOUT] [SubscriptionManager] Subscribed 298775045 (CORE) to core-tier_primary. Total: 926
+[STDOUT] [SubscriptionManager] Subscribed 299166213 (CORE) to core-tier_primary. Total: 927
+[STDOUT] [SubscriptionManager] Subscribed 298173701 (CORE) to core-tier_primary. Total: 928
+[STDOUT] [SubscriptionManager] Subscribed 298588165 (CORE) to core-tier_primary. Total: 929
+[STDOUT] [SubscriptionManager] Subscribed 298647045 (CORE) to core-tier_primary. Total: 930
+[STDOUT] [SubscriptionManager] Subscribed 299043333 (CORE) to core-tier_primary. Total: 931
+[STDOUT] [SubscriptionManager] Subscribed 298472453 (CORE) to core-tier_primary. Total: 932
+[STDOUT] [SubscriptionManager] Subscribed 299107845 (CORE) to core-tier_primary. Total: 933
+[STDOUT] [SubscriptionManager] Subscribed 298529541 (CORE) to core-tier_primary. Total: 934
+[STDOUT] [SubscriptionManager] Subscribed 298933509 (CORE) to core-tier_primary. Total: 935
+[STDOUT] [SubscriptionManager] Subscribed 297475845 (CORE) to core-tier_primary. Total: 936
+[STDOUT] [SubscriptionManager] Subscribed 298992389 (CORE) to core-tier_primary. Total: 937
+[STDOUT] [SubscriptionManager] Subscribed 298421509 (CORE) to core-tier_primary. Total: 938
+[STDOUT] [MarketDataWorker] Received 2500 ticks since start. Last at 2026-01-13T06:17:33.763Z
+[STDOUT] [SubscriptionManager] Subscribed 298824709 (CORE) to core-tier_primary. Total: 939
+[STDOUT] [SubscriptionManager] Subscribed 298823429 (CORE) to core-tier_primary. Total: 940
+[STDOUT] [SubscriptionManager] Subscribed 299205125 (CORE) to core-tier_primary. Total: 941
+[STDOUT] [SubscriptionManager] Subscribed 297769733 (CORE) to core-tier_primary. Total: 942
+[STDOUT] [SubscriptionManager] Subscribed 299269381 (CORE) to core-tier_primary. Total: 943
+[STDOUT] [SubscriptionManager] Subscribed 298692869 (CORE) to core-tier_primary. Total: 944
+[STDOUT] [SubscriptionManager] Subscribed 299083013 (CORE) to core-tier_primary. Total: 945
+[STDOUT] [SubscriptionManager] Subscribed 297646085 (CORE) to core-tier_primary. Total: 946
+[STDOUT] [SubscriptionManager] Subscribed 299150341 (CORE) to core-tier_primary. Total: 947
+[STDOUT] [SubscriptionManager] Subscribed 297707013 (CORE) to core-tier_primary. Total: 948
+[STDOUT] [SubscriptionManager] Subscribed 298972677 (CORE) to core-tier_primary. Total: 949
+[STDOUT] [SubscriptionManager] Subscribed 297516805 (CORE) to core-tier_primary. Total: 950
+[STDOUT] [SubscriptionManager] Subscribed 299030021 (CORE) to core-tier_primary. Total: 951
+[STDOUT] [SubscriptionManager] Subscribed 297585157 (CORE) to core-tier_primary. Total: 952
+[STDOUT] [SubscriptionManager] Subscribed 298009605 (CORE) to core-tier_primary. Total: 953
+[STDOUT] [SubscriptionManager] Subscribed 297402885 (CORE) to core-tier_primary. Total: 954
+[STDOUT] [SubscriptionManager] Subscribed 298918149 (CORE) to core-tier_primary. Total: 955
+[STDOUT] [SubscriptionManager] Subscribed 297463301 (CORE) to core-tier_primary. Total: 956
+[STDOUT] [SubscriptionManager] Subscribed 297882885 (CORE) to core-tier_primary. Total: 957
+[STDOUT] [SubscriptionManager] Subscribed 298808581 (CORE) to core-tier_primary. Total: 958
+[STDOUT] [SubscriptionManager] Subscribed 299192581 (CORE) to core-tier_primary. Total: 959
+[STDOUT] [SubscriptionManager] Subscribed 297669893 (CORE) to core-tier_primary. Total: 960
+[STDOUT] [SubscriptionManager] Subscribed 298089733 (CORE) to core-tier_primary. Total: 961
+[STDOUT] [SubscriptionManager] Subscribed 298147589 (CORE) to core-tier_primary. Total: 962
+[STDOUT] [SubscriptionManager] Subscribed 298561541 (CORE) to core-tier_primary. Total: 963
+[STDOUT] [SubscriptionManager] Subscribed 297965573 (CORE) to core-tier_primary. Total: 964
+[STDOUT] [SubscriptionManager] Subscribed 298621445 (CORE) to core-tier_primary. Total: 965
+[STDOUT] [SubscriptionManager] Subscribed 298035205 (CORE) to core-tier_primary. Total: 966
+[STDOUT] [SubscriptionManager] Subscribed 298449413 (CORE) to core-tier_primary. Total: 967
+[STDOUT] [SubscriptionManager] Subscribed 298507269 (CORE) to core-tier_primary. Total: 968
+[STDOUT] [SubscriptionManager] Subscribed 298909189 (CORE) to core-tier_primary. Total: 969
+[STDOUT] [SubscriptionManager] Subscribed 297909509 (CORE) to core-tier_primary. Total: 970
+[STDOUT] [SubscriptionManager] Subscribed 298322693 (CORE) to core-tier_primary. Total: 971
+[STDOUT] [SubscriptionManager] Subscribed 298392581 (CORE) to core-tier_primary. Total: 972
+[STDOUT] [SubscriptionManager] Subscribed 298792453 (CORE) to core-tier_primary. Total: 973
+[STDOUT] [SubscriptionManager] Subscribed 297783301 (CORE) to core-tier_primary. Total: 974
+[STDOUT] [SubscriptionManager] Subscribed 298189061 (CORE) to core-tier_primary. Total: 975
+[STDOUT] [SubscriptionManager] Subscribed 298262021 (CORE) to core-tier_primary. Total: 976
+[STDOUT] [SubscriptionManager] Subscribed 298665989 (CORE) to core-tier_primary. Total: 977
+[STDOUT] [SubscriptionManager] Subscribed 298077445 (CORE) to core-tier_primary. Total: 978
+[STDOUT] [SubscriptionManager] Subscribed 298732805 (CORE) to core-tier_primary. Total: 979
+[STDOUT] [SubscriptionManager] Subscribed 297600005 (CORE) to core-tier_primary. Total: 980
+[STDOUT] [SubscriptionManager] Subscribed 298876165 (CORE) to core-tier_primary. Total: 981
+[STDOUT] [SubscriptionManager] Subscribed 297414149 (CORE) to core-tier_primary. Total: 982
+[STDOUT] [SubscriptionManager] Subscribed 298930437 (CORE) to core-tier_primary. Total: 983
+[STDOUT] [SubscriptionManager] Subscribed 297473285 (CORE) to core-tier_primary. Total: 984
+[STDOUT] [SubscriptionManager] Subscribed 297895685 (CORE) to core-tier_primary. Total: 985
+[STDOUT] [SubscriptionManager] Subscribed 298821125 (CORE) to core-tier_primary. Total: 986
+[STDOUT] [SubscriptionManager] Subscribed 299203845 (CORE) to core-tier_primary. Total: 987
+[STDOUT] [SubscriptionManager] Subscribed 297768453 (CORE) to core-tier_primary. Total: 988
+[STDOUT] [SubscriptionManager] Subscribed 299267589 (CORE) to core-tier_primary. Total: 989
+[STDOUT] [SubscriptionManager] Subscribed 298691077 (CORE) to core-tier_primary. Total: 990
+[STDOUT] [SubscriptionManager] Subscribed 299081733 (CORE) to core-tier_primary. Total: 991
+[STDOUT] [SubscriptionManager] Subscribed 297644293 (CORE) to core-tier_primary. Total: 992
+[STDOUT] [SubscriptionManager] Subscribed 299148805 (CORE) to core-tier_primary. Total: 993
+[STDOUT] [SubscriptionManager] Subscribed 297705989 (CORE) to core-tier_primary. Total: 994
+[STDOUT] [SubscriptionManager] Subscribed 298971653 (CORE) to core-tier_primary. Total: 995
+[STDOUT] [SubscriptionManager] Subscribed 297515781 (CORE) to core-tier_primary. Total: 996
+[STDOUT] [SubscriptionManager] Subscribed 299029509 (CORE) to core-tier_primary. Total: 997
+[STDOUT] [SubscriptionManager] Subscribed 297583877 (CORE) to core-tier_primary. Total: 998
+[STDOUT] [SubscriptionManager] Subscribed 298008837 (CORE) to core-tier_primary. Total: 999
+[STDOUT] [SubscriptionManager] Subscribed 298405381 (CORE) to core-tier_primary. Total: 1000
+[STDOUT] [SubscriptionManager] Subscribed 298808325 (CORE) to core-tier_primary. Total: 1001
+[STDOUT] [SubscriptionManager] Subscribed 297797125 (CORE) to core-tier_primary. Total: 1002
+[STDOUT] [SubscriptionManager] Subscribed 298203397 (CORE) to core-tier_primary. Total: 1003
+[STDOUT] [SubscriptionManager] Subscribed 298275333 (CORE) to core-tier_primary. Total: 1004
+[STDOUT] [SubscriptionManager] Subscribed 298679557 (CORE) to core-tier_primary. Total: 1005
+[STDOUT] [SubscriptionManager] Subscribed 298089221 (CORE) to core-tier_primary. Total: 1006
+[STDOUT] [SubscriptionManager] Subscribed 298744325 (CORE) to core-tier_primary. Total: 1007
+[STDOUT] [SubscriptionManager] Subscribed 298146309 (CORE) to core-tier_primary. Total: 1008
+[STDOUT] [SubscriptionManager] Subscribed 298560261 (CORE) to core-tier_primary. Total: 1009
+[STDOUT] [SubscriptionManager] Subscribed 297964805 (CORE) to core-tier_primary. Total: 1010
+[STDOUT] [SubscriptionManager] Subscribed 298619909 (CORE) to core-tier_primary. Total: 1011
+[STDOUT] [SubscriptionManager] Subscribed 298033925 (CORE) to core-tier_primary. Total: 1012
+[STDOUT] [SubscriptionManager] Subscribed 298448389 (CORE) to core-tier_primary. Total: 1013
+[STDOUT] [SubscriptionManager] Subscribed 298506501 (CORE) to core-tier_primary. Total: 1014
+[STDOUT] [SubscriptionManager] Subscribed 298908933 (CORE) to core-tier_primary. Total: 1015
+[STDOUT] [SubscriptionManager] Subscribed 297908229 (CORE) to core-tier_primary. Total: 1016
+[STDOUT] [SubscriptionManager] Subscribed 298321413 (CORE) to core-tier_primary. Total: 1017
+[STDOUT] [SubscriptionManager] Subscribed 298391813 (CORE) to core-tier_primary. Total: 1018
+[STDOUT] [SubscriptionManager] Subscribed 298791429 (CORE) to core-tier_primary. Total: 1019
+[STDOUT] [SubscriptionManager] Subscribed 297656069 (CORE) to core-tier_primary. Total: 1020
+[STDOUT] [SubscriptionManager] Subscribed 299161093 (CORE) to core-tier_primary. Total: 1021
+[STDOUT] [MarketDataWorker] Stats: 1022 subscriptions (CORE: 1022, POPULAR: 0, TEMP: 0)
+[STDOUT] [SubscriptionManager] Subscribed 297721093 (CORE) to core-tier_primary. Total: 1022
+[STDOUT] [SubscriptionManager] Subscribed 298982917 (CORE) to core-tier_primary. Total: 1023
+[STDOUT] [SubscriptionManager] Subscribed 297530117 (CORE) to core-tier_primary. Total: 1024
+[STDOUT] [SubscriptionManager] Subscribed 299040517 (CORE) to core-tier_primary. Total: 1025
+[STDOUT] [SubscriptionManager] Subscribed 297598469 (CORE) to core-tier_primary. Total: 1026
+[STDOUT] [SubscriptionManager] Subscribed 298020613 (CORE) to core-tier_primary. Total: 1027
+[STDOUT] [SubscriptionManager] Subscribed 297412869 (CORE) to core-tier_primary. Total: 1028
+[STDOUT] [SubscriptionManager] Subscribed 298836229 (CORE) to core-tier_primary. Total: 1029
+[STDOUT] [SubscriptionManager] Subscribed 299215109 (CORE) to core-tier_primary. Total: 1030
+[STDOUT] [SubscriptionManager] Subscribed 297782021 (CORE) to core-tier_primary. Total: 1031
+[STDOUT] [SubscriptionManager] Subscribed 299282437 (CORE) to core-tier_primary. Total: 1032
+[STDOUT] [SubscriptionManager] Subscribed 298702853 (CORE) to core-tier_primary. Total: 1033
+[STDOUT] [SubscriptionManager] Subscribed 299093509 (CORE) to core-tier_primary. Total: 1034
+[STDOUT] [SubscriptionManager] Subscribed 297655045 (CORE) to core-tier_primary. Total: 1035
+[STDOUT] [SubscriptionManager] Subscribed 299159813 (CORE) to core-tier_primary. Total: 1036
+[STDOUT] [SubscriptionManager] Subscribed 297719813 (CORE) to core-tier_primary. Total: 1037
+[STDOUT] [SubscriptionManager] Subscribed 298981381 (CORE) to core-tier_primary. Total: 1038
+[STDOUT] [SubscriptionManager] Subscribed 297528837 (CORE) to core-tier_primary. Total: 1039
+[STDOUT] [SubscriptionManager] Subscribed 299039237 (CORE) to core-tier_primary. Total: 1040
+[STDOUT] [SubscriptionManager] Subscribed 297597957 (CORE) to core-tier_primary. Total: 1041
+[STDOUT] [SubscriptionManager] Subscribed 298020101 (CORE) to core-tier_primary. Total: 1042
+[STDOUT] [MarketDataWorker] CORE subscription complete: 1042 success, 0 failed
+[STDOUT] [MarketDataWorker] Starting initial Live-Historical backfill...
+[STDOUT] [BackfillService] Starting CORE instrument backfill...
+[STDOUT] [MarketDataWorker] Running with 1/3 connections
+[STDOUT] [MarketDataWorker] Worker initialized, entering persistent mode...
+[STDOUT] [MarketDataWorker] Starting heartbeat loop...
+[MarketDataWorker] Market Data Worker ONLINE and heartbeat active
+[STDOUT] [BackfillService] No CORE instruments to backfill
+[STDERR] [MarketDataWorker] Heartbeat error (1/3): {
+  code: "23502",
+  details: "Failing row contains (6bd81476-ef57-40f3-8f0e-f4408e225841, market_data, null, null, null, 0, 0.00, null, null, null, 2026-01-13 06:17:56.149+00, null, f, 2026-01-13 06:17:56.149+00).",
+  hint: null,
+  message: "null value in column \"status\" of relation \"data_engine_status\" violates not-null constraint",
+}
+[STDOUT] [MarketDataWorker] Received 22500 ticks since start. Last at 2026-01-13T06:18:03.523Z
+[STDERR] [MarketDataWorker] Heartbeat error (2/3): {
+  code: "23502",
+  details: "Failing row contains (bf4b153b-7ecc-4ab8-b6d9-3ff9b6c682b9, market_data, null, null, null, 0, 0.00, null, null, null, 2026-01-13 06:18:06.399+00, null, f, 2026-01-13 06:18:06.399+00).",
+  hint: null,
+  message: "null value in column \"status\" of relation \"data_engine_status\" violates not-null constraint",
+}
+[STDOUT] [MarketDataWorker] Received 48900 ticks since start. Last at 2026-01-13T06:18:13.563Z
+[STDOUT] [MarketDataWorker] Received 52600 ticks since start. Last at 2026-01-13T06:18:15.910Z
+[STDERR] [MarketDataWorker] Heartbeat error (3/3): {
+  code: "23502",
+  details: "Failing row contains (a7e45259-f9fd-4029-b717-1062ad1c7e76, market_data, null, null, null, 0, 0.00, null, null, null, 2026-01-13 06:18:16.594+00, null, f, 2026-01-13 06:18:16.594+00).",
+  hint: null,
+  message: "null value in column \"status\" of relation \"data_engine_status\" violates not-null constraint",
+}
+[STDERR] [MarketDataWorker] CRITICAL: Heartbeat failed 3 consecutive times. Triggering SAFE_MODE...
+[STDOUT] [MarketDataWorker] Market data disabled. Pausing operations (will resume when re-enabled)...
+[STDERR] [MarketDataWorker] Heartbeat error (1/3): {
+  code: "23502",
+  details: "Failing row contains (03894522-c31d-4c3b-bae0-2852b1c7f4e9, market_data, null, null, null, 0, 0.00, null, null, null, 2026-01-13 06:18:27.341+00, null, f, 2026-01-13 06:18:27.341+00).",
+  hint: null,
+  message: "null value in column \"status\" of relation \"data_engine_status\" violates not-null constraint",
+}
+[STDERR] [MarketDataWorker] Heartbeat error (2/3): {
+  code: "23502",
+  details: "Failing row contains (0ee9608d-2f3b-4b12-b455-562177305bbc, market_data, null, null, null, 0, 0.00, null, null, null, 2026-01-13 06:18:37.54+00, null, f, 2026-01-13 06:18:37.54+00).",
+  hint: null,
+  message: "null value in column \"status\" of relation \"data_engine_status\" violates not-null constraint",
+}
+[STDOUT] [MarketDataWorker] Received 63200 ticks since start. Last at 2026-01-13T06:18:45.925Z
+[STDERR] [MarketDataWorker] Heartbeat error (3/3): {
+  code: "23502",
+  details: "Failing row contains (2b77fcc5-c925-45b6-9257-0905f6bdaf25, market_data, null, null, null, 0, 0.00, null, null, null, 2026-01-13 06:18:47.91+00, null, f, 2026-01-13 06:18:47.91+00).",
+  hint: null,
+  message: "null value in column \"status\" of relation \"data_engine_status\" violates not-null constraint",
+}
+[MarketDataWorker] CRITICAL: Heartbeat failed 3 consecutive times. Triggering SAFE_MODE...
+[STDOUT] [MarketDataWorker] Market data disabled. Pausing operations (will resume when re-enabled)...
+[STDOUT] [MarketDataWorker] Received 21000 ticks since start. Last at 2026-01-13T06:18:56.319Z
+[STDERR] [MarketDataWorker] Heartbeat error (1/3): {
+  code: "23502",
+  details: "Failing row contains (d79ea5e6-b384-4739-a6fb-6df126198703, market_data, null, null, null, 0, 0.00, null, null, null, 2026-01-13 06:18:59.43+00, null, f, 2026-01-13 06:18:59.43+00).",
+  hint: null,
+  message: "null value in column \"status\" of relation \"data_engine_status\" violates not-null constraint",
+}
+[STDOUT] [MarketDataWorker] Received 41500 ticks since start. Last at 2026-01-13T06:19:04.253Z
+[STDOUT] [MarketDataWorker] Received 45200 ticks since start. Last at 2026-01-13T06:19:05.750Z
+[STDOUT] [MarketDataWorker] Received 52200 ticks since start. Last at 2026-01-13T06:19:09.046Z
+[STDERR] [MarketDataWorker] Heartbeat error (2/3): {
+  code: "23502",
+  details: "Failing row contains (5b16b0cd-bb99-4e57-831e-217e66bc2ac2, market_data, null, null, null, 0, 0.00, null, null, null, 2026-01-13 06:19:09.643+00, null, f, 2026-01-13 06:19:09.643+00).",
+  hint: null,
+  message: "null value in column \"status\" of relation \"data_engine_status\" violates not-null constraint",
+}
+[STDOUT] [MarketDataWorker] Received 61100 ticks since start. Last at 2026-01-13T06:19:12.306Z
+[STDERR] [MarketDataWorker] Heartbeat error (3/3): {
+  code: "23502",
+  details: "Failing row contains (df424cab-aa9f-4c84-ba33-46072772f8e6, market_data, null, null, null, 0, 0.00, null, null, null, 2026-01-13 06:19:19.919+00, null, f, 2026-01-13 06:19:19.919+00).",
+  hint: null,
+  message: "null value in column \"status\" of relation \"data_engine_status\" violates not-null constraint",
+}
+[MarketDataWorker] CRITICAL: Heartbeat failed 3 consecutive times. Triggering SAFE_MODE...
+[STDOUT] [MarketDataWorker] Market data disabled. Pausing operations (will resume when re-enabled)...
+[STDERR] ^C--- Started at 2026-01-13T06:19:30.590Z ---
+[STDOUT] [MarketDataWorker] Starting Market Data Worker (24/7 Persistent Mode)...
+[STDOUT] [MarketDataWorker] Starting Multi-API-Key Architecture...
+[MarketDataWorker] Supabase URL: https://fhkathpufpbkwzdfczgj.supabase.co
+[STDOUT] [MarketDataWorker] Market data disabled. Waiting for enable signal (polling every 30s)...
+[STDOUT] [MarketDataWorker] Market data disabled. Waiting for enable signal (polling every 30s)...
+[STDOUT] [MarketDataWorker] Market data disabled. Waiting for enable signal (polling every 30s)...

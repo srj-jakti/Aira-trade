@@ -896,14 +896,15 @@ async function heartbeatLoop(): Promise<void> {
   const MAX_CONSECUTIVE_FAILURES = 3;
   
   while (!getShutdownFlag()) {
-    try {
-      const { error } = await supabase.from("data_engine_status").upsert({
-        engine_type: "market_data",
-        last_heartbeat: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "engine_type" });
-      
-      if (error) {
+      try {
+        const { error } = await supabase.from("data_engine_status").upsert({
+          engine_type: "market_data",
+          status: "running",
+          last_heartbeat: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "engine_type" });
+        
+        if (error) {
         throw error;
       }
       

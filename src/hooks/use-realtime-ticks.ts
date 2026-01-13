@@ -45,13 +45,13 @@ export function useRealtimeTicks(options: UseRealtimeTicksOptions = {}) {
     (payload: RealtimePostgresInsertPayload<RealtimeTick>) => {
       const tick = payload.new;
 
-      if (instrumentTokens && !instrumentTokens.includes(tick.instrument_token)) {
+      if (instrumentTokens && !instrumentTokens.map(String).includes(String(tick.instrument_token))) {
         return;
       }
 
       setTicks((prev) => {
         const next = new Map(prev);
-        next.set(tick.instrument_token, tick);
+        next.set(Number(tick.instrument_token), tick);
         return next;
       });
 

@@ -418,7 +418,19 @@ export class BackfillService {
    * Clean up old data beyond retention policy
    */
   async cleanupOldData(): Promise<void> {
-    console.log("[BackfillService] Cleaning up old live_candles data...");
+    console.log("[BackfillService] Cleaning up old market data (ticks & candles)...");
+
+    try {
+      // Call the SQL function for unified pruning
+      const { error: pruneError } = await this.supabase.rpc("prune_old_market_data");
+      if (pruneError) {
+        console.error("[BackfillService] SQL Pruning error:", pruneError.message);
+      } else {
+        console.log("[BackfillService] SQL Pruning successful");
+      }
+    } catch (err) {
+      console.error("[BackfillService] Pruning RPC failed:", err);
+    }
 
     for (const [timeframe, retention] of Object.entries(LIVE_HISTORICAL_RETENTION)) {
       const cutoffDate = new Date();

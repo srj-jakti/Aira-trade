@@ -1,9 +1,27 @@
-/**
- * Redis configuration - ONLY for Railway workers
- * This file should NOT be imported in Vercel-deployed code
- * 
- * For Vercel deployments, use Supabase Realtime instead
- */
+import Redis from "ioredis";
+
+const redisUrl = process.env.REDIS_URL;
+
+if (!redisUrl) {
+  console.warn("[Redis] REDIS_URL not found in environment variables");
+}
+
+export const redis = new Redis(redisUrl || "redis://localhost:6379", {
+  maxRetriesPerRequest: null,
+  enableReadyCheck: false,
+});
+
+// For Pub/Sub we often need a separate client
+export const redisSub = new Redis(redisUrl || "redis://localhost:6379", {
+  maxRetriesPerRequest: null,
+  enableReadyCheck: false,
+});
+
+redis.on("connect", () => console.log("[Redis] Main client connected"));
+redis.on("error", (err) => console.error("[Redis] Main client error:", err));
+
+redisSub.on("connect", () => console.log("[Redis] Subscriber client connected"));
+redisSub.on("error", (err) => console.error("[Redis] Subscriber client error:", err));
 
 export const REDIS_KEYS = {
   LATEST_TICK: (token: number) => `latest_tick:${token}`,
@@ -14,65 +32,14 @@ export const REDIS_KEYS = {
   TRADING_PREFS: (userId: string) => `trading_prefs:${userId}`,
 };
 
-let redisInstance: any = null;
-let redisSubInstance: any = null;
-
-function isRailwayEnvironment(): boolean {
-  return process.env.RAILWAY_ENVIRONMENT !== undefined || 
-         process.env.RAILWAY_SERVICE_NAME !== undefined;
-}
-
-async function getRedisClient() {
-  if (!isRailwayEnvironment()) {
-    console.warn("[Redis] Not in Railway environment - Redis operations will be skipped");
-    return null;
-  }
-
-  if (!redisInstance) {
-    const Redis = (await import("ioredis")).default;
-    const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-    redisInstance = new Redis(redisUrl, {
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-      lazyConnect: true,
-    });
-    redisInstance.on("connect", () => console.log("[Redis] Main client connected"));
-    redisInstance.on("error", (err: Error) => console.error("[Redis] Main client error:", err));
-  }
-  return redisInstance;
-}
-
-async function getRedisSubscriber() {
-  if (!isRailwayEnvironment()) {
-    return null;
-  }
-
-  if (!redisSubInstance) {
-    const Redis = (await import("ioredis")).default;
-    const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-    redisSubInstance = new Redis(redisUrl, {
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-      lazyConnect: true,
-    });
-    redisSubInstance.on("connect", () => console.log("[Redis] Subscriber client connected"));
-    redisSubInstance.on("error", (err: Error) => console.error("[Redis] Subscriber client error:", err));
-  }
-  return redisSubInstance;
-}
-
-export async function syncTradingPreferenceToRedis(userId: string, data: any): Promise<void> {
-  const redis = await getRedisClient();
-  if (!redis) {
-    return;
-  }
-
+/**
+ * Syncs user trading preferences to Redis for low-latency access by the Trading Engine.
+ */
+export async function syncTradingPreferenceToRedis(userId: string, data: any) {
   try {
     const key = REDIS_KEYS.TRADING_PREFS(userId);
-    await redis.set(key, JSON.stringify(data), "EX", 86400);
+    await redis.set(key, JSON.stringify(data), "EX", 86400); // 24h expiry
   } catch (err) {
     console.error(`[Redis] Failed to sync trading prefs for ${userId}:`, err);
   }
 }
-
-export { getRedisClient as redis, getRedisSubscriber as redisSub };

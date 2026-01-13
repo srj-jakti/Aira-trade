@@ -9,6 +9,7 @@ import {
 } from "@/lib/server/auth";
 import { tradingSettingsSchema } from "@/lib/validations";
 import { logAudit } from "@/lib/server/audit";
+import { syncTradingPreferenceToRedis } from "@/lib/redis";
 
 export async function GET() {
   const auth = await getAuthenticatedUser();
@@ -27,7 +28,13 @@ export async function GET() {
         return serverErrorResponse();
       }
 
+      // Sync to Redis in background for self-healing
+      if (data) {
+        syncTradingPreferenceToRedis(auth.userId, data).catch(console.error);
+      }
+
       const { data: countsData } = await supabaseAdmin.rpc('get_segment_counts');
+
 
       return successResponse({ 
         settings: data || {},
@@ -77,6 +84,12 @@ export async function POST(request: NextRequest) {
       if (error) {
         return serverErrorResponse();
       }
+
+      // Sync updated preferences to Redis
+      syncTradingPreferenceToRedis(auth.userId, {
+        user_id: auth.userId,
+        ...validation.data,
+      }).catch(console.error);
 
       if (
 

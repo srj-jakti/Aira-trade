@@ -5,6 +5,7 @@
 
 import { supabase } from "./utils/supabase";
 import { logger } from "./utils/logger";
+import { redis, REDIS_KEYS } from "./utils/redis";
 import { setupGracefulShutdown, getShutdownFlag } from "./utils/shutdown";
 import { isRateLimited, isOrderRateLimited, incrementRateLimit } from "./rate-limiter";
 import {
@@ -382,17 +383,37 @@ async function monitorPositions(tableName: "user_positions" | "paper_positions")
     for (const position of positions || []) {
       if (getShutdownFlag()) break;
 
-      const { data: tick } = await supabase
-        .from("realtime_ticks")
-        .select("last_price")
-        .eq("instrument_token", position.instrument_token)
-        .order("tick_timestamp", { ascending: false })
-        .limit(1)
-        .single();
+      // Redis-First Price Fetch
+      let currentPrice: number | null = null;
+      try {
+        const cachedTick = await redis.get(REDIS_KEYS.LATEST_TICK(position.instrument_token));
+        if (cachedTick) {
+          const parsed = JSON.parse(cachedTick);
+          currentPrice = parsed.price;
+          logger.debug(`[Redis] Using cached price for ${position.tradingsymbol}: ${currentPrice}`);
+        }
+      } catch (err) {
+        logger.error(`[Redis] Error fetching price for ${position.instrument_token}`, err);
+      }
 
-      if (!tick) continue;
+      // Supabase Fallback
+      if (currentPrice === null) {
+        const { data: tick } = await supabase
+          .from("realtime_ticks")
+          .select("last_price")
+          .eq("instrument_token", position.instrument_token)
+          .order("tick_timestamp", { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (tick) {
+          currentPrice = tick.last_price;
+          logger.debug(`[Supabase] Using DB price for ${position.tradingsymbol}: ${currentPrice}`);
+        }
+      }
 
-      const currentPrice = tick.last_price;
+      if (currentPrice === null) continue;
+
       const pnl =
         position.position_type === "LONG"
           ? (currentPrice - position.entry_price) * position.quantity

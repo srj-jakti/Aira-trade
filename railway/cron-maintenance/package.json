@@ -1,0 +1,14 @@
+{
+  "name": "cron-maintenance-worker",
+  "version": "1.0.0",
+  "main": "src/worker.ts",
+  "scripts": {
+    "start": "bun src/worker.ts",
+    "dev": "bun --watch src/worker.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "ioredis": "^5.3.2",
+    "node-cron": "^3.0.3"
+  }
+}

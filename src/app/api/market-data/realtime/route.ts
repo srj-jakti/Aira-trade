@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getAuthenticatedUser } from "@/lib/server/auth";
-import { redisSub } from "@/lib/redis";
+import Redis from "ioredis";
 
 export const dynamic = "force-dynamic";
 
@@ -17,22 +17,23 @@ export async function GET(request: NextRequest) {
   const writer = responseStream.writable.getWriter();
   const encoder = new TextEncoder();
 
+  // Create a dedicated Redis subscriber for this connection
+  const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+  const subscriber = new Redis(redisUrl);
+
   // Send initial connection message
   writer.write(encoder.encode(`data: ${JSON.stringify({ type: "connected", timestamp: new Date().toISOString() })}\n\n`));
 
   // Subscribe to Redis channels for each instrument
   const channels = instrumentTokens.length > 0 
     ? instrumentTokens.flatMap(token => [`ticker:${token}`, `candles:1minute:${token}`])
-    : ["ticker:*", "candles:1minute:*"]; // Pattern matching if supported, but better to be explicit
+    : []; 
 
-  if (instrumentTokens.length > 0) {
-    await redisSub.subscribe(...channels);
-  } else {
-    // If no instruments specified, maybe subscribe to a global channel or just wait
-    // For now, let's assume instruments are always provided for efficiency
+  if (channels.length > 0) {
+    await subscriber.subscribe(...channels);
   }
 
-  const messageHandler = (channel: string, message: string) => {
+  subscriber.on("message", (channel, message) => {
     try {
       const data = JSON.parse(message);
       const type = channel.startsWith("ticker:") ? "tick" : "candle";
@@ -40,9 +41,7 @@ export async function GET(request: NextRequest) {
     } catch (e) {
       console.error("[SSE] Error processing Redis message:", e);
     }
-  };
-
-  redisSub.on("message", messageHandler);
+  });
 
   // Keep connection alive with a heartbeat every 30 seconds
   const heartbeatInterval = setInterval(() => {
@@ -53,12 +52,13 @@ export async function GET(request: NextRequest) {
     }
   }, 30000);
 
-  request.signal.onabort = () => {
+  request.signal.onabort = async () => {
     console.log(`[SSE] User ${user.session?.user.id} disconnected`);
     clearInterval(heartbeatInterval);
-    redisSub.off("message", messageHandler);
-    if (instrumentTokens.length > 0) {
-      redisSub.unsubscribe(...channels);
+    try {
+      await subscriber.quit();
+    } catch (e) {
+      console.error("[SSE] Error closing Redis subscriber:", e);
     }
     writer.close();
   };

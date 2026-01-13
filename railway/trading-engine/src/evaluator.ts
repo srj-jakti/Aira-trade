@@ -4,11 +4,138 @@ import { logger } from "./utils/logger";
 import { Signal } from "./executor";
 import { createDecipheriv } from "crypto";
 import { processZairothSafe, evaluateSafety } from "../../../src/lib/zairoth";
+import { redis, REDIS_KEYS } from "./utils/redis";
 
 const ALGORITHM = "aes-256-gcm";
 
+export interface CandleData {
+  instrument_token: number;
+  timeframe: string;
+  bucket_start: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  oi: number;
+  indicators?: any;
+}
+
+export interface Strategy {
+  id: string;
+  name: string;
+  timeframe: string;
+  instruments: number[];
+  zairoth_intent?: string;
+  buy_entry_logic?: any;
+  sell_entry_logic?: any;
+  executable_strategy?: any;
+  buyExit?: any;
+  sellExit?: any;
+}
+
 const MIN_CANDLES_FOR_EVALUATION = 20;
 const RECOMMENDED_CANDLES = 50;
+
+/**
+ * Fetches the latest candles for given instruments and timeframe.
+ * Prioritizes Redis for low latency, falls back to Supabase.
+ */
+export async function getLatestCandles(instrumentTokens: number[], timeframe: string): Promise<CandleData[]> {
+  const allCandles: CandleData[] = [];
+
+  for (const token of instrumentTokens) {
+    try {
+      // 1. Try Redis List (last 100 candles)
+      const listKey = REDIS_KEYS.CANDLE_LIST(token, timeframe);
+      const cachedCandles = await redis.lrange(listKey, 0, -1);
+
+      if (cachedCandles && cachedCandles.length > 0) {
+        const parsed = cachedCandles.map(c => {
+          const data = JSON.parse(c);
+          return {
+            instrument_token: data.token,
+            timeframe: data.timeframe,
+            bucket_start: new Date(data.bucketStart).toISOString(),
+            open: data.open,
+            high: data.high,
+            low: data.low,
+            close: data.close,
+            volume: data.volume || 0,
+            oi: data.oi || 0,
+            indicators: data.indicators
+          } as CandleData;
+        });
+        
+        // Add live candle (if exists and newer than last closed candle)
+        const liveKey = REDIS_KEYS.LIVE_CANDLE(token, timeframe);
+        const liveCandleRaw = await redis.get(liveKey);
+        if (liveCandleRaw) {
+          const data = JSON.parse(liveCandleRaw);
+          const liveCandle = {
+            instrument_token: data.token,
+            timeframe: data.timeframe,
+            bucket_start: new Date(data.bucketStart).toISOString(),
+            open: data.open,
+            high: data.high,
+            low: data.low,
+            close: data.close,
+            volume: data.volume || 0,
+            oi: data.oi || 0,
+            indicators: data.indicators
+          } as CandleData;
+
+          if (parsed.length === 0 || liveCandle.bucket_start > parsed[parsed.length - 1].bucket_start) {
+            parsed.push(liveCandle);
+          }
+        }
+
+        allCandles.push(...parsed);
+        continue;
+      }
+
+      // 2. Fallback to Supabase
+      const { data: dbCandles, error } = await supabase
+        .from("live_candles")
+        .select("*")
+        .eq("instrument_token", token)
+        .eq("timeframe", timeframe)
+        .order("timestamp", { ascending: false })
+        .limit(RECOMMENDED_CANDLES);
+
+      if (dbCandles && !error) {
+        const formatted = dbCandles.map(c => ({
+          instrument_token: c.instrument_token,
+          timeframe: c.timeframe,
+          bucket_start: c.timestamp,
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+          volume: c.volume,
+          oi: c.oi,
+          indicators: c.indicators
+        })).reverse();
+        allCandles.push(...formatted);
+      }
+    } catch (err) {
+      logger.error(`Error fetching candles for ${token}:`, err);
+    }
+  }
+
+  return allCandles;
+}
+
+export async function getStrategy(strategyId: string): Promise<Strategy | null> {
+  const { data, error } = await supabase
+    .from("strategies")
+    .select("*")
+    .eq("id", strategyId)
+    .single();
+
+  if (error || !data) return null;
+  return data as Strategy;
+}
 
 // Signal Memory Window types
 export type SignalRole = "INTENT" | "CONFIRMATION" | "INVALIDATION";

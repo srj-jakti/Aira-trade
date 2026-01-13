@@ -9,6 +9,7 @@ import {
 } from "@/lib/server/auth";
 import { tradingSettingsSchema } from "@/lib/validations";
 import { logAudit } from "@/lib/server/audit";
+import { syncTradingPreferenceToRedis } from "@/lib/redis";
 
 export async function GET() {
   const auth = await getAuthenticatedUser();
@@ -16,18 +17,24 @@ export async function GET() {
     return unauthorizedResponse();
   }
 
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("trading_preferences")
-      .select("*")
-      .eq("user_id", auth.userId)
-      .single();
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("trading_preferences")
+        .select("*")
+        .eq("user_id", auth.userId)
+        .single();
 
-    if (error && error.code !== "PGRST116") {
-      return serverErrorResponse();
-    }
+      if (error && error.code !== "PGRST116") {
+        return serverErrorResponse();
+      }
+
+      // Sync to Redis in background for self-healing
+      if (data) {
+        syncTradingPreferenceToRedis(auth.userId, data).catch(console.error);
+      }
 
       const { data: countsData } = await supabaseAdmin.rpc('get_segment_counts');
+
 
       return successResponse({ 
         settings: data || {},
@@ -74,11 +81,18 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    if (error) {
-      return serverErrorResponse();
-    }
+      if (error) {
+        return serverErrorResponse();
+      }
 
-    if (
+      // Sync updated preferences to Redis
+      syncTradingPreferenceToRedis(auth.userId, {
+        user_id: auth.userId,
+        ...validation.data,
+      }).catch(console.error);
+
+      if (
+
       validation.data.auto_trading_enabled !== undefined &&
       existing?.auto_trading_enabled !== validation.data.auto_trading_enabled
     ) {

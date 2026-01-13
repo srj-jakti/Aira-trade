@@ -29,4 +29,17 @@ export const REDIS_KEYS = {
   TICK_CHANNEL: (token: number) => `ticker:${token}`,
   CANDLE_CHANNEL: (token: number, timeframe: string) => `candles:${timeframe}:${token}`,
   CANDLE_LIST: (token: number, timeframe: string) => `candle_list:${token}:${timeframe}`,
+  TRADING_PREFS: (userId: string) => `trading_prefs:${userId}`,
 };
+
+/**
+ * Syncs user trading preferences to Redis for low-latency access by the Trading Engine.
+ */
+export async function syncTradingPreferenceToRedis(userId: string, data: any) {
+  try {
+    const key = REDIS_KEYS.TRADING_PREFS(userId);
+    await redis.set(key, JSON.stringify(data), "EX", 86400); // 24h expiry
+  } catch (err) {
+    console.error(`[Redis] Failed to sync trading prefs for ${userId}:`, err);
+  }
+}

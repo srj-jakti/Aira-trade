@@ -1,3 +1,5 @@
+import { createClient } from "@supabase/supabase-js";
+
 interface QuoteData {
   instrument_token: number;
   last_price: number;
@@ -19,6 +21,16 @@ interface CacheEntry {
   fetchedAt: number;
 }
 
+interface InstrumentInfo {
+  tradingsymbol: string;
+  exchange: string;
+}
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 class QuoteCache {
   private cache = new Map<number, CacheEntry>();
   private pendingTokens = new Set<number>();
@@ -26,6 +38,7 @@ class QuoteCache {
   private lastFetchTime = 0;
   private readonly CACHE_TTL_MS = 900;
   private readonly MIN_FETCH_INTERVAL_MS = 800;
+  private instrumentCache = new Map<number, InstrumentInfo>();
 
   private scannerConfig: { apiKey: string; accessToken: string } | null = null;
   private userConfig: { apiKey: string; accessToken: string } | null = null;
@@ -36,6 +49,40 @@ class QuoteCache {
   ) {
     this.scannerConfig = scannerConfig;
     this.userConfig = userConfig;
+  }
+
+  private async getInstrumentInfo(tokens: number[]): Promise<Map<number, InstrumentInfo>> {
+    const result = new Map<number, InstrumentInfo>();
+    const tokensToFetch: number[] = [];
+
+    for (const token of tokens) {
+      const cached = this.instrumentCache.get(token);
+      if (cached) {
+        result.set(token, cached);
+      } else {
+        tokensToFetch.push(token);
+      }
+    }
+
+    if (tokensToFetch.length > 0) {
+      const { data } = await supabase
+        .from("instruments")
+        .select("instrument_token, tradingsymbol, exchange")
+        .in("instrument_token", tokensToFetch);
+
+      if (data) {
+        for (const row of data) {
+          const info: InstrumentInfo = {
+            tradingsymbol: row.tradingsymbol,
+            exchange: row.exchange,
+          };
+          this.instrumentCache.set(Number(row.instrument_token), info);
+          result.set(Number(row.instrument_token), info);
+        }
+      }
+    }
+
+    return result;
   }
 
   async getQuotes(tokens: number[], useScanner = false): Promise<Map<number, QuoteData>> {
@@ -104,6 +151,8 @@ class QuoteCache {
     }
 
     try {
+      const instrumentInfoMap = await this.getInstrumentInfo(tokens);
+
       const batches: number[][] = [];
       for (let i = 0; i < tokens.length; i += 500) {
         batches.push(tokens.slice(i, i + 500));
@@ -111,10 +160,14 @@ class QuoteCache {
 
       for (const batch of batches) {
         const instrumentParams = batch.map((t) => {
+          const info = instrumentInfoMap.get(t);
+          if (info) {
+            return `${info.exchange}:${info.tradingsymbol}`;
+          }
           if (t === 256265) return "NSE:NIFTY 50";
           if (t === 260105) return "NSE:NIFTY BANK";
           if (t === 257801) return "NSE:NIFTY FIN SERVICE";
-          return `NFO:${t}`;
+          return `NSE:${t}`;
         });
 
         const response = await fetch(

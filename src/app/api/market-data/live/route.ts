@@ -7,9 +7,9 @@ import {
   successResponse,
 } from "@/lib/server/auth";
 import { getCandles, validateCandleMode } from "@/lib/server/candle-service";
-import { getLatestTick, marketDataEngine } from "@/lib/server/market-data-engine";
+import { getLatestTick } from "@/lib/server/market-data-engine";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { decrypt } from "@/lib/server/encryption";
+import { zerodhaService } from "@/lib/server/zerodha-service";
 
 function normalizeTimeframe(tf: string): string {
   const aliases: Record<string, string> = {
@@ -160,14 +160,12 @@ async function fetchFromZerodhaAPI(
   oi: number;
 }>> {
   try {
-    const config = await marketDataEngine.getActiveConfig();
-    if (!config || !config.access_token) {
+    const config = await zerodhaService.getActiveConfig();
+    if (!config) {
       console.log("[LiveRoute] No active Zerodha config for historical fetch");
       return [];
     }
 
-    const apiKey = decrypt(config.api_key);
-    const accessToken = decrypt(config.access_token);
     const interval = getZerodhaInterval(timeframe);
     const daysBack = getDaysBack(timeframe);
     
@@ -183,7 +181,7 @@ async function fetchFromZerodhaAPI(
       {
         headers: {
           "X-Kite-Version": "3",
-          Authorization: `token ${apiKey}:${accessToken}`,
+          Authorization: `token ${config.apiKey}:${config.accessToken}`,
         },
       }
     );

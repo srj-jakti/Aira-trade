@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { RealtimeChannel, RealtimePostgresInsertPayload } from "@supabase/supabase-js";
-import type { LiveCandle, CandleData } from "@/lib/types/market-data";
+import type { CandleData } from "@/lib/types/market-data";
 
 interface UseLiveCandlesOptions {
   instrumentToken: number;
@@ -11,6 +9,7 @@ interface UseLiveCandlesOptions {
   initialData?: CandleData[];
   enabled?: boolean;
   maxCandles?: number;
+  pollInterval?: number;
 }
 
 interface UseLiveCandlesReturn {
@@ -30,7 +29,8 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     timeframe, 
     initialData = [], 
     enabled = true,
-    maxCandles = 5000
+    maxCandles = 5000,
+    pollInterval = 5000,
   } = options;
   
   const [candles, setCandles] = useState<CandleData[]>(initialData);
@@ -38,14 +38,14 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [dataSource, setDataSource] = useState<string>("LIVE");
+  const [dataSource, setDataSource] = useState<string>("ZERODHA_REALTIME");
   const [oldestTimestamp, setOldestTimestamp] = useState<string | null>(null);
   
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const supabaseRef = useRef(createClient());
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fetchAttemptsRef = useRef(0);
   const prevInstrumentRef = useRef<number>(instrumentToken);
   const prevTimeframeRef = useRef<string>(timeframe);
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
     const instrumentChanged = prevInstrumentRef.current !== instrumentToken;
@@ -55,7 +55,8 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
       setCandles([]);
       setOldestTimestamp(null);
       setHasMore(true);
-      setDataSource("LIVE");
+      setDataSource("ZERODHA_REALTIME");
+      setError(null);
       fetchAttemptsRef.current = 0;
       
       prevInstrumentRef.current = instrumentToken;
@@ -63,149 +64,96 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     }
   }, [instrumentToken, timeframe]);
 
-  useEffect(() => {
-    if (initialData.length > 0) {
-      setCandles(initialData);
-      const sorted = [...initialData].sort(
-        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  const fetchCandles = useCallback(async (isInitial = false) => {
+    if (isFetchingRef.current && !isInitial) return;
+    isFetchingRef.current = true;
+
+    try {
+      const response = await fetch(
+        `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=500`
       );
-      if (sorted.length > 0) {
-        setOldestTimestamp(sorted[0].timestamp);
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch candles");
       }
-      setHasMore(true);
-      fetchAttemptsRef.current = 0;
-    }
-  }, [initialData]);
 
-  const handleNewCandle = useCallback(
-    (payload: RealtimePostgresInsertPayload<LiveCandle>) => {
-      const newCandle = payload.new;
-
-      const normalizedTimeframe = normalizeTimeframe(timeframe);
-      const candleTimeframe = normalizeTimeframe(newCandle.timeframe);
-
-      if (
-        String(newCandle.instrument_token) !== String(instrumentToken) ||
-        candleTimeframe !== normalizedTimeframe
-      ) {
+      const data = await response.json();
+      
+      if (data.error) {
+        setError(data.error);
+        setIsConnected(false);
         return;
       }
 
-    const candleData: CandleData = {
-      timestamp: newCandle.timestamp,
-      open: Number(newCandle.open),
-      high: Number(newCandle.high),
-      low: Number(newCandle.low),
-      close: Number(newCandle.close),
-      volume: Number(newCandle.volume) || 0,
-      indicators: newCandle.indicators,
-    };
-
-
-      setCandles((prev) => {
-        const existingIndex = prev.findIndex(
-          (c) => c.timestamp === candleData.timestamp
-        );
-
-        let updated: CandleData[];
+      const newCandles: CandleData[] = data.candles || [];
+      setDataSource(data.dataSource || "ZERODHA_REALTIME");
+      setHasMore(data.hasMore ?? true);
+      setError(null);
+      setIsConnected(true);
+      fetchAttemptsRef.current = 0;
+      
+      if (newCandles.length > 0) {
+        setOldestTimestamp(data.oldestTimestamp || newCandles[0].timestamp);
         
-        if (existingIndex !== -1) {
-          updated = [...prev];
-          updated[existingIndex] = candleData;
-        } else {
-          updated = [...prev, candleData].sort(
+        setCandles(prev => {
+          if (isInitial || prev.length === 0) {
+            return newCandles;
+          }
+
+          const existingMap = new Map(prev.map(c => [c.timestamp, c]));
+          
+          for (const candle of newCandles) {
+            existingMap.set(candle.timestamp, candle);
+          }
+          
+          let merged = Array.from(existingMap.values()).sort(
             (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
           );
-        }
 
-        if (updated.length > maxCandles) {
-          updated = updated.slice(-maxCandles);
-          if (updated.length > 0) {
-            setOldestTimestamp(updated[0].timestamp);
+          if (merged.length > maxCandles) {
+            merged = merged.slice(-maxCandles);
           }
-        }
 
-        return updated;
-      });
-    },
-    [instrumentToken, timeframe, maxCandles]
-  );
+          return merged;
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching candles:", err);
+      if (isInitial) {
+        setError("Failed to load chart data");
+      }
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [instrumentToken, timeframe, maxCandles]);
 
   useEffect(() => {
-    const supabase = supabaseRef.current;
-
     if (!enabled || !instrumentToken) {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
       setIsConnected(false);
       return;
     }
 
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
+    fetchCandles(true);
 
-    const channelName = `live_candles_${instrumentToken}_${timeframe}_${Date.now()}`;
-
-    const channel = supabase
-      .channel(channelName)
-      .on<LiveCandle>(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "live_candles",
-          filter: `instrument_token=eq.${instrumentToken}`,
-        },
-        handleNewCandle
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          setIsConnected(true);
-          setError(null);
-        } else if (status === "CHANNEL_ERROR") {
-          setIsConnected(false);
-          setError("Failed to connect to realtime");
-        } else if (status === "TIMED_OUT") {
-          setIsConnected(false);
-          setError("Connection timed out");
-        }
-      });
-
-    channelRef.current = channel;
+    pollIntervalRef.current = setInterval(() => {
+      fetchCandles(false);
+    }, pollInterval);
 
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
     };
-  }, [enabled, instrumentToken, timeframe, handleNewCandle]);
+  }, [enabled, instrumentToken, timeframe, fetchCandles, pollInterval]);
 
   const refetch = useCallback(async () => {
-    try {
-      const response = await fetch(
-        `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=500`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        const newCandles = data.candles || [];
-        setCandles(newCandles);
-        setDataSource(data.dataSource || "LIVE");
-        setHasMore(data.hasMore ?? true);
-        fetchAttemptsRef.current = 0;
-        
-        if (newCandles.length > 0) {
-          setOldestTimestamp(data.oldestTimestamp || newCandles[0].timestamp);
-        }
-      }
-    } catch (err) {
-      console.error("Error refetching candles:", err);
-    }
-  }, [instrumentToken, timeframe]);
+    await fetchCandles(true);
+  }, [fetchCandles]);
 
   const fetchOlder = useCallback(async (): Promise<boolean> => {
     if (!hasMore || isLoadingMore) {
@@ -213,7 +161,6 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     }
 
     if (fetchAttemptsRef.current >= 5) {
-      console.log("[useLiveCandles] Max fetch attempts reached, stopping");
       setHasMore(false);
       return false;
     }
@@ -242,7 +189,7 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
         return false;
       }
 
-      setDataSource(data.dataSource || "LIVE");
+      setDataSource(data.dataSource || "ZERODHA_REALTIME");
       
       setCandles((prev) => {
         const combined = [...olderCandles, ...prev];
@@ -290,18 +237,4 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     isLoadingMore,
     dataSource,
   };
-}
-
-function normalizeTimeframe(tf: string): string {
-  const aliases: Record<string, string> = {
-    "1d": "day",
-    "day": "day",
-    "D": "day",
-    "1w": "week",
-    "week": "week",
-    "W": "week",
-    "1M": "month",
-    "month": "month",
-  };
-  return aliases[tf] || tf;
 }

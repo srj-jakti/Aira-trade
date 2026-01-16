@@ -34,10 +34,6 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/market-poll",
-      "schedule": "* 4-10 * * 1-5"
-    },
-    {
       "path": "/api/cron/execute-signals",
       "schedule": "* 4-10 * * 1-5"
     }

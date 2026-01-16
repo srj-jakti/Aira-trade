@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/cron/health-check",
-      "schedule": "*/30 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/refresh-subscriptions?action=daily_sync",
@@ -19,7 +19,23 @@
     },
     {
       "path": "/api/cron/refresh-subscriptions?action=atm_refresh",
-      "schedule": "*/5 9-15 * * 1-5"
+      "schedule": "*/5 4-10 * * 1-5"
+    },
+    {
+      "path": "/api/cron/database-cleanup",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/option-roll",
+      "schedule": "30 0 * * *"
+    },
+    {
+      "path": "/api/cron/aggregate-instruments",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/execute-signals",
+      "schedule": "* 4-10 * * 1-5"
     }
   ]
 }

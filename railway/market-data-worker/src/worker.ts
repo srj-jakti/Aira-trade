@@ -29,7 +29,7 @@ import {
 } from "./subscription-manager";
 import { BackfillService } from "./backfill-service";
 import { TechnicalIndicators } from "./utils/indicators";
-import { redis, REDIS_KEYS } from "./utils/redis";
+import { redis, REDIS_KEYS, scheduleMarketCloseCleanup, cleanupDayEndData } from "./utils/redis";
 
 const ALGORITHM = "aes-256-gcm";
 const MAX_INSTRUMENTS_PER_CONNECTION = 3000;
@@ -148,8 +148,12 @@ class MarketDataWorker {
   async start(): Promise<void> {
     console.log("[MarketDataWorker] Starting Multi-API-Key Architecture...");
     console.log(`[MarketDataWorker] Supabase URL: ${supabaseUrl}`);
+    console.log(`[MarketDataWorker] Redis URL: ${process.env.REDIS_URL ? "configured" : "NOT SET"}`);
 
     await this.logSystemHealth("worker_started", { source: "market_data_worker", architecture: "multi_api_key" }, "info", "Market Data Worker started (Multi-API-Key)");
+
+    scheduleMarketCloseCleanup();
+    console.log("[MarketDataWorker] Day-end Redis cleanup scheduler initialized");
 
     while (!(await this.isMarketDataEnabled())) {
       console.log("[MarketDataWorker] Market data disabled. Waiting for enable signal (polling every 30s)...");

@@ -37,19 +37,18 @@ class QuoteCache {
   private fetchPromise: Promise<void> | null = null;
   private lastFetchTime = 0;
   private readonly CACHE_TTL_MS = 900;
-  private readonly MIN_FETCH_INTERVAL_MS = 500; // Reduced for multi-key support
+  private readonly MIN_FETCH_INTERVAL_MS = 800;
   private instrumentCache = new Map<number, InstrumentInfo>();
 
   private scannerConfig: { apiKey: string; accessToken: string } | null = null;
-  private analysisConfigs: Array<{ apiKey: string; accessToken: string }> = [];
-  private currentAnalysisIndex = 0;
+  private userConfig: { apiKey: string; accessToken: string } | null = null;
 
   setConfigs(
     scannerConfig: { apiKey: string; accessToken: string } | null,
-    analysisConfigs: Array<{ apiKey: string; accessToken: string }> = []
+    userConfig: { apiKey: string; accessToken: string } | null
   ) {
     this.scannerConfig = scannerConfig;
-    this.analysisConfigs = analysisConfigs;
+    this.userConfig = userConfig;
   }
 
   private async getInstrumentInfo(tokens: number[]): Promise<Map<number, InstrumentInfo>> {
@@ -124,12 +123,9 @@ class QuoteCache {
     const now = Date.now();
     const timeSinceLastFetch = now - this.lastFetchTime;
     
-    // Multi-key allows more frequent fetches if we rotate
-    const interval = this.analysisConfigs.length > 1 ? this.MIN_FETCH_INTERVAL_MS / 2 : this.MIN_FETCH_INTERVAL_MS;
-
-    if (timeSinceLastFetch < interval) {
+    if (timeSinceLastFetch < this.MIN_FETCH_INTERVAL_MS) {
       await new Promise((resolve) => 
-        setTimeout(resolve, interval - timeSinceLastFetch)
+        setTimeout(resolve, this.MIN_FETCH_INTERVAL_MS - timeSinceLastFetch)
       );
     }
 
@@ -148,20 +144,7 @@ class QuoteCache {
 
     if (tokens.length === 0) return;
 
-    let config: { apiKey: string; accessToken: string } | null = null;
-    
-    if (useScanner) {
-      config = this.scannerConfig || this.analysisConfigs[0];
-    } else {
-      // Rotate analysis keys for load balancing
-      if (this.analysisConfigs.length > 0) {
-        config = this.analysisConfigs[this.currentAnalysisIndex % this.analysisConfigs.length];
-        this.currentAnalysisIndex++;
-      } else {
-        config = this.scannerConfig;
-      }
-    }
-
+    const config = useScanner ? this.scannerConfig : (this.userConfig || this.scannerConfig);
     if (!config) {
       console.error("[QuoteCache] No config available");
       return;
@@ -181,7 +164,6 @@ class QuoteCache {
           if (info) {
             return `${info.exchange}:${info.tradingsymbol}`;
           }
-          // Default fallbacks for common indices
           if (t === 256265) return "NSE:NIFTY 50";
           if (t === 260105) return "NSE:NIFTY BANK";
           if (t === 257801) return "NSE:NIFTY FIN SERVICE";
@@ -209,7 +191,18 @@ class QuoteCache {
         const fetchedAt = Date.now();
 
         for (const [, quote] of Object.entries(rawQuotes)) {
-          const q = quote as any;
+          const q = quote as {
+            instrument_token: number;
+            last_price: number;
+            volume: number;
+            oi: number;
+            last_trade_time: string;
+            ohlc: { open: number; high: number; low: number; close: number };
+            depth?: {
+              buy: Array<{ price: number }>;
+              sell: Array<{ price: number }>;
+            };
+          };
 
           const prevClose = q.ohlc?.close || 0;
           const change = q.last_price - prevClose;
@@ -246,7 +239,6 @@ class QuoteCache {
       cacheSize: this.cache.size,
       pendingTokens: this.pendingTokens.size,
       hasFetchInProgress: !!this.fetchPromise,
-      analysisKeys: this.analysisConfigs.length,
     };
   }
 

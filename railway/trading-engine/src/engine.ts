@@ -365,10 +365,10 @@ async function orderSyncLoop(): Promise<void> {
         }
       }
 
-      await sleep(30 * 1000);
+      await sleep(1000); // 1 second for faster order sync
     } catch (error) {
       logger.error("Order sync loop error", error);
-      await sleep(60 * 1000);
+      await sleep(5000);
     }
   }
 }
@@ -544,10 +544,10 @@ async function positionMonitorLoop(): Promise<void> {
     try {
       await monitorPositions("user_positions");
       await monitorPositions("paper_positions");
-      await sleep(10 * 1000);
+      await sleep(1000); // 1 second for faster position monitoring
     } catch (error) {
       logger.error("Position monitor loop error", error);
-      await sleep(30 * 1000);
+      await sleep(5000);
     }
   }
 }

@@ -147,6 +147,48 @@ async function loginUserAccount(account: {
   }
 }
 
+async function runAutoLogin(triggerType: string) {
+  console.log("[Auto-Login Cron] Starting auto-login, trigger:", triggerType);
+
+  const { data: adminConfigs } = await supabaseAdmin
+    .from("admin_zerodha_configs")
+    .select("*")
+    .eq("is_active", true)
+    .eq("auto_login_enabled", true);
+
+  const adminResults = [];
+  for (const config of adminConfigs || []) {
+    const result = await loginAdminConfig(config, triggerType);
+    adminResults.push(result);
+  }
+
+  const { data: userAccounts } = await supabaseAdmin
+    .from("user_broker_accounts")
+    .select("*")
+    .eq("is_active", true)
+    .not("totp_secret", "is", null);
+
+  const userResults = [];
+  for (const account of userAccounts || []) {
+    const result = await loginUserAccount(account);
+    userResults.push(result);
+  }
+
+  const totalProcessed = adminResults.length + userResults.length;
+  const totalSuccess = adminResults.filter(r => r.success).length + userResults.filter(r => r.success).length;
+
+  zerodhaService.clearCache();
+
+  await supabaseAdmin.from("system_health_logs").insert({
+    metric_type: "zerodha_auto_login",
+    metric_value: { adminResults, userResults, totalSuccess, totalProcessed },
+    severity: totalSuccess === totalProcessed ? "info" : "warning",
+    message: `Auto-login completed for ${totalSuccess}/${totalProcessed} accounts`,
+  });
+
+  return { adminResults, userResults, totalProcessed, totalSuccess };
+}
+
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
@@ -158,7 +200,7 @@ export async function POST(request: NextRequest) {
   );
   
   if (!isAuthorized) {
-    console.log("[Auto-Login Cron] Unauthorized request. Provided:", authHeader?.substring(0, 20), "...");
+    console.log("[Auto-Login Cron] Unauthorized request");
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -166,49 +208,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const { triggerType = "scheduled" } = body;
 
-    console.log("[Auto-Login Cron] Starting auto-login, trigger:", triggerType);
-
-    // 1. Process Admin Configs (Master)
-    const { data: adminConfigs } = await supabaseAdmin
-      .from("admin_zerodha_configs")
-      .select("*")
-      .eq("is_active", true)
-      .eq("auto_login_enabled", true);
-
-    const adminResults = [];
-    for (const config of adminConfigs || []) {
-      const result = await loginAdminConfig(config, triggerType);
-      adminResults.push(result);
-    }
-
-    // 2. Process User Accounts
-    const { data: userAccounts } = await supabaseAdmin
-      .from("user_broker_accounts")
-      .select("*")
-      .eq("is_active", true)
-      .not("totp_secret", "is", null);
-
-    const userResults = [];
-    for (const account of userAccounts || []) {
-      const result = await loginUserAccount(account);
-      userResults.push(result);
-    }
-
-    const totalProcessed = adminResults.length + userResults.length;
-    const totalSuccess = adminResults.filter(r => r.success).length + userResults.filter(r => r.success).length;
-
-    await supabaseAdmin.from("system_health_logs").insert({
-      metric_type: "zerodha_auto_login",
-      metric_value: { adminResults, userResults, totalSuccess, totalProcessed },
-      severity: totalSuccess === totalProcessed ? "info" : "warning",
-      message: `Auto-login completed for ${totalSuccess}/${totalProcessed} accounts`,
-    });
+    const result = await runAutoLogin(triggerType);
 
     return successResponse({ 
       success: true, 
-      adminResults,
-      userResults,
-      message: `Processed ${totalProcessed} accounts`
+      ...result,
+      message: `Processed ${result.totalProcessed} accounts`
     });
   } catch (error) {
     console.error("[Auto-Login Cron] Error:", error);
@@ -218,28 +223,14 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  const isVercelCron = request.headers.get("x-vercel-cron") === "1";
+  const cronSecret = process.env.CRON_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
   
-  // Authorization logic for GET (Vercel Crons)
-  // 1. If CRON_SECRET is set, prioritize it
-  // 2. If it's a Vercel Cron and no CRON_SECRET is set, allow it (Vercel verifies this header internally)
-  // 3. Fallback to SUPABASE_SERVICE_ROLE_KEY
-  const isAuthorized = 
-    (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
-    (isVercelCron && !cronSecret) ||
-    (process.env.SUPABASE_SERVICE_ROLE_KEY && authHeader === `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`);
-  
-  if (!isAuthorized) {
-    console.log("[Auto-Login Cron] Unauthorized GET request. Vercel-Cron:", isVercelCron);
-    return Response.json({ 
-      error: "Unauthorized",
-      details: "Invalid authorization for cron job. Ensure CRON_SECRET is set in environment variables."
-    }, { status: 401 });
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const result = await runAutoLogin(isVercelCron ? "vercel_cron" : "manual_get");
+    const result = await runAutoLogin("vercel_cron");
 
     return successResponse({ 
       success: true, 

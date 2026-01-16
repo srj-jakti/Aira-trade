@@ -215,10 +215,59 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
-  return successResponse({ 
-    status: "ok", 
-    description: "Zerodha auto-login cron endpoint. Runs daily at 3:30 AM IST.",
-    usage: "POST with Bearer token authorization"
-  });
+export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get("authorization");
+  const cronSecret = process.env.CRON_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    console.log("[Auto-Login Cron] Starting auto-login via GET (Vercel Cron)");
+
+    const { data: adminConfigs } = await supabaseAdmin
+      .from("admin_zerodha_configs")
+      .select("*")
+      .eq("is_active", true)
+      .eq("auto_login_enabled", true);
+
+    const adminResults = [];
+    for (const config of adminConfigs || []) {
+      const result = await loginAdminConfig(config, "vercel_cron");
+      adminResults.push(result);
+    }
+
+    const { data: userAccounts } = await supabaseAdmin
+      .from("user_broker_accounts")
+      .select("*")
+      .eq("is_active", true)
+      .not("totp_secret", "is", null);
+
+    const userResults = [];
+    for (const account of userAccounts || []) {
+      const result = await loginUserAccount(account);
+      userResults.push(result);
+    }
+
+    const totalProcessed = adminResults.length + userResults.length;
+    const totalSuccess = adminResults.filter(r => r.success).length + userResults.filter(r => r.success).length;
+
+    await supabaseAdmin.from("system_health_logs").insert({
+      metric_type: "zerodha_auto_login",
+      metric_value: { adminResults, userResults, totalSuccess, totalProcessed },
+      severity: totalSuccess === totalProcessed ? "info" : "warning",
+      message: `Auto-login completed for ${totalSuccess}/${totalProcessed} accounts`,
+    });
+
+    return successResponse({ 
+      success: true, 
+      adminResults,
+      userResults,
+      message: `Processed ${totalProcessed} accounts`
+    });
+  } catch (error) {
+    console.error("[Auto-Login Cron] Error:", error);
+    return serverErrorResponse();
+  }
 }

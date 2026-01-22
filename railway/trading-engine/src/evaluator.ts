@@ -8,6 +8,133 @@ import { redis, REDIS_KEYS } from "./utils/redis";
 
 const ALGORITHM = "aes-256-gcm";
 
+function getEncryptionKey(): Buffer {
+  const key = process.env.ENCRYPTION_KEY;
+  if (!key || key.length !== 64) {
+    throw new Error("ENCRYPTION_KEY must be 32 bytes (64 hex characters)");
+  }
+  return Buffer.from(key, "hex");
+}
+
+function decrypt(ciphertext: string): string {
+  try {
+    const [ivHex, authTagHex, encrypted] = ciphertext.split(":");
+    if (!ivHex || !authTagHex || !encrypted) {
+      throw new Error("Invalid encrypted format");
+    }
+    const iv = Buffer.from(ivHex, "hex");
+    const authTag = Buffer.from(authTagHex, "hex");
+    const decipher = createDecipheriv(ALGORITHM, getEncryptionKey(), iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encrypted, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch (err) {
+    logger.error("Decryption failed", err);
+    return ciphertext; // Fallback to raw if not encrypted (risk)
+  }
+}
+
+async function getActiveAIConfig() {
+  const { data, error } = await supabase
+    .from("admin_ai_configs")
+    .select("*")
+    .eq("is_active", true)
+    .order("priority", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error || !data) return null;
+  return {
+    ...data,
+    api_key: decrypt(data.api_key)
+  };
+}
+
+async function callAI(config: any, messages: any[]) {
+  try {
+    let url = "";
+    let body = {};
+    let headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (config.provider === "openai") {
+      url = "https://api.openai.com/v1/chat/completions";
+      headers["Authorization"] = `Bearer ${config.api_key}`;
+      body = {
+        model: config.model || "gpt-4o",
+        messages,
+        response_format: { type: "json_object" },
+      };
+    } else if (config.provider === "anthropic") {
+      url = "https://api.anthropic.com/v1/messages";
+      headers["x-api-key"] = config.api_key;
+      headers["anthropic-version"] = "2023-06-01";
+      body = {
+        model: config.model || "claude-3-5-sonnet-20240620",
+        max_tokens: 1024,
+        messages: messages.map(m => m.role === "system" ? { role: "user", content: `System Instruction: ${m.content}` } : m),
+      };
+    } else if (config.provider === "groq") {
+      url = "https://api.groq.com/openai/v1/chat/completions";
+      headers["Authorization"] = `Bearer ${config.api_key}`;
+      body = {
+        model: config.model || "llama-3.1-70b-versatile",
+        messages,
+        response_format: { type: "json_object" },
+      };
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+    if (config.provider === "anthropic") {
+      return data.content?.[0]?.text || null;
+    }
+    return data.choices?.[0]?.message?.content || null;
+  } catch (err) {
+    logger.error(`AI call failed (${config.provider}):`, err);
+    return null;
+  }
+}
+
+/**
+ * EXPERT VALIDATION: Discretionary logic to filter "bad" signals
+ * Mimics how a human trader looks at a setup.
+ */
+function validateExpertEntry(candles: CandleData[], action: "BUY" | "SELL"): { ok: boolean; reason?: string } {
+  if (candles.length < 5) return { ok: true };
+  const last = candles[candles.length - 1];
+  const prev = candles[candles.length - 2];
+  
+  // 1. Candle Quality Check: Avoid tiny "Doji" entries or massive exhaustion candles
+  const bodySize = Math.abs(last.close - last.open);
+  const range = last.high - last.low;
+  const avgRange = candles.slice(-10).reduce((acc, c) => acc + (c.high - c.low), 0) / 10;
+  
+  if (bodySize < range * 0.1) return { ok: false, reason: "Doji/Indecision candle at entry" };
+  if (range > avgRange * 3) return { ok: false, reason: "Exhaustion candle detected" };
+
+  // 2. Volume Check: Institutional moves need volume
+  const avgVolume = candles.slice(-10).reduce((acc, c) => acc + c.volume, 0) / 10;
+  if (last.volume < avgVolume * 0.5) return { ok: false, reason: "Low volume conviction" };
+
+  // 3. Mean Reversion Risk: Don't buy if price is too far from EMA
+  const ema20 = last.indicators?.EMA_20 || last.indicators?.EMA_21;
+  if (ema20) {
+    const dist = ((last.close - ema20) / ema20) * 100;
+    if (action === "BUY" && dist > 2) return { ok: false, reason: "Price overextended from EMA20 (Long)" };
+    if (action === "SELL" && dist < -2) return { ok: false, reason: "Price overextended from EMA20 (Short)" };
+  }
+
+  return { ok: true };
+}
+
 export interface CandleData {
   instrument_token: number;
   timeframe: string;
@@ -249,44 +376,44 @@ export async function evaluateWithAI(
     .filter(c => c.instrument_token === instrumentToken)
     .sort((a, b) => new Date(a.bucket_start).getTime() - new Date(b.bucket_start).getTime());
 
-  const recentCandles = instrumentCandles.slice(-10);
+  const recentCandles = instrumentCandles.slice(-20); // More context
   const messages = [
     {
       role: "system",
       content: `ROLE:
-You are a professional discretionary trader with institutional discipline.
-Your job is to analyze price charts like a human, not like a tick-reactive machine.
+You are an Institutional Grade Systematic Trader.
+Your objective is to filter signals with extremely high precision.
+Only signal a trade if it aligns with "Smart Money" concepts (Liquidity, Structure, Momentum).
 
-🔒 CORE NON-NEGOTIABLE RULES
-- ONLY analyze on CLOSED candles.
-- If market regime is CHOP/SIDEWAYS, return HOLD.
-- Trend alignment across timeframes is mandatory.
-- WAIT is a valid and preferred outcome.
-
-🧠 ANALYSIS FLOW:
-1. MARKET REGIME: Is it TRENDING or RANGING?
-2. STRUCTURE: Identify Higher Highs/Lows.
-3. QUALITY: Check RSI (avoid 40-60 neutral zones).
-4. CONVICTION: Only signal if confidence > 75%.
+🔒 CORE INSTITUTIONAL RULES:
+- MARKET STRUCTURE: Identify if we are in HH/HL (BULLISH) or LH/LL (BEARISH). Don't fight the trend.
+- MOMENTUM: Check RSI. Avoid buying if RSI is already > 70 (Overbought) unless it's a breakout with high volume.
+- LIQUIDITY: Look for volume spikes at support/resistance.
+- VOLATILITY: Don't enter if price has moved more than 3x its ATR in a single candle (Exhaustion).
+- WAIT: If uncertain, return HOLD. Hold is the smartest trade in chop.
 
 Respond ONLY with JSON:
 {
   "signal": "BUY" | "SELL" | "HOLD",
   "confidence": 0-100,
-  "market_regime": "string",
-  "reasoning": "brief technical justification"
+  "market_regime": "TRENDING_UP" | "TRENDING_DOWN" | "RANGING" | "VOLATILE",
+  "key_levels": {"support": number, "resistance": number},
+  "reasoning": "technical institutional justification"
 }`,
     },
     {
       role: "user",
       content: `Analyze data for ${strategy.name}. 
-Recent candles: ${JSON.stringify(recentCandles.map(c => ({
+Current Strategy Intent: ${strategy.zairoth_intent || "Discretionary Institutional Trading"}
+Recent candles (Last 20): ${JSON.stringify(recentCandles.map(c => ({
   t: c.bucket_start,
   o: c.open,
   h: c.high,
   l: c.low,
   c: c.close,
-  v: c.volume
+  v: c.volume,
+  rsi: c.indicators?.RSI_14,
+  ema: c.indicators?.EMA_20
 })))}
 Buy Logic: ${JSON.stringify(strategy.buy_entry_logic)}
 Sell Logic: ${JSON.stringify(strategy.sell_entry_logic)}`,
@@ -298,7 +425,17 @@ Sell Logic: ${JSON.stringify(strategy.sell_entry_logic)}`,
 
   try {
     const parsed = JSON.parse(result);
-    if (parsed.signal === "HOLD") return null;
+    if (parsed.signal === "HOLD" || parsed.confidence < 75) {
+      if (parsed.signal !== "HOLD") logger.info(`[EXPERT] AI Signal filtered due to low confidence (${parsed.confidence}%): ${parsed.reasoning}`);
+      return null;
+    }
+
+    // Double Check with Hardcoded Expert Heuristics
+    const expertCheck = validateExpertEntry(instrumentCandles, parsed.signal);
+    if (!expertCheck.ok) {
+      logger.info(`[EXPERT] AI Signal ${parsed.signal} rejected by heuristics: ${expertCheck.reason}`);
+      return null;
+    }
 
     const last = instrumentCandles[instrumentCandles.length - 1];
     return {
@@ -306,15 +443,16 @@ Sell Logic: ${JSON.stringify(strategy.sell_entry_logic)}`,
       instrument: `TOKEN_${last.instrument_token}`,
       instrumentToken: last.instrument_token,
       price: last.close,
-      stopLoss: last.close * (parsed.signal === "BUY" ? 0.98 : 1.02),
-      target: last.close * (parsed.signal === "BUY" ? 1.04 : 0.96),
+      stopLoss: last.close * (parsed.signal === "BUY" ? 0.985 : 1.015), // Tighter stops for institutional
+      target: last.close * (parsed.signal === "BUY" ? 1.045 : 0.955),
       confidence: parsed.confidence || 50,
-      reasoning: parsed.reasoning,
+      reasoning: `[INSTITUTIONAL] ${parsed.reasoning}`,
     };
   } catch {
     return null;
   }
 }
+
 
 function evaluateExecutableRule(rule: any, candles: CandleData[], index: number, indicatorCache: Map<string, number[]>): boolean {
   const candle = candles[index];
@@ -617,23 +755,31 @@ export async function evaluateWithRules(strategy: Strategy, candles: CandleData[
       await saveSignalMemory(userId, strategy.id, instrumentToken, state);
     }
 
-    if (finalAction) {
-      const sl = (finalAction === "BUY" ? exec.buyExit?.stopLoss?.value : exec.sellExit?.stopLoss?.value) || 2;
-      const tgt = (finalAction === "BUY" ? exec.buyExit?.target?.value : exec.sellExit?.target?.value) || 4;
-      
-      const sig: Signal = {
-        action: finalAction,
-        instrument: `TOKEN_${latest.instrument_token}`,
-        instrumentToken: latest.instrument_token,
-        price: latest.close,
-        stopLoss: latest.close * (finalAction === "BUY" ? (1 - sl / 100) : (1 + sl / 100)),
-        target: latest.close * (finalAction === "BUY" ? (1 + tgt / 100) : (1 - tgt / 100)),
-        confidence: 90,
-        reasoning: reasoning
-      };
-      
-      return sig;
-    }
+      if (finalAction) {
+        // Expert Heuristics Check for Rule-Based Signals
+        const expertCheck = validateExpertEntry(instrumentCandles, finalAction);
+        if (!expertCheck.ok) {
+          logger.info(`[EXPERT] Rule-based ${finalAction} rejected: ${expertCheck.reason}`);
+          return null;
+        }
+
+        const sl = (finalAction === "BUY" ? exec.buyExit?.stopLoss?.value : exec.sellExit?.stopLoss?.value) || 2;
+        const tgt = (finalAction === "BUY" ? exec.buyExit?.target?.value : exec.sellExit?.target?.value) || 4;
+        
+        const sig: Signal = {
+          action: finalAction,
+          instrument: `TOKEN_${latest.instrument_token}`,
+          instrumentToken: latest.instrument_token,
+          price: latest.close,
+          stopLoss: latest.close * (finalAction === "BUY" ? (1 - sl / 100) : (1 + sl / 100)),
+          target: latest.close * (finalAction === "BUY" ? (1 + tgt / 100) : (1 - tgt / 100)),
+          confidence: 90,
+          reasoning: reasoning
+        };
+        
+        return sig;
+      }
+
 
     return null;
   }
@@ -657,30 +803,28 @@ export async function evaluateWithRules(strategy: Strategy, candles: CandleData[
     return false;
   };
 
-  if (checkBuy()) {
-     return {
-        action: "BUY",
-        instrument: `TOKEN_${latest.instrument_token}`,
-        instrumentToken: latest.instrument_token,
-        price: latest.close,
-        stopLoss: latest.close * 0.98,
-        target: latest.close * 1.04,
-        confidence: 75,
-        reasoning: "Legacy rule-based signal detected",
-     };
-  }
+  const buyOk = checkBuy();
+  const sellOk = checkSell();
 
-  if (checkSell()) {
-     return {
-        action: "SELL",
-        instrument: `TOKEN_${latest.instrument_token}`,
-        instrumentToken: latest.instrument_token,
-        price: latest.close,
-        stopLoss: latest.close * 1.02,
-        target: latest.close * 0.96,
-        confidence: 75,
-        reasoning: "Legacy rule-based signal detected",
-     };
+  if (buyOk || sellOk) {
+    const action = buyOk ? "BUY" : "SELL";
+    // Expert Heuristics Check for Legacy Signals
+    const expertCheck = validateExpertEntry(instrumentCandles, action);
+    if (!expertCheck.ok) {
+      logger.info(`[EXPERT] Legacy ${action} rejected: ${expertCheck.reason}`);
+      return null;
+    }
+
+    return {
+      action,
+      instrument: `TOKEN_${latest.instrument_token}`,
+      instrumentToken: latest.instrument_token,
+      price: latest.close,
+      stopLoss: latest.close * (action === "BUY" ? 0.98 : 1.02),
+      target: latest.close * (action === "BUY" ? 1.04 : 0.96),
+      confidence: 75,
+      reasoning: "Legacy rule-based signal detected",
+    };
   }
 
   return null;

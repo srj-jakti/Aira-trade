@@ -195,13 +195,16 @@ export async function POST(request: NextRequest) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   
   const isAuthorized = authHeader && (
-    authHeader === `Bearer ${cronSecret}` ||
-    authHeader === `Bearer ${serviceKey}`
+    (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
+    (serviceKey && authHeader === `Bearer ${serviceKey}`)
   );
   
   if (!isAuthorized) {
-    console.log("[Auto-Login Cron] Unauthorized request");
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+    console.log("[Auto-Login Cron] Unauthorized POST request");
+    return Response.json({ 
+      error: "Unauthorized",
+      details: "Missing or invalid authorization header"
+    }, { status: 401 });
   }
 
   try {
@@ -223,14 +226,28 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const cronSecret = process.env.CRON_SECRET;
+  const isVercelCron = request.headers.get("x-vercel-cron") === "1";
   
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  // Authorization logic for GET (Vercel Crons)
+  // 1. If CRON_SECRET is set, prioritize it
+  // 2. If it's a Vercel Cron and no CRON_SECRET is set, allow it (Vercel verifies this header internally)
+  // 3. Fallback to SUPABASE_SERVICE_ROLE_KEY
+  const isAuthorized = 
+    (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
+    (isVercelCron && !cronSecret) ||
+    (process.env.SUPABASE_SERVICE_ROLE_KEY && authHeader === `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`);
+  
+  if (!isAuthorized) {
+    console.log("[Auto-Login Cron] Unauthorized GET request. Vercel-Cron:", isVercelCron);
+    return Response.json({ 
+      error: "Unauthorized",
+      details: "Invalid authorization for cron job. Ensure CRON_SECRET is set in environment variables."
+    }, { status: 401 });
   }
 
   try {
-    const result = await runAutoLogin("vercel_cron");
+    const result = await runAutoLogin(isVercelCron ? "vercel_cron" : "manual_get");
 
     return successResponse({ 
       success: true, 

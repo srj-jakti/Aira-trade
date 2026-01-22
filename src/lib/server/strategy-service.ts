@@ -213,12 +213,13 @@ ${aiAnalysisEnabled ? `
   Target outcome: Improve win rate from 20% to 60-80% by AVOIDING junk trades.
   ` : ""}
 
-### MANDATORY INSTRUCTIONS:
-1. FORMULATE CORRECT CONDITIONS: Convert natural language into precise technical rules.
-2. USE ALL USER INPUTS: If the user mentions an indicator or condition, you MUST include it.
-3. INSTITUTIONAL TARGETS: If the user doesn't provide targets/SL, use AI analysis based on the strategy type (e.g., 1:2 or 1:3 Risk/Reward).
-4. TRAILING STOP LOSS (TSL): You MUST include Trailing Stop Loss logic for both directions.
-5. MT5 LOGIC: Use logic consistent with MetaTrader 5 (MT5) and institutional trading (Order Blocks, FVG, etc. if relevant).
+  ### MANDATORY INSTRUCTIONS:
+  1. FORMULATE CORRECT CONDITIONS: Convert natural language into precise technical rules.
+  2. USE ALL USER INPUTS: If the user mentions an indicator or condition, you MUST include it.
+  3. SEPARATE RISK FOR EACH SIDE: You MUST provide separate Stop Loss, Target, and Trailing SL for BUY and SELL sides. Even if the user specifies one value, apply it to both but keep them as separate fields in the JSON.
+  4. INSTITUTIONAL TARGETS: If the user doesn't provide targets/SL, use AI analysis based on the strategy type (e.g., 1:2 or 1:3 Risk/Reward).
+  5. TRAILING STOP LOSS (TSL): You MUST include Trailing Stop Loss logic for both directions.
+  6. MT5 LOGIC: Use logic consistent with MetaTrader 5 (MT5) and institutional trading (Order Blocks, FVG, etc. if relevant).
 
 ### STRATEGY TYPES:
 - INTRADAY: Same-day entry/exit. Must exit by 3:15 PM IST.

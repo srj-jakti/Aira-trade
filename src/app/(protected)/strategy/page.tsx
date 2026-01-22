@@ -628,7 +628,67 @@ function CreateStrategyTab({
     const [formatting, setFormatting] = useState(false);
     const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false);
     const [generating, setGenerating] = useState(false);
-  const [strategy, setStrategy] = useState<StructuredStrategy | null>(null);
+    const [strategy, setStrategy] = useState<StructuredStrategy | null>(null);
+
+    const updateStrategyParam = (path: string, field: string, value: any) => {
+      setStrategy((prev) => {
+        if (!prev) return prev;
+        const newStrategy = { ...prev };
+        const keys = path.split(".");
+        let current: any = newStrategy;
+        for (let i = 0; i < keys.length; i++) {
+          if (!current[keys[i]]) current[keys[i]] = {};
+          if (i === keys.length - 1) {
+            if (!current[keys[i]].parameters) current[keys[i]].parameters = {};
+            current[keys[i]].parameters[field] = value;
+          } else {
+            current = current[keys[i]];
+          }
+        }
+
+        // Sync with executable_strategy
+        if (newStrategy.executable_strategy) {
+          const exec = newStrategy.executable_strategy;
+          if (path === "buy_stop_loss" && field === "percentage") {
+            if (!exec.buyExit) exec.buyExit = {};
+            if (!exec.buyExit.stopLoss) exec.buyExit.stopLoss = { type: "PERCENTAGE" };
+            exec.buyExit.stopLoss.value = value;
+          }
+          if (path === "buy_target" && field === "percentage") {
+            if (!exec.buyExit) exec.buyExit = {};
+            if (!exec.buyExit.target) exec.buyExit.target = { type: "PERCENTAGE" };
+            exec.buyExit.target.value = value;
+          }
+          if (path === "buy_trailing_sl") {
+            if (!exec.buyExit) exec.buyExit = {};
+            if (!exec.buyExit.trailingSL) exec.buyExit.trailingSL = { enabled: true };
+            if (field === "activation_percent") exec.buyExit.trailingSL.activationPercent = value;
+            if (field === "trail_percent") exec.buyExit.trailingSL.trailPercent = value;
+            if (field === "enabled") exec.buyExit.trailingSL.enabled = value;
+          }
+          if (path === "sell_stop_loss" && field === "percentage") {
+            if (!exec.sellExit) exec.sellExit = {};
+            if (!exec.sellExit.stopLoss) exec.sellExit.stopLoss = { type: "PERCENTAGE" };
+            exec.sellExit.stopLoss.value = value;
+          }
+          if (path === "sell_target" && field === "percentage") {
+            if (!exec.sellExit) exec.sellExit = {};
+            if (!exec.sellExit.target) exec.sellExit.target = { type: "PERCENTAGE" };
+            exec.sellExit.target.value = value;
+          }
+          if (path === "sell_trailing_sl") {
+            if (!exec.sellExit) exec.sellExit = {};
+            if (!exec.sellExit.trailingSL) exec.sellExit.trailingSL = { enabled: true };
+            if (field === "activation_percent") exec.sellExit.trailingSL.activationPercent = value;
+            if (field === "trail_percent") exec.sellExit.trailingSL.trailPercent = value;
+            if (field === "enabled") exec.sellExit.trailingSL.enabled = value;
+          }
+        }
+
+        return { ...newStrategy };
+      });
+    };
+
   const [backtestResults, setBacktestResults] = useState<Record<string, BacktestResult>>({});
   const [selectedTimeframes, setSelectedTimeframes] = useState<string[]>([]);
     const [selectedInstruments, setSelectedInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string}>>([
@@ -1298,29 +1358,23 @@ function CreateStrategyTab({
                         <StrategySection
                           title="BUY Side"
                           icon={<TrendingUp className="w-3 h-3 text-green-400" />}
+                          onUpdate={updateStrategyParam}
                           sections={[
-                            { label: "Entry", data: strategy.buy_entry_logic || { conditions: [] } },
-                            { label: "Risk (SL/Tgt/Trail)", data: { 
-                              conditions: [
-                                ...(strategy.buy_stop_loss?.conditions || []),
-                                ...(strategy.buy_target?.conditions || []),
-                                ...(strategy.buy_trailing_sl?.conditions || [])
-                              ] 
-                            } },
+                            { label: "Entry", data: strategy.buy_entry_logic || { conditions: [] }, path: "buy_entry_logic" },
+                            { label: "Stop Loss", data: strategy.buy_stop_loss || { conditions: [] }, path: "buy_stop_loss" },
+                            { label: "Target", data: strategy.buy_target || { conditions: [] }, path: "buy_target" },
+                            { label: "Trailing SL", data: strategy.buy_trailing_sl || { conditions: [] }, path: "buy_trailing_sl" },
                           ]}
                         />
                         <StrategySection
                           title="SELL Side"
                           icon={<TrendingDown className="w-3 h-3 text-red-400" />}
+                          onUpdate={updateStrategyParam}
                           sections={[
-                            { label: "Entry", data: strategy.sell_entry_logic || { conditions: [] } },
-                            { label: "Risk (SL/Tgt/Trail)", data: { 
-                              conditions: [
-                                ...(strategy.sell_stop_loss?.conditions || []),
-                                ...(strategy.sell_target?.conditions || []),
-                                ...(strategy.sell_trailing_sl?.conditions || [])
-                              ] 
-                            } },
+                            { label: "Entry", data: strategy.sell_entry_logic || { conditions: [] }, path: "sell_entry_logic" },
+                            { label: "Stop Loss", data: strategy.sell_stop_loss || { conditions: [] }, path: "sell_stop_loss" },
+                            { label: "Target", data: strategy.sell_target || { conditions: [] }, path: "sell_target" },
+                            { label: "Trailing SL", data: strategy.sell_trailing_sl || { conditions: [] }, path: "sell_trailing_sl" },
                           ]}
                         />
                     </div>
@@ -1377,28 +1431,30 @@ function CreateStrategyTab({
               </Button>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <StrategySection
-                    title="BUY Side"
-                    icon={<TrendingUp className="w-4 h-4 text-green-400" />}
-                    sections={[
-                      { label: "Entry Logic", data: strategy.buy_entry_logic || { conditions: [] } },
-                      { label: "Stop Loss", data: strategy.buy_stop_loss || { conditions: [] } },
-                      { label: "Target", data: strategy.buy_target || { conditions: [] } },
-                      { label: "Trailing SL", data: strategy.buy_trailing_sl || { conditions: [] } },
-                    ]}
-                  />
-                  <StrategySection
-                    title="SELL Side"
-                    icon={<TrendingDown className="w-4 h-4 text-red-400" />}
-                    sections={[
-                      { label: "Entry Logic", data: strategy.sell_entry_logic || { conditions: [] } },
-                      { label: "Stop Loss", data: strategy.sell_stop_loss || { conditions: [] } },
-                      { label: "Target", data: strategy.sell_target || { conditions: [] } },
-                      { label: "Trailing SL", data: strategy.sell_trailing_sl || { conditions: [] } },
-                    ]}
-                  />
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <StrategySection
+                      title="BUY Side"
+                      icon={<TrendingUp className="w-4 h-4 text-green-400" />}
+                      onUpdate={updateStrategyParam}
+                      sections={[
+                        { label: "Entry Logic", data: strategy.buy_entry_logic || { conditions: [] }, path: "buy_entry_logic" },
+                        { label: "Stop Loss", data: strategy.buy_stop_loss || { conditions: [] }, path: "buy_stop_loss" },
+                        { label: "Target", data: strategy.buy_target || { conditions: [] }, path: "buy_target" },
+                        { label: "Trailing SL", data: strategy.buy_trailing_sl || { conditions: [] }, path: "buy_trailing_sl" },
+                      ]}
+                    />
+                    <StrategySection
+                      title="SELL Side"
+                      icon={<TrendingDown className="w-4 h-4 text-red-400" />}
+                      onUpdate={updateStrategyParam}
+                      sections={[
+                        { label: "Entry Logic", data: strategy.sell_entry_logic || { conditions: [] }, path: "sell_entry_logic" },
+                        { label: "Stop Loss", data: strategy.sell_stop_loss || { conditions: [] }, path: "sell_stop_loss" },
+                        { label: "Target", data: strategy.sell_target || { conditions: [] }, path: "sell_target" },
+                        { label: "Trailing SL", data: strategy.sell_trailing_sl || { conditions: [] }, path: "sell_trailing_sl" },
+                      ]}
+                    />
+                  </div>
 
                 <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
@@ -1668,10 +1724,12 @@ function StrategySection({
   title,
   icon,
   sections,
+  onUpdate,
 }: {
   title: string;
   icon: React.ReactNode;
-  sections: { label: string; data: StrategyLogic }[];
+  sections: { label: string; data: StrategyLogic; path?: string }[];
+  onUpdate?: (path: string, field: string, value: any) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
 
@@ -1696,33 +1754,56 @@ function StrategySection({
         <div className="space-y-4">
           {sections.map((section) => (
             <div key={section.label}>
-              <p className="text-white/40 text-xs uppercase tracking-wider mb-1">
-                {section.label}
-              </p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-white/40 text-xs uppercase tracking-wider">
+                  {section.label}
+                </p>
+              </div>
               <div className="text-white/80 text-sm">
                 {section.data.description && (
                   <p className="mb-1 text-white/60 italic">{section.data.description}</p>
                 )}
-                  <ul className="space-y-0.5">
-                    {section.data.conditions?.map((c, i) => (
-                      <li key={i}>
-                        • {typeof c === 'string' ? c : (
-                          <span className="text-white/40">
-                            {JSON.stringify(c)}
-                          </span>
-                        )}
-                      </li>
+                
+                {/* Editable Parameters */}
+                {section.data.parameters && typeof section.data.parameters === "object" && section.data.parameters !== null && Object.keys(section.data.parameters).length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 mb-2 p-2 bg-white/5 rounded-lg border border-white/5">
+                    {Object.entries(section.data.parameters).map(([k, v]) => (
+                      <div key={k} className="flex flex-col gap-1">
+                        <Label className="text-[10px] text-white/40 uppercase">{k.replace("_", " ")}</Label>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type={typeof v === "number" ? "number" : "text"}
+                            value={String(v)}
+                            onChange={(e) => {
+                              const newVal = typeof v === "number" ? parseFloat(e.target.value) : e.target.value;
+                              if (onUpdate && section.path) {
+                                onUpdate(section.path, k, newVal);
+                              }
+                            }}
+                            className="h-7 text-xs bg-white/10 border-white/10 text-white px-2"
+                            step={typeof v === "number" ? "0.1" : undefined}
+                          />
+                          {k.toLowerCase().includes("percent") && <span className="text-[10px] text-white/40">%</span>}
+                        </div>
+                      </div>
                     ))}
-                  </ul>
-                    {section.data.parameters && typeof section.data.parameters === "object" && section.data.parameters !== null && Object.keys(section.data.parameters).length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {Object.entries(section.data.parameters).map(([k, v]) => (
-                        <Badge key={k} variant="outline" className="text-xs border-white/10 text-white/50">
-                          {k}: {typeof v === "object" ? JSON.stringify(v) : String(v)}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                  </div>
+                )}
+
+                <ul className="space-y-0.5">
+                  {section.data.conditions?.map((c, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-cyan-500 mt-1.5">•</span>
+                      {typeof c === 'string' ? (
+                        <span>{c}</span>
+                      ) : (
+                        <span className="text-white/40">
+                          {JSON.stringify(c)}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           ))}

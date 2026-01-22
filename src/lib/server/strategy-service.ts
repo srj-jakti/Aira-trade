@@ -150,6 +150,7 @@ class StrategyService {
 
     const TRADITIONAL_PROMPT = `You are an Expert Professional Trader AI with 10+ years of discretionary trading experience.
 You are NOT an indicator calculator. You are a DECISION-MAKING TRADER.
+You MUST follow MT5/Institutional trading standards.
 
 ${zairothContext}
 ${aiAnalysisEnabled ? `
@@ -190,6 +191,13 @@ ${aiAnalysisEnabled ? `
   Use 'AND' logic for the executable strategy to ensure only high-quality trades are taken.
   Target outcome: Improve win rate from 20% to 60-80% by AVOIDING junk trades.
   ` : ""}
+
+### MANDATORY INSTRUCTIONS:
+1. FORMULATE CORRECT CONDITIONS: Convert natural language into precise technical rules.
+2. USE ALL USER INPUTS: If the user mentions an indicator or condition, you MUST include it.
+3. INSTITUTIONAL TARGETS: If the user doesn't provide targets/SL, use AI analysis based on the strategy type (e.g., 1:2 or 1:3 Risk/Reward).
+4. TRAILING STOP LOSS (TSL): You MUST include Trailing Stop Loss logic for both directions.
+5. MT5 LOGIC: Use logic consistent with MetaTrader 5 (MT5) and institutional trading (Order Blocks, FVG, etc. if relevant).
 
 ### STRATEGY TYPES:
 - INTRADAY: Same-day entry/exit. Must exit by 3:15 PM IST.
@@ -247,8 +255,8 @@ ${aiAnalysisEnabled ? `
   "buy_target": { "parameters": { "percentage": 3.0 } },
   "sell_stop_loss": { "parameters": { "percentage": 1.5 } },
   "sell_target": { "parameters": { "percentage": 3.0 } },
-  "buy_trailing_sl": { "conditions": [] },
-  "sell_trailing_sl": { "conditions": [] },
+  "buy_trailing_sl": { "conditions": ["Activate at 1% profit, trail by 0.5%"] },
+  "sell_trailing_sl": { "conditions": ["Activate at 1% profit, trail by 0.5%"] },
   "hold_logic": { "conditions": [] },
   "executable_strategy": {
     "name": "Strategy Name",
@@ -268,8 +276,16 @@ ${aiAnalysisEnabled ? `
         { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 65 }
       ] 
     },
-    "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3.0 } },
-    "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3.0 } },
+    "buyExit": { 
+      "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, 
+      "target": { "type": "PERCENTAGE", "value": 3.0 },
+      "trailingSL": { "enabled": true, "activationPercent": 1.0, "trailPercent": 0.5 }
+    },
+    "sellExit": { 
+      "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, 
+      "target": { "type": "PERCENTAGE", "value": 3.0 },
+      "trailingSL": { "enabled": true, "activationPercent": 1.0, "trailPercent": 0.5 }
+    },
     "requiredIndicators": [
       { "name": "EMA", "period": 20 },
       { "name": "RSI", "period": 14 }
@@ -279,62 +295,59 @@ ${aiAnalysisEnabled ? `
 }
 
 ### CRITICAL RULES:
-1. Use "OR" logic for buy/sell to generate more signals
-2. Keep rules simple: 1-2 conditions max per entry - MORE CONDITIONS = FEWER TRADES = WORSE RESULTS
-3. RSI thresholds: oversold 30-40, overbought 60-70 (NOT extreme 20/80)
-4. Stop loss: 1-2% for intraday, 2-4% for swing
-5. Target: 1.5x to 2x of stop loss (risk-reward ratio)
-6. NEVER add more than 2 entry rules per direction - this kills trade frequency`;
+1. USE ALL USER INDICATORS: Never skip an indicator mentioned by the user.
+2. TRAILING SL IS MANDATORY: Always include trailing SL in 'executable_strategy'.
+3. RSI thresholds: oversold 30-40, overbought 60-70.
+4. Risk-Reward: Target should be at least 1.5x of SL unless user specifies otherwise.
+5. Simple Entry: Keep to 1-2 entry rules per direction.`;
 
-    const NEURAL_PROMPT = `You are a Lead Neural Quant Strategist. You specialize in Price Action Sequences (PAS).
+    const NEURAL_PROMPT = `You are a Lead Neural Quant Strategist. You specialize in Price Action Sequences (PAS) and Institutional Market Structure (MT5 standards).
 Your goal is to format a Neural Strategy Idea into a structured JSON for execution.
 
 ### THE NEURAL ARCHITECTURE:
-Neural mode focuses on Market Structure (HH/HL), Liquidity Grabs, and Imbalances.
+Neural mode focuses on Market Structure (HH/HL), Liquidity Grabs (Sweeps), and Imbalances (FVG).
 Instead of retail indicators (RSI/EMA), you must prioritize 'price_action' and 'pattern' rules.
+
+### MANDATORY NEURAL INSTRUCTIONS:
+1. USE ALL USER INPUTS: Formulate rules for every price action element mentioned.
+2. SEQUENTIAL LOGIC: Neural strategies often require sequences. Use 'AND' logic for sequences.
+3. INSTITUTIONAL EXITS: Use structure-based targets and MANDATORY Trailing Stop Loss.
+4. MT5 COMPATIBILITY: Ensure logic follows institutional price action principles.
 
 ### AVAILABLE NEURAL RULES:
 1. **price_action**: 
    \`{ "type": "price_action", "action": "HIGHER_HIGH" | "LOWER_LOW" | "HIGHER_LOW" | "LOWER_HIGH" | "BULLISH_CANDLE" | "BEARISH_CANDLE" }\`
-   - Use these to define structure shifts (e.g., BULLISH_CANDLE after HIGHER_HIGH).
+   - Use these to define structure shifts.
 
 2. **pattern**:
    \`{ "type": "pattern", "pattern": "HAMMER" | "SHOOTING_STAR" | "DOJI" | "BULLISH_ENGULFING" | "BEARISH_ENGULFING" }\`
-   - Use these for entry confirmation (e.g., HAMMER at a demand zone).
+   - Use these for entry confirmation.
 
 3. **trend**:
    \`{ "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" | "BEARISH" }\`
    \`{ "type": "trend", "indicator": "ADX", "threshold": 25 }\`
-   - Use these for Market Regime filtering.
 
 ### MAPPING SEQUENCES TO EXECUTABLE RULES:
 "Wait for Liquidity Sweep (Lower Low) followed by a Bullish Candle"
 -> Rules: [{ "type": "price_action", "action": "LOWER_LOW" }, { "type": "price_action", "action": "BULLISH_CANDLE" }]
--> Logic: "AND" (This forces the executor's "Time-Aware" logic to wait for the sequence).
+-> Logic: "AND" (Enables memory-based sequence tracking).
 
 ### OUTPUT JSON:
-Same structure as traditional, but rules must focus on price action.
+Same structure as traditional, but rules focus on price action.
 {
   "name": "Neural Strategy Name",
-  "description": "Institutional Price Action Sequence...",
-  "strategy_type": "INTRADAY" | "SWING",
-  "buy_entry_logic": { "conditions": ["Liquidity Grab (Lower Low)", "Bullish Market Structure Shift"], "indicators": [] },
-  "sell_entry_logic": { "conditions": ["Liquidity Grab (Higher High)", "Bearish Market Structure Shift"], "indicators": [] },
-  "executable_strategy": {
-    "name": "Neural Strategy Name",
-    "buy": { "logic": "AND", "rules": [{ "type": "price_action", "action": "LOWER_LOW" }, { "type": "price_action", "action": "BULLISH_CANDLE" }] },
-    "sell": { "logic": "AND", "rules": [{ "type": "price_action", "action": "HIGHER_HIGH" }, { "type": "price_action", "action": "BEARISH_CANDLE" }] },
-    "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.0 }, "target": { "type": "PERCENTAGE", "value": 3.0 } },
-    "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.0 }, "target": { "type": "PERCENTAGE", "value": 3.0 } },
-    "requiredIndicators": [],
-    "minWarmupCandles": 5
-  }
+  "buyExit": { 
+    "stopLoss": { "type": "PERCENTAGE", "value": 1.0 }, 
+    "target": { "type": "PERCENTAGE", "value": 3.5 },
+    "trailingSL": { "enabled": true, "activationPercent": 1.2, "trailPercent": 0.8 }
+  },
+  ...
 }
 
 ### CRITICAL NEURAL RULES:
-1. Always use "AND" logic for price action sequences - it enables the engine's memory-based sequence tracking.
-2. If the user mentions RSI or EMA, you CAN include them as confirmation, but the CORE must be price action.
-3. Stop losses in neural mode are usually tighter (0.5% - 1.2%). Targets are higher (3% - 5%).`;
+1. Always use "AND" logic for price action sequences.
+2. MANDATORY Trailing Stop Loss: Always enable it in buyExit/sellExit.
+3. Targets are usually higher (2.5% - 5.0%) due to institutional RR ratios.`;
 
     const messages = [
         {
@@ -537,6 +550,21 @@ Same structure as traditional, but rules must focus on price action.
       strategy.minWarmupCandles = 30;
     }
 
+    // Fix Trailing SL if it's missing or incomplete
+    if (!strategy.buyExit.trailingSL) {
+      strategy.buyExit.trailingSL = { enabled: true, activationPercent: 1.5, trailPercent: 1.0 };
+    } else if (strategy.buyExit.trailingSL.enabled && !strategy.buyExit.trailingSL.trailPercent) {
+      strategy.buyExit.trailingSL.trailPercent = 0.5;
+      strategy.buyExit.trailingSL.activationPercent = 1.0;
+    }
+
+    if (!strategy.sellExit.trailingSL) {
+      strategy.sellExit.trailingSL = { enabled: true, activationPercent: 1.5, trailPercent: 1.0 };
+    } else if (strategy.sellExit.trailingSL.enabled && !strategy.sellExit.trailingSL.trailPercent) {
+      strategy.sellExit.trailingSL.trailPercent = 0.5;
+      strategy.sellExit.trailingSL.activationPercent = 1.0;
+    }
+
     return strategy;
   }
 
@@ -618,15 +646,27 @@ Same structure as traditional, but rules must focus on price action.
       };
     }
 
-    if (exec.sellExit?.target) {
-      strategy.sell_target.parameters = { 
-        ...strategy.sell_target.parameters,
-        percentage: exec.sellExit.target.value,
-        type: exec.sellExit.target.type
+    if (exec.buyExit?.trailingSL) {
+      strategy.buy_trailing_sl.parameters = {
+        enabled: exec.buyExit.trailingSL.enabled,
+        activation_percent: exec.buyExit.trailingSL.activationPercent,
+        trail_percent: exec.buyExit.trailingSL.trailPercent
       };
+      if (exec.buyExit.trailingSL.enabled) {
+        strategy.buy_trailing_sl.conditions = [`Activate at ${exec.buyExit.trailingSL.activationPercent}% profit, trail by ${exec.buyExit.trailingSL.trailPercent}%`];
+      }
     }
 
-    return strategy;
+    if (exec.sellExit?.trailingSL) {
+      strategy.sell_trailing_sl.parameters = {
+        enabled: exec.sellExit.trailingSL.enabled,
+        activation_percent: exec.sellExit.trailingSL.activationPercent,
+        trail_percent: exec.sellExit.trailingSL.trailPercent
+      };
+      if (exec.sellExit.trailingSL.enabled) {
+        strategy.sell_trailing_sl.conditions = [`Activate at ${exec.sellExit.trailingSL.activationPercent}% profit, trail by ${exec.sellExit.trailingSL.trailPercent}%`];
+      }
+    }
   }
 
   private createFallbackExecutableStrategy(strategy: StructuredStrategy): ExecutableStrategy {
@@ -748,14 +788,17 @@ Same structure as traditional, but rules must focus on price action.
         version: 1,
         buy: { logic: "OR", rules: buyRules },
         sell: { logic: "OR", rules: sellRules },
-        buyExit: {
-          stopLoss: { type: "PERCENTAGE", value: slPercent },
-          target: { type: "PERCENTAGE", value: targetPercent },
-        },
-        sellExit: {
-          stopLoss: { type: "PERCENTAGE", value: slPercent },
-          target: { type: "PERCENTAGE", value: targetPercent },
-        },
+          sellExit: {
+            stopLoss: { type: "PERCENTAGE", value: slPercent },
+            target: { type: "PERCENTAGE", value: targetPercent },
+            trailingSL: { enabled: true, activationPercent: 1.5, trailPercent: 1.0 }
+          },
+          buyExit: {
+            stopLoss: { type: "PERCENTAGE", value: slPercent },
+            target: { type: "PERCENTAGE", value: targetPercent },
+            trailingSL: { enabled: true, activationPercent: 1.5, trailPercent: 1.0 }
+          },
+
         requiredIndicators: indicators as any,
         minWarmupCandles: 20,
       };
@@ -1459,104 +1502,144 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
         let exitReason = "";
         let exitPrice = candle.close;
 
-        const execStrategy = strategy.executable_strategy;
+          const execStrategy = strategy.executable_strategy;
+          let currentTrailingSL: number | null = null;
+          let highestPriceSinceEntry: number = entryPrice;
+          let lowestPriceSinceEntry: number = entryPrice;
 
-        if (currentPosition.type === "BUY") {
-          let slPercent = 2;
-          let targetPercent = 4;
+          if (currentPosition.type === "BUY") {
+            let slPercent = 2;
+            let targetPercent = 4;
 
-          if (execStrategy?.buyExit?.stopLoss) {
-            slPercent = execStrategy.buyExit.stopLoss.value;
-          } else if (strategy.buy_stop_loss?.parameters?.percentage) {
-            slPercent = strategy.buy_stop_loss.parameters.percentage as number;
-          }
-          
-          if (execStrategy?.buyExit?.target) {
-            targetPercent = execStrategy.buyExit.target.value;
-          } else if (strategy.buy_target?.parameters?.percentage) {
-            targetPercent = strategy.buy_target.parameters.percentage as number;
-          }
-
-          const slPrice = entryPrice * (1 - slPercent / 100);
-          
-          if (candle.low <= slPrice) {
-            shouldExit = true;
-            exitReason = "Stop Loss Hit";
-            exitPrice = slPrice;
-          }
-
-          const targetPrice = entryPrice * (1 + targetPercent / 100);
-
-          if (candle.high >= targetPrice && !shouldExit) {
-            shouldExit = true;
-            exitReason = "Target Hit";
-            exitPrice = targetPrice;
-          }
-
-          if (sellSignal && !shouldExit) {
-            shouldExit = true;
-            exitReason = "Sell Signal";
-          }
-
-          // Intraday Square-off logic
-          const isIntraday = strategy.strategy_type === "INTRADAY" || execStrategy?.strategyType === "INTRADAY";
-          if (isIntraday && !shouldExit) {
-            const candleDate = new Date(candle.timestamp);
-            const hour = candleDate.getHours();
-            const minute = candleDate.getMinutes();
+            if (execStrategy?.buyExit?.stopLoss) {
+              slPercent = execStrategy.buyExit.stopLoss.value;
+            } else if (strategy.buy_stop_loss?.parameters?.percentage) {
+              slPercent = strategy.buy_stop_loss.parameters.percentage as number;
+            }
             
-            // Indian markets square off around 3:15 PM - 3:20 PM
-            if (hour > 15 || (hour === 15 && minute >= 15)) {
-              shouldExit = true;
-              exitReason = "Intraday Square-off";
-              exitPrice = candle.close;
-            } else if (i < candles.length - 1) {
-              // Check if next candle is on a different day
-              const nextCandleDate = new Date(candles[i+1].timestamp);
-              if (candleDate.getDate() !== nextCandleDate.getDate()) {
-                shouldExit = true;
-                exitReason = "Intraday End-of-Day";
-                exitPrice = candle.close;
+            if (execStrategy?.buyExit?.target) {
+              targetPercent = execStrategy.buyExit.target.value;
+            } else if (strategy.buy_target?.parameters?.percentage) {
+              targetPercent = strategy.buy_target.parameters.percentage as number;
+            }
+
+            // Trailing Stop Loss Logic (LONG)
+            const tsl = execStrategy?.buyExit?.trailingSL;
+            if (tsl?.enabled) {
+              highestPriceSinceEntry = Math.max(highestPriceSinceEntry, candle.high);
+              const profitPct = ((highestPriceSinceEntry - entryPrice) / entryPrice) * 100;
+              
+              if (profitPct >= (tsl.activationPercent || 1)) {
+                const newTrailingSL = highestPriceSinceEntry * (1 - (tsl.trailPercent || 0.5) / 100);
+                if (currentTrailingSL === null || newTrailingSL > currentTrailingSL) {
+                  currentTrailingSL = newTrailingSL;
+                }
               }
             }
-          }
-        } else {
-          let slPercent = 2;
-          let targetPercent = 4;
 
-          if (execStrategy?.sellExit?.stopLoss) {
-            slPercent = execStrategy.sellExit.stopLoss.value;
-          } else if (strategy.sell_stop_loss?.parameters?.percentage) {
-            slPercent = strategy.sell_stop_loss.parameters.percentage as number;
-          }
-          
-          if (execStrategy?.sellExit?.target) {
-            targetPercent = execStrategy.sellExit.target.value;
-          } else if (strategy.sell_target?.parameters?.percentage) {
-            targetPercent = strategy.sell_target.parameters.percentage as number;
+            const slPrice = entryPrice * (1 - slPercent / 100);
+            
+            if (currentTrailingSL !== null && candle.low <= currentTrailingSL) {
+              shouldExit = true;
+              exitReason = "Trailing Stop Loss Hit";
+              exitPrice = currentTrailingSL;
+            } else if (candle.low <= slPrice) {
+              shouldExit = true;
+              exitReason = "Stop Loss Hit";
+              exitPrice = slPrice;
+            }
+
+            const targetPrice = entryPrice * (1 + targetPercent / 100);
+
+            if (candle.high >= targetPrice && !shouldExit) {
+              shouldExit = true;
+              exitReason = "Target Hit";
+              exitPrice = targetPrice;
+            }
+
+            if (sellSignal && !shouldExit) {
+              shouldExit = true;
+              exitReason = "Sell Signal";
+            }
+
+            // Intraday Square-off logic
+            const isIntraday = strategy.strategy_type === "INTRADAY" || execStrategy?.strategyType === "INTRADAY";
+            if (isIntraday && !shouldExit) {
+              const candleDate = new Date(candle.timestamp);
+              const hour = candleDate.getHours();
+              const minute = candleDate.getMinutes();
+              
+              // Indian markets square off around 3:15 PM - 3:20 PM
+              if (hour > 15 || (hour === 15 && minute >= 15)) {
+                shouldExit = true;
+                exitReason = "Intraday Square-off";
+                exitPrice = candle.close;
+              } else if (i < candles.length - 1) {
+                // Check if next candle is on a different day
+                const nextCandleDate = new Date(candles[i+1].timestamp);
+                if (candleDate.getDate() !== nextCandleDate.getDate()) {
+                  shouldExit = true;
+                  exitReason = "Intraday End-of-Day";
+                  exitPrice = candle.close;
+                }
+              }
+            }
+          } else {
+            let slPercent = 2;
+            let targetPercent = 4;
+
+            if (execStrategy?.sellExit?.stopLoss) {
+              slPercent = execStrategy.sellExit.stopLoss.value;
+            } else if (strategy.sell_stop_loss?.parameters?.percentage) {
+              slPercent = strategy.sell_stop_loss.parameters.percentage as number;
+            }
+            
+            if (execStrategy?.sellExit?.target) {
+              targetPercent = execStrategy.sellExit.target.value;
+            } else if (strategy.sell_target?.parameters?.percentage) {
+              targetPercent = strategy.sell_target.parameters.percentage as number;
+            }
+
+            // Trailing Stop Loss Logic (SHORT)
+            const tsl = execStrategy?.sellExit?.trailingSL;
+            if (tsl?.enabled) {
+              lowestPriceSinceEntry = Math.min(lowestPriceSinceEntry, candle.low);
+              const profitPct = ((entryPrice - lowestPriceSinceEntry) / entryPrice) * 100;
+              
+              if (profitPct >= (tsl.activationPercent || 1)) {
+                const newTrailingSL = lowestPriceSinceEntry * (1 + (tsl.trailPercent || 0.5) / 100);
+                if (currentTrailingSL === null || newTrailingSL < currentTrailingSL) {
+                  currentTrailingSL = newTrailingSL;
+                }
+              }
+            }
+
+            const slPrice = entryPrice * (1 + slPercent / 100);
+
+            if (currentTrailingSL !== null && candle.high >= currentTrailingSL) {
+              shouldExit = true;
+              exitReason = "Trailing Stop Loss Hit";
+              exitPrice = currentTrailingSL;
+            } else if (candle.high >= slPrice) {
+              shouldExit = true;
+              exitReason = "Stop Loss Hit";
+              exitPrice = slPrice;
+            }
+
+            const targetPrice = entryPrice * (1 - targetPercent / 100);
+
+            if (candle.low <= targetPrice && !shouldExit) {
+              shouldExit = true;
+              exitReason = "Target Hit";
+              exitPrice = targetPrice;
+            }
+
+            if (buySignal && !shouldExit) {
+              shouldExit = true;
+              exitReason = "Buy Signal";
+            }
           }
 
-          const slPrice = entryPrice * (1 + slPercent / 100);
-
-          if (candle.high >= slPrice) {
-            shouldExit = true;
-            exitReason = "Stop Loss Hit";
-            exitPrice = slPrice;
-          }
-
-          const targetPrice = entryPrice * (1 - targetPercent / 100);
-
-          if (candle.low <= targetPrice && !shouldExit) {
-            shouldExit = true;
-            exitReason = "Target Hit";
-            exitPrice = targetPrice;
-          }
-
-          if (buySignal && !shouldExit) {
-            shouldExit = true;
-            exitReason = "Buy Signal";
-          }
-        }
 
         if (shouldExit) {
           const pnl = currentPosition.type === "BUY"

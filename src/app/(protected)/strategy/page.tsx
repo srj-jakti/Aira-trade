@@ -623,7 +623,7 @@ function CreateStrategyTab({
   initialData?: any;
   onCancel?: () => void;
 }) {
-  const [step, setStep] = useState<"input" | "review" | "backtest" | "improve" | "save">("input");
+  const [step, setStep] = useState<"selection" | "input" | "review" | "backtest" | "improve" | "save">("selection");
   const [rawInput, setRawInput] = useState("");
     const [formatting, setFormatting] = useState(false);
     const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false);
@@ -840,7 +840,7 @@ function CreateStrategyTab({
         if (res.ok) {
           const data = await res.json();
           setStrategy(data.strategy);
-          setStep("review");
+          // Don't change step here, we stay in input step but with formatted strategy shown on the right
         } else {
           alert("Failed to format strategy. Please try again.");
         }
@@ -900,7 +900,7 @@ function CreateStrategyTab({
             aiInsights: data.aiInsights || null
           };
           setBacktestResults((prev) => ({ ...prev, [timeframe]: resultWithInsights }));
-          if (step === "review") setStep("backtest");
+          if (step === "input") setStep("backtest");
         } else {
           const error = await res.json();
           alert(error.error || "Backtest failed");
@@ -986,7 +986,7 @@ function CreateStrategyTab({
   };
 
   const resetForm = () => {
-    setStep("input");
+    setStep("selection");
     setRawInput("");
     setStrategy(null);
     setBacktestResults({});
@@ -1085,18 +1085,18 @@ function CreateStrategyTab({
       )}
 
       <div className="flex items-center justify-between gap-0.5 mb-6 bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto scrollbar-hide">
-        {["input", "review", "backtest", "improve", "save"].map((s, i) => (
+        {["selection", "input", "backtest", "improve", "save"].map((s, i) => (
           <div key={s} className="flex items-center flex-1 last:flex-none">
             <div
               className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-sm font-medium transition-colors shrink-0 ${
                 step === s
                   ? "bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)]"
-                  : ["input", "review", "backtest", "improve", "save"].indexOf(step) > i
+                  : ["selection", "input", "backtest", "improve", "save"].indexOf(step) > i
                   ? "bg-green-500 text-white"
                   : "bg-white/10 text-white/40"
               }`}
             >
-              {["input", "review", "backtest", "improve", "save"].indexOf(step) > i ? (
+              {["selection", "input", "backtest", "improve", "save"].indexOf(step) > i ? (
                 <Check className="w-3 h-3 sm:w-4 sm:h-4" />
               ) : (
                 i + 1
@@ -1105,7 +1105,7 @@ function CreateStrategyTab({
             {i < 4 && (
               <div
                 className={`flex-1 h-0.5 mx-0.5 sm:mx-2 ${
-                  ["input", "review", "backtest", "improve", "save"].indexOf(step) > i
+                  ["selection", "input", "backtest", "improve", "save"].indexOf(step) > i
                     ? "bg-green-500"
                     : "bg-white/10"
                 }`}
@@ -1115,179 +1115,232 @@ function CreateStrategyTab({
         ))}
       </div>
 
-      {step === "input" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="bg-white/5 border-white/10 lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-white text-lg flex items-center gap-2">
-                <Bot className="w-5 h-5 text-cyan-400" />
-                Describe Your Strategy
-              </CardTitle>
+      {step === "selection" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-8">
+          <Card 
+            className="bg-white/5 border-white/10 hover:border-cyan-500/50 transition-all cursor-pointer group"
+            onClick={() => {
+              setCreationMode("traditional");
+              setStep("input");
+            }}
+          >
+            <CardHeader className="text-center">
+              <div className="w-16 h-16 rounded-full bg-cyan-500/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-cyan-500/20 transition-all">
+                <Activity className="w-8 h-8 text-cyan-400" />
+              </div>
+              <CardTitle className="text-white text-xl">Traditional Indicators</CardTitle>
               <CardDescription className="text-white/40">
-                Write your trading idea in any form - even incomplete or unclear. Our AI will convert it into a complete, executable strategy.
+                Create strategy using technical indicators like RSI, EMA, Supertrend, etc.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-                <Textarea
-                  placeholder="Example: Buy when RSI is low and price is above 20 SMA. Use 2% stop loss and 4% target. Avoid trading during high volatility..."
-                  value={rawInput}
-                  onChange={(e) => setRawInput(e.target.value)}
-                  className="min-h-[200px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none"
-                />
-
-                  <div className="flex items-center justify-between p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
-                        <Activity className="w-5 h-5 text-cyan-400" />
-                      </div>
-                      <div>
-                        <Label className="text-white text-sm font-medium">Strategy Creation Engine</Label>
-                        <p className="text-white/40 text-xs">
-                          {creationMode === "traditional" 
-                            ? "Indicator-based logic (RSI, EMA, Supertrend)" 
-                            : "Neural logic (Price Action Sequences, Liquidity, Structure)"}
-                        </p>
-                      </div>
-                    </div>
-                    <Select value={creationMode} onValueChange={(v: any) => setCreationMode(v)}>
-                      <SelectTrigger className="w-[180px] bg-white/5 border-white/10 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#1a1a1a] border-white/10">
-                        <SelectItem value="traditional" className="text-white">Traditional Engine</SelectItem>
-                        <SelectItem value="neural" className="text-white">Neural Engine 🧠</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
-                      <Sparkles className="w-5 h-5 text-cyan-400" />
-                    </div>
-                    <div>
-                      <Label className="text-white text-sm font-medium">AI Performance Analysis</Label>
-                      <p className="text-white/40 text-xs">
-                        Enable deep analysis to optimize win rate and performance
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={aiAnalysisEnabled}
-                    onCheckedChange={setAiAnalysisEnabled}
-                  />
-                </div>
-
-                <div className="p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
-                <Label className="text-white/60 text-sm mb-2 flex items-center gap-2">
-                  <Link2 className="w-4 h-4" />
-                  Reference Instrument (Optional)
-                </Label>
-                <p className="text-white/40 text-xs mb-2">
-                  For options/futures trading, reference index price for entry signals
-                </p>
-                <div className="relative">
-                  {referenceInstrument ? (
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
-                        {referenceInstrument}
-                      </Badge>
-                      <button
-                        onClick={() => setReferenceInstrument("")}
-                        className="text-white/40 hover:text-white"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <Input
-                        placeholder="Search index (e.g., NIFTY 50, BANKNIFTY)..."
-                        value={refInstrumentSearch}
-                        onChange={(e) => {
-                          setRefInstrumentSearch(e.target.value);
-                          searchRefInstruments(e.target.value);
-                        }}
-                        className="bg-white/5 border-white/10 text-white h-9 text-sm"
-                      />
-                      {refInstruments.length > 0 && (
-                        <div className="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl max-h-32 overflow-y-auto">
-                          {refInstruments.map((inst) => (
-                            <button
-                              key={inst.instrument_token}
-                              className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-white text-sm"
-                              onClick={() => {
-                                setReferenceInstrument(inst.tradingsymbol);
-                                setRefInstrumentSearch("");
-                                setRefInstruments([]);
-                              }}
-                            >
-                              {inst.tradingsymbol}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap justify-end gap-3">
-                <Sheet open={showToolbox} onOpenChange={setShowToolbox}>
-                  <SheetTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="border-white/10 text-white/60 hover:bg-white/5 lg:hidden"
-                    >
-                      <Wrench className="w-4 h-4 mr-2" />
-                      Toolbox
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="right" className="bg-slate-900 border-slate-700 w-80">
-                    <SheetHeader>
-                      <SheetTitle className="text-white">Trading Toolbox</SheetTitle>
-                    </SheetHeader>
-                    <div className="mt-4">
-                      <TradingToolbox onInsertTool={handleInsertTool} />
-                    </div>
-                  </SheetContent>
-                </Sheet>
-                <Button
-                  variant="outline"
-                  onClick={generateStrategy}
-                  disabled={generating || formatting}
-                  className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
-                >
-                  {generating ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-4 h-4 mr-2" />
-                  )}
-                  AI Generation
-                </Button>
-                <Button
-                  onClick={formatStrategy}
-                  disabled={!rawInput.trim() || formatting || generating}
-                  className="bg-cyan-500 hover:bg-cyan-600"
-                >
-                  {formatting ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Zap className="w-4 h-4 mr-2" />
-                  )}
-                  Format with AI
-                </Button>
-              </div>
-            </CardContent>
           </Card>
 
-          <div className="hidden lg:block">
-            <TradingToolbox onInsertTool={handleInsertTool} />
+          <Card 
+            className="bg-white/5 border-white/10 hover:border-purple-500/50 transition-all cursor-pointer group"
+            onClick={() => {
+              setCreationMode("neural");
+              setStep("input");
+            }}
+          >
+            <CardHeader className="text-center">
+              <div className="w-16 h-16 rounded-full bg-purple-500/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-purple-500/20 transition-all">
+                <Bot className="w-8 h-8 text-purple-400" />
+              </div>
+              <CardTitle className="text-white text-xl">Fully AI Based (Neural)</CardTitle>
+              <CardDescription className="text-white/40">
+                AI powered logic based on Price Action, Market Structure, and Neural analysis.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      )}
+
+      {step === "input" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-6">
+            <Card className="bg-white/5 border-white/10 h-full">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-white text-lg flex items-center gap-2">
+                    {creationMode === "traditional" ? (
+                      <Activity className="w-5 h-5 text-cyan-400" />
+                    ) : (
+                      <Bot className="w-5 h-5 text-purple-400" />
+                    )}
+                    {creationMode === "traditional" ? "Traditional Setup" : "AI Neural Setup"}
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => setStep("selection")} className="text-white/40 hover:text-white">
+                    Change Mode
+                  </Button>
+                </div>
+                <CardDescription className="text-white/40">
+                  {creationMode === "traditional" 
+                    ? "Specify indicators and crossover logic for your strategy." 
+                    : "Describe the price behavior and market conditions for AI to analyze."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                  <Textarea
+                    placeholder={creationMode === "traditional" 
+                      ? "Example: Buy when RSI(14) crosses above 30 and Price is above EMA(200)..." 
+                      : "Example: Identify bullish market structure with HH/HL. Enter on a retracement to a 15m Fair Value Gap..."}
+                    value={rawInput}
+                    onChange={(e) => setRawInput(e.target.value)}
+                    className="min-h-[250px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none font-mono text-sm"
+                  />
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <Sparkles className="w-4 h-4 text-cyan-400" />
+                        <div>
+                          <Label className="text-white text-sm">Deep AI Analysis</Label>
+                          <p className="text-white/40 text-[10px]">Optimize logic for higher accuracy</p>
+                        </div>
+                      </div>
+                      <Switch checked={aiAnalysisEnabled} onCheckedChange={setAiAnalysisEnabled} />
+                    </div>
+
+                    <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                      <Label className="text-white/60 text-[10px] uppercase tracking-wider mb-2 block">Reference Instrument (Optional)</Label>
+                      <div className="relative">
+                        {referenceInstrument ? (
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
+                              {referenceInstrument}
+                            </Badge>
+                            <button onClick={() => setReferenceInstrument("")} className="text-white/40 hover:text-white">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <Input
+                              placeholder="Search index (e.g., NIFTY 50)..."
+                              value={refInstrumentSearch}
+                              onChange={(e) => {
+                                setRefInstrumentSearch(e.target.value);
+                                searchRefInstruments(e.target.value);
+                              }}
+                              className="bg-white/5 border-white/10 text-white h-8 text-xs"
+                            />
+                            {refInstruments.length > 0 && (
+                              <div className="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl max-h-32 overflow-y-auto">
+                                {refInstruments.map((inst) => (
+                                  <button
+                                    key={inst.instrument_token}
+                                    className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-white text-xs"
+                                    onClick={() => {
+                                      setReferenceInstrument(inst.tradingsymbol);
+                                      setRefInstrumentSearch("");
+                                      setRefInstruments([]);
+                                    }}
+                                  >
+                                    {inst.tradingsymbol}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={generateStrategy}
+                      disabled={generating || formatting}
+                      className="flex-1 border-white/10 text-white/60 hover:bg-white/5"
+                    >
+                      {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                      Generate
+                    </Button>
+                    <Button
+                      onClick={formatStrategy}
+                      disabled={!rawInput.trim() || formatting || generating}
+                      className="flex-1 bg-cyan-500 hover:bg-cyan-600 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                    >
+                      {formatting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                      Format Logic
+                    </Button>
+                  </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            <Card className="bg-white/5 border-white/10 h-full flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-white text-sm flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-cyan-400" />
+                  Strategy Preview
+                </CardTitle>
+                <CardDescription className="text-white/40 text-[10px]">
+                  Formatted executable strategy output
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-y-auto">
+                {strategy ? (
+                  <div className="space-y-4">
+                    <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
+                      <h4 className="text-white text-sm font-bold mb-1">{strategy.name}</h4>
+                      <p className="text-white/60 text-xs leading-relaxed">{strategy.description}</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                        <StrategySection
+                          title="BUY Side"
+                          icon={<TrendingUp className="w-3 h-3 text-green-400" />}
+                          sections={[
+                            { label: "Entry", data: strategy.buy_entry_logic || { conditions: [] } },
+                            { label: "Risk (SL/Tgt/Trail)", data: { 
+                              conditions: [
+                                ...(strategy.buy_stop_loss?.conditions || []),
+                                ...(strategy.buy_target?.conditions || []),
+                                ...(strategy.buy_trailing_sl?.conditions || [])
+                              ] 
+                            } },
+                          ]}
+                        />
+                        <StrategySection
+                          title="SELL Side"
+                          icon={<TrendingDown className="w-3 h-3 text-red-400" />}
+                          sections={[
+                            { label: "Entry", data: strategy.sell_entry_logic || { conditions: [] } },
+                            { label: "Risk (SL/Tgt/Trail)", data: { 
+                              conditions: [
+                                ...(strategy.sell_stop_loss?.conditions || []),
+                                ...(strategy.sell_target?.conditions || []),
+                                ...(strategy.sell_trailing_sl?.conditions || [])
+                              ] 
+                            } },
+                          ]}
+                        />
+                    </div>
+                    
+                    <Button 
+                      onClick={() => setStep("backtest")}
+                      className="w-full bg-green-500 hover:bg-green-600 mt-4"
+                    >
+                      Next: Test Performance
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center border-2 border-dashed border-white/5 rounded-xl p-8">
+                    <Sparkles className="w-12 h-12 text-white/5 mb-4" />
+                    <p className="text-white/40 text-sm">Enter your strategy on the left and click "Format Logic" to see the executable preview here.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}
 
-      {(step === "review" || step === "backtest" || step === "improve") && strategy && (
+      {(step === "backtest" || step === "improve") && strategy && (
         <div className="space-y-6">
           {improvementNotes && step === "improve" && (
             <Card className="bg-cyan-500/10 border-cyan-500/30">
@@ -1313,9 +1366,9 @@ function CreateStrategyTab({
                   {strategy.description}
                 </CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={resetForm} className="border-white/10 text-white/60">
-                <X className="w-4 h-4 mr-2" />
-                Start Over
+              <Button variant="outline" size="sm" onClick={() => setStep("input")} className="border-white/10 text-white/60">
+                <Pencil className="w-4 h-4 mr-2" />
+                Edit Logic
               </Button>
             </CardHeader>
             <CardContent className="space-y-6">

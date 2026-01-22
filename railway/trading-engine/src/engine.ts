@@ -399,28 +399,49 @@ async function monitorPositions(tableName: "user_positions" | "paper_positions")
         logger.error(`[Redis] Error fetching price for ${position.instrument_token}`, err);
       }
 
-      // Supabase Fallback
-      if (currentPrice === null) {
-        const { data: tick } = await supabase
-          .from("realtime_ticks")
-          .select("last_price")
-          .eq("instrument_token", position.instrument_token)
-          .order("tick_timestamp", { ascending: false })
-          .limit(1)
-          .single();
-        
-        if (tick) {
-          currentPrice = tick.last_price;
-          logger.debug(`[Supabase] Using DB price for ${position.tradingsymbol}: ${currentPrice}`);
+        // Supabase Fallback
+        if (currentPrice === null) {
+          const { data: tick } = await supabase
+            .from("realtime_ticks")
+            .select("last_price")
+            .eq("instrument_token", position.instrument_token)
+            .order("tick_timestamp", { ascending: false })
+            .limit(1)
+            .single();
+          
+          if (tick) {
+            currentPrice = tick.last_price;
+            logger.debug(`[Supabase] Using DB price for ${position.tradingsymbol}: ${currentPrice}`);
+          }
         }
-      }
 
-      if (currentPrice === null) continue;
+        if (currentPrice === null) continue;
 
-      const pnl =
-        position.position_type === "LONG"
-          ? (currentPrice - position.entry_price) * position.quantity
-          : (position.entry_price - currentPrice) * position.quantity;
+        // NEW: Trailing Stop Loss Logic
+        let stopLoss = position.stop_loss;
+        const trailingSlPct = 0.5; // Example: 0.5% trailing SL
+
+        if (position.position_type === "LONG") {
+            const potentialNewSl = currentPrice * (1 - trailingSlPct / 100);
+            if (potentialNewSl > stopLoss) {
+                stopLoss = potentialNewSl;
+                await supabase.from(tableName).update({ stop_loss: stopLoss }).eq("id", position.id);
+                logger.info(`[TRAILING SL] Updated LONG SL for ${position.tradingsymbol} to ${stopLoss.toFixed(2)}`);
+            }
+        } else {
+            const potentialNewSl = currentPrice * (1 + trailingSlPct / 100);
+            if (potentialNewSl < stopLoss) {
+                stopLoss = potentialNewSl;
+                await supabase.from(tableName).update({ stop_loss: stopLoss }).eq("id", position.id);
+                logger.info(`[TRAILING SL] Updated SHORT SL for ${position.tradingsymbol} to ${stopLoss.toFixed(2)}`);
+            }
+        }
+
+        const pnl =
+          position.position_type === "LONG"
+            ? (currentPrice - position.entry_price) * position.quantity
+            : (position.entry_price - currentPrice) * position.quantity;
+
       const pnlPercent = (pnl / (position.entry_price * position.quantity)) * 100;
 
       await supabase
@@ -748,6 +769,67 @@ async function cleanup(): Promise<void> {
   await updateEngineStatus("stopped");
 }
 
+async function autoSquareOffLoop(): Promise<void> {
+  logger.info("Starting auto-squareoff loop...");
+
+  while (!getShutdownFlag()) {
+    try {
+      const now = new Date();
+      const currentHour = now.getUTCHours();
+      const currentMinute = now.getUTCMinutes();
+
+      // 3:15 PM IST = 9:45 AM UTC
+      // Run between 9:45 AM UTC and 10:00 AM UTC
+      if (currentHour === 9 && currentMinute >= 45 && currentMinute < 60) {
+        logger.info("[SQUAREOFF] Starting end-of-day squareoff...");
+
+        // Square off Live Positions
+        const { data: livePositions } = await supabase
+          .from("user_positions")
+          .select("*")
+          .eq("status", "OPEN");
+
+        for (const pos of livePositions || []) {
+          const broker = await getBrokerCredentials(pos.user_id);
+          if (broker) {
+            await closePosition(pos.user_id, broker, {
+              tradingsymbol: pos.tradingsymbol,
+              quantity: pos.quantity,
+              position_type: pos.position_type
+            }, "AUTO_SQUAREOFF");
+          }
+          
+          await supabase.from("user_positions").update({
+            status: "CLOSED",
+            exit_reason: "AUTO_SQUAREOFF",
+            closed_at: new Date().toISOString()
+          }).eq("id", pos.id);
+        }
+
+        // Square off Paper Positions
+        await supabase
+          .from("paper_positions")
+          .update({
+            status: "CLOSED",
+            exit_reason: "AUTO_SQUAREOFF",
+            closed_at: new Date().toISOString()
+          })
+          .eq("status", "OPEN");
+
+        logger.info("[SQUAREOFF] End-of-day squareoff completed");
+        
+        // Wait for 15 minutes to avoid re-triggering in the same window
+        await sleep(15 * 60 * 1000);
+      }
+
+      await sleep(60000); // Check every minute
+    } catch (error) {
+      logger.error("Auto-squareoff loop error", error);
+      await sleep(60000);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   logger.info("Trading Engine starting...");
 
@@ -779,6 +861,7 @@ async function main(): Promise<void> {
       positionMonitorLoop(),
       priorityUpdateLoop(),
       cleanupLoop(),
+      autoSquareOffLoop(),
     ]);
 }
 

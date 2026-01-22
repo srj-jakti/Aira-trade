@@ -128,7 +128,12 @@ class StrategyService {
     return StrategyService.instance;
   }
 
-  async formatStrategyWithAI(rawInput: string, aiAnalysisEnabled: boolean = false, mode: "traditional" | "neural" = "traditional"): Promise<StructuredStrategy & { zairoth_intent?: string }> {
+  async formatStrategyWithAI(
+    rawInput: string, 
+    aiAnalysisEnabled: boolean = false, 
+    mode: "traditional" | "neural" = "traditional",
+    currentStrategy?: StructuredStrategy
+  ): Promise<StructuredStrategy & { zairoth_intent?: string }> {
     // Phase 1: Generate ZAIROTH Intent (Backend only, hidden from user)
     const zairothResult = await aiSharedService.generateZairothIntent(rawInput);
     let zairothContext = "";
@@ -148,11 +153,27 @@ class StrategyService {
       );
     }
 
+    const REFINEMENT_CONTEXT = currentStrategy ? `
+### 🔄 REFINEMENT MODE ACTIVE
+You are modifying an EXISTING strategy. 
+CURRENT STRATEGY:
+${JSON.stringify(currentStrategy, null, 2)}
+
+USER REQUEST FOR MODIFICATION:
+"${rawInput}"
+
+INSTRUCTIONS FOR REFINEMENT:
+1. Preserve the core logic of the current strategy unless explicitly asked to change it.
+2. Apply the requested changes/additions to the existing structure.
+3. Return the FULL updated strategy JSON.
+` : "";
+
     const TRADITIONAL_PROMPT = `You are an Expert Professional Trader AI with 10+ years of discretionary trading experience.
 You are NOT an indicator calculator. You are a DECISION-MAKING TRADER.
 You MUST follow MT5/Institutional trading standards.
 
 ${zairothContext}
+${REFINEMENT_CONTEXT}
 ${aiAnalysisEnabled ? `
   ### 🧠 EXPERT AI TRADER MODE: ENABLED
   CORE PRINCIPLE (NON-NEGOTIABLE):
@@ -304,6 +325,8 @@ ${aiAnalysisEnabled ? `
     const NEURAL_PROMPT = `You are a Lead Neural Quant Strategist. You specialize in Price Action Sequences (PAS) and Institutional Market Structure (MT5 standards).
 Your goal is to format a Neural Strategy Idea into a structured JSON for execution.
 
+${REFINEMENT_CONTEXT}
+
 ### THE NEURAL ARCHITECTURE:
 Neural mode focuses on Market Structure (HH/HL), Liquidity Grabs (Sweeps), and Imbalances (FVG).
 Instead of retail indicators (RSI/EMA), you must prioritize 'price_action' and 'pattern' rules.
@@ -356,7 +379,9 @@ Same structure as traditional, but rules focus on price action.
         },
     {
       role: "user",
-      content: `Create a profitable trading strategy based on this idea. Make it simple and tradeable:\n\n${rawInput}`,
+      content: currentStrategy 
+        ? `Refine my strategy based on this feedback: ${rawInput}`
+        : `Create a profitable trading strategy based on this idea. Make it simple and tradeable:\n\n${rawInput}`,
     },
   ];
 
@@ -657,17 +682,18 @@ Same structure as traditional, but rules focus on price action.
       }
     }
 
-    if (exec.sellExit?.trailingSL) {
-      strategy.sell_trailing_sl.parameters = {
-        enabled: exec.sellExit.trailingSL.enabled,
-        activation_percent: exec.sellExit.trailingSL.activationPercent,
-        trail_percent: exec.sellExit.trailingSL.trailPercent
-      };
-      if (exec.sellExit.trailingSL.enabled) {
-        strategy.sell_trailing_sl.conditions = [`Activate at ${exec.sellExit.trailingSL.activationPercent}% profit, trail by ${exec.sellExit.trailingSL.trailPercent}%`];
+      if (exec.sellExit?.trailingSL) {
+        strategy.sell_trailing_sl.parameters = {
+          enabled: exec.sellExit.trailingSL.enabled,
+          activation_percent: exec.sellExit.trailingSL.activationPercent,
+          trail_percent: exec.sellExit.trailingSL.trailPercent
+        };
+        if (exec.sellExit.trailingSL.enabled) {
+          strategy.sell_trailing_sl.conditions = [`Activate at ${exec.sellExit.trailingSL.activationPercent}% profit, trail by ${exec.sellExit.trailingSL.trailPercent}%`];
+        }
       }
+      return strategy;
     }
-  }
 
   private createFallbackExecutableStrategy(strategy: StructuredStrategy): ExecutableStrategy {
     const buyRules: any[] = [];

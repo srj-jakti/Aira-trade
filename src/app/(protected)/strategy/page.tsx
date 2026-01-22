@@ -835,12 +835,17 @@ function CreateStrategyTab({
         const res = await fetch("/api/strategies/format", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rawInput, aiAnalysisEnabled }),
+          body: JSON.stringify({ 
+            rawInput, 
+            aiAnalysisEnabled,
+            mode: creationMode,
+            currentStrategy: strategy
+          }),
         });
         if (res.ok) {
           const data = await res.json();
           setStrategy(data.strategy);
-          // Don't change step here, we stay in input step but with formatted strategy shown on the right
+          // Keep rawInput as is for chatbox experience
         } else {
           alert("Failed to format strategy. Please try again.");
         }
@@ -1257,14 +1262,14 @@ function CreateStrategyTab({
                       {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
                       Generate
                     </Button>
-                    <Button
-                      onClick={formatStrategy}
-                      disabled={!rawInput.trim() || formatting || generating}
-                      className="flex-1 bg-cyan-500 hover:bg-cyan-600 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
-                    >
-                      {formatting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
-                      Format Logic
-                    </Button>
+                      <Button
+                        onClick={formatStrategy}
+                        disabled={!rawInput.trim() || formatting || generating}
+                        className="flex-1 bg-cyan-500 hover:bg-cyan-600 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                      >
+                        {formatting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                        {strategy ? "Refine Strategy" : "Format Logic"}
+                      </Button>
                   </div>
               </CardContent>
             </Card>

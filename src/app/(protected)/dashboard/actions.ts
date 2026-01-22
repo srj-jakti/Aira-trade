@@ -12,10 +12,10 @@ export async function getDashboardStatus() {
 
   try {
     const [configRes, prefsRes, engineStatusRes, recentSignalsRes] = await Promise.all([
-      supabase.from("config").select("zerodha_connection_status").single(),
-      supabase.from("trading_preferences").select("*").eq("user_id", user.id).single(),
-      supabaseAdmin.from("trading_engine_status").select("*").eq("engine_type", "trading_engine").single(),
-      supabase.from("ai_signals").select("id, signal_status, status_reason, tradingsymbol, direction, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5)
+      supabase.from("config").select("zerodha_connection_status").single().then(r => r, e => ({ data: null, error: e })),
+      supabase.from("trading_preferences").select("*").eq("user_id", user.id).single().then(r => r, e => ({ data: null, error: e })),
+      supabaseAdmin.from("trading_engine_status").select("*").eq("engine_type", "trading_engine").single().then(r => r, e => ({ data: null, error: e })),
+      supabase.from("ai_signals").select("id, signal_status, status_reason, tradingsymbol, direction, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5).then(r => r, e => ({ data: null, error: e }))
     ]);
 
     const prefs = prefsRes.data;

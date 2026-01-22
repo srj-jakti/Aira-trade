@@ -7,7 +7,7 @@ import {
   serverErrorResponse,
 } from "@/lib/server/auth";
 import { quoteCache } from "@/lib/server/quote-cache";
-import { zerodhaService } from "@/lib/server/zerodha-service";
+import { apiKeyPoolManager } from "@/lib/server/api-key-pool-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -17,22 +17,33 @@ async function ensureConfigs() {
   if (configsInitialized) return;
 
   try {
-    const configs = await zerodhaService.getAllActiveConfigs();
+    const analysisKeys = await apiKeyPoolManager.getAnalysisKeys();
+    const scannerKey = await apiKeyPoolManager.getScannerKey();
     
-    if (configs.length >= 2) {
-      quoteCache.setConfigs(
-        { apiKey: configs[0].apiKey, accessToken: configs[0].accessToken },
-        { apiKey: configs[1].apiKey, accessToken: configs[1].accessToken }
-      );
-    } else if (configs.length === 1) {
-      quoteCache.setConfigs(
-        { apiKey: configs[0].apiKey, accessToken: configs[0].accessToken },
-        null
-      );
-    }
+    const analysisConfigs = analysisKeys.map(k => ({
+      apiKey: k.api_key ? (typeof k.api_key === 'string' ? k.api_key : '') : '',
+      accessToken: k.access_token || ''
+    }));
+
+    // Decrypt if necessary (ApiKeyPoolManager returns decrypted via getDecryptedCredentials usually, 
+    // but here we are using the raw pool configs which might be encrypted)
+    const decryptedAnalysis = await Promise.all(analysisKeys.map(async (k) => {
+      return await apiKeyPoolManager.getDecryptedCredentials(k.id);
+    }));
+
+    const decryptedScanner = scannerKey ? await apiKeyPoolManager.getDecryptedCredentials(scannerKey.id) : null;
+
+    quoteCache.setConfigs(
+      decryptedScanner ? { apiKey: decryptedScanner.apiKey, accessToken: decryptedScanner.accessToken || '' } : null,
+      decryptedAnalysis.filter((d): d is NonNullable<typeof d> => d !== null).map(d => ({
+        apiKey: d.apiKey,
+        accessToken: d.accessToken || ''
+      }))
+    );
     
     configsInitialized = true;
     
+    // Auto-refresh every 5 minutes
     setTimeout(() => {
       configsInitialized = false;
     }, 5 * 60 * 1000);
@@ -62,8 +73,9 @@ export async function GET(request: NextRequest) {
     return badRequestResponse("At least one valid instrument token required");
   }
 
-  if (tokens.length > 500) {
-    return badRequestResponse("Maximum 500 instruments per request");
+  // Bundle limit increased to support "combining all users access"
+  if (tokens.length > 2000) {
+    return badRequestResponse("Maximum 2000 instruments per request");
   }
 
   try {
@@ -71,21 +83,7 @@ export async function GET(request: NextRequest) {
 
     const quotesMap = await quoteCache.getQuotes(tokens, useScanner);
 
-    const quotes: Record<string, {
-      instrument_token: number;
-      last_price: number;
-      change: number;
-      change_percent: number;
-      volume: number;
-      oi: number;
-      open: number;
-      high: number;
-      low: number;
-      close: number;
-      bid: number;
-      ask: number;
-      timestamp: string;
-    }> = {};
+    const quotes: Record<string, any> = {};
 
     for (const [token, data] of quotesMap) {
       quotes[String(token)] = data;

@@ -603,7 +603,16 @@ DO NOT change bias until invalidation
 NO trade if confidence < threshold
 WAIT is a valid and preferred outcome
 
-🧠 ANALYSIS FLOW (MUST FOLLOW IN ORDER)
+  🧠 INSTITUTIONAL & MT5 STRATEGY PATTERNS (CRITICAL)
+  Identify and prioritize:
+  - FAIR VALUE GAPS (FVG): Imbalance zones where price moved rapidly.
+  - LIQUIDITY SWEEPS: Price grabbing stops above/below old highs/lows before reversal.
+  - ORDER BLOCKS: Specific candles where institutions entered.
+  - MARKET STRUCTURE SHIFT (MSS): Breaking of minor structure indicating reversal.
+  - PREMIUM vs DISCOUNT: Buy only in discount, Sell only in premium zones.
+
+  🧠 ANALYSIS FLOW (MUST FOLLOW IN ORDER)
+
 STEP 1: MARKET REGIME DETECTION
 First, classify the market: TRENDING, RANGING, BREAKOUT, CHOP / NO-TRADE.
 If regime is CHOP, immediately return: { "state": "WAIT", "reason": "No clear structure" }

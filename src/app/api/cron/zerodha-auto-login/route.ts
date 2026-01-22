@@ -179,6 +179,17 @@ async function runAutoLogin(triggerType: string) {
 
   zerodhaService.clearCache();
 
+  // Trigger instrument sync after successful login
+  if (totalSuccess > 0) {
+    console.log("[Auto-Login Cron] Triggering instrument sync...");
+    try {
+      await fetchAndStoreInstruments();
+      console.log("[Auto-Login Cron] Instrument sync completed successfully");
+    } catch (syncError) {
+      console.error("[Auto-Login Cron] Instrument sync failed:", syncError);
+    }
+  }
+
   await supabaseAdmin.from("system_health_logs").insert({
     metric_type: "zerodha_auto_login",
     metric_value: { adminResults, userResults, totalSuccess, totalProcessed },

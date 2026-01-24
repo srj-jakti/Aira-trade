@@ -27,15 +27,19 @@ export async function POST(
 
       const strategyIdNum = parseInt(id);
 
-      if (mode === "deep" && instrumentTokens && timeframe) {
-        const improvement = await strategyService.findHighestWinningRateVariation(
-          strategy,
-          instrumentTokens,
-          timeframe,
-          capital || 100000
-        );
-        return successResponse(improvement);
-      }
+        if (mode === "deep" && instrumentTokens && timeframe) {
+          const improvement = await strategyService.findHighestWinningRateVariation(
+            strategy,
+            instrumentTokens,
+            timeframe,
+            capital || 100000,
+            undefined,
+            undefined,
+            strategyIdNum
+          );
+          return successResponse(improvement);
+        }
+
 
       // Get AI Trading Engine suggestions based on historical performance
       const aiEngineSuggestions = await aiTradingEngine.suggestStrategyImprovements(strategyIdNum);

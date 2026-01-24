@@ -14,13 +14,18 @@ export async function POST(request: NextRequest) {
 
     try {
       const body = await request.json();
-      const { rawInput, aiAnalysisEnabled = false } = body;
+      const { rawInput, aiAnalysisEnabled = false, mode = "traditional", currentStrategy = null } = body;
 
       if (!rawInput || typeof rawInput !== "string" || rawInput.trim().length < 5) {
         return badRequestResponse("Please provide a valid strategy description");
       }
 
-      const formattedStrategy = await strategyService.formatStrategyWithAI(rawInput, aiAnalysisEnabled);
+      const formattedStrategy = await strategyService.formatStrategyWithAI(
+        rawInput, 
+        aiAnalysisEnabled, 
+        mode as "traditional" | "neural",
+        currentStrategy
+      );
       
       // Pass the flag back to the UI so it can be saved
       formattedStrategy.ai_analysis_enabled = aiAnalysisEnabled;

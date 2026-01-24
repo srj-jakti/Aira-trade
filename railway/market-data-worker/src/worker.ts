@@ -2,9 +2,13 @@
  * MARKET DATA WORKER - Multi-API-Key Architecture
  * 
  * Manages multiple Zerodha API keys with tier-based subscription allocation:
- * - API KEY A (CORE): NIFTY, BANKNIFTY, FINNIFTY, SENSEX, NIFTY50 stocks
- * - API KEY B (POPULAR): Scanner stocks, watchlists, popular instruments
- * - API KEY C (TEMP): User search, AI analysis charts
+ * - API KEY A (CORE): NIFTY, BANKNIFTY, FINNIFTY, SENSEX, NIFTY50 stocks, index options
+ * - API KEY B (SCANNER): Strategy instruments, Scanner instruments - NEVER auto-cleaned
+ * - API KEY C (TEMP): User on-demand requests (Strategy/Analysis pages) - 5-min cleanup
+ * 
+ * Data Flow:
+ * - Scanner + AI Trading: 24/7 data feed via SCANNER tier (runs even when users logged out)
+ * - Strategy/Analysis: On-demand via TEMP tier (cleaned when user leaves)
  * 
  * LIVE-HISTORICAL DATA:
  * - Backfills live_candles from Zerodha Historical API on startup
@@ -29,7 +33,7 @@ import {
 } from "./subscription-manager";
 import { BackfillService } from "./backfill-service";
 import { TechnicalIndicators } from "./utils/indicators";
-import { redis, REDIS_KEYS } from "./utils/redis";
+import { redis, REDIS_KEYS, scheduleMarketCloseCleanup, cleanupDayEndData } from "./utils/redis";
 
 const ALGORITHM = "aes-256-gcm";
 const MAX_INSTRUMENTS_PER_CONNECTION = 3000;
@@ -148,8 +152,12 @@ class MarketDataWorker {
   async start(): Promise<void> {
     console.log("[MarketDataWorker] Starting Multi-API-Key Architecture...");
     console.log(`[MarketDataWorker] Supabase URL: ${supabaseUrl}`);
+    console.log(`[MarketDataWorker] Redis URL: ${process.env.REDIS_URL ? "configured" : "NOT SET"}`);
 
     await this.logSystemHealth("worker_started", { source: "market_data_worker", architecture: "multi_api_key" }, "info", "Market Data Worker started (Multi-API-Key)");
+
+    scheduleMarketCloseCleanup();
+    console.log("[MarketDataWorker] Day-end Redis cleanup scheduler initialized");
 
     while (!(await this.isMarketDataEnabled())) {
       console.log("[MarketDataWorker] Market data disabled. Waiting for enable signal (polling every 30s)...");
@@ -223,13 +231,16 @@ class MarketDataWorker {
 
     await this.subscribeToCore();
 
-    // Run initial backfill for CORE instruments
-    if (this.backfillService) {
-      console.log("[MarketDataWorker] Starting initial Live-Historical backfill...");
-      this.backfillService.backfillCoreInstruments().catch((err) => {
-        console.error("[MarketDataWorker] Initial backfill failed:", err);
-      });
-    }
+      // Subscribe to SCANNER tier instruments (strategies + scanner)
+      await this.subscribeToScanner();
+
+      // Run initial backfill for CORE instruments
+      if (this.backfillService) {
+        console.log("[MarketDataWorker] Starting initial Live-Historical backfill...");
+        this.backfillService.backfillCoreInstruments().catch((err) => {
+          console.error("[MarketDataWorker] Initial backfill failed:", err);
+        });
+      }
 
     console.log(`[MarketDataWorker] Running with ${connectedCount}/${configs.length} connections`);
     await this.logSystemHealth("worker_running", { connections: connectedCount, total: configs.length }, "info", `Market Data Worker running with ${connectedCount} connections`);
@@ -393,12 +404,12 @@ class MarketDataWorker {
       const connection = this.connections.get(websocketId);
       if (!connection) return;
 
-      const { core, popular, temp } = this.subscriptionManager.getTokensForResubscription(websocketId);
-      const totalTokens = core.length + popular.length + temp.length;
+      const { core, scanner, temp } = this.subscriptionManager.getTokensForResubscription(websocketId);
+      const totalTokens = core.length + scanner.length + temp.length;
 
       if (totalTokens === 0) return;
 
-      console.log(`[MarketDataWorker][${websocketId}] Resubscribing ${totalTokens} tokens in PRIORITY ORDER (CORE: ${core.length}, POPULAR: ${popular.length}, TEMP: ${temp.length})`);
+      console.log(`[MarketDataWorker][${websocketId}] Resubscribing ${totalTokens} tokens in PRIORITY ORDER (CORE: ${core.length}, SCANNER: ${scanner.length}, TEMP: ${temp.length})`);
 
       const subscribeChunks = async (tokens: number[], tier: string) => {
         if (tokens.length === 0) return;
@@ -413,7 +424,7 @@ class MarketDataWorker {
       };
 
       await subscribeChunks(core, "CORE");
-      await subscribeChunks(popular, "POPULAR");
+      await subscribeChunks(scanner, "SCANNER");
       await subscribeChunks(temp, "TEMP");
     }
 
@@ -432,6 +443,38 @@ class MarketDataWorker {
         if (conn && conn.isConnected) {
           conn.ticker.subscribe([result.instrumentToken]);
           conn.ticker.setMode(conn.ticker.modeQuote, [result.instrumentToken]);
+        }
+      }
+    }
+
+    await this.updateEngineStatus();
+  }
+
+  private async subscribeToScanner(): Promise<void> {
+    console.log("[MarketDataWorker] Subscribing to SCANNER instruments (strategies + scanner)...");
+    
+    const results = await this.subscriptionManager.subscribeScannerInstruments();
+    const success = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+
+    console.log(`[MarketDataWorker] SCANNER subscription complete: ${success} success, ${failed} failed`);
+
+    for (const result of results) {
+      if (result.success && result.websocketId) {
+        const conn = this.connections.get(result.websocketId);
+        if (conn && conn.isConnected) {
+          conn.ticker.subscribe([result.instrumentToken]);
+          conn.ticker.setMode(conn.ticker.modeQuote, [result.instrumentToken]);
+        }
+      }
+    }
+
+    // Queue backfill for SCANNER instruments
+    if (this.backfillService) {
+      for (const result of results) {
+        if (result.success) {
+          this.backfillService.queueBackfill(result.instrumentToken, "5m");
+          this.backfillService.queueBackfill(result.instrumentToken, "15m");
         }
       }
     }
@@ -740,13 +783,17 @@ class MarketDataWorker {
       await this.updateEngineStatus();
 
       const stats = this.subscriptionManager.getStats();
-      console.log(`[MarketDataWorker] Stats: ${stats.totalSubscriptions} subscriptions (CORE: ${stats.byTier.CORE}, POPULAR: ${stats.byTier.POPULAR}, TEMP: ${stats.byTier.TEMP})`);
+      console.log(`[MarketDataWorker] Stats: ${stats.totalSubscriptions} subscriptions (CORE: ${stats.byTier.CORE}, SCANNER: ${stats.byTier.SCANNER}, TEMP: ${stats.byTier.TEMP})`);
     }, HEALTH_CHECK_INTERVAL);
   }
 
   private startSubscriptionRefresh(): void {
     this.subscriptionRefreshInterval = setInterval(async () => {
       if (this.isRunning && !this.isShuttingDown) {
+        // Refresh SCANNER tier from scanner_instruments and active_trade_instruments
+        await this.subscribeToScanner();
+
+        // Also handle legacy high-priority instruments
         const { data: popular } = await supabase
           .from("instruments")
           .select("instrument_token")
@@ -758,7 +805,7 @@ class MarketDataWorker {
           for (const inst of popular) {
             await this.subscribeInstrument({
               instrumentToken: inst.instrument_token,
-              tier: "POPULAR",
+              tier: "SCANNER",
               source: "subscription_refresh",
             });
           }

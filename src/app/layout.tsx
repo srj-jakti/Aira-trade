@@ -3,9 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { VisualEditsMessenger } from "orchids-visual-edits";
 import { Toaster } from "@/components/ui/sonner";
-import Script from "next/script";
-import { PWAUpdater } from "@/components/PWAUpdater";
-import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,9 +15,56 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AiRA | AI Market Analysis Platform",
+  title: {
+    default: "AiRA | AI Market Analysis Platform",
+    template: "%s | AiRA",
+  },
   description: "AI-powered market analysis and automation software platform for Indian Markets.",
+  metadataBase: new URL("https://aira.trade"),
+  keywords: ["trading", "AI", "market analysis", "nifty", "banknifty", "automation"],
+  authors: [{ name: "AiRA Team" }],
+  creator: "AiRA",
+  publisher: "AiRA",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://aira.trade",
+    siteName: "AiRA",
+    title: "AiRA | AI Market Analysis Platform",
+    description: "AI-powered market analysis and automation software platform for Indian Markets.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "AiRA Platform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AiRA | AI Market Analysis Platform",
+    description: "AI-powered market analysis and automation software platform for Indian Markets.",
+    images: ["/og-image.png"],
+    creator: "@aira_trade",
+  },
   manifest: "/manifest.json",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -37,28 +81,28 @@ export const viewport: Viewport = {
   themeColor: "#000000",
 };
 
+import { ThemeProvider } from "@/components/theme-provider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white min-h-screen overflow-x-hidden pb-[safe-area-inset-bottom]`}
+          className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen overflow-x-hidden pb-[safe-area-inset-bottom]`}
         >
-        <Script
-          id="orchids-browser-logs"
-          src="https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/scripts/orchids-browser-logs.js"
-          strategy="afterInteractive"
-          data-orchids-project-id="4c5c238c-6da6-4257-86ab-86cbb8b4222d"
-        />
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange
+          >
             {children}
-            <PWAUpdater />
-            <PWAInstallPrompt />
             <Toaster />
-
-          <VisualEditsMessenger />
+            <VisualEditsMessenger />
+          </ThemeProvider>
         </body>
     </html>
   );

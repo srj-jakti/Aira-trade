@@ -12,6 +12,7 @@ import { logAudit } from "@/lib/server/audit";
 
 const toggleSchema = z.object({
   enabled: z.boolean(),
+  type: z.enum(["trading", "scanner"]).optional().default("trading"),
 });
 
 export async function POST(request: NextRequest) {
@@ -28,12 +29,21 @@ export async function POST(request: NextRequest) {
       return badRequestResponse("Invalid toggle value");
     }
 
+    const { enabled, type } = validation.data;
+    
+    const updateData: Record<string, unknown> = {
+      user_id: auth.userId,
+      updated_at: new Date().toISOString(),
+    };
+    
+    if (type === "scanner") {
+      updateData.is_scanner_active = enabled;
+    } else {
+      updateData.auto_trading_enabled = enabled;
+    }
+
     const { error } = await supabaseAdmin.from("trading_preferences").upsert(
-      {
-        user_id: auth.userId,
-        auto_trading_enabled: validation.data.enabled,
-        updated_at: new Date().toISOString(),
-      },
+      updateData,
       {
         onConflict: "user_id",
       }
@@ -45,13 +55,15 @@ export async function POST(request: NextRequest) {
 
     await logAudit({
       user_id: auth.userId!,
-      action: validation.data.enabled ? "trading_enabled" : "trading_disabled",
+      action: type === "scanner" 
+        ? (enabled ? "scanner_enabled" : "scanner_disabled")
+        : (enabled ? "trading_enabled" : "trading_disabled"),
       target_table: "trading_preferences",
     });
 
     return successResponse({
       success: true,
-      auto_trading_enabled: validation.data.enabled,
+      [type === "scanner" ? "is_scanner_active" : "auto_trading_enabled"]: enabled,
     });
   } catch {
     return serverErrorResponse();

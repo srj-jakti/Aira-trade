@@ -227,22 +227,22 @@ const response = await fetch(
   const getTrendIcon = (trend: string) => {
     switch (trend?.toLowerCase()) {
       case "bullish":
-        return <TrendingUp className="w-4 h-4 text-green-400" />;
+        return <TrendingUp className="w-4 h-4 text-green-600" />;
       case "bearish":
-        return <TrendingDown className="w-4 h-4 text-red-400" />;
+        return <TrendingDown className="w-4 h-4 text-red-600" />;
       default:
-        return <Minus className="w-4 h-4 text-yellow-400" />;
+        return <Minus className="w-4 h-4 text-yellow-600" />;
     }
   };
 
   const getTrendColor = (trend: string) => {
     switch (trend?.toLowerCase()) {
       case "bullish":
-        return "text-green-400";
+        return "text-green-600";
       case "bearish":
-        return "text-red-400";
+        return "text-red-600";
       default:
-        return "text-yellow-400";
+        return "text-yellow-600";
     }
   };
 
@@ -250,12 +250,12 @@ const response = await fetch(
     switch (direction?.toLowerCase()) {
       case "buy":
       case "long":
-        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">LONG</Badge>;
+        return <Badge className="bg-green-500/20 text-green-600 border-green-500/30">LONG</Badge>;
       case "sell":
       case "short":
-        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">SHORT</Badge>;
+        return <Badge className="bg-red-500/20 text-red-600 border-red-500/30">SHORT</Badge>;
       default:
-        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">NEUTRAL</Badge>;
+        return <Badge className="bg-yellow-500/20 text-yellow-600 border-yellow-500/30">NEUTRAL</Badge>;
     }
   };
 
@@ -274,7 +274,7 @@ const response = await fetch(
         />
         <div className="flex items-center gap-2">
           {/* Timeframe Switcher */}
-          <div className="flex items-center gap-1 bg-white/5 border border-white/10 p-1 rounded-md">
+          <div className="flex items-center gap-1 bg-muted/50 border border-white/10 p-1 rounded-md">
             {[
               { label: "1m", value: "1m" },
               { label: "5m", value: "5m" },
@@ -289,8 +289,8 @@ const response = await fetch(
                 className={cn(
                   "px-2.5 py-1 text-xs rounded transition-all",
                   timeframe === tf.value
-                    ? "bg-blue-500/20 text-blue-400 font-semibold ring-1 ring-blue-500/30"
-                    : "text-white/40 hover:text-white/70 hover:bg-white/5"
+                    ? "bg-blue-500/20 text-blue-600 font-semibold ring-1 ring-blue-500/30"
+                    : "text-white/40 hover:text-white/70 hover:bg-muted/50"
                 )}
               >
                 {tf.label}
@@ -303,7 +303,7 @@ const response = await fetch(
               variant="outline"
               size="sm"
               onClick={() => setShowIndicatorPanel(!showIndicatorPanel)}
-              className="bg-white/5 border-white/10 hover:bg-white/10"
+              className="bg-card border-border hover:bg-accent/50"
             >
               <Settings2 className="w-4 h-4 mr-2" />
               Indicators
@@ -311,20 +311,20 @@ const response = await fetch(
             </Button>
             
             {showIndicatorPanel && (
-              <div className="absolute top-full right-0 mt-1 z-50 w-56 bg-zinc-900/95 backdrop-blur-md border border-white/10 rounded-lg shadow-xl p-2">
+              <div className="absolute top-full right-0 mt-1 z-50 w-56 bg-popover/95 backdrop-blur-md border border-white/10 rounded-lg shadow-xl p-2">
                 <div className="text-xs text-white/40 px-2 py-1 mb-1">Technical Indicators</div>
                 {indicators.map((ind) => (
                   <button
                     key={ind.id}
                     onClick={() => toggleIndicator(ind.id)}
-                    className="w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5 text-sm"
+                    className="w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-muted/50 text-sm"
                   >
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded" style={{ backgroundColor: ind.color || "#f59e0b" }} />
                       <span className={ind.visible ? "text-white" : "text-white/50"}>{ind.name}</span>
                     </div>
                     {ind.visible ? (
-                      <Eye className="w-4 h-4 text-blue-400" />
+                      <Eye className="w-4 h-4 text-blue-600" />
                     ) : (
                       <EyeOff className="w-4 h-4 text-white/30" />
                     )}
@@ -340,7 +340,7 @@ const response = await fetch(
               size="sm"
               onClick={handleRefresh}
               disabled={isLoadingChart || isLoadingAnalysis}
-              className="bg-white/5 border-white/10 hover:bg-white/10"
+              className="bg-card border-border hover:bg-accent/50"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${(isLoadingChart || isLoadingAnalysis) ? "animate-spin" : ""}`} />
               Refresh
@@ -350,7 +350,7 @@ const response = await fetch(
       </div>
 
       <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-start gap-2">
-        <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+        <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
         <p className="text-xs text-blue-300/80">
           AI analysis outputs are for informational purposes only. They do not constitute investment advice. All decisions are made by you.
         </p>
@@ -358,21 +358,21 @@ const response = await fetch(
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
-            <Card className="bg-white/5 border-white/10 overflow-hidden">
+            <Card className="bg-card border-border overflow-hidden">
               <CardHeader className="p-3 md:p-4 border-b border-white/10">
                 <CardTitle className="text-sm font-medium flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <LineChart className="w-4 h-4 text-blue-400" />
+                    <LineChart className="w-4 h-4 text-blue-600" />
                     {selectedInstrument ? (
                       <span>
                         {selectedInstrument.tradingsymbol}
                         <span className="text-white/50 ml-2 text-xs">{selectedInstrument.exchange}</span>
                           {currentPrice && (
                             <div className="flex flex-col ml-2">
-                              <span className="font-mono text-green-400">
+                              <span className="font-mono text-green-600">
                                 ₹{currentPrice.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
-                              <span className="text-[10px] text-blue-400 font-bold -mt-1 uppercase">
+                              <span className="text-[10px] text-blue-600 font-bold -mt-1 uppercase">
                                 {timeframe} LIVE TRACKING
                               </span>
                             </div>
@@ -385,7 +385,7 @@ const response = await fetch(
                   </div>
                   <div className="flex items-center gap-2">
                     {isRealtimeConnected ? (
-                      <div className="flex items-center gap-1 text-green-400">
+                      <div className="flex items-center gap-1 text-green-600">
                         <Wifi className="w-3 h-3" />
                         <span className="text-[10px] uppercase font-bold">Live</span>
                       </div>
@@ -422,30 +422,30 @@ const response = await fetch(
           </Card>
 
             {analysis && chartData.length > 0 && (
-              <Card className="bg-white/5 border-white/10">
+              <Card className="bg-card border-border">
                 <CardContent className="p-4">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-3 bg-white/5 rounded-lg">
+                    <div className="text-center p-3 bg-muted/50 rounded-lg">
                       <div className="text-xs text-white/50 mb-1">Entry Price</div>
-                      <div className="font-mono font-semibold text-blue-400">{formatPrice(analysis.entry)}</div>
+                      <div className="font-mono font-semibold text-blue-600">{formatPrice(analysis.entry)}</div>
                     </div>
-                    <div className="text-center p-3 bg-white/5 rounded-lg">
+                    <div className="text-center p-3 bg-muted/50 rounded-lg">
                       <div className="text-xs text-white/50 mb-1">Target</div>
-                      <div className="font-mono font-semibold text-green-400 flex items-center justify-center gap-1">
+                      <div className="font-mono font-semibold text-green-600 flex items-center justify-center gap-1">
                         <ArrowUp className="w-3 h-3" />
                         {formatPrice(analysis.target)}
                       </div>
                     </div>
-                    <div className="text-center p-3 bg-white/5 rounded-lg">
+                    <div className="text-center p-3 bg-muted/50 rounded-lg">
                       <div className="text-xs text-white/50 mb-1">Stop Loss</div>
-                      <div className="font-mono font-semibold text-red-400 flex items-center justify-center gap-1">
+                      <div className="font-mono font-semibold text-red-600 flex items-center justify-center gap-1">
                         <ArrowDown className="w-3 h-3" />
                         {formatPrice(analysis.stopLoss)}
                       </div>
                     </div>
-                    <div className="text-center p-3 bg-white/5 rounded-lg">
+                    <div className="text-center p-3 bg-muted/50 rounded-lg">
                       <div className="text-xs text-white/50 mb-1">Confidence</div>
-                      <div className="font-mono font-semibold text-purple-400">{analysis.confidence}%</div>
+                      <div className="font-mono font-semibold text-purple-600">{analysis.confidence}%</div>
                     </div>
                   </div>
                 </CardContent>
@@ -454,17 +454,17 @@ const response = await fetch(
           </div>
 
         <div className="lg:col-span-1 space-y-4">
-          <Card className="bg-white/5 border-white/10">
+          <Card className="bg-card border-border">
             <CardHeader className="p-3 md:p-4 border-b border-white/10">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <BrainCircuit className="w-4 h-4 text-purple-400" />
+                <BrainCircuit className="w-4 h-4 text-purple-600" />
                 AI Analysis
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4">
               {isLoadingAnalysis ? (
                 <div className="min-h-[200px] flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+                  <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
                   <span className="text-white/50 text-sm">Analyzing...</span>
                 </div>
               ) : analysis ? (
@@ -512,10 +512,10 @@ const response = await fetch(
               </CardContent>
             </Card>
 
-            <Card className="bg-white/5 border-white/10">
+            <Card className="bg-card border-border">
               <CardHeader className="p-3 md:p-4 border-b border-white/10">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Target className="w-4 h-4 text-indigo-400" />
+                  <Target className="w-4 h-4 text-indigo-600" />
                   Strategy Overlay
                 </CardTitle>
               </CardHeader>
@@ -528,8 +528,8 @@ const response = await fetch(
                         className={cn(
                           "px-3 py-1.5 text-xs rounded-full border transition-colors",
                           !selectedStrategy
-                            ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                            : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+                            ? "bg-blue-500/20 text-blue-600 border-blue-500/30"
+                            : "bg-muted/50 text-white/50 border-white/10 hover:bg-accent/50"
                         )}
                       >
                         None
@@ -541,8 +541,8 @@ const response = await fetch(
                           className={cn(
                             "px-3 py-1.5 text-xs rounded-full border transition-colors",
                             selectedStrategy === strategy.id
-                              ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
-                              : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+                              ? "bg-indigo-500/20 text-indigo-600 border-indigo-500/30"
+                              : "bg-muted/50 text-white/50 border-white/10 hover:bg-accent/50"
                           )}
                         >
                           {strategy.name}
@@ -556,17 +556,17 @@ const response = await fetch(
               </CardContent>
             </Card>
 
-            <Card className="bg-white/5 border-white/10">
+            <Card className="bg-card border-border">
               <CardHeader className="p-3 md:p-4 border-b border-white/10">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Target className="w-4 h-4 text-green-400" />
+                  <Target className="w-4 h-4 text-green-600" />
                   Strategy Analysis Outputs
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4">
               {isLoadingOutputs ? (
                 <div className="min-h-[150px] flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin text-green-400" />
+                  <Loader2 className="w-5 h-5 animate-spin text-green-600" />
                   <span className="text-white/50 text-xs">Loading outputs...</span>
                 </div>
               ) : analysisOutputs.length > 0 ? (
@@ -574,15 +574,15 @@ const response = await fetch(
                   {analysisOutputs.slice(0, 5).map((output) => (
                     <div 
                       key={output.id} 
-                      className="p-3 bg-white/5 rounded-lg border border-white/5"
+                      className="p-3 bg-muted/50 rounded-lg border border-white/5"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium">{output.strategy_name}</span>
                         <Badge 
                           className={
                             output.direction === "long" 
-                              ? "bg-green-500/20 text-green-400 border-green-500/30" 
-                              : "bg-red-500/20 text-red-400 border-red-500/30"
+                              ? "bg-green-500/20 text-green-600 border-green-500/30" 
+                              : "bg-red-500/20 text-red-600 border-red-500/30"
                           }
                         >
                           {output.direction?.toUpperCase()}

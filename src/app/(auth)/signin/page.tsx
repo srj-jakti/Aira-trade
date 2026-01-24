@@ -181,7 +181,7 @@ function SignInContent() {
 
 export default function SignInPage() {
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[120px]" />
       </div>
@@ -189,7 +189,7 @@ export default function SignInPage() {
       <Suspense fallback={
         <div className="w-full max-w-md space-y-8 relative z-10 flex flex-col items-center justify-center">
           <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-          <p className="text-white/50 mt-4">Loading...</p>
+          <p className="text-muted-foreground mt-4">Loading...</p>
         </div>
       }>
         <SignInContent />

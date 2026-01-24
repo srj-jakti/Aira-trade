@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import Redis from "ioredis";
 import cron from "node-cron";
+import { OptionRollService } from "./option-roll";
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -14,6 +15,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 const redis = new Redis(redisUrl);
+const optionRollService = new OptionRollService(supabase);
 
 console.log("[CronWorker] Cron Maintenance Worker starting...");
 
@@ -125,6 +127,59 @@ cron.schedule("0 0 * * *", async () => {
 
   } catch (err) {
     console.error("[CronWorker] Error during database cleanup:", err);
+  }
+});
+
+/**
+ * 5. OPTION ROLL SERVICE
+ * Runs daily at 6:00 AM IST (before market open)
+ * Updates option instruments to latest expiry with ATM strikes
+ */
+cron.schedule("30 0 * * *", async () => {
+  console.log("[CronWorker] Running Option Roll Service (6:00 AM IST)...");
+  try {
+    const result = await optionRollService.rollOptions();
+    
+    await supabase.from("system_health_logs").insert({
+      metric_type: "option_roll",
+      metric_value: { rolled: result.rolled, errors: result.errors },
+      severity: result.success ? "info" : "warning",
+      message: `Option Roll: ${result.rolled} instruments rolled${result.errors.length > 0 ? `, ${result.errors.length} errors` : ""}`,
+    });
+
+    if (result.success) {
+      console.log(`[CronWorker] Option Roll completed: ${result.rolled} instruments rolled`);
+    } else {
+      console.error(`[CronWorker] Option Roll completed with errors:`, result.errors);
+    }
+  } catch (err) {
+    console.error("[CronWorker] Error during option roll:", err);
+    await supabase.from("system_health_logs").insert({
+      metric_type: "option_roll_error",
+      metric_value: { error: String(err) },
+      severity: "error",
+      message: `Option Roll failed: ${err}`,
+    });
+  }
+});
+
+/**
+ * 6. STRATEGY INSTRUMENT AGGREGATION
+ * Runs every 5 minutes to sync instruments from active strategies
+ */
+cron.schedule("*/5 * * * *", async () => {
+  try {
+    const response = await fetch(`${appUrl}/api/cron/aggregate-instruments`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${supabaseServiceKey}`,
+      },
+    });
+    if (!response.ok) {
+      console.error("[CronWorker] Instrument aggregation failed:", await response.text());
+    }
+  } catch (err) {
+    console.error("[CronWorker] Error during instrument aggregation:", err);
   }
 });
 

@@ -3,37 +3,37 @@ import Link from "next/link";
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-12">
-        <Link href="/" className="inline-flex items-center gap-2 mb-8 text-white/60 hover:text-white transition-colors">
+        <Link href="/" className="inline-flex items-center gap-2 mb-8 text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
           Back to Home
         </Link>
 
         <div className="flex items-center gap-3 mb-8">
           <Zap className="w-8 h-8 text-blue-400" />
-          <h1 className="text-3xl font-bold text-white">Terms & Conditions</h1>
+          <h1 className="text-3xl font-bold text-foreground">Terms & Conditions</h1>
         </div>
 
-        <p className="text-white/50 mb-8">Last Updated: January 2025</p>
+        <p className="text-muted-foreground mb-8">Last Updated: January 2025</p>
 
-        <div className="prose prose-invert prose-sm max-w-none space-y-8">
-          <p className="text-white/70 leading-relaxed">
+        <div className="prose prose-sm dark:prose-invert max-w-none space-y-8">
+          <p className="text-foreground/70 leading-relaxed">
             These Terms & Conditions (&quot;Terms&quot;) govern your access to and use of the AiRA platform, 
             including the website, web application, mobile application, and related software services 
             (collectively, the &quot;Platform&quot;).
           </p>
-          <p className="text-white/70 leading-relaxed">
+          <p className="text-foreground/70 leading-relaxed">
             By accessing, registering, or using AiRA, you agree to be bound by these Terms. 
             If you do not agree, you must not use the Platform.
           </p>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">1. Nature of the Platform (Important)</h2>
-            <p className="text-white/70 mb-4">AiRA is a technology platform / software product.</p>
+            <h2 className="text-xl font-semibold text-foreground mb-4">1. Nature of the Platform (Important)</h2>
+            <p className="text-foreground/70 mb-4">AiRA is a technology platform / software product.</p>
             
-            <p className="text-white/70 mb-2"><strong className="text-white">AiRA does NOT provide:</strong></p>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <p className="text-foreground/70 mb-2"><strong className="text-foreground">AiRA does NOT provide:</strong></p>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>Investment advice</li>
               <li>Trading advice</li>
               <li>Buy or sell recommendations</li>
@@ -42,8 +42,8 @@ export default function TermsPage() {
               <li>Assured or guaranteed returns</li>
             </ul>
 
-            <p className="text-white/70 mb-2 mt-4"><strong className="text-white">AiRA does NOT act as:</strong></p>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <p className="text-foreground/70 mb-2 mt-4"><strong className="text-foreground">AiRA does NOT act as:</strong></p>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>An investment advisor</li>
               <li>A stock broker</li>
               <li>A portfolio manager</li>
@@ -51,59 +51,59 @@ export default function TermsPage() {
               <li>An intermediary executing trades on behalf of users</li>
             </ul>
 
-            <p className="text-white/70 mt-4">
+            <p className="text-foreground/70 mt-4">
               All features provided by AiRA are tools for analysis, strategy creation, automation logic, 
               and execution control, fully configured and operated by the user.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">2. User Responsibility & Control</h2>
-            <ul className="list-disc pl-6 text-white/70 space-y-2">
+            <h2 className="text-xl font-semibold text-foreground mb-4">2. User Responsibility & Control</h2>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-2">
               <li>All strategies, rules, configurations, and automation parameters are created, selected, and controlled solely by the user.</li>
               <li>Any trading activity performed using the Platform occurs only based on user-defined logic and explicit authorization.</li>
             </ul>
             
-            <p className="text-white/70 mt-4 mb-2"><strong className="text-white">The user remains fully responsible for:</strong></p>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <p className="text-foreground/70 mt-4 mb-2"><strong className="text-foreground">The user remains fully responsible for:</strong></p>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>All decisions made using the Platform</li>
               <li>Any outcomes (profit, loss, or otherwise)</li>
               <li>Compliance with applicable laws and regulations</li>
             </ul>
 
-            <p className="text-white/70 mt-4">
+            <p className="text-foreground/70 mt-4">
               AiRA does not validate the suitability, accuracy, profitability, or legality of any strategy created or used by the user.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">3. No Advisory or Recommendation</h2>
-            <p className="text-white/70 mb-2">Any data, analysis, signals, indicators, charts, or outputs generated by the Platform:</p>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <h2 className="text-xl font-semibold text-foreground mb-4">3. No Advisory or Recommendation</h2>
+            <p className="text-foreground/70 mb-2">Any data, analysis, signals, indicators, charts, or outputs generated by the Platform:</p>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>Are purely informational and analytical</li>
               <li>Do not constitute investment advice or trading recommendations</li>
               <li>Must not be interpreted as guidance to buy, sell, or hold any financial instrument</li>
             </ul>
-            <p className="text-white/70 mt-4">
+            <p className="text-foreground/70 mt-4">
               Users should consult a SEBI-registered investment advisor if they require professional advice.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">4. Subscription Plans & Payments</h2>
-            <p className="text-white/70 mb-4">
+            <h2 className="text-xl font-semibold text-foreground mb-4">4. Subscription Plans & Payments</h2>
+            <p className="text-foreground/70 mb-4">
               AiRA is offered as a subscription-based software platform. By purchasing a subscription, 
               you are paying only for access to platform features, not for financial services.
             </p>
             
-            <p className="text-white/70 mb-2"><strong className="text-white">Refund Policy</strong></p>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <p className="text-foreground/70 mb-2"><strong className="text-foreground">Refund Policy</strong></p>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>All subscription payments are non-refundable</li>
               <li>Once a plan is purchased, no refunds or partial refunds will be issued under any circumstances</li>
             </ul>
 
-            <p className="text-white/70 mb-2 mt-4"><strong className="text-white">Cancellation Policy</strong></p>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <p className="text-foreground/70 mb-2 mt-4"><strong className="text-foreground">Cancellation Policy</strong></p>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>Users may cancel their subscription at least 2 days before the next billing date</li>
               <li>If cancellation is not completed within this period, the subscription may renew automatically</li>
               <li>Cancellation stops future billing but does not trigger a refund</li>
@@ -111,50 +111,50 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">5. Platform Availability & Limitations</h2>
-            <p className="text-white/70 mb-2">AiRA is provided on an &quot;as-is&quot; and &quot;as-available&quot; basis.</p>
-            <p className="text-white/70 mb-2"><strong className="text-white">We do not guarantee:</strong></p>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <h2 className="text-xl font-semibold text-foreground mb-4">5. Platform Availability & Limitations</h2>
+            <p className="text-foreground/70 mb-2">AiRA is provided on an &quot;as-is&quot; and &quot;as-available&quot; basis.</p>
+            <p className="text-foreground/70 mb-2"><strong className="text-foreground">We do not guarantee:</strong></p>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>Continuous availability</li>
               <li>Error-free operation</li>
               <li>Accuracy of data or outputs</li>
               <li>Performance of strategies</li>
             </ul>
-            <p className="text-white/70 mt-4">
+            <p className="text-foreground/70 mt-4">
               Temporary interruptions may occur due to maintenance, upgrades, technical issues, or external dependencies.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">6. Risk Disclosure</h2>
-            <p className="text-white/70 mb-2">Trading in financial markets involves risk, including the risk of capital loss.</p>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <h2 className="text-xl font-semibold text-foreground mb-4">6. Risk Disclosure</h2>
+            <p className="text-foreground/70 mb-2">Trading in financial markets involves risk, including the risk of capital loss.</p>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>Past performance of any strategy does not guarantee future results</li>
               <li>Automated systems may behave differently in live market conditions</li>
               <li>Market volatility, latency, or incorrect configurations may lead to losses</li>
             </ul>
-            <p className="text-white/70 mt-4">
+            <p className="text-foreground/70 mt-4">
               By using AiRA, you acknowledge that you understand these risks and accept full responsibility for your actions.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">7. User Conduct</h2>
-            <p className="text-white/70 mb-2">You agree not to:</p>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <h2 className="text-xl font-semibold text-foreground mb-4">7. User Conduct</h2>
+            <p className="text-foreground/70 mb-2">You agree not to:</p>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>Use the Platform for unlawful purposes</li>
               <li>Misrepresent AiRA as an advisory or guaranteed-profit service</li>
               <li>Attempt to reverse-engineer, misuse, or exploit the Platform</li>
               <li>Share misleading claims about returns, profits, or guarantees using AiRA</li>
             </ul>
-            <p className="text-white/70 mt-4">
+            <p className="text-foreground/70 mt-4">
               Violation may result in suspension or termination without notice.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">8. Intellectual Property</h2>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <h2 className="text-xl font-semibold text-foreground mb-4">8. Intellectual Property</h2>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>All software, design, content, and platform logic belong exclusively to AiRA</li>
               <li>Users retain ownership of their own strategies and configurations</li>
               <li>Users grant AiRA a limited license to host and process their data solely for platform functionality</li>
@@ -162,24 +162,24 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">9. Limitation of Liability</h2>
-            <p className="text-white/70 mb-2">To the maximum extent permitted by law:</p>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <h2 className="text-xl font-semibold text-foreground mb-4">9. Limitation of Liability</h2>
+            <p className="text-foreground/70 mb-2">To the maximum extent permitted by law:</p>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>AiRA shall not be liable for any direct, indirect, incidental, or consequential losses</li>
               <li>Including but not limited to financial loss, loss of profits, data loss, or business interruption</li>
             </ul>
-            <p className="text-white/70 mt-4">
+            <p className="text-foreground/70 mt-4">
               Use of the Platform is entirely at the user&apos;s own risk.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">10. Regulatory Compliance</h2>
-            <p className="text-white/70 mb-2">
+            <h2 className="text-xl font-semibold text-foreground mb-4">10. Regulatory Compliance</h2>
+            <p className="text-foreground/70 mb-2">
               AiRA operates as a software platform and does not fall under advisory or intermediary regulations.
             </p>
-            <p className="text-white/70 mb-2">Users are responsible for ensuring their own compliance with:</p>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <p className="text-foreground/70 mb-2">Users are responsible for ensuring their own compliance with:</p>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>SEBI regulations</li>
               <li>Local laws</li>
               <li>Tax and reporting obligations</li>
@@ -187,49 +187,49 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">11. Termination</h2>
-            <p className="text-white/70 mb-2">AiRA reserves the right to suspend or terminate access:</p>
-            <ul className="list-disc pl-6 text-white/70 space-y-1">
+            <h2 className="text-xl font-semibold text-foreground mb-4">11. Termination</h2>
+            <p className="text-foreground/70 mb-2">AiRA reserves the right to suspend or terminate access:</p>
+            <ul className="list-disc pl-6 text-foreground/70 space-y-1">
               <li>For violation of these Terms</li>
               <li>For misuse of the Platform</li>
               <li>For legal or regulatory reasons</li>
             </ul>
-            <p className="text-white/70 mt-4">
+            <p className="text-foreground/70 mt-4">
               Termination does not entitle the user to any refund.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">12. Changes to Terms</h2>
-            <p className="text-white/70">
+            <h2 className="text-xl font-semibold text-foreground mb-4">12. Changes to Terms</h2>
+            <p className="text-foreground/70">
               AiRA may update these Terms at any time. Continued use of the Platform after updates 
               constitutes acceptance. Users are encouraged to review the Terms periodically.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">13. Governing Law</h2>
-            <p className="text-white/70">
+            <h2 className="text-xl font-semibold text-foreground mb-4">13. Governing Law</h2>
+            <p className="text-foreground/70">
               These Terms shall be governed by and interpreted in accordance with the laws of India. 
               Courts of competent jurisdiction in India shall have exclusive authority.
             </p>
           </section>
 
           <div className="mt-12 p-6 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-            <p className="text-blue-300 font-semibold text-center">
+            <p className="text-blue-600 dark:text-blue-300 font-semibold text-center">
               AiRA is a software platform providing analytical and automation tools only. 
               It does not provide investment advice, trading recommendations, or financial services of any kind.
             </p>
           </div>
         </div>
 
-        <footer className="mt-16 pt-8 border-t border-white/10 text-center">
+        <footer className="mt-16 pt-8 border-t border-border text-center">
           <div className="flex items-center justify-center gap-6 mb-4">
-            <Link href="/legal/terms" className="text-sm text-blue-400">Terms & Conditions</Link>
-            <Link href="/legal/privacy" className="text-sm text-white/40 hover:text-white/60 transition-colors">Privacy Policy</Link>
-            <Link href="/legal/risk-disclosure" className="text-sm text-white/40 hover:text-white/60 transition-colors">Risk Disclosure</Link>
+            <Link href="/legal/terms" className="text-sm text-blue-500">Terms & Conditions</Link>
+            <Link href="/legal/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link>
+            <Link href="/legal/risk-disclosure" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Risk Disclosure</Link>
           </div>
-          <p className="text-xs text-white/20">© 2025 AiRA. All rights reserved.</p>
+          <p className="text-xs text-muted-foreground/60">© 2025 AiRA. All rights reserved.</p>
         </footer>
       </div>
     </div>

@@ -712,7 +712,6 @@ function CreateStrategyTab({
     const [toDate, setToDate] = useState(() => new Date().toISOString().split("T")[0]);
     const [selectedTf, setSelectedTf] = useState("15m");
     const [showToolbox, setShowToolbox] = useState(false);
-    const [creationMode] = useState<"traditional">("traditional");
     const [referenceInstrument, setReferenceInstrument] = useState("");
   const [refInstrumentSearch, setRefInstrumentSearch] = useState("");
   const [refInstruments, setRefInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
@@ -1038,7 +1037,6 @@ function CreateStrategyTab({
     setToDate("");
     setReferenceInstrument("");
     setCurrentDraftId(null);
-    setCreationMode("traditional");
     if (onCancel && initialData) onCancel();
   };
 

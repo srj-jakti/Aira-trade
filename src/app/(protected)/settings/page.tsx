@@ -161,7 +161,7 @@ export default function SettingsPage() {
     : null;
 
   return (
-    <div className="flex flex-col h-full bg-[#030303]">
+    <div className="flex flex-col h-full bg-background">
       <div className="flex-1 p-4 md:p-8 pt-6 space-y-6 max-w-6xl mx-auto w-full">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

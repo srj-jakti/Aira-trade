@@ -274,7 +274,7 @@ const response = await fetch(
         />
         <div className="flex items-center gap-2">
           {/* Timeframe Switcher */}
-          <div className="flex items-center gap-1 bg-white/5 border border-white/10 p-1 rounded-md">
+          <div className="flex items-center gap-1 bg-muted/50 border border-white/10 p-1 rounded-md">
             {[
               { label: "1m", value: "1m" },
               { label: "5m", value: "5m" },
@@ -290,7 +290,7 @@ const response = await fetch(
                   "px-2.5 py-1 text-xs rounded transition-all",
                   timeframe === tf.value
                     ? "bg-blue-500/20 text-blue-400 font-semibold ring-1 ring-blue-500/30"
-                    : "text-white/40 hover:text-white/70 hover:bg-white/5"
+                    : "text-white/40 hover:text-white/70 hover:bg-muted/50"
                 )}
               >
                 {tf.label}
@@ -303,7 +303,7 @@ const response = await fetch(
               variant="outline"
               size="sm"
               onClick={() => setShowIndicatorPanel(!showIndicatorPanel)}
-              className="bg-white/5 border-white/10 hover:bg-white/10"
+              className="bg-muted/50 border-white/10 hover:bg-white/10"
             >
               <Settings2 className="w-4 h-4 mr-2" />
               Indicators
@@ -317,7 +317,7 @@ const response = await fetch(
                   <button
                     key={ind.id}
                     onClick={() => toggleIndicator(ind.id)}
-                    className="w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5 text-sm"
+                    className="w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-muted/50 text-sm"
                   >
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded" style={{ backgroundColor: ind.color || "#f59e0b" }} />
@@ -340,7 +340,7 @@ const response = await fetch(
               size="sm"
               onClick={handleRefresh}
               disabled={isLoadingChart || isLoadingAnalysis}
-              className="bg-white/5 border-white/10 hover:bg-white/10"
+              className="bg-muted/50 border-white/10 hover:bg-white/10"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${(isLoadingChart || isLoadingAnalysis) ? "animate-spin" : ""}`} />
               Refresh
@@ -358,7 +358,7 @@ const response = await fetch(
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
-            <Card className="bg-white/5 border-white/10 overflow-hidden">
+            <Card className="bg-muted/50 border-white/10 overflow-hidden">
               <CardHeader className="p-3 md:p-4 border-b border-white/10">
                 <CardTitle className="text-sm font-medium flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -422,28 +422,28 @@ const response = await fetch(
           </Card>
 
             {analysis && chartData.length > 0 && (
-              <Card className="bg-white/5 border-white/10">
+              <Card className="bg-muted/50 border-white/10">
                 <CardContent className="p-4">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-3 bg-white/5 rounded-lg">
+                    <div className="text-center p-3 bg-muted/50 rounded-lg">
                       <div className="text-xs text-white/50 mb-1">Entry Price</div>
                       <div className="font-mono font-semibold text-blue-400">{formatPrice(analysis.entry)}</div>
                     </div>
-                    <div className="text-center p-3 bg-white/5 rounded-lg">
+                    <div className="text-center p-3 bg-muted/50 rounded-lg">
                       <div className="text-xs text-white/50 mb-1">Target</div>
                       <div className="font-mono font-semibold text-green-400 flex items-center justify-center gap-1">
                         <ArrowUp className="w-3 h-3" />
                         {formatPrice(analysis.target)}
                       </div>
                     </div>
-                    <div className="text-center p-3 bg-white/5 rounded-lg">
+                    <div className="text-center p-3 bg-muted/50 rounded-lg">
                       <div className="text-xs text-white/50 mb-1">Stop Loss</div>
                       <div className="font-mono font-semibold text-red-400 flex items-center justify-center gap-1">
                         <ArrowDown className="w-3 h-3" />
                         {formatPrice(analysis.stopLoss)}
                       </div>
                     </div>
-                    <div className="text-center p-3 bg-white/5 rounded-lg">
+                    <div className="text-center p-3 bg-muted/50 rounded-lg">
                       <div className="text-xs text-white/50 mb-1">Confidence</div>
                       <div className="font-mono font-semibold text-purple-400">{analysis.confidence}%</div>
                     </div>
@@ -454,7 +454,7 @@ const response = await fetch(
           </div>
 
         <div className="lg:col-span-1 space-y-4">
-          <Card className="bg-white/5 border-white/10">
+          <Card className="bg-muted/50 border-white/10">
             <CardHeader className="p-3 md:p-4 border-b border-white/10">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <BrainCircuit className="w-4 h-4 text-purple-400" />
@@ -512,7 +512,7 @@ const response = await fetch(
               </CardContent>
             </Card>
 
-            <Card className="bg-white/5 border-white/10">
+            <Card className="bg-muted/50 border-white/10">
               <CardHeader className="p-3 md:p-4 border-b border-white/10">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Target className="w-4 h-4 text-indigo-400" />
@@ -529,7 +529,7 @@ const response = await fetch(
                           "px-3 py-1.5 text-xs rounded-full border transition-colors",
                           !selectedStrategy
                             ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                            : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+                            : "bg-muted/50 text-white/50 border-white/10 hover:bg-white/10"
                         )}
                       >
                         None
@@ -542,7 +542,7 @@ const response = await fetch(
                             "px-3 py-1.5 text-xs rounded-full border transition-colors",
                             selectedStrategy === strategy.id
                               ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
-                              : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+                              : "bg-muted/50 text-white/50 border-white/10 hover:bg-white/10"
                           )}
                         >
                           {strategy.name}
@@ -556,7 +556,7 @@ const response = await fetch(
               </CardContent>
             </Card>
 
-            <Card className="bg-white/5 border-white/10">
+            <Card className="bg-muted/50 border-white/10">
               <CardHeader className="p-3 md:p-4 border-b border-white/10">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Target className="w-4 h-4 text-green-400" />
@@ -574,7 +574,7 @@ const response = await fetch(
                   {analysisOutputs.slice(0, 5).map((output) => (
                     <div 
                       key={output.id} 
-                      className="p-3 bg-white/5 rounded-lg border border-white/5"
+                      className="p-3 bg-muted/50 rounded-lg border border-white/5"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium">{output.strategy_name}</span>

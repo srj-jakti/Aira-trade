@@ -81,19 +81,28 @@ export const viewport: Viewport = {
   themeColor: "#000000",
 };
 
+import { ThemeProvider } from "@/components/theme-provider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white min-h-screen overflow-x-hidden pb-[safe-area-inset-bottom]`}
+          className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen overflow-x-hidden pb-[safe-area-inset-bottom]`}
         >
-          {children}
-          <Toaster />
-          <VisualEditsMessenger />
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Toaster />
+            <VisualEditsMessenger />
+          </ThemeProvider>
         </body>
     </html>
   );

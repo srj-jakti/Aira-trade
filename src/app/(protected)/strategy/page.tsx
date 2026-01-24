@@ -210,14 +210,14 @@ export default function StrategyPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#030303] overflow-y-auto">
+    <div className="flex flex-col min-h-screen bg-background overflow-y-auto">
       <div className="flex-1 p-4 md:p-8 pt-6 space-y-6 max-w-7xl mx-auto w-full pb-20">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
               Strategies
             </h1>
-            <p className="text-white/50 text-sm">
+            <p className="text-foreground/50 text-sm">
               Create, backtest, and manage AI-powered analysis strategies.
             </p>
           </div>
@@ -228,7 +228,7 @@ export default function StrategyPage() {
               if (v !== "create") setEditingStrategy(null);
             }} className="space-y-6">
               <div className="px-0">
-                <TabsList className="flex h-auto sm:h-12 items-center justify-between gap-0.5 rounded-xl border border-white/10 bg-white/5 p-1 w-full overflow-x-auto scrollbar-hide">
+                <TabsList className="flex h-auto sm:h-12 items-center justify-between gap-0.5 rounded-xl border border-border bg-muted/50 p-1 w-full overflow-x-auto scrollbar-hide">
                   <TabsTrigger
                     value="active"
                     className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-white data-[state=active]:text-black rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
@@ -362,9 +362,9 @@ function ActiveStrategiesTab() {
 
   if (loading) {
     return (
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-muted/50 border-border">
         <CardContent className="flex items-center justify-center min-h-[300px]">
-          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+          <Loader2 className="w-8 h-8 animate-spin text-foreground/40" />
         </CardContent>
       </Card>
     );
@@ -374,28 +374,28 @@ function ActiveStrategiesTab() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      <Card className="bg-white/5 border-white/10 lg:col-span-1">
+      <Card className="bg-muted/50 border-border lg:col-span-1">
         <CardHeader>
-          <CardTitle className="text-white text-sm">Active List</CardTitle>
+          <CardTitle className="text-foreground text-sm">Active List</CardTitle>
         </CardHeader>
         <CardContent className="p-2 space-y-1">
           {strategies.length === 0 ? (
-            <p className="text-white/20 text-xs p-4 text-center">No active strategies</p>
+            <p className="text-foreground/20 text-xs p-4 text-center">No active strategies</p>
           ) : (
             strategies.map((strategy) => (
               <button
                 key={strategy.id}
                 onClick={() => setSelectedStrategyId(strategy.id)}
                 className={`w-full text-left p-3 rounded-lg transition-all ${
-                  selectedStrategyId === strategy.id ? "bg-white/10" : "hover:bg-white/5"
+                  selectedStrategyId === strategy.id ? "bg-white/10" : "hover:bg-muted/50"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-white text-sm font-medium truncate">{strategy.name}</span>
+                  <span className="text-foreground text-sm font-medium truncate">{strategy.name}</span>
                   <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="outline" className="text-[10px] px-1 h-4 border-white/10 text-white/40">
+                  <Badge variant="outline" className="text-[10px] px-1 h-4 border-border text-foreground/40">
                     {strategy.selected_timeframes[0]}
                   </Badge>
                   {strategy.is_paper_trading && (
@@ -410,22 +410,22 @@ function ActiveStrategiesTab() {
         </CardContent>
       </Card>
 
-      <Card className="bg-white/5 border-white/10 lg:col-span-3">
+      <Card className="bg-muted/50 border-border lg:col-span-3">
         {selectedStrategy ? (
           <>
             <CardHeader className="border-b border-white/5 pb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-white text-lg">{selectedStrategy.name}</CardTitle>
-                  <CardDescription className="text-white/40">
+                  <CardTitle className="text-foreground text-lg">{selectedStrategy.name}</CardTitle>
+                  <CardDescription className="text-foreground/40">
                     Monitoring {selectedStrategy.selected_instruments?.length || 0} instruments
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col items-end mr-4">
-                    <span className="text-[10px] text-white/40 uppercase tracking-wider">Status</span>
+                    <span className="text-[10px] text-foreground/40 uppercase tracking-wider">Status</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-white text-xs">Active</span>
+                      <span className="text-foreground text-xs">Active</span>
                       <Switch
                         checked={selectedStrategy.is_active}
                         onCheckedChange={(checked) => toggleActive(selectedStrategy.id, checked)}
@@ -440,7 +440,7 @@ function ActiveStrategiesTab() {
                   variant="ghost" 
                   size="sm" 
                   onClick={() => setActiveView("overview")}
-                  className={activeView === "overview" ? "bg-white/10 text-white" : "text-white/40"}
+                  className={activeView === "overview" ? "bg-white/10 text-foreground" : "text-foreground/40"}
                 >
                   Overview
                 </Button>
@@ -448,7 +448,7 @@ function ActiveStrategiesTab() {
                   variant="ghost" 
                   size="sm" 
                   onClick={() => setActiveView("signals")}
-                  className={activeView === "signals" ? "bg-white/10 text-white" : "text-white/40"}
+                  className={activeView === "signals" ? "bg-white/10 text-foreground" : "text-foreground/40"}
                 >
                   Live Signals
                 </Button>
@@ -456,7 +456,7 @@ function ActiveStrategiesTab() {
                   variant="ghost" 
                   size="sm" 
                   onClick={() => setActiveView("trades")}
-                  className={activeView === "trades" ? "bg-white/10 text-white" : "text-white/40"}
+                  className={activeView === "trades" ? "bg-white/10 text-foreground" : "text-foreground/40"}
                 >
                   Paper Trades
                 </Button>
@@ -466,18 +466,18 @@ function ActiveStrategiesTab() {
               {activeView === "overview" && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                      <p className="text-white/40 text-xs mb-1">Total Signals</p>
-                      <p className="text-white text-xl font-bold">{signals.length}</p>
+                    <div className="p-4 bg-muted/50 border border-border rounded-xl">
+                      <p className="text-foreground/40 text-xs mb-1">Total Signals</p>
+                      <p className="text-foreground text-xl font-bold">{signals.length}</p>
                     </div>
-                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                      <p className="text-white/40 text-xs mb-1">Win Rate</p>
+                    <div className="p-4 bg-muted/50 border border-border rounded-xl">
+                      <p className="text-foreground/40 text-xs mb-1">Win Rate</p>
                       <p className="text-green-400 text-xl font-bold">
                         {selectedStrategy.stats?.win_rate?.toFixed(1) || "0.0"}%
                       </p>
                     </div>
-                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                      <p className="text-white/40 text-xs mb-1">Total P&L</p>
+                    <div className="p-4 bg-muted/50 border border-border rounded-xl">
+                      <p className="text-foreground/40 text-xs mb-1">Total P&L</p>
                       <p className={`text-xl font-bold ${
                         (selectedStrategy.stats?.net_pnl_percentage || 0) >= 0 ? "text-green-400" : "text-red-400"
                       }`}>
@@ -486,9 +486,9 @@ function ActiveStrategiesTab() {
                     </div>
                   </div>
 
-                  <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                    <h4 className="text-white text-sm font-medium mb-3">Strategy Description</h4>
-                    <p className="text-white/60 text-sm leading-relaxed">
+                  <div className="p-4 bg-muted/50 border border-border rounded-xl">
+                    <h4 className="text-foreground text-sm font-medium mb-3">Strategy Description</h4>
+                    <p className="text-foreground/60 text-sm leading-relaxed">
                       {selectedStrategy.description}
                     </p>
                   </div>
@@ -499,13 +499,13 @@ function ActiveStrategiesTab() {
                 <div className="space-y-4">
                   {signals.length === 0 ? (
                     <div className="text-center py-12">
-                      <Zap className="w-12 h-12 text-white/10 mx-auto mb-4" />
-                      <p className="text-white/40">Waiting for live signals...</p>
+                      <Zap className="w-12 h-12 text-foreground/10 mx-auto mb-4" />
+                      <p className="text-foreground/40">Waiting for live signals...</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
-                        <thead className="text-white/40 text-xs">
+                        <thead className="text-foreground/40 text-xs">
                           <tr className="border-b border-white/5">
                             <th className="text-left py-3">Time</th>
                             <th className="text-left py-3">Type</th>
@@ -513,10 +513,10 @@ function ActiveStrategiesTab() {
                             <th className="text-right py-3">Status</th>
                           </tr>
                         </thead>
-                        <tbody className="text-white/80">
+                        <tbody className="text-foreground/80">
                           {signals.map((signal) => (
-                            <tr key={signal.id} className="border-b border-white/5 hover:bg-white/5">
-                              <td className="py-3 text-white/40">
+                            <tr key={signal.id} className="border-b border-white/5 hover:bg-muted/50">
+                              <td className="py-3 text-foreground/40">
                                 {new Date(signal.timestamp).toLocaleTimeString()}
                               </td>
                               <td className="py-3">
@@ -543,13 +543,13 @@ function ActiveStrategiesTab() {
                 <div className="space-y-4">
                   {paperTrades.length === 0 ? (
                     <div className="text-center py-12">
-                      <Target className="w-12 h-12 text-white/10 mx-auto mb-4" />
-                      <p className="text-white/40">No paper trades recorded yet</p>
+                      <Target className="w-12 h-12 text-foreground/10 mx-auto mb-4" />
+                      <p className="text-foreground/40">No paper trades recorded yet</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
-                        <thead className="text-white/40 text-xs">
+                        <thead className="text-foreground/40 text-xs">
                           <tr className="border-b border-white/5">
                             <th className="text-left py-3">Type</th>
                             <th className="text-left py-3">Entry</th>
@@ -557,9 +557,9 @@ function ActiveStrategiesTab() {
                             <th className="text-right py-3">P&L</th>
                           </tr>
                         </thead>
-                        <tbody className="text-white/80">
+                        <tbody className="text-foreground/80">
                           {paperTrades.map((trade) => (
-                            <tr key={trade.id} className="border-b border-white/5 hover:bg-white/5">
+                            <tr key={trade.id} className="border-b border-white/5 hover:bg-muted/50">
                               <td className="py-3">
                                 <Badge variant="outline" className={
                                   trade.type === "BUY" ? "border-green-500/30 text-green-400" : "border-red-500/30 text-red-400"
@@ -569,7 +569,7 @@ function ActiveStrategiesTab() {
                               </td>
                               <td className="py-3">
                                 <div>₹{trade.entry_price.toFixed(2)}</div>
-                                <div className="text-[10px] text-white/40">
+                                <div className="text-[10px] text-foreground/40">
                                   {new Date(trade.entry_time).toLocaleDateString()}
                                 </div>
                               </td>
@@ -579,7 +579,7 @@ function ActiveStrategiesTab() {
                                 ) : (
                                   <>
                                     <div>₹{trade.exit_price?.toFixed(2)}</div>
-                                    <div className="text-[10px] text-white/40">{trade.exit_reason}</div>
+                                    <div className="text-[10px] text-foreground/40">{trade.exit_reason}</div>
                                   </>
                                 )}
                               </td>
@@ -605,8 +605,8 @@ function ActiveStrategiesTab() {
           </>
         ) : (
           <div className="flex flex-col items-center justify-center min-h-[400px]">
-            <Activity className="w-12 h-12 text-white/10 mb-4" />
-            <p className="text-white/40 text-center">
+            <Activity className="w-12 h-12 text-foreground/10 mb-4" />
+            <p className="text-foreground/40 text-center">
               Select a strategy from the left to view live performance
             </p>
           </div>
@@ -1056,7 +1056,7 @@ function CreateStrategyTab({
               variant="outline"
               size="sm"
               onClick={() => setShowDrafts(!showDrafts)}
-              className="border-white/10 text-white/60"
+              className="border-border text-foreground/60"
             >
               <Clock className="w-4 h-4 mr-2" />
               Drafts ({drafts.length})
@@ -1082,7 +1082,7 @@ function CreateStrategyTab({
       {showDrafts && drafts.length > 0 && (
         <Card className="bg-yellow-500/5 border-yellow-500/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-white text-sm flex items-center gap-2">
+            <CardTitle className="text-foreground text-sm flex items-center gap-2">
               <Clock className="w-4 h-4 text-yellow-400" />
               Your Drafts
             </CardTitle>
@@ -1091,11 +1091,11 @@ function CreateStrategyTab({
             {drafts.map((draft) => (
               <div
                 key={draft.id}
-                className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg"
+                className="flex items-center justify-between p-3 bg-muted/50 border border-border rounded-lg"
               >
                 <div className="flex-1">
-                  <p className="text-white text-sm font-medium">{draft.name || "Untitled"}</p>
-                  <p className="text-white/40 text-xs">
+                  <p className="text-foreground text-sm font-medium">{draft.name || "Untitled"}</p>
+                  <p className="text-foreground/40 text-xs">
                     Step: {draft.step} • {new Date(draft.updated_at).toLocaleDateString()}
                   </p>
                 </div>
@@ -1123,16 +1123,16 @@ function CreateStrategyTab({
         </Card>
       )}
 
-      <div className="flex items-center justify-between gap-0.5 mb-6 bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto scrollbar-hide">
+      <div className="flex items-center justify-between gap-0.5 mb-6 bg-muted/50 p-1 rounded-xl border border-border overflow-x-auto scrollbar-hide">
         {["input", "backtest", "improve", "save"].map((s, i) => (
           <div key={s} className="flex items-center flex-1 last:flex-none">
             <div
               className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-sm font-medium transition-colors shrink-0 ${
                 step === s
-                  ? "bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)]"
+                  ? "bg-cyan-500 text-foreground shadow-[0_0_15px_rgba(6,182,212,0.5)]"
                   : ["input", "backtest", "improve", "save"].indexOf(step) > i
-                  ? "bg-green-500 text-white"
-                  : "bg-white/10 text-white/40"
+                  ? "bg-green-500 text-foreground"
+                  : "bg-white/10 text-foreground/40"
               }`}
             >
               {["input", "backtest", "improve", "save"].indexOf(step) > i ? (
@@ -1157,15 +1157,15 @@ function CreateStrategyTab({
       {step === "input" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-6">
-            <Card className="bg-white/5 border-white/10 h-full">
+            <Card className="bg-muted/50 border-border h-full">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-white text-lg flex items-center gap-2">
+                  <CardTitle className="text-foreground text-lg flex items-center gap-2">
                     <Activity className="w-5 h-5 text-cyan-400" />
                     Traditional Setup
                   </CardTitle>
                 </div>
-                <CardDescription className="text-white/40">
+                <CardDescription className="text-foreground/40">
                   Specify indicators and crossover logic for your strategy.
                 </CardDescription>
               </CardHeader>
@@ -1174,30 +1174,30 @@ function CreateStrategyTab({
                       placeholder="Example: Buy when RSI(14) crosses above 30 and Price is above EMA(200)..."
                       value={rawInput}
                       onChange={(e) => setRawInput(e.target.value)}
-                      className="min-h-[250px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none font-mono text-sm"
+                      className="min-h-[250px] bg-muted/50 border-border text-foreground placeholder:text-foreground/30 resize-none font-mono text-sm"
                     />
 
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl">
+                      <div className="flex items-center justify-between p-3 bg-muted/50 border border-border rounded-xl">
                         <div className="flex items-center gap-3">
                           <Sparkles className="w-4 h-4 text-cyan-400" />
                           <div>
-                            <Label className="text-white text-sm">Deep AI Analysis</Label>
-                            <p className="text-white/40 text-[10px]">Optimize logic for higher accuracy</p>
+                            <Label className="text-foreground text-sm">Deep AI Analysis</Label>
+                            <p className="text-foreground/40 text-[10px]">Optimize logic for higher accuracy</p>
                           </div>
                         </div>
                         <Switch checked={aiAnalysisEnabled} onCheckedChange={setAiAnalysisEnabled} />
                       </div>
 
-                      <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <Label className="text-white/60 text-[10px] uppercase tracking-wider mb-2 block">Reference Instrument (Optional)</Label>
+                      <div className="p-3 bg-muted/50 border border-border rounded-xl">
+                        <Label className="text-foreground/60 text-[10px] uppercase tracking-wider mb-2 block">Reference Instrument (Optional)</Label>
                         <div className="relative">
                           {referenceInstrument ? (
                             <div className="flex items-center gap-2">
                               <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
                                 {referenceInstrument}
                               </Badge>
-                              <button onClick={() => setReferenceInstrument("")} className="text-white/40 hover:text-white">
+                              <button onClick={() => setReferenceInstrument("")} className="text-foreground/40 hover:text-foreground">
                                 <X className="w-4 h-4" />
                               </button>
                             </div>
@@ -1210,14 +1210,14 @@ function CreateStrategyTab({
                                   setRefInstrumentSearch(e.target.value);
                                   searchRefInstruments(e.target.value);
                                 }}
-                                className="bg-white/5 border-white/10 text-white h-8 text-xs"
+                                className="bg-muted/50 border-border text-foreground h-8 text-xs"
                               />
                               {refInstruments.length > 0 && (
-                                <div className="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl max-h-32 overflow-y-auto">
+                                <div className="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-border rounded-lg shadow-xl max-h-32 overflow-y-auto">
                                   {refInstruments.map((inst) => (
                                     <button
                                       key={inst.instrument_token}
-                                      className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-white text-xs"
+                                      className="w-full text-left px-3 py-1.5 hover:bg-muted/50 text-foreground text-xs"
                                       onClick={() => {
                                         setReferenceInstrument(inst.tradingsymbol);
                                         setRefInstrumentSearch("");
@@ -1250,13 +1250,13 @@ function CreateStrategyTab({
           </div>
 
           <div className="space-y-6">
-            <Card className="bg-white/5 border-white/10 h-full flex flex-col">
+            <Card className="bg-muted/50 border-border h-full flex flex-col">
               <CardHeader className="pb-2">
-                <CardTitle className="text-white text-sm flex items-center gap-2">
+                <CardTitle className="text-foreground text-sm flex items-center gap-2">
                   <Eye className="w-4 h-4 text-cyan-400" />
                   Strategy Preview
                 </CardTitle>
-                <CardDescription className="text-white/40 text-[10px]">
+                <CardDescription className="text-foreground/40 text-[10px]">
                   Formatted executable strategy output
                 </CardDescription>
               </CardHeader>
@@ -1264,8 +1264,8 @@ function CreateStrategyTab({
                 {strategy ? (
                   <div className="space-y-4">
                     <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
-                      <h4 className="text-white text-sm font-bold mb-1">{strategy.name}</h4>
-                      <p className="text-white/60 text-xs leading-relaxed">{strategy.description}</p>
+                      <h4 className="text-foreground text-sm font-bold mb-1">{strategy.name}</h4>
+                      <p className="text-foreground/60 text-xs leading-relaxed">{strategy.description}</p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4">
@@ -1303,8 +1303,8 @@ function CreateStrategyTab({
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center border-2 border-dashed border-white/5 rounded-xl p-8">
-                    <Sparkles className="w-12 h-12 text-white/5 mb-4" />
-                    <p className="text-white/40 text-sm">Enter your strategy on the left and click "Format Logic" to see the executable preview here.</p>
+                    <Sparkles className="w-12 h-12 text-foreground/5 mb-4" />
+                    <p className="text-foreground/40 text-sm">Enter your strategy on the left and click "Format Logic" to see the executable preview here.</p>
                   </div>
                 )}
               </CardContent>
@@ -1321,25 +1321,25 @@ function CreateStrategyTab({
                 <div className="flex items-start gap-3">
                   <Sparkles className="w-5 h-5 text-cyan-400 mt-0.5" />
                   <div>
-                    <h4 className="text-white font-medium mb-2">
+                    <h4 className="text-foreground font-medium mb-2">
                       AI Improvement #{improvementCount}
                     </h4>
-                    <p className="text-white/70 text-sm">{improvementNotes}</p>
+                    <p className="text-foreground/70 text-sm">{improvementNotes}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          <Card className="bg-white/5 border-white/10">
+          <Card className="bg-muted/50 border-border">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-white text-lg">{strategy.name}</CardTitle>
-                <CardDescription className="text-white/40">
+                <CardTitle className="text-foreground text-lg">{strategy.name}</CardTitle>
+                <CardDescription className="text-foreground/40">
                   {strategy.description}
                 </CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setStep("input")} className="border-white/10 text-white/60">
+              <Button variant="outline" size="sm" onClick={() => setStep("input")} className="border-border text-foreground/60">
                 <Pencil className="w-4 h-4 mr-2" />
                 Edit Logic
               </Button>
@@ -1375,7 +1375,7 @@ function CreateStrategyTab({
                     <Shield className="w-4 h-4 text-yellow-400" />
                     <span className="text-yellow-400 font-medium">Hold / No-Trade Logic</span>
                   </div>
-                    <ul className="text-white/60 text-sm space-y-1">
+                    <ul className="text-foreground/60 text-sm space-y-1">
                       {strategy.hold_logic?.conditions?.map((c, i) => (
                         <li key={i}>• {typeof c === 'string' ? c : JSON.stringify(c)}</li>
                       )) || <li>• No specific hold conditions</li>}
@@ -1384,19 +1384,19 @@ function CreateStrategyTab({
             </CardContent>
           </Card>
 
-          <Card className="bg-white/5 border-white/10">
+          <Card className="bg-muted/50 border-border">
             <CardHeader>
-              <CardTitle className="text-white text-lg flex items-center gap-2">
+              <CardTitle className="text-foreground text-lg flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-purple-400" />
                 Backtest Strategy
               </CardTitle>
-              <CardDescription className="text-white/40">
+              <CardDescription className="text-foreground/40">
                 Select an instrument and run backtests across different timeframes.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="relative">
-                <Label className="text-white/60 mb-2 block">Select Instruments (max 2)</Label>
+                <Label className="text-foreground/60 mb-2 block">Select Instruments (max 2)</Label>
                 {selectedInstruments.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-2">
                     {selectedInstruments.map((inst) => (
@@ -1417,15 +1417,15 @@ function CreateStrategyTab({
                     setInstrumentSearch(e.target.value);
                     searchInstruments(e.target.value);
                   }}
-                  className="bg-white/5 border-white/10 text-white"
+                  className="bg-muted/50 border-border text-foreground"
                   disabled={selectedInstruments.length >= 2}
                 />
                 {instruments.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                  <div className="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-border rounded-lg shadow-xl max-h-48 overflow-y-auto">
                     {instruments.map((inst) => (
                       <button
                         key={inst.instrument_token}
-                        className="w-full text-left px-4 py-2 hover:bg-white/5 text-white text-sm"
+                        className="w-full text-left px-4 py-2 hover:bg-muted/50 text-foreground text-sm"
                         onClick={() => addInstrument(inst)}
                       >
                         {inst.tradingsymbol} - {inst.name}
@@ -1439,25 +1439,25 @@ function CreateStrategyTab({
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-white/60 mb-2 block">From Date (optional)</Label>
+                      <Label className="text-foreground/60 mb-2 block">From Date (optional)</Label>
                       <Input
                         type="date"
                         value={fromDate}
                         onChange={(e) => setFromDate(e.target.value)}
-                        className="bg-white/5 border-white/10 text-white"
+                        className="bg-muted/50 border-border text-foreground"
                       />
                     </div>
                     <div>
-                      <Label className="text-white/60 mb-2 block">To Date (optional)</Label>
+                      <Label className="text-foreground/60 mb-2 block">To Date (optional)</Label>
                       <Input
                         type="date"
                         value={toDate}
                         onChange={(e) => setToDate(e.target.value)}
-                        className="bg-white/5 border-white/10 text-white"
+                        className="bg-muted/50 border-border text-foreground"
                       />
                     </div>
                   </div>
-                  <p className="text-white/40 text-xs">
+                  <p className="text-foreground/40 text-xs">
                     Leave dates empty to use maximum available data based on timeframe
                   </p>
 
@@ -1467,10 +1467,10 @@ function CreateStrategyTab({
                           key={tf.value}
                           variant="outline"
                           onClick={() => setSelectedTf(tf.value)}
-                          className={`border-white/10 text-white transition-all ${
+                          className={`border-border text-foreground transition-all ${
                             selectedTf === tf.value 
                               ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.2)]" 
-                              : "hover:bg-white/5"
+                              : "hover:bg-muted/50"
                           }`}
                         >
                           {selectedTf === tf.value && <Check className="w-4 h-4 mr-2" />}
@@ -1482,7 +1482,7 @@ function CreateStrategyTab({
                     <Button
                       onClick={() => runBacktest(selectedTf)}
                       disabled={backtesting}
-                      className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-bold h-12 text-lg shadow-[0_0_20px_rgba(6,182,212,0.3)]"
+                      className="w-full bg-cyan-500 hover:bg-cyan-600 text-foreground font-bold h-12 text-lg shadow-[0_0_20px_rgba(6,182,212,0.3)]"
                     >
                       {backtesting ? (
                         <Loader2 className="w-5 h-5 mr-2 animate-spin" />
@@ -1532,17 +1532,17 @@ function CreateStrategyTab({
       )}
 
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <DialogContent className="bg-[#1a1a1a] border-white/10 text-white">
+        <DialogContent className="bg-[#1a1a1a] border-border text-foreground">
           <DialogHeader>
             <DialogTitle>{initialData ? "Update Strategy" : "Save Strategy"}</DialogTitle>
-            <DialogDescription className="text-white/50">
+            <DialogDescription className="text-foreground/50">
               Select timeframes and visibility for your strategy.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div>
-              <Label className="text-white/60 mb-2 block">Select Timeframes</Label>
+              <Label className="text-foreground/60 mb-2 block">Select Timeframes</Label>
               <div className="flex flex-wrap gap-2">
                 {TIMEFRAMES.map((tf) => (
                   <Button
@@ -1556,10 +1556,10 @@ function CreateStrategyTab({
                           : [...prev, tf.value]
                       );
                     }}
-                    className={`border-white/10 ${
+                    className={`border-border ${
                       selectedTimeframes.includes(tf.value)
-                        ? "bg-cyan-500 border-cyan-500 text-white"
-                        : "text-white/60"
+                        ? "bg-cyan-500 border-cyan-500 text-foreground"
+                        : "text-foreground/60"
                     }`}
                   >
                     {tf.label}
@@ -1569,25 +1569,25 @@ function CreateStrategyTab({
             </div>
 
             <div>
-              <Label className="text-white/60 mb-2 block">Visibility</Label>
+              <Label className="text-foreground/60 mb-2 block">Visibility</Label>
               <Select value={visibility} onValueChange={(v: "private" | "public" | "invite_only") => setVisibility(v)}>
-                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                <SelectTrigger className="bg-muted/50 border-border text-foreground">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-white/10">
-                  <SelectItem value="private" className="text-white">
+                <SelectContent className="bg-[#1a1a1a] border-border">
+                  <SelectItem value="private" className="text-foreground">
                     <div className="flex items-center gap-2">
                       <Lock className="w-4 h-4" />
                       Private - Only you can see
                     </div>
                   </SelectItem>
-                  <SelectItem value="public" className="text-white">
+                  <SelectItem value="public" className="text-foreground">
                     <div className="flex items-center gap-2">
                       <Globe className="w-4 h-4" />
                       Public - Visible to everyone (requires approval)
                     </div>
                   </SelectItem>
-                  <SelectItem value="invite_only" className="text-white">
+                  <SelectItem value="invite_only" className="text-foreground">
                     <div className="flex items-center gap-2">
                       <UserCheck className="w-4 h-4" />
                       Invite Only - Controlled access (requires approval)
@@ -1599,8 +1599,8 @@ function CreateStrategyTab({
 
             <div className="flex items-center justify-between p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
               <div className="space-y-0.5">
-                <Label className="text-white text-sm">Paper Trading</Label>
-                <p className="text-white/40 text-[10px]">
+                <Label className="text-foreground text-sm">Paper Trading</Label>
+                <p className="text-foreground/40 text-[10px]">
                   Simulate trades on live data after saving
                 </p>
               </div>
@@ -1615,7 +1615,7 @@ function CreateStrategyTab({
             <Button
               variant="outline"
               onClick={() => setShowSaveDialog(false)}
-              className="border-white/10 text-white"
+              className="border-border text-foreground"
             >
               Cancel
             </Button>
@@ -1648,19 +1648,19 @@ function StrategySection({
   const [expanded, setExpanded] = useState(true);
 
   return (
-    <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
+    <div className="p-4 bg-muted/50 border border-border rounded-lg">
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between mb-4"
       >
         <div className="flex items-center gap-2">
           {icon}
-          <span className="text-white font-medium">{title}</span>
+          <span className="text-foreground font-medium">{title}</span>
         </div>
         {expanded ? (
-          <ChevronUp className="w-4 h-4 text-white/40" />
+          <ChevronUp className="w-4 h-4 text-foreground/40" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-white/40" />
+          <ChevronDown className="w-4 h-4 text-foreground/40" />
         )}
       </button>
 
@@ -1669,21 +1669,21 @@ function StrategySection({
           {sections.map((section) => (
             <div key={section.label}>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-white/40 text-xs uppercase tracking-wider">
+                <p className="text-foreground/40 text-xs uppercase tracking-wider">
                   {section.label}
                 </p>
               </div>
-              <div className="text-white/80 text-sm">
+              <div className="text-foreground/80 text-sm">
                 {section.data.description && (
-                  <p className="mb-1 text-white/60 italic">{section.data.description}</p>
+                  <p className="mb-1 text-foreground/60 italic">{section.data.description}</p>
                 )}
                 
                 {/* Editable Parameters */}
                 {section.data.parameters && typeof section.data.parameters === "object" && section.data.parameters !== null && Object.keys(section.data.parameters).length > 0 && (
-                  <div className="grid grid-cols-2 gap-2 mb-2 p-2 bg-white/5 rounded-lg border border-white/5">
+                  <div className="grid grid-cols-2 gap-2 mb-2 p-2 bg-muted/50 rounded-lg border border-white/5">
                     {Object.entries(section.data.parameters).map(([k, v]) => (
                       <div key={k} className="flex flex-col gap-1">
-                        <Label className="text-[10px] text-white/40 uppercase">{k.replace("_", " ")}</Label>
+                        <Label className="text-[10px] text-foreground/40 uppercase">{k.replace("_", " ")}</Label>
                         <div className="flex items-center gap-1">
                           <Input
                             type={typeof v === "number" ? "number" : "text"}
@@ -1694,10 +1694,10 @@ function StrategySection({
                                 onUpdate(section.path, k, newVal);
                               }
                             }}
-                            className="h-7 text-xs bg-white/10 border-white/10 text-white px-2"
+                            className="h-7 text-xs bg-white/10 border-border text-foreground px-2"
                             step={typeof v === "number" ? "0.1" : undefined}
                           />
-                          {k.toLowerCase().includes("percent") && <span className="text-[10px] text-white/40">%</span>}
+                          {k.toLowerCase().includes("percent") && <span className="text-[10px] text-foreground/40">%</span>}
                         </div>
                       </div>
                     ))}
@@ -1711,7 +1711,7 @@ function StrategySection({
                       {typeof c === 'string' ? (
                         <span>{c}</span>
                       ) : (
-                        <span className="text-white/40">
+                        <span className="text-foreground/40">
                           {JSON.stringify(c)}
                         </span>
                       )}
@@ -1732,17 +1732,17 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
   const tf = TIMEFRAMES.find((t) => t.value === timeframe);
 
   return (
-    <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
+    <div className="p-4 bg-muted/50 border border-border rounded-lg">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="border-cyan-500/30 text-cyan-400">
             {tf?.label || timeframe}
           </Badge>
-          <span className="text-white/40 text-sm">{tf?.coverage} data</span>
+          <span className="text-foreground/40 text-sm">{tf?.coverage} data</span>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <p className="text-white/40 text-[10px] uppercase tracking-wider">Net P&L</p>
+            <p className="text-foreground/40 text-[10px] uppercase tracking-wider">Net P&L</p>
             <div
               className={`text-lg font-bold ${
                 result.net_pnl >= 0 ? "text-green-400" : "text-red-400"
@@ -1756,39 +1756,39 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-3 bg-white/5 rounded-lg border border-white/5">
-          <p className="text-white/40 text-xs mb-1">Win Rate</p>
+        <div className="p-3 bg-muted/50 rounded-lg border border-white/5">
+          <p className="text-foreground/40 text-xs mb-1">Win Rate</p>
           <p className="text-green-400 text-xl font-bold">{result.win_rate.toFixed(1)}%</p>
-          <p className="text-white/20 text-[10px]">Total: {result.total_trades} trades</p>
+          <p className="text-foreground/20 text-[10px]">Total: {result.total_trades} trades</p>
         </div>
-        <div className="p-3 bg-white/5 rounded-lg border border-white/5">
-          <p className="text-white/40 text-xs mb-1">P&L / Trade</p>
+        <div className="p-3 bg-muted/50 rounded-lg border border-white/5">
+          <p className="text-foreground/40 text-xs mb-1">P&L / Trade</p>
           <p className={`text-xl font-bold ${result.net_pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
             ₹{(result.net_pnl / (result.total_trades || 1)).toFixed(0)}
           </p>
-          <p className="text-white/20 text-[10px]">Avg per position</p>
+          <p className="text-foreground/20 text-[10px]">Avg per position</p>
         </div>
-        <div className="p-3 bg-white/5 rounded-lg border border-white/5">
-          <p className="text-white/40 text-xs mb-1">Max Drawdown</p>
+        <div className="p-3 bg-muted/50 rounded-lg border border-white/5">
+          <p className="text-foreground/40 text-xs mb-1">Max Drawdown</p>
           <p className="text-red-400 text-xl font-bold">{result.max_drawdown_percentage.toFixed(1)}%</p>
-          <p className="text-white/20 text-[10px]">₹{result.max_drawdown.toLocaleString()}</p>
+          <p className="text-foreground/20 text-[10px]">₹{result.max_drawdown.toLocaleString()}</p>
         </div>
-        <div className="p-3 bg-white/5 rounded-lg border border-white/5">
-          <p className="text-white/40 text-xs mb-1">Capital Used</p>
-          <p className="text-white text-xl font-bold">₹{result.capital_used.toLocaleString()}</p>
-          <p className="text-white/20 text-[10px]">Total exposure</p>
+        <div className="p-3 bg-muted/50 rounded-lg border border-white/5">
+          <p className="text-foreground/40 text-xs mb-1">Capital Used</p>
+          <p className="text-foreground text-xl font-bold">₹{result.capital_used.toLocaleString()}</p>
+          <p className="text-foreground/20 text-[10px]">Total exposure</p>
         </div>
       </div>
 
       <div className="flex gap-4 mt-4 text-xs">
-        <span className="text-white/40">
+        <span className="text-foreground/40">
           Profit Trades: <span className="text-green-400">{Math.round(result.total_trades * result.win_rate / 100)}</span>
         </span>
-        <span className="text-white/40">
+        <span className="text-foreground/40">
           Loss Trades: <span className="text-red-400">{Math.round(result.total_trades * result.loss_rate / 100)}</span>
         </span>
-        <span className="text-white/40">
-          Hold: <span className="text-white/60">{result.hold_count}</span>
+        <span className="text-foreground/40">
+          Hold: <span className="text-foreground/60">{result.hold_count}</span>
         </span>
       </div>
 
@@ -1796,7 +1796,7 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
           variant="ghost"
           size="sm"
           onClick={() => setShowTrades(!showTrades)}
-          className="mt-4 text-white/40 hover:text-white h-8"
+          className="mt-4 text-foreground/40 hover:text-foreground h-8"
         >
           {showTrades ? "Hide" : "Show"} Position Log ({(result.trade_log || []).length})
         </Button>
@@ -1806,7 +1806,7 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
           <div className="mt-4 p-4 bg-gradient-to-r from-purple-500/10 to-cyan-500/10 border border-purple-500/20 rounded-lg">
             <div className="flex items-center gap-2 mb-3">
               <Bot className="w-4 h-4 text-purple-400" />
-              <span className="text-white font-medium text-sm">AI Trading Engine Insights</span>
+              <span className="text-foreground font-medium text-sm">AI Trading Engine Insights</span>
               {result.aiInsights.expectedImprovement > 0 && (
                 <Badge className="bg-green-500/20 text-green-400 border-none text-[10px]">
                   +{result.aiInsights.expectedImprovement}% Expected
@@ -1815,35 +1815,35 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
             </div>
             <div className="space-y-2">
               {result.aiInsights.suggestions.map((suggestion, i) => (
-                <div key={i} className="flex items-start gap-2 text-xs text-white/70">
+                <div key={i} className="flex items-start gap-2 text-xs text-foreground/70">
                   <Sparkles className="w-3 h-3 text-cyan-400 mt-0.5 shrink-0" />
                   <span>{suggestion}</span>
                 </div>
               ))}
             </div>
             {result.aiInsights.optimizedParams && (
-              <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 md:grid-cols-4 gap-2">
                 {result.aiInsights.optimizedParams.stop_loss_pct && (
-                  <div className="p-2 bg-white/5 rounded text-center">
-                    <p className="text-[10px] text-white/40">Stop Loss</p>
+                  <div className="p-2 bg-muted/50 rounded text-center">
+                    <p className="text-[10px] text-foreground/40">Stop Loss</p>
                     <p className="text-sm font-bold text-red-400">{result.aiInsights.optimizedParams.stop_loss_pct}%</p>
                   </div>
                 )}
                 {result.aiInsights.optimizedParams.target_pct && (
-                  <div className="p-2 bg-white/5 rounded text-center">
-                    <p className="text-[10px] text-white/40">Target</p>
+                  <div className="p-2 bg-muted/50 rounded text-center">
+                    <p className="text-[10px] text-foreground/40">Target</p>
                     <p className="text-sm font-bold text-green-400">{result.aiInsights.optimizedParams.target_pct}%</p>
                   </div>
                 )}
                 {result.aiInsights.optimizedParams.trailing_stop && (
-                  <div className="p-2 bg-white/5 rounded text-center">
-                    <p className="text-[10px] text-white/40">Trailing SL</p>
+                  <div className="p-2 bg-muted/50 rounded text-center">
+                    <p className="text-[10px] text-foreground/40">Trailing SL</p>
                     <p className="text-sm font-bold text-yellow-400">Enabled</p>
                   </div>
                 )}
                 {result.aiInsights.optimizedParams.additional_filter && (
-                  <div className="p-2 bg-white/5 rounded text-center col-span-2 md:col-span-1">
-                    <p className="text-[10px] text-white/40">Filter</p>
+                  <div className="p-2 bg-muted/50 rounded text-center col-span-2 md:col-span-1">
+                    <p className="text-[10px] text-foreground/40">Filter</p>
                     <p className="text-xs font-medium text-cyan-400">{result.aiInsights.optimizedParams.additional_filter}</p>
                   </div>
                 )}
@@ -1855,7 +1855,7 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
         {showTrades && result.trade_log && (
         <div className="mt-4 overflow-x-auto border border-white/5 rounded-lg">
           <table className="w-full text-sm">
-            <thead className="text-white/40 text-[10px] uppercase tracking-wider bg-white/5">
+            <thead className="text-foreground/40 text-[10px] uppercase tracking-wider bg-muted/50">
               <tr>
                 <th className="text-left px-4 py-2">S.No</th>
                 <th className="text-left px-4 py-2">Type</th>
@@ -1865,10 +1865,10 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
                 <th className="text-right px-4 py-2">P&L</th>
               </tr>
             </thead>
-            <tbody className="text-white/80">
+            <tbody className="text-foreground/80">
               {result.trade_log.map((trade, idx) => (
-                <tr key={trade.id} className="border-t border-white/5 hover:bg-white/5 transition-colors">
-                  <td className="px-4 py-3 text-white/30 text-xs">
+                <tr key={trade.id} className="border-t border-white/5 hover:bg-muted/50 transition-colors">
+                  <td className="px-4 py-3 text-foreground/30 text-xs">
                     {idx + 1}
                   </td>
                   <td className="px-4 py-3">
@@ -1883,12 +1883,12 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
                       {trade.type}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-white/60 font-mono text-xs">
+                  <td className="px-4 py-3 text-foreground/60 font-mono text-xs">
                     {trade.quantity}
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-xs">₹{trade.entry_price.toFixed(2)}</div>
-                    <div className="text-white/30 text-[9px]">
+                    <div className="text-foreground/30 text-[9px]">
                       {new Date(trade.entry_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                     </div>
                   </td>
@@ -1896,7 +1896,7 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
                     <div className="font-medium text-xs">₹{trade.exit_price?.toFixed(2) || "-"}</div>
                     <div className={`text-[9px] ${
                       trade.exit_reason?.includes("Stop Loss") ? "text-red-400/70" : 
-                      trade.exit_reason?.includes("Target") ? "text-green-400/70" : "text-white/30"
+                      trade.exit_reason?.includes("Target") ? "text-green-400/70" : "text-foreground/30"
                     }`}>
                       {trade.exit_reason || "-"}
                     </div>
@@ -1967,9 +1967,9 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
 
   if (loading) {
     return (
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-muted/50 border-border">
         <CardContent className="flex items-center justify-center min-h-[300px]">
-          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+          <Loader2 className="w-8 h-8 animate-spin text-foreground/40" />
         </CardContent>
       </Card>
     );
@@ -1977,19 +1977,19 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
 
   return (
     <>
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-muted/50 border-border">
         <CardHeader>
-          <CardTitle className="text-white text-lg">Private Strategies</CardTitle>
-          <CardDescription className="text-white/40">
+          <CardTitle className="text-foreground text-lg">Private Strategies</CardTitle>
+          <CardDescription className="text-foreground/40">
             Your personal strategies. Toggle to activate for AI analysis.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {strategies.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-white/5 rounded-xl">
-              <Lock className="w-12 h-12 text-white/10 mb-4" />
-              <p className="text-white/40">No private strategies saved</p>
-              <p className="text-white/20 text-sm mt-1">
+              <Lock className="w-12 h-12 text-foreground/10 mb-4" />
+              <p className="text-foreground/40">No private strategies saved</p>
+              <p className="text-foreground/20 text-sm mt-1">
                 Create your first strategy in the Create AI tab
               </p>
             </div>
@@ -1998,17 +1998,17 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
               {strategies.map((strategy) => (
                 <div
                   key={strategy.id}
-                  className="p-4 bg-white/5 border border-white/10 rounded-xl"
+                  className="p-4 bg-muted/50 border border-border rounded-xl"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-white font-medium">{strategy.name}</h3>
+                        <h3 className="text-foreground font-medium">{strategy.name}</h3>
                         <Badge
                           variant="outline"
                           className={`text-xs ${
                             strategy.visibility === "private"
-                              ? "border-white/20 text-white/40"
+                              ? "border-white/20 text-foreground/40"
                               : strategy.visibility === "public"
                               ? "border-green-500/30 text-green-400"
                               : "border-purple-500/30 text-purple-400"
@@ -2022,13 +2022,13 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
                           </Badge>
                         )}
                       </div>
-                      <p className="text-white/40 text-sm mt-1">{strategy.description}</p>
+                      <p className="text-foreground/40 text-sm mt-1">{strategy.description}</p>
                       <div className="flex gap-2 mt-2">
                         {strategy.selected_timeframes?.map((tf) => (
                           <Badge
                             key={tf}
                             variant="outline"
-                            className="text-xs border-white/10 text-white/50"
+                            className="text-xs border-border text-foreground/50"
                           >
                             {TIMEFRAMES.find((t) => t.value === tf)?.label || tf}
                           </Badge>
@@ -2040,7 +2040,7 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-white/40 hover:text-white hover:bg-white/10"
+                          className="h-8 w-8 text-foreground/40 hover:text-foreground hover:bg-white/10"
                           onClick={() => onEdit?.(strategy)}
                         >
                           <Pencil className="h-4 w-4" />
@@ -2048,14 +2048,14 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-white/40 hover:text-red-400 hover:bg-red-400/10"
+                          className="h-8 w-8 text-foreground/40 hover:text-red-400 hover:bg-red-400/10"
                           onClick={() => setDeletingId(strategy.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                       <div className="text-right">
-                        <p className="text-white/40 text-[10px] uppercase tracking-wider mb-1">Status</p>
+                        <p className="text-foreground/40 text-[10px] uppercase tracking-wider mb-1">Status</p>
                         <Switch
                           checked={strategy.is_active}
                           onCheckedChange={(checked) => toggleActive(strategy.id, checked)}
@@ -2071,18 +2071,18 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
       </Card>
 
       <AlertDialog open={deletingId !== null} onOpenChange={(open) => !open && setDeletingId(null)}>
-        <AlertDialogContent className="bg-[#1a1a1a] border-white/10 text-white">
+        <AlertDialogContent className="bg-[#1a1a1a] border-border text-foreground">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription className="text-white/50">
+            <AlertDialogDescription className="text-foreground/50">
               This will permanently delete the strategy and stop all active scanning/trading associated with it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="bg-muted/50 border-border text-foreground hover:bg-white/10">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingId && handleDelete(deletingId)}
-              className="bg-red-500 hover:bg-red-600 text-white border-none"
+              className="bg-red-500 hover:bg-red-600 text-foreground border-none"
             >
               Delete
             </AlertDialogAction>
@@ -2115,44 +2115,44 @@ function PublicStrategiesTab() {
 
   if (loading) {
     return (
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-muted/50 border-border">
         <CardContent className="flex items-center justify-center min-h-[300px]">
-          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+          <Loader2 className="w-8 h-8 animate-spin text-foreground/40" />
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="bg-white/5 border-white/10">
+    <Card className="bg-muted/50 border-border">
       <CardHeader>
-        <CardTitle className="text-white text-lg">Public Marketplace</CardTitle>
-        <CardDescription className="text-white/40">
+        <CardTitle className="text-foreground text-lg">Public Marketplace</CardTitle>
+        <CardDescription className="text-foreground/40">
           Discover strategies shared by the community.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {strategies.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-white/5 rounded-xl">
-            <Globe className="w-12 h-12 text-white/10 mb-4" />
-            <p className="text-white/40">No public strategies available yet</p>
+            <Globe className="w-12 h-12 text-foreground/10 mb-4" />
+            <p className="text-foreground/40">No public strategies available yet</p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {strategies.map((strategy) => (
               <div
                 key={strategy.id}
-                className="p-4 bg-white/5 border border-white/10 rounded-xl"
+                className="p-4 bg-muted/50 border border-border rounded-xl"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-white font-medium">{strategy.name}</h3>
+                  <h3 className="text-foreground font-medium">{strategy.name}</h3>
                   <Badge variant="outline" className="border-green-500/30 text-green-400">
                     Public
                   </Badge>
                 </div>
-                <p className="text-white/40 text-sm mb-3">{strategy.description}</p>
+                <p className="text-foreground/40 text-sm mb-3">{strategy.description}</p>
                 <div className="flex items-center justify-between">
-                  <span className="text-white/30 text-xs">by {strategy.creator}</span>
+                  <span className="text-foreground/30 text-xs">by {strategy.creator}</span>
                   {strategy.stats && (
                     <div className="flex gap-3 text-xs">
                       <span className="text-green-400">
@@ -2237,9 +2237,9 @@ function InviteOnlyTab() {
 
   if (loading) {
     return (
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-muted/50 border-border">
         <CardContent className="flex items-center justify-center min-h-[300px]">
-          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+          <Loader2 className="w-8 h-8 animate-spin text-foreground/40" />
         </CardContent>
       </Card>
     );
@@ -2252,7 +2252,7 @@ function InviteOnlyTab() {
           variant={activeSubTab === "browse" ? "default" : "outline"}
           size="sm"
           onClick={() => setActiveSubTab("browse")}
-          className={activeSubTab === "browse" ? "bg-cyan-500" : "border-white/10 text-white/60"}
+          className={activeSubTab === "browse" ? "bg-cyan-500" : "border-border text-foreground/60"}
         >
           Browse
         </Button>
@@ -2260,7 +2260,7 @@ function InviteOnlyTab() {
           variant={activeSubTab === "requests" ? "default" : "outline"}
           size="sm"
           onClick={() => setActiveSubTab("requests")}
-          className={activeSubTab === "requests" ? "bg-cyan-500" : "border-white/10 text-white/60"}
+          className={activeSubTab === "requests" ? "bg-cyan-500" : "border-border text-foreground/60"}
         >
           My Requests
         </Button>
@@ -2268,7 +2268,7 @@ function InviteOnlyTab() {
           variant={activeSubTab === "manage" ? "default" : "outline"}
           size="sm"
           onClick={() => setActiveSubTab("manage")}
-          className={activeSubTab === "manage" ? "bg-cyan-500" : "border-white/10 text-white/60"}
+          className={activeSubTab === "manage" ? "bg-cyan-500" : "border-border text-foreground/60"}
         >
           Manage Invites
           {accessData.incomingRequests.length > 0 && (
@@ -2278,38 +2278,38 @@ function InviteOnlyTab() {
       </div>
 
       {activeSubTab === "browse" && (
-        <Card className="bg-white/5 border-white/10">
+        <Card className="bg-muted/50 border-border">
           <CardHeader>
-            <CardTitle className="text-white text-lg">Invite-Only Strategies</CardTitle>
-            <CardDescription className="text-white/40">
+            <CardTitle className="text-foreground text-lg">Invite-Only Strategies</CardTitle>
+            <CardDescription className="text-foreground/40">
               Request access to exclusive strategies.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {strategies.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-white/5 rounded-xl">
-                <UserCheck className="w-12 h-12 text-white/10 mb-4" />
-                <p className="text-white/40">No invite-only strategies available</p>
+                <UserCheck className="w-12 h-12 text-foreground/10 mb-4" />
+                <p className="text-foreground/40">No invite-only strategies available</p>
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 {strategies.map((strategy) => (
                   <div
                     key={strategy.id}
-                    className="p-4 bg-white/5 border border-white/10 rounded-xl"
+                    className="p-4 bg-muted/50 border border-border rounded-xl"
                   >
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <Lock className="w-4 h-4 text-purple-400" />
-                        <h3 className="text-white font-medium">{strategy.name}</h3>
+                        <h3 className="text-foreground font-medium">{strategy.name}</h3>
                       </div>
                       <Badge variant="outline" className="border-purple-500/30 text-purple-400">
                         Invite Only
                       </Badge>
                     </div>
-                    <p className="text-white/40 text-sm mb-3">{strategy.description}</p>
+                    <p className="text-foreground/40 text-sm mb-3">{strategy.description}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-white/30 text-xs">by {strategy.creator}</span>
+                      <span className="text-foreground/30 text-xs">by {strategy.creator}</span>
                       <Button
                         size="sm"
                         variant="outline"
@@ -2328,20 +2328,20 @@ function InviteOnlyTab() {
       )}
 
       {activeSubTab === "requests" && (
-        <Card className="bg-white/5 border-white/10">
+        <Card className="bg-muted/50 border-border">
           <CardHeader>
-            <CardTitle className="text-white text-lg">My Access Requests</CardTitle>
+            <CardTitle className="text-foreground text-lg">My Access Requests</CardTitle>
           </CardHeader>
           <CardContent>
             {accessData.myRequests.length === 0 ? (
-              <p className="text-white/40 text-center py-8">No access requests</p>
+              <p className="text-foreground/40 text-center py-8">No access requests</p>
             ) : (
               <div className="space-y-3">
                 {accessData.myRequests.map((req: any) => (
-                  <div key={req.id} className="p-3 bg-white/5 border border-white/10 rounded-lg flex items-center justify-between">
+                  <div key={req.id} className="p-3 bg-muted/50 border border-border rounded-lg flex items-center justify-between">
                     <div>
-                      <p className="text-white">{req.strategies?.name}</p>
-                      <p className="text-white/40 text-sm">Status: {req.status}</p>
+                      <p className="text-foreground">{req.strategies?.name}</p>
+                      <p className="text-foreground/40 text-sm">Status: {req.status}</p>
                     </div>
                     <Badge
                       variant="outline"
@@ -2364,31 +2364,31 @@ function InviteOnlyTab() {
       )}
 
       {activeSubTab === "manage" && (
-        <Card className="bg-white/5 border-white/10">
+        <Card className="bg-muted/50 border-border">
           <CardHeader>
-            <CardTitle className="text-white text-lg">Manage Invite Requests</CardTitle>
-            <CardDescription className="text-white/40">
+            <CardTitle className="text-foreground text-lg">Manage Invite Requests</CardTitle>
+            <CardDescription className="text-foreground/40">
               Approve or reject access requests for your invite-only strategies.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {accessData.incomingRequests.length === 0 ? (
-              <p className="text-white/40 text-center py-8">No pending requests</p>
+              <p className="text-foreground/40 text-center py-8">No pending requests</p>
             ) : (
               <div className="space-y-3">
                 {accessData.incomingRequests.map((req: any) => (
-                  <div key={req.id} className="p-4 bg-white/5 border border-white/10 rounded-lg">
+                  <div key={req.id} className="p-4 bg-muted/50 border border-border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <div>
-                        <p className="text-white font-medium">{req.profiles?.username || req.profiles?.email}</p>
-                        <p className="text-white/40 text-sm">Requesting: {req.strategies?.name}</p>
+                        <p className="text-foreground font-medium">{req.profiles?.username || req.profiles?.email}</p>
+                        <p className="text-foreground/40 text-sm">Requesting: {req.strategies?.name}</p>
                       </div>
                       <Badge variant="outline" className="border-yellow-500/30 text-yellow-400">
                         {req.status}
                       </Badge>
                     </div>
                     {req.message && (
-                      <p className="text-white/60 text-sm mb-3 italic">&quot;{req.message}&quot;</p>
+                      <p className="text-foreground/60 text-sm mb-3 italic">&quot;{req.message}&quot;</p>
                     )}
                     {req.status === "pending" && (
                       <div className="flex gap-2">

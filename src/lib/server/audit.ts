@@ -1,17 +1,16 @@
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export type AuditAction =
-  | "credential_created"
-  | "credential_updated"
-  | "credential_deleted"
-  | "trading_enabled"
-  | "trading_disabled"
-  | "risk_settings_updated"
-  | "admin_user_approved"
-  | "admin_user_rejected"
-  | "admin_user_deleted"
-  | "admin_config_updated"
-  | "profile_updated";
+  | 'credential_created'
+  | 'credential_updated'
+  | 'credential_deleted'
+  | 'trading_enabled'
+  | 'trading_disabled'
+  | 'risk_settings_updated'
+  | 'admin_user_approved'
+  | 'admin_user_rejected'
+  | 'admin_user_deleted'
+  | 'admin_config_updated';
 
 interface AuditLogEntry {
   user_id: string;
@@ -24,11 +23,12 @@ interface AuditLogEntry {
 
 export async function logAudit(entry: AuditLogEntry): Promise<void> {
   try {
-    await supabaseAdmin.from("audit_logs").insert({
+    await supabaseAdmin.from('audit_logs').insert({
       ...entry,
       created_at: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("Audit log failed:", error);
+    // Log to console but don't fail the operation
+    console.error('Audit log failed:', error);
   }
 }

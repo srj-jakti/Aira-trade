@@ -4,6 +4,8 @@ import "./globals.css";
 import { VisualEditsMessenger } from "orchids-visual-edits";
 import { Toaster } from "@/components/ui/sonner";
 import Script from "next/script";
+import { PWAUpdater } from "@/components/PWAUpdater";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,8 +53,11 @@ export default function RootLayout({
           strategy="afterInteractive"
           data-orchids-project-id="4c5c238c-6da6-4257-86ab-86cbb8b4222d"
         />
-          {children}
-          <Toaster />
+            {children}
+            <PWAUpdater />
+            <PWAInstallPrompt />
+            <Toaster />
+
           <VisualEditsMessenger />
         </body>
     </html>

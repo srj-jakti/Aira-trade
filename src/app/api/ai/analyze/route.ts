@@ -141,39 +141,55 @@ export async function POST(request: NextRequest) {
         };
       }
 
+      // Fetch RL/Statistical signals to create Unified Conviction
+      const activeSignals = await aiSharedService.getActiveSignals(parseInt(instrumentToken));
+      const latestSignal: any = activeSignals && activeSignals.length > 0 ? activeSignals[0] : null;
 
-      // Fallback analysis if AI fails
-      if (!humanAnalysis.success && !parsed) {
-        const recentCandles = candles.slice(-30);
-        const prices = recentCandles.map(c => c.close);
-        const highs = recentCandles.map(c => c.high);
-        const lows = recentCandles.map(c => c.low);
+      let unifiedScore = result.confidence;
+      let engineAlignment = "LLM Only";
+      let consensusVerdict = result.signal === "buy" ? "Bullish Outlook" : result.signal === "sell" ? "Bearish Outlook" : "Neutral Outlook";
+
+      if (latestSignal) {
+        const rlDirection = latestSignal.direction?.toLowerCase();
+        const rlConfidence = Number(latestSignal.confidence) || 50;
+        const llmDirection = result.trend;
+
+        // Alignment Logic
+        const isAligned = (rlDirection === "buy" || rlDirection === "long") && llmDirection === "bullish" ||
+                          (rlDirection === "sell" || rlDirection === "short") && llmDirection === "bearish";
         
-        const currentPrice = prices[prices.length - 1];
-        const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-        const maxHigh = Math.max(...highs);
-        const minLow = Math.min(...lows);
-        
-        const priceChange = ((currentPrice - prices[0]) / prices[0]) * 100;
-        
-        result = {
-          trend: priceChange > 2 ? "bullish" : priceChange < -2 ? "bearish" : "neutral",
-          strength: Math.min(100, Math.abs(priceChange) * 10),
-          support: minLow,
-          resistance: maxHigh,
-          analysis: `Based on ${recentCandles.length} candles of ${timeframe} data: Price ${priceChange > 0 ? "up" : "down"} ${Math.abs(priceChange).toFixed(2)}%. Current: ${currentPrice.toFixed(2)}, Avg: ${avgPrice.toFixed(2)}.`,
-          signal: priceChange > 3 ? "buy" : priceChange < -3 ? "sell" : "hold",
-          confidence: Math.min(80, 50 + Math.abs(priceChange) * 5),
-          entry: currentPrice,
-          target: currentPrice * (priceChange > 0 ? 1.05 : 0.95),
-          stopLoss: currentPrice * (priceChange > 0 ? 0.97 : 1.03),
-          reasoning: `Technical analysis based on recent price movement of ${priceChange.toFixed(2)}%.`,
-        };
+        const isOpposed = (rlDirection === "buy" || rlDirection === "long") && llmDirection === "bearish" ||
+                          (rlDirection === "sell" || rlDirection === "short") && llmDirection === "bullish";
+
+        if (isAligned) {
+          unifiedScore = Math.min(100, (result.confidence + rlConfidence) / 2 + 10);
+          engineAlignment = "Engines Aligned";
+          consensusVerdict = llmDirection === "bullish" ? "High Conviction Bullish" : "High Conviction Bearish";
+        } else if (isOpposed) {
+          unifiedScore = Math.abs(result.confidence - rlConfidence);
+          engineAlignment = "Engines Diverged";
+          consensusVerdict = "Conflicting Signals - Exercise Caution";
+        } else {
+          unifiedScore = (result.confidence + rlConfidence) / 2;
+          engineAlignment = "Partial Alignment";
+          consensusVerdict = "Moderate Conviction";
+        }
       }
 
       return NextResponse.json({
         success: true,
-        analysis: result,
+        analysis: {
+          ...result,
+          unifiedScore: Math.round(unifiedScore),
+          engineAlignment,
+          consensusVerdict,
+          hasRlSignal: !!latestSignal,
+          rlSignal: latestSignal ? {
+            direction: latestSignal.direction,
+            confidence: latestSignal.confidence,
+            strategy: latestSignal.strategy_name || "RL Engine"
+          } : null
+        },
         hasData: true,
         dataPoints: candles.length,
         dataSource: "LIVE",

@@ -1,11 +1,14 @@
-FROM node:20-alpine
+FROM oven/bun:1-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+# Create cache directory with proper permissions
+RUN mkdir -p /app/node_modules/.cache && chmod -R 777 /app/node_modules/.cache
+
+COPY package.json bun.lock ./
+RUN bun install
 
 COPY . .
-RUN npm run build
+RUN bun run build
 
-CMD ["node", "dist/worker.js"]
+CMD ["bun", "run", "start"]

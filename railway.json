@@ -1,18 +1,22 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "services": {
-    "cron-maintenance": {
-      "root": "railway/cron-maintenance",
+    "trading-engine": {
+      "root": "railway/trading-engine",
       "build": {
         "builder": "DOCKERFILE",
         "dockerfilePath": "Dockerfile"
       }
     },
-    "trading-engine": {
-      "root": "railway/trading-engine"
-    },
     "market-data-worker": {
       "root": "railway/market-data-worker",
+      "build": {
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "Dockerfile"
+      }
+    },
+    "rl-engine": {
+      "root": "railway/rl-engine",
       "build": {
         "builder": "DOCKERFILE",
         "dockerfilePath": "Dockerfile"

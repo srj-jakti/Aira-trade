@@ -1,5 +1,17 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { airaBrain } from "./aira-brain";
+import { aiSharedService } from "./ai-shared-service";
+import { marketDataEngine } from "./market-data-engine";
+import { decrypt } from "./encryption";
+import { IndicatorCalculator, type Candle as CalcCandle } from "./indicator-calculator";
+import { StrategyEvaluator } from "./strategy-evaluator";
+import { StrategyRuleExecutor, formatEvaluationLogForDisplay } from "./strategy-rule-executor";
+import { processZairoth } from "@/lib/zairoth";
+import {
+  type ExecutableStrategy,
+  type EvaluationLog,
+  validateStrategy,
+  getRequiredWarmupPeriod,
+} from "@/lib/types/strategy";
 
 export interface StrategyLogic {
   conditions: string[];
@@ -116,12 +128,7 @@ class StrategyService {
     return StrategyService.instance;
   }
 
-  async formatStrategyWithAI(
-    rawInput: string, 
-    aiAnalysisEnabled: boolean = false, 
-    mode: "traditional" | "neural" = "traditional",
-    currentStrategy?: StructuredStrategy
-  ): Promise<StructuredStrategy & { zairoth_intent?: string }> {
+  async formatStrategyWithAI(rawInput: string, aiAnalysisEnabled: boolean = false, mode: "traditional" | "neural" = "traditional"): Promise<StructuredStrategy & { zairoth_intent?: string }> {
     // Phase 1: Generate ZAIROTH Intent (Backend only, hidden from user)
     const zairothResult = await aiSharedService.generateZairothIntent(rawInput);
     let zairothContext = "";
@@ -141,27 +148,10 @@ class StrategyService {
       );
     }
 
-    const REFINEMENT_CONTEXT = currentStrategy ? `
-### 🔄 REFINEMENT MODE ACTIVE
-You are modifying an EXISTING strategy. 
-CURRENT STRATEGY:
-${JSON.stringify(currentStrategy, null, 2)}
-
-USER REQUEST FOR MODIFICATION:
-"${rawInput}"
-
-INSTRUCTIONS FOR REFINEMENT:
-1. Preserve the core logic of the current strategy unless explicitly asked to change it.
-2. Apply the requested changes/additions to the existing structure.
-3. Return the FULL updated strategy JSON.
-` : "";
-
     const TRADITIONAL_PROMPT = `You are an Expert Professional Trader AI with 10+ years of discretionary trading experience.
 You are NOT an indicator calculator. You are a DECISION-MAKING TRADER.
-You MUST follow MT5/Institutional trading standards.
 
 ${zairothContext}
-${REFINEMENT_CONTEXT}
 ${aiAnalysisEnabled ? `
   ### 🧠 EXPERT AI TRADER MODE: ENABLED
   CORE PRINCIPLE (NON-NEGOTIABLE):
@@ -200,14 +190,6 @@ ${aiAnalysisEnabled ? `
   Use 'AND' logic for the executable strategy to ensure only high-quality trades are taken.
   Target outcome: Improve win rate from 20% to 60-80% by AVOIDING junk trades.
   ` : ""}
-
-  ### MANDATORY INSTRUCTIONS:
-  1. FORMULATE CORRECT CONDITIONS: Convert natural language into precise technical rules.
-  2. USE ALL USER INPUTS: If the user mentions an indicator or condition, you MUST include it.
-  3. SEPARATE RISK FOR EACH SIDE: You MUST provide separate Stop Loss, Target, and Trailing SL for BUY and SELL sides. Even if the user specifies one value, apply it to both but keep them as separate fields in the JSON.
-  4. INSTITUTIONAL TARGETS: If the user doesn't provide targets/SL, use AI analysis based on the strategy type (e.g., 1:2 or 1:3 Risk/Reward).
-  5. TRAILING STOP LOSS (TSL): You MUST include Trailing Stop Loss logic for both directions.
-  6. MT5 LOGIC: Use logic consistent with MetaTrader 5 (MT5) and institutional trading (Order Blocks, FVG, etc. if relevant).
 
 ### STRATEGY TYPES:
 - INTRADAY: Same-day entry/exit. Must exit by 3:15 PM IST.
@@ -265,8 +247,8 @@ ${aiAnalysisEnabled ? `
   "buy_target": { "parameters": { "percentage": 3.0 } },
   "sell_stop_loss": { "parameters": { "percentage": 1.5 } },
   "sell_target": { "parameters": { "percentage": 3.0 } },
-  "buy_trailing_sl": { "conditions": ["Activate at 1% profit, trail by 0.5%"] },
-  "sell_trailing_sl": { "conditions": ["Activate at 1% profit, trail by 0.5%"] },
+  "buy_trailing_sl": { "conditions": [] },
+  "sell_trailing_sl": { "conditions": [] },
   "hold_logic": { "conditions": [] },
   "executable_strategy": {
     "name": "Strategy Name",
@@ -286,16 +268,8 @@ ${aiAnalysisEnabled ? `
         { "type": "indicator", "name": "RSI", "period": 14, "operator": ">", "value": 65 }
       ] 
     },
-    "buyExit": { 
-      "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, 
-      "target": { "type": "PERCENTAGE", "value": 3.0 },
-      "trailingSL": { "enabled": true, "activationPercent": 1.0, "trailPercent": 0.5 }
-    },
-    "sellExit": { 
-      "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, 
-      "target": { "type": "PERCENTAGE", "value": 3.0 },
-      "trailingSL": { "enabled": true, "activationPercent": 1.0, "trailPercent": 0.5 }
-    },
+    "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3.0 } },
+    "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.5 }, "target": { "type": "PERCENTAGE", "value": 3.0 } },
     "requiredIndicators": [
       { "name": "EMA", "period": 20 },
       { "name": "RSI", "period": 14 }
@@ -305,61 +279,62 @@ ${aiAnalysisEnabled ? `
 }
 
 ### CRITICAL RULES:
-1. USE ALL USER INDICATORS: Never skip an indicator mentioned by the user.
-2. TRAILING SL IS MANDATORY: Always include trailing SL in 'executable_strategy'.
-3. RSI thresholds: oversold 30-40, overbought 60-70.
-4. Risk-Reward: Target should be at least 1.5x of SL unless user specifies otherwise.
-5. Simple Entry: Keep to 1-2 entry rules per direction.`;
+1. Use "OR" logic for buy/sell to generate more signals
+2. Keep rules simple: 1-2 conditions max per entry - MORE CONDITIONS = FEWER TRADES = WORSE RESULTS
+3. RSI thresholds: oversold 30-40, overbought 60-70 (NOT extreme 20/80)
+4. Stop loss: 1-2% for intraday, 2-4% for swing
+5. Target: 1.5x to 2x of stop loss (risk-reward ratio)
+6. NEVER add more than 2 entry rules per direction - this kills trade frequency`;
 
-    const NEURAL_PROMPT = `You are a Lead Neural Quant Strategist. You specialize in Price Action Sequences (PAS) and Institutional Market Structure (MT5 standards).
+    const NEURAL_PROMPT = `You are a Lead Neural Quant Strategist. You specialize in Price Action Sequences (PAS).
 Your goal is to format a Neural Strategy Idea into a structured JSON for execution.
 
-${REFINEMENT_CONTEXT}
-
 ### THE NEURAL ARCHITECTURE:
-Neural mode focuses on Market Structure (HH/HL), Liquidity Grabs (Sweeps), and Imbalances (FVG).
+Neural mode focuses on Market Structure (HH/HL), Liquidity Grabs, and Imbalances.
 Instead of retail indicators (RSI/EMA), you must prioritize 'price_action' and 'pattern' rules.
-
-### MANDATORY NEURAL INSTRUCTIONS:
-1. USE ALL USER INPUTS: Formulate rules for every price action element mentioned.
-2. SEQUENTIAL LOGIC: Neural strategies often require sequences. Use 'AND' logic for sequences.
-3. INSTITUTIONAL EXITS: Use structure-based targets and MANDATORY Trailing Stop Loss.
-4. MT5 COMPATIBILITY: Ensure logic follows institutional price action principles.
 
 ### AVAILABLE NEURAL RULES:
 1. **price_action**: 
    \`{ "type": "price_action", "action": "HIGHER_HIGH" | "LOWER_LOW" | "HIGHER_LOW" | "LOWER_HIGH" | "BULLISH_CANDLE" | "BEARISH_CANDLE" }\`
-   - Use these to define structure shifts.
+   - Use these to define structure shifts (e.g., BULLISH_CANDLE after HIGHER_HIGH).
 
 2. **pattern**:
    \`{ "type": "pattern", "pattern": "HAMMER" | "SHOOTING_STAR" | "DOJI" | "BULLISH_ENGULFING" | "BEARISH_ENGULFING" }\`
-   - Use these for entry confirmation.
+   - Use these for entry confirmation (e.g., HAMMER at a demand zone).
 
 3. **trend**:
    \`{ "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" | "BEARISH" }\`
    \`{ "type": "trend", "indicator": "ADX", "threshold": 25 }\`
+   - Use these for Market Regime filtering.
 
 ### MAPPING SEQUENCES TO EXECUTABLE RULES:
 "Wait for Liquidity Sweep (Lower Low) followed by a Bullish Candle"
 -> Rules: [{ "type": "price_action", "action": "LOWER_LOW" }, { "type": "price_action", "action": "BULLISH_CANDLE" }]
--> Logic: "AND" (Enables memory-based sequence tracking).
+-> Logic: "AND" (This forces the executor's "Time-Aware" logic to wait for the sequence).
 
 ### OUTPUT JSON:
-Same structure as traditional, but rules focus on price action.
+Same structure as traditional, but rules must focus on price action.
 {
   "name": "Neural Strategy Name",
-  "buyExit": { 
-    "stopLoss": { "type": "PERCENTAGE", "value": 1.0 }, 
-    "target": { "type": "PERCENTAGE", "value": 3.5 },
-    "trailingSL": { "enabled": true, "activationPercent": 1.2, "trailPercent": 0.8 }
-  },
-  ...
+  "description": "Institutional Price Action Sequence...",
+  "strategy_type": "INTRADAY" | "SWING",
+  "buy_entry_logic": { "conditions": ["Liquidity Grab (Lower Low)", "Bullish Market Structure Shift"], "indicators": [] },
+  "sell_entry_logic": { "conditions": ["Liquidity Grab (Higher High)", "Bearish Market Structure Shift"], "indicators": [] },
+  "executable_strategy": {
+    "name": "Neural Strategy Name",
+    "buy": { "logic": "AND", "rules": [{ "type": "price_action", "action": "LOWER_LOW" }, { "type": "price_action", "action": "BULLISH_CANDLE" }] },
+    "sell": { "logic": "AND", "rules": [{ "type": "price_action", "action": "HIGHER_HIGH" }, { "type": "price_action", "action": "BEARISH_CANDLE" }] },
+    "buyExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.0 }, "target": { "type": "PERCENTAGE", "value": 3.0 } },
+    "sellExit": { "stopLoss": { "type": "PERCENTAGE", "value": 1.0 }, "target": { "type": "PERCENTAGE", "value": 3.0 } },
+    "requiredIndicators": [],
+    "minWarmupCandles": 5
+  }
 }
 
 ### CRITICAL NEURAL RULES:
-1. Always use "AND" logic for price action sequences.
-2. MANDATORY Trailing Stop Loss: Always enable it in buyExit/sellExit.
-3. Targets are usually higher (2.5% - 5.0%) due to institutional RR ratios.`;
+1. Always use "AND" logic for price action sequences - it enables the engine's memory-based sequence tracking.
+2. If the user mentions RSI or EMA, you CAN include them as confirmation, but the CORE must be price action.
+3. Stop losses in neural mode are usually tighter (0.5% - 1.2%). Targets are higher (3% - 5%).`;
 
     const messages = [
         {
@@ -368,9 +343,7 @@ Same structure as traditional, but rules focus on price action.
         },
     {
       role: "user",
-      content: currentStrategy 
-        ? `Refine my strategy based on this feedback: ${rawInput}`
-        : `Create a profitable trading strategy based on this idea. Make it simple and tradeable:\n\n${rawInput}`,
+      content: `Create a profitable trading strategy based on this idea. Make it simple and tradeable:\n\n${rawInput}`,
     },
   ];
 
@@ -564,21 +537,6 @@ Same structure as traditional, but rules focus on price action.
       strategy.minWarmupCandles = 30;
     }
 
-    // Fix Trailing SL if it's missing or incomplete
-    if (!strategy.buyExit.trailingSL) {
-      strategy.buyExit.trailingSL = { enabled: true, activationPercent: 1.5, trailPercent: 1.0 };
-    } else if (strategy.buyExit.trailingSL.enabled && !strategy.buyExit.trailingSL.trailPercent) {
-      strategy.buyExit.trailingSL.trailPercent = 0.5;
-      strategy.buyExit.trailingSL.activationPercent = 1.0;
-    }
-
-    if (!strategy.sellExit.trailingSL) {
-      strategy.sellExit.trailingSL = { enabled: true, activationPercent: 1.5, trailPercent: 1.0 };
-    } else if (strategy.sellExit.trailingSL.enabled && !strategy.sellExit.trailingSL.trailPercent) {
-      strategy.sellExit.trailingSL.trailPercent = 0.5;
-      strategy.sellExit.trailingSL.activationPercent = 1.0;
-    }
-
     return strategy;
   }
 
@@ -660,29 +618,16 @@ Same structure as traditional, but rules focus on price action.
       };
     }
 
-    if (exec.buyExit?.trailingSL) {
-      strategy.buy_trailing_sl.parameters = {
-        enabled: exec.buyExit.trailingSL.enabled,
-        activation_percent: exec.buyExit.trailingSL.activationPercent,
-        trail_percent: exec.buyExit.trailingSL.trailPercent
+    if (exec.sellExit?.target) {
+      strategy.sell_target.parameters = { 
+        ...strategy.sell_target.parameters,
+        percentage: exec.sellExit.target.value,
+        type: exec.sellExit.target.type
       };
-      if (exec.buyExit.trailingSL.enabled) {
-        strategy.buy_trailing_sl.conditions = [`Activate at ${exec.buyExit.trailingSL.activationPercent}% profit, trail by ${exec.buyExit.trailingSL.trailPercent}%`];
-      }
     }
 
-      if (exec.sellExit?.trailingSL) {
-        strategy.sell_trailing_sl.parameters = {
-          enabled: exec.sellExit.trailingSL.enabled,
-          activation_percent: exec.sellExit.trailingSL.activationPercent,
-          trail_percent: exec.sellExit.trailingSL.trailPercent
-        };
-        if (exec.sellExit.trailingSL.enabled) {
-          strategy.sell_trailing_sl.conditions = [`Activate at ${exec.sellExit.trailingSL.activationPercent}% profit, trail by ${exec.sellExit.trailingSL.trailPercent}%`];
-        }
-      }
-      return strategy;
-    }
+    return strategy;
+  }
 
   private createFallbackExecutableStrategy(strategy: StructuredStrategy): ExecutableStrategy {
     const buyRules: any[] = [];
@@ -803,94 +748,49 @@ Same structure as traditional, but rules focus on price action.
         version: 1,
         buy: { logic: "OR", rules: buyRules },
         sell: { logic: "OR", rules: sellRules },
-          sellExit: {
-            stopLoss: { type: "PERCENTAGE", value: slPercent },
-            target: { type: "PERCENTAGE", value: targetPercent },
-            trailingSL: { enabled: true, activationPercent: 1.5, trailPercent: 1.0 }
-          },
-          buyExit: {
-            stopLoss: { type: "PERCENTAGE", value: slPercent },
-            target: { type: "PERCENTAGE", value: targetPercent },
-            trailingSL: { enabled: true, activationPercent: 1.5, trailPercent: 1.0 }
-          },
-
+        buyExit: {
+          stopLoss: { type: "PERCENTAGE", value: slPercent },
+          target: { type: "PERCENTAGE", value: targetPercent },
+        },
+        sellExit: {
+          stopLoss: { type: "PERCENTAGE", value: slPercent },
+          target: { type: "PERCENTAGE", value: targetPercent },
+        },
         requiredIndicators: indicators as any,
         minWarmupCandles: 20,
       };
     }
 
-  async improveStrategyWithAI(
-    strategy: StructuredStrategy,
-    backtestResults: BacktestResult,
-    candleData?: { candles: Candle[]; indicatorValues?: Record<string, number[]> },
-    strategyId?: number,
-    aiEngineSuggestions?: { suggestions: string[]; optimizedParams?: Record<string, unknown>; expectedImprovement: number },
-    optimizationArchetype: "BALANCED" | "CONSERVATIVE" | "AGGRESSIVE" | "ITERATIVE" = "BALANCED",
-    iterationContext?: string,
-    rlOptimizedParams?: Record<string, any>
-  ): Promise<{ improved: StructuredStrategy; notes: string }> {
-    
-    // Fetch past backtests to compare performance
-    let pastPerformanceContext = "";
-    if (strategyId) {
-      const { data: pastBacktests } = await supabaseAdmin
-        .from("strategy_backtests")
-        .select("strategy_version, total_trades, win_rate, net_pnl_percentage, created_at")
-        .eq("strategy_id", strategyId)
-        .order("created_at", { ascending: false })
-        .limit(5);
+      async improveStrategyWithAI(
+        strategy: StructuredStrategy,
+        backtestResults: BacktestResult,
+        candleData?: { candles: Candle[]; indicatorValues?: Record<string, number[]> },
+        strategyId?: number,
+        aiEngineSuggestions?: { suggestions: string[]; optimizedParams?: Record<string, unknown>; expectedImprovement: number },
+        optimizationArchetype: "BALANCED" | "CONSERVATIVE" | "AGGRESSIVE" = "BALANCED"
+      ): Promise<{ improved: StructuredStrategy; notes: string }> {
+        
+        // Fetch past backtests to compare performance
+        let pastPerformanceContext = "";
+        if (strategyId) {
+          const { data: pastBacktests } = await supabaseAdmin
+            .from("strategy_backtests")
+            .select("strategy_version, total_trades, win_rate, net_pnl_percentage, created_at")
+            .eq("strategy_id", strategyId)
+            .order("created_at", { ascending: false })
+            .limit(5);
 
-      if (pastBacktests && pastBacktests.length > 0) {
-        pastPerformanceContext = "\nPAST IMPROVEMENT HISTORY:\n" + pastBacktests.map(pb => 
-          `- v${pb.strategy_version}: Win Rate ${pb.win_rate.toFixed(1)}%, P&L ${pb.net_pnl_percentage.toFixed(2)}%, Trades: ${pb.total_trades} (${new Date(pb.created_at).toLocaleDateString()})`
-        ).join("\n");
-      }
-    }
+          if (pastBacktests && pastBacktests.length > 0) {
+            pastPerformanceContext = "\nPAST IMPROVEMENT HISTORY:\n" + pastBacktests.map(pb => 
+              `- v${pb.strategy_version}: Win Rate ${pb.win_rate.toFixed(1)}%, P&L ${pb.net_pnl_percentage.toFixed(2)}%, Trades: ${pb.total_trades} (${new Date(pb.created_at).toLocaleDateString()})`
+            ).join("\n");
+          }
+        }
 
-    // RL Engine Context
-    let rlContext = "";
-    if (rlOptimizedParams) {
-      // Fetch Global Weights for context
-      const { data: weightsData } = await supabaseAdmin
-        .from("rl_global_weights")
-        .select("weights")
-        .eq("id", "global_v1")
-        .single();
-      
-      const globalWeights = weightsData?.weights || {};
-      
-      // Refine RL params via AiraBrain to get Institutional Thesis
-      const refinement = await airaBrain.refineRLOptimization(strategyId || 0, rlOptimizedParams, globalWeights);
-      const thesis = refinement.success && typeof refinement.result === 'object' 
-        ? (refinement.result as any)
-        : { institutional_thesis: "The RL agent identified these parameters as mathematically optimal across 1.2M simulated trades." };
-
-      rlContext = `
-🤖 TENSORTRADE RL ENGINE OPTIMIZATION (From 1.2M+ Simulated Trades):
-The RL agent found these optimal settings across ${strategy.name} and 10 correlated "Neighbor" instruments.
-
-INSTITUTIONAL THESIS:
-${thesis.institutional_thesis}
-
-OPTIMIZED RL PARAMETERS:
-- Preferred Timeframe: ${rlOptimizedParams.preferred_timeframe || "No change"}
-- Stop Loss: ${rlOptimizedParams.stop_loss_pct || "No change"}%
-- Target: ${rlOptimizedParams.target_pct || "No change"}%
-- Trailing Stop Activation: ${rlOptimizedParams.trailing_stop_activation || "No change"}%
-- Trailing Stop Distance: ${rlOptimizedParams.trailing_stop_distance || "No change"}%
-
-PARAMETER JUSTIFICATIONS:
-${(thesis.parameter_justifications || []).map((j: any) => `- ${j.param}: ${j.reason}`).join("\n")}
-
-CRITICAL: The RL engine has simulated millions of trades to find these values. You MUST incorporate them into the improved strategy while maintaining the institutional thesis.
-`;
-    }
-
-    // AI Trading Engine Learnings Context
-
-          let aiEngineContext = "";
-          if (aiEngineSuggestions && aiEngineSuggestions.suggestions.length > 0) {
-            aiEngineContext = `
+        // AI Trading Engine Learnings Context
+        let aiEngineContext = "";
+        if (aiEngineSuggestions && aiEngineSuggestions.suggestions.length > 0) {
+          aiEngineContext = `
 
 🤖 AI TRADING ENGINE LEARNINGS (From Historical Trade Analysis):
 ${aiEngineSuggestions.suggestions.map(s => `- ${s}`).join("\n")}
@@ -904,105 +804,233 @@ Suggested Parameter Changes:
 Expected Improvement: ${aiEngineSuggestions.expectedImprovement}%
 CRITICAL: Incorporate these learnings into your improvements. The AI Engine has analyzed real trade outcomes to provide these insights.
 `;
-          }
+        }
 
-          // Analyze trade patterns
-          const trades = backtestResults.trade_log || [];
-          const winningTrades = trades.filter(t => (t.pnl || 0) > 0);
-          const losingTrades = trades.filter(t => (t.pnl || 0) <= 0);
-          
-          // Calculate trade statistics
-          const avgWin = winningTrades.length > 0 
-            ? winningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0) / winningTrades.length 
-            : 0;
-          const avgLoss = losingTrades.length > 0 
-            ? Math.abs(losingTrades.reduce((sum, t) => sum + (t.pnl || 0), 0) / losingTrades.length)
-            : 0;
-          
-          // Analyze exit reasons
-          const exitReasons: Record<string, number> = {};
-          trades.forEach(t => {
-            const reason = t.exit_reason || "Unknown";
-            exitReasons[reason] = (exitReasons[reason] || 0) + 1;
-          });
-
-          // Analyze Loss Patterns
-          const lossPatterns = {
-            slHit: losingTrades.filter(t => t.exit_reason === "Stop Loss Hit").length,
-            targetHit: winningTrades.filter(t => t.exit_reason === "Target Hit").length,
-            trailingSlHit: trades.filter(t => t.exit_reason === "Trailing Stop Loss Hit").length,
-            avgLossPct: losingTrades.reduce((a, b) => a + (b.pnl_percentage || 0), 0) / (losingTrades.length || 1),
-            avgWinPct: winningTrades.reduce((a, b) => a + (b.pnl_percentage || 0), 0) / (winningTrades.length || 1),
-          };
-
-          const messages = [
-                {
-                  role: "system",
-                  content: `You are a Lead Quant Strategist and Institutional AI Trader. 
-          Your goal is to optimize a trading strategy based on actual backtest data.
-
-          ARCHETYPE: ${optimizationArchetype}
-          ${iterationContext ? `\nCURRENT ITERATION PROGRESS:\n${iterationContext}` : ""}
-
-          🔒 CORE MISSION:
-          Do NOT just "add filters." Adding too many conditions causes "overfitting" and kills trade frequency.
-          Instead, focus on:
-          1. PARAMETER TUNING: Is 20 EMA better as 50? Is RSI 40 better as 45?
-          2. RISK REFINEMENT: Should Stop Loss be tighter or wider? Is Trailing SL activating too early?
-          3. LOGIC SIMPLIFICATION: Remove redundant or ineffective rules that didn't contribute to winning trades.
-          4. SEQUENTIAL TIMING: Use "evaluateWithMemory" logic. Signals don't have to happen on one candle; focus on sequences.
-
-          🎯 OPTIMIZATION PHILOSOPHY:
-          - "A strategy is perfect not when there is nothing more to add, but when there is nothing left to take away."
-          - Identify "Junk Trades": Trades that hit SL immediately without ever going into profit.
-          - Identify "Missed Profits": Trades that were in profit but hit SL because of bad exit logic.
-
-          📋 IMPROVEMENT GUIDELINES:
-          - If many losses are "Stop Loss Hit" immediately: Entry is too early. Tighten entry OR widen SL.
-          - If Win Rate is high but P&L is low: Risk/Reward is broken. Increase Target or use Trailing SL.
-          - If Win Rate is low: Entry logic is weak or picking up noise. Add a Regime filter (ADX/EMA) only if necessary.
-          
-          🚫 STRICT LIMITS:
-          - Max 3 Entry rules per side.
-          - Max 2 Exit rules (SL/Target/TSL).
-          - Use "AND" logic for high-quality setups.
-
-          ### OUTPUT FORMAT (STRICT JSON):
-          {
-            "improved": {
-              "name": "...",
-              "description": "...",
-              "buy_entry_logic": { "conditions": [...], "indicators": [...] },
-              "sell_entry_logic": { "conditions": [...], "indicators": [...] },
-              "executable_strategy": {
-                "buy": { "logic": "AND", "rules": [...] },
-                "sell": { "logic": "AND", "rules": [...] },
-                "buyExit": { "stopLoss": {"type": "PERCENTAGE", "value": X}, "target": {"type": "PERCENTAGE", "value": Y}, "trailingSL": {...} },
-                "sellExit": { "stopLoss": {"type": "PERCENTAGE", "value": X}, "target": {"type": "PERCENTAGE", "value": Y}, "trailingSL": {...} }
+        // Analyze trade patterns
+        const trades = backtestResults.trade_log || [];
+        const winningTrades = trades.filter(t => (t.pnl || 0) > 0);
+        const losingTrades = trades.filter(t => (t.pnl || 0) <= 0);
+        
+        // Calculate trade statistics
+        const avgWin = winningTrades.length > 0 
+          ? winningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0) / winningTrades.length 
+          : 0;
+        const avgLoss = losingTrades.length > 0 
+          ? Math.abs(losingTrades.reduce((sum, t) => sum + (t.pnl || 0), 0) / losingTrades.length)
+          : 0;
+        const avgHoldingPeriod = trades.length > 0
+          ? trades.reduce((sum, t) => {
+              if (t.entry_time && t.exit_time) {
+                return sum + (new Date(t.exit_time).getTime() - new Date(t.entry_time).getTime()) / (1000 * 60);
               }
-            },
-            "notes": "Explain why you changed specific parameters. e.g. 'Reduced SL to 1.2% as most losses were shallow' or 'Added ADX filter to avoid ranging markets detected in losses'."
-          }`,
-                },
-                {
-                  role: "user",
-                  content: `Analyze this backtest and improve the strategy. 
+              return sum;
+            }, 0) / trades.length
+          : 0;
+
+        // Analyze exit reasons
+        const exitReasons: Record<string, number> = {};
+        trades.forEach(t => {
+          const reason = t.exit_reason || "Unknown";
+          exitReasons[reason] = (exitReasons[reason] || 0) + 1;
+        });
+
+        // Analyze Loss Patterns (New: Deep analysis for AI)
+        const lossPatterns = {
+          slHit: losingTrades.filter(t => t.exit_reason === "Stop Loss Hit").length,
+          intradayExit: losingTrades.filter(t => t.exit_reason?.includes("Intraday")).length,
+          avgLossPct: losingTrades.reduce((a, b) => a + (b.pnl_percentage || 0), 0) / (losingTrades.length || 1),
+          consecutiveLosses: 0 // Simplistic check
+        };
+
+        // Build market context from candle data
+        let marketContext = "";
+        if (candleData?.candles && candleData.candles.length > 0) {
+          const candles = candleData.candles;
+          const lastPrice = candles[candles.length - 1].close;
+          const startPrice = candles[0].close;
+          const trendPercent = ((lastPrice - startPrice) / startPrice) * 100;
           
-          CURRENT STRATEGY: ${JSON.stringify(strategy.executable_strategy || strategy)}
+          // Calculate volatility
+          const returns = candles.slice(1).map((c, i) => (c.close - candles[i].close) / candles[i].close);
+          const avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+          const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length;
+          const volatility = Math.sqrt(variance) * 100;
           
-          BACKTEST PERFORMANCE:
-          - Win Rate: ${backtestResults.win_rate.toFixed(1)}%
-          - Net P&L: ₹${backtestResults.net_pnl.toFixed(2)}
-          - Exit Reasons: ${JSON.stringify(exitReasons)}
-          - Pattern Analysis: ${JSON.stringify(lossPatterns)}
+          // Find support/resistance levels
+          const highs = candles.map(c => c.high).sort((a, b) => b - a);
+          const lows = candles.map(c => c.low).sort((a, b) => a - b);
+          const resistance = highs[Math.floor(highs.length * 0.1)];
+          const support = lows[Math.floor(lows.length * 0.1)];
+
+          marketContext = `
+    MARKET ANALYSIS (from ${candles.length} candles):
+    - Period Trend: ${trendPercent > 0 ? "BULLISH" : "BEARISH"} (${trendPercent.toFixed(2)}%)
+    - Volatility: ${volatility.toFixed(2)}% (${volatility < 1 ? "LOW" : volatility < 2 ? "MEDIUM" : "HIGH"})
+    - Price Range: ₹${lows[0].toFixed(2)} to ₹${highs[0].toFixed(2)}
+    - Key Resistance: ₹${resistance.toFixed(2)}
+    - Key Support: ₹${support.toFixed(2)}
+    - Current Price: ₹${lastPrice.toFixed(2)}`;
+        }
+
+        // Phase 1: Generate ZAIROTH Intent (Internal)
+        const zairothResult = await aiSharedService.generateZairothIntent(
+          `Improve strategy: ${strategy.name}. Backtest result: ${backtestResults.win_rate.toFixed(1)}% win rate, ₹${backtestResults.net_pnl.toFixed(2)} P&L. Focus on cutting losses.`
+        );
+        let zairothContext = "";
+        
+        if (zairothResult.success && zairothResult.zairoth) {
+          zairothContext = `INTERNAL IMPROVEMENT INTENT (ZAIROTH):\n${zairothResult.zairoth.raw}\n\n`;
           
-          Losing Trade Samples: ${JSON.stringify(losingTrades.slice(-5))}
-          Winning Trade Samples: ${JSON.stringify(winningTrades.slice(-5))}
-          
-          Target: Improve the Profit Factor and Win Rate while keeping trade frequency sustainable.`,
-                },
-              ];
+          await aiSharedService.logZairothIntent(
+            "Improve strategy request",
+            zairothResult.zairoth.raw,
+            { valid: true },
+            zairothResult.zairoth.canonical,
+            "Strategy improvement initiated",
+            strategyId?.toString()
+          );
+        }
+
+        const messages = [
+              {
+                role: "system",
+                content: `You are an EXPERT PROFESSIONAL TRADER AI with 10+ years of discretionary trading experience.
+        You are NOT an indicator calculator. You are a DECISION-MAKING TRADER optimizing strategies for maximum profitability.
+
+        OPTIMIZATION ARCHETYPE: ${optimizationArchetype}
+        ${optimizationArchetype === 'CONSERVATIVE' ? 'Focus on: Extremely high win rate (>70%), very few trades, tight stops, strict filters.' : ''}
+        ${optimizationArchetype === 'AGGRESSIVE' ? 'Focus on: Capturing big moves, trailing stops, wider targets, higher trade frequency.' : ''}
+        ${optimizationArchetype === 'BALANCED' ? 'Focus on: Sustainable profit factor, 1:2 Risk/Reward, moderate selectivity.' : ''}
+
+        ${zairothContext}${aiEngineContext}
+
+        🔒 CORE PRINCIPLE (NON-NEGOTIABLE):
+        "Strategies define WHEN to trade. AI Analysis defines WHEN NOT to trade."
+        
+        Your goal is to IMPROVE effective win rate from ~20-30% to 60-80% 
+        by AVOIDING bad trades, NOT by forcing more trades.
+
+        🎯 OPTIMIZATION PHILOSOPHY:
+        1. ANALYZE LOSSES FIRST: Identify WHY trades are losing. Are they entering in chop? Is the stop loss too tight? Is the trend weak?
+        2. ANALYZE PROFITS: What conditions were present during big wins? Strengthen those rules.
+        3. CUT LOSSES: Add filters (Market Regime, Volatility, Momentum) to "Veto" entries that look like common loss patterns.
+        4. WIN BIG: Use aggressive targets or trailing stops for high-confidence setups.
+        5. LOSE SMALL: Tighten SL and ensure R:R is at least 1:2.
+
+        📋 STEP-BY-STEP IMPROVEMENT PROCESS:
+
+        STEP 1 — Understand the Strategy (DO NOT CHANGE IT)
+        - Identify: Entry logic, Exit logic, Timeframe, Indicator dependency
+        - Assume the strategy logic is CORRECT but INCOMPLETE
+
+        STEP 2 — Analyze Historical Weaknesses (Trader Mindset)
+        - Look at the LOSING TRADES provided.
+        - If many losses are "Stop Loss Hit", suggest adding a "Volatility Filter" (e.g., ATR < threshold) or "Trend Filter" (e.g., ADX > 25).
+        - If win rate is low (<35%), the strategy is likely taking too many "junk" trades. Focus on quality.
+
+        STEP 3 — Add AI ANALYSIS FILTERS (INBUILT IN LOGIC)
+        You MUST add these as actual rules in the 'executable_strategy.buy.rules' and 'executable_strategy.sell.rules' if they improve performance.
+        Common Filters to add:
+        - ADX(14) > 25 (Trend confirmation)
+        - RSI(14) not between 40-60 (Momentum confirmation)
+        - Price > EMA(200) (Major trend filter)
+        - ATR(14) < [value] (Volatility filter)
+        
+        STEP 4 — Combine & Validate
+        - Ensure 'executable_strategy' includes the new filters.
+        - Logic should be 'AND' if you want high quality (fewer trades).
+        - Logic can be 'OR' if the filters are alternatives.
+
+        🚫 WHAT YOU MUST NEVER DO:
+          - ❌ Overfit to these specific 10 trades. Think about the market REGIME.
+          - ❌ Add more than 2 additional filters. Keep it clean.
+          - ❌ Use AND logic with more than 3 total rules - this kills trade frequency
+          - ❌ Add conditions that rarely trigger (patterns, extreme RSI levels)
+
+        ⚠️ TRADE FREQUENCY WARNING:
+        More conditions = Fewer trades = Worse backtests
+        Keep entry rules to MAX 2-3 per direction. Use OR logic to maintain signal frequency.
+
+        KEY PHILOSOPHY:
+        "A good trader does not trade often. A good trader trades WELL-SELECTED moments."
+        "The edge is not in the strategy. The edge is in TRADE SELECTION."
       
+        ### RULE STRUCTURE:
+        { "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 35 }
+        { "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 }
+        { "type": "trend", "indicator": "ADX", "operator": ">", "value": 25 }
+        
+        ### OUTPUT FORMAT (STRICT JSON):
+        {
+          "improved": {
+            "name": "Strategy Name vX",
+            "description": "Improved with AI Filters to cut losses and increase R:R. [Specific changes explained]",
+            "strategy_type": "INTRADAY" | "SWING",
+            "buy_entry_logic": { "conditions": [...], "indicators": [...] },
+            "sell_entry_logic": { "conditions": [...], "indicators": [...] },
+            "buy_stop_loss": { "parameters": { "percentage": X } },
+            "buy_target": { "parameters": { "percentage": Y } },
+            "ai_analysis_layer": {
+              "loss_analysis": "Explanation of why trades were losing and how we fixed it",
+              "profit_analysis": "Explanation of how we increased profit potential",
+              "market_regime_check": "What regime we are now filtering for"
+            },
+            "executable_strategy": {
+              "name": "...",
+              "strategyType": "...",
+              "version": X,
+              "buy": { "logic": "AND", "rules": [...] }, // Use AND for better quality
+              "sell": { "logic": "AND", "rules": [...] },
+              "buyExit": { "stopLoss": {...}, "target": {...} },
+              "sellExit": { "stopLoss": {...}, "target": {...} },
+              "requiredIndicators": [...],
+              "minWarmupCandles": 30
+            }
+          },
+          "notes": "Detailed expert notes on the optimization."
+        }`,
+              },
+              {
+                role: "user",
+                content: `Analyze and improve this trading strategy. Focus on CUTTING LOSSES and INCREASING PROFITS.
+    
+        CURRENT STRATEGY:
+        Name: ${strategy.name}
+        Buy Conditions: ${JSON.stringify(strategy.buy_entry_logic?.conditions || [])}
+        Sell Conditions: ${JSON.stringify(strategy.sell_entry_logic?.conditions || [])}
+        
+        BACKTEST PERFORMANCE:
+        - Win Rate: ${backtestResults.win_rate.toFixed(1)}% (${winningTrades.length} wins, ${losingTrades.length} losses)
+        - Net P&L: ₹${backtestResults.net_pnl.toFixed(2)}
+        - Exit Reasons: ${JSON.stringify(exitReasons)}
+        - Loss Pattern Summary: ${JSON.stringify(lossPatterns)}
+        ${marketContext}
+        
+        SAMPLE LOSING TRADES (FIX THESE):
+        ${JSON.stringify(losingTrades.slice(-10).map(t => ({
+          type: t.type,
+          entry: t.entry_price,
+          exit: t.exit_price,
+          pnl: t.pnl?.toFixed(2),
+          reason: t.exit_reason
+        })), null, 2)}
+    
+        SAMPLE WINNING TRADES (STRENGTHEN THESE):
+        ${JSON.stringify(winningTrades.slice(-10).map(t => ({
+          type: t.type,
+          entry: t.entry_price,
+          exit: t.exit_price,
+          pnl: t.pnl?.toFixed(2),
+          reason: t.exit_reason
+        })), null, 2)}
+        
+        EXECUTABLE STRATEGY RULES:
+        ${JSON.stringify(strategy.executable_strategy, null, 2)}
+        
+        Goal: Cut the losses, increase the profits, and target a 60%+ win rate by adding smart AI filters.`,
+              },
+            ];
+    
         const result = await aiSharedService.executeAnalysis("strategy_improve", messages, {
           maxTokens: 4000,
           skipCache: true,
@@ -1075,202 +1103,68 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
         }
       }
 
-  async requestRLOptimization(
-    strategyId: number,
-    strategy: StructuredStrategy,
-    instrumentTokens: number[],
-    timeframe: string,
-    fromDate?: Date,
-    toDate?: Date
-  ): Promise<any> {
-    try {
-      // 1. Fetch historical data for simulation
-      const lookback = 30; // 30 days for RL simulation
-      const end = toDate || new Date();
-      const start = fromDate || new Date(end.getTime() - lookback * 24 * 60 * 60 * 1000);
-      
-      const { getCandles } = await import("./candle-service");
-      const candleResult = await getCandles({
-        instrumentToken: instrumentTokens[0],
-        timeframe: normalizeTimeframe(timeframe),
-        mode: "BACKTEST",
-        fromDate: start,
-        toDate: end,
-      });
+      /**
+       * NEW: Find the highest winning rate variation by running multiple backtests
+       */
+      async findHighestWinningRateVariation(
+        strategy: StructuredStrategy,
+        instrumentTokens: number[],
+        timeframe: string,
+        capital: number = 100000,
+        fromDate?: Date,
+        toDate?: Date
+      ): Promise<{ improved: StructuredStrategy; notes: string; performance: BacktestResult }> {
+        console.log(`[StrategyService] Starting iterative optimization to find highest win rate...`);
+        
+        // 1. Initial Backtest
+        const initialResult = await this.runBacktest(strategy, instrumentTokens, timeframe, capital, fromDate, toDate);
+        console.log(`[StrategyService] Initial Win Rate: ${initialResult.win_rate.toFixed(1)}%`);
 
-      if (!candleResult.candles || candleResult.candles.length === 0) {
-        throw new Error("No data found for RL optimization");
-      }
+        // 2. Generate 3 Variations: Conservative, Balanced, Aggressive
+        const archetypes: ("CONSERVATIVE" | "BALANCED" | "AGGRESSIVE")[] = ["CONSERVATIVE", "BALANCED", "AGGRESSIVE"];
+        const variations: Array<{ improved: StructuredStrategy; notes: string; performance?: BacktestResult }> = [];
 
-      // 2. Call Python RL Service (on Railway)
-      const RL_ENGINE_URL = process.env.RL_ENGINE_URL || "http://rl-engine.railway.internal:8000";
-      
-      const response = await fetch(`${RL_ENGINE_URL}/optimize`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          strategy_id: strategyId,
-          zairoth_logic: strategy.executable_strategy || strategy,
-          instrument_tokens: instrumentTokens,
-          timeframe,
-          historical_data: candleResult.candles.map(c => ({
-            timestamp: c.timestamp.toISOString(),
-            open: c.open,
-            high: c.high,
-            low: c.low,
-            close: c.close,
-            volume: c.volume
-          }))
-        })
-      });
+        for (const archetype of archetypes) {
+          try {
+            console.log(`[StrategyService] Generating ${archetype} variation...`);
+            const { improved, notes } = await this.improveStrategyWithAI(
+              strategy,
+              initialResult,
+              undefined,
+              undefined,
+              undefined,
+              archetype
+            );
 
-      if (!response.ok) {
-        console.error("[StrategyService] RL Engine call failed:", await response.text());
-        return null;
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("[StrategyService] Error requesting RL optimization:", error);
-      return null;
-    }
-  }
-
-  /**
-   * IMPROVED: Iterative Strategy Optimizer with Timeframe Optimization and RL
-   * Runs a loop of Think -> Test -> Refine to find the best possible strategy
-   */
-  async findHighestWinningRateVariation(
-    strategy: StructuredStrategy,
-    instrumentTokens: number[],
-    timeframe: string,
-    capital: number = 100000,
-    fromDate?: Date,
-    toDate?: Date,
-    strategyId?: number
-  ): Promise<{ improved: StructuredStrategy; notes: string; performance: BacktestResult }> {
-    console.log(`[StrategyService] Starting 3-step Iterative Optimization with Timeframe Analysis...`);
-    
-    let currentStrategy = { ...strategy };
-    let currentBestResult: BacktestResult | null = null;
-    let bestTimeframe = timeframe;
-    let iterationNotes = "";
-    let iterationContext = "";
-
-    // Step 0: Timeframe Optimization (5m vs 15m)
-    console.log(`[StrategyService] Step 0: Running Timeframe Comparison (5m vs 15m)...`);
-    const timeframesToTest = ["5m", "15m"];
-    const results: Record<string, BacktestResult> = {};
-
-    for (const tf of timeframesToTest) {
-      console.log(`[StrategyService] Testing timeframe: ${tf}`);
-      try {
-        results[tf] = await this.runBacktest(currentStrategy, instrumentTokens, tf, capital, fromDate, toDate);
-      } catch (e) {
-        console.error(`[StrategyService] Backtest failed for ${tf}:`, e);
-      }
-    }
-
-    // Pick best timeframe
-    const tf5 = results["5m"];
-    const tf15 = results["15m"];
-    
-    if (tf5 && tf15) {
-      const tfSuggestion = await airaBrain.suggestOptimalTimeframe(tf5, tf15);
-      const recommendation = tfSuggestion.success && typeof tfSuggestion.result === 'object' 
-        ? (tfSuggestion.result as any)
-        : { recommended_timeframe: timeframe, reasoning: "Based on backtest scores." };
-
-      bestTimeframe = recommendation.recommended_timeframe || bestTimeframe;
-      currentBestResult = results[bestTimeframe];
-      
-      iterationContext += `Step 0 (Timeframe Optimization): Selected ${bestTimeframe} via AiraBrain Analysis\n`;
-      iterationNotes += `\n- **AiraBrain Timeframe Optimization**: ${recommendation.reasoning}`;
-      if (recommendation.parameter_tweak) {
-        iterationNotes += `\n- **Parameter Suggestion**: ${recommendation.parameter_tweak}`;
-      }
-    } else {
-      currentBestResult = results[timeframe] || await this.runBacktest(currentStrategy, instrumentTokens, timeframe, capital, fromDate, toDate);
-    }
-
-    // Step 1: Baseline Iteration
-    iterationContext += `Iteration 0 (Baseline): Win Rate ${currentBestResult.win_rate.toFixed(1)}%, Net P&L ₹${currentBestResult.net_pnl.toFixed(2)}\n`;
-
-    // Step 2: RL Engine Trigger (Background)
-    let rlOptimizedParams = null;
-    if (strategyId) {
-      console.log(`[StrategyService] Triggering TensorTrade RL Engine...`);
-      await this.requestRLOptimization(strategyId, currentStrategy, instrumentTokens, bestTimeframe, fromDate, toDate);
-      
-      // Wait a moment for RL job to start and possibly finish if it was quick or cached
-      // In a real scenario, this is backgrounded, but for the first improvement iteration, 
-      // we check if there are any *previous* successful evolutions for this strategy
-      const { data: pastEvolutions } = await supabaseAdmin
-        .from("strategy_evolutions")
-        .select("optimized_params")
-        .eq("strategy_id", strategyId)
-        .eq("status", "completed")
-        .order("created_at", { ascending: false })
-        .limit(1);
-      
-      if (pastEvolutions?.[0]) {
-        rlOptimizedParams = pastEvolutions[0].optimized_params;
-      }
-    }
-
-    // Optimization Loop (3 Iterations)
-
-          for (let i = 1; i <= 3; i++) {
-            try {
-              console.log(`[StrategyService] Iteration ${i}/3: Analyzing and Improving...`);
-              
-                const { improved, notes } = await this.improveStrategyWithAI(
-                  currentStrategy,
-                  currentBestResult!,
-                  undefined,
-                  strategyId,
-                  undefined,
-                  "ITERATIVE",
-                  iterationContext,
-                  rlOptimizedParams
-                );
-
-
-              console.log(`[StrategyService] Iteration ${i}: Running Backtest with Real Trade Simulation...`);
-              // Use evaluateWithMemory by default in improve loop
-              const performance = await this.runBacktest(improved, instrumentTokens, timeframe, capital, fromDate, toDate);
-              
-              console.log(`[StrategyService] Iteration ${i} Results: Win Rate ${performance.win_rate.toFixed(1)}%, P&L ₹${performance.net_pnl.toFixed(2)}`);
-
-              // Comparison logic (Multi-objective: Win Rate + P&L)
-              const currentScore = (performance.win_rate * 0.4) + (performance.net_pnl_percentage * 0.6);
-              const bestScore = (currentBestResult!.win_rate * 0.4) + (currentBestResult!.net_pnl_percentage * 0.6);
-
-              if (currentScore > bestScore || i === 1) {
-                console.log(`[StrategyService] Iteration ${i} IMPROVED the strategy. Updating baseline.`);
-                currentStrategy = improved;
-                currentBestResult = performance;
-                iterationNotes += `\nStep ${i}: ${notes}`;
-                iterationContext += `Iteration ${i}: IMPROVED - Win Rate ${performance.win_rate.toFixed(1)}%, P&L ₹${performance.net_pnl.toFixed(2)}\n`;
-              } else {
-                console.log(`[StrategyService] Iteration ${i} did not improve results. Keeping previous best.`);
-                iterationContext += `Iteration ${i}: REJECTED (No improvement) - Win Rate ${performance.win_rate.toFixed(1)}%, P&L ₹${performance.net_pnl.toFixed(2)}\n`;
-              }
-            } catch (error) {
-              console.error(`[StrategyService] Iteration ${i} failed:`, error);
-            }
+            console.log(`[StrategyService] Running backtest for ${archetype} variation...`);
+            const performance = await this.runBacktest(improved, instrumentTokens, timeframe, capital, fromDate, toDate);
+            console.log(`[StrategyService] ${archetype} Win Rate: ${performance.win_rate.toFixed(1)}%`);
+            
+            variations.push({ improved, notes, performance });
+          } catch (error) {
+            console.error(`[StrategyService] Failed to optimize variation ${archetype}:`, error);
           }
-
-          console.log(`[StrategyService] Iterative Optimization Complete.`);
-          console.log(`[StrategyService] Final Win Rate: ${currentBestResult!.win_rate.toFixed(1)}%, Final P&L: ₹${currentBestResult!.net_pnl.toFixed(2)}`);
-          
-          return {
-            improved: currentStrategy,
-            notes: `### 🚀 AI ITERATIVE OPTIMIZATION REPORT\n${iterationNotes}\n\n**Performance Log:**\n${iterationContext}`,
-            performance: currentBestResult!
-          };
         }
 
+        // 3. Compare and Pick Best (Highest Win Rate * Profit Factor)
+        if (variations.length === 0) {
+          return { improved: strategy, notes: "Optimization failed, returning original", performance: initialResult };
+        }
+
+        const best = variations.reduce((prev, curr) => {
+          const prevScore = (prev.performance?.win_rate || 0) * (prev.performance?.net_pnl_percentage || 0);
+          const currScore = (curr.performance?.win_rate || 0) * (curr.performance?.net_pnl_percentage || 0);
+          return currScore > prevScore ? curr : prev;
+        });
+
+        console.log(`[StrategyService] Best variation found: Win Rate ${best.performance!.win_rate.toFixed(1)}%, P&L ${best.performance!.net_pnl_percentage.toFixed(2)}%`);
+        
+        return {
+          improved: best.improved,
+          notes: best.notes + `\n\n(Iteration picked this variation as best performer among ${variations.length} attempts.)`,
+          performance: best.performance!
+        };
+      }
 
   private async fetchCandlesFromZerodha(
     instrumentToken: number,
@@ -1565,144 +1459,104 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
         let exitReason = "";
         let exitPrice = candle.close;
 
-          const execStrategy = strategy.executable_strategy;
-          let currentTrailingSL: number | null = null;
-          let highestPriceSinceEntry: number = entryPrice;
-          let lowestPriceSinceEntry: number = entryPrice;
+        const execStrategy = strategy.executable_strategy;
 
-          if (currentPosition.type === "BUY") {
-            let slPercent = 2;
-            let targetPercent = 4;
+        if (currentPosition.type === "BUY") {
+          let slPercent = 2;
+          let targetPercent = 4;
 
-            if (execStrategy?.buyExit?.stopLoss) {
-              slPercent = execStrategy.buyExit.stopLoss.value;
-            } else if (strategy.buy_stop_loss?.parameters?.percentage) {
-              slPercent = strategy.buy_stop_loss.parameters.percentage as number;
-            }
-            
-            if (execStrategy?.buyExit?.target) {
-              targetPercent = execStrategy.buyExit.target.value;
-            } else if (strategy.buy_target?.parameters?.percentage) {
-              targetPercent = strategy.buy_target.parameters.percentage as number;
-            }
-
-            // Trailing Stop Loss Logic (LONG)
-            const tsl = execStrategy?.buyExit?.trailingSL;
-            if (tsl?.enabled) {
-              highestPriceSinceEntry = Math.max(highestPriceSinceEntry, candle.high);
-              const profitPct = ((highestPriceSinceEntry - entryPrice) / entryPrice) * 100;
-              
-              if (profitPct >= (tsl.activationPercent || 1)) {
-                const newTrailingSL = highestPriceSinceEntry * (1 - (tsl.trailPercent || 0.5) / 100);
-                if (currentTrailingSL === null || newTrailingSL > currentTrailingSL) {
-                  currentTrailingSL = newTrailingSL;
-                }
-              }
-            }
-
-            const slPrice = entryPrice * (1 - slPercent / 100);
-            
-            if (currentTrailingSL !== null && candle.low <= currentTrailingSL) {
-              shouldExit = true;
-              exitReason = "Trailing Stop Loss Hit";
-              exitPrice = currentTrailingSL;
-            } else if (candle.low <= slPrice) {
-              shouldExit = true;
-              exitReason = "Stop Loss Hit";
-              exitPrice = slPrice;
-            }
-
-            const targetPrice = entryPrice * (1 + targetPercent / 100);
-
-            if (candle.high >= targetPrice && !shouldExit) {
-              shouldExit = true;
-              exitReason = "Target Hit";
-              exitPrice = targetPrice;
-            }
-
-            if (sellSignal && !shouldExit) {
-              shouldExit = true;
-              exitReason = "Sell Signal";
-            }
-
-            // Intraday Square-off logic
-            const isIntraday = strategy.strategy_type === "INTRADAY" || execStrategy?.strategyType === "INTRADAY";
-            if (isIntraday && !shouldExit) {
-              const candleDate = new Date(candle.timestamp);
-              const hour = candleDate.getHours();
-              const minute = candleDate.getMinutes();
-              
-              // Indian markets square off around 3:15 PM - 3:20 PM
-              if (hour > 15 || (hour === 15 && minute >= 15)) {
-                shouldExit = true;
-                exitReason = "Intraday Square-off";
-                exitPrice = candle.close;
-              } else if (i < candles.length - 1) {
-                // Check if next candle is on a different day
-                const nextCandleDate = new Date(candles[i+1].timestamp);
-                if (candleDate.getDate() !== nextCandleDate.getDate()) {
-                  shouldExit = true;
-                  exitReason = "Intraday End-of-Day";
-                  exitPrice = candle.close;
-                }
-              }
-            }
-          } else {
-            let slPercent = 2;
-            let targetPercent = 4;
-
-            if (execStrategy?.sellExit?.stopLoss) {
-              slPercent = execStrategy.sellExit.stopLoss.value;
-            } else if (strategy.sell_stop_loss?.parameters?.percentage) {
-              slPercent = strategy.sell_stop_loss.parameters.percentage as number;
-            }
-            
-            if (execStrategy?.sellExit?.target) {
-              targetPercent = execStrategy.sellExit.target.value;
-            } else if (strategy.sell_target?.parameters?.percentage) {
-              targetPercent = strategy.sell_target.parameters.percentage as number;
-            }
-
-            // Trailing Stop Loss Logic (SHORT)
-            const tsl = execStrategy?.sellExit?.trailingSL;
-            if (tsl?.enabled) {
-              lowestPriceSinceEntry = Math.min(lowestPriceSinceEntry, candle.low);
-              const profitPct = ((entryPrice - lowestPriceSinceEntry) / entryPrice) * 100;
-              
-              if (profitPct >= (tsl.activationPercent || 1)) {
-                const newTrailingSL = lowestPriceSinceEntry * (1 + (tsl.trailPercent || 0.5) / 100);
-                if (currentTrailingSL === null || newTrailingSL < currentTrailingSL) {
-                  currentTrailingSL = newTrailingSL;
-                }
-              }
-            }
-
-            const slPrice = entryPrice * (1 + slPercent / 100);
-
-            if (currentTrailingSL !== null && candle.high >= currentTrailingSL) {
-              shouldExit = true;
-              exitReason = "Trailing Stop Loss Hit";
-              exitPrice = currentTrailingSL;
-            } else if (candle.high >= slPrice) {
-              shouldExit = true;
-              exitReason = "Stop Loss Hit";
-              exitPrice = slPrice;
-            }
-
-            const targetPrice = entryPrice * (1 - targetPercent / 100);
-
-            if (candle.low <= targetPrice && !shouldExit) {
-              shouldExit = true;
-              exitReason = "Target Hit";
-              exitPrice = targetPrice;
-            }
-
-            if (buySignal && !shouldExit) {
-              shouldExit = true;
-              exitReason = "Buy Signal";
-            }
+          if (execStrategy?.buyExit?.stopLoss) {
+            slPercent = execStrategy.buyExit.stopLoss.value;
+          } else if (strategy.buy_stop_loss?.parameters?.percentage) {
+            slPercent = strategy.buy_stop_loss.parameters.percentage as number;
+          }
+          
+          if (execStrategy?.buyExit?.target) {
+            targetPercent = execStrategy.buyExit.target.value;
+          } else if (strategy.buy_target?.parameters?.percentage) {
+            targetPercent = strategy.buy_target.parameters.percentage as number;
           }
 
+          const slPrice = entryPrice * (1 - slPercent / 100);
+          
+          if (candle.low <= slPrice) {
+            shouldExit = true;
+            exitReason = "Stop Loss Hit";
+            exitPrice = slPrice;
+          }
+
+          const targetPrice = entryPrice * (1 + targetPercent / 100);
+
+          if (candle.high >= targetPrice && !shouldExit) {
+            shouldExit = true;
+            exitReason = "Target Hit";
+            exitPrice = targetPrice;
+          }
+
+          if (sellSignal && !shouldExit) {
+            shouldExit = true;
+            exitReason = "Sell Signal";
+          }
+
+          // Intraday Square-off logic
+          const isIntraday = strategy.strategy_type === "INTRADAY" || execStrategy?.strategyType === "INTRADAY";
+          if (isIntraday && !shouldExit) {
+            const candleDate = new Date(candle.timestamp);
+            const hour = candleDate.getHours();
+            const minute = candleDate.getMinutes();
+            
+            // Indian markets square off around 3:15 PM - 3:20 PM
+            if (hour > 15 || (hour === 15 && minute >= 15)) {
+              shouldExit = true;
+              exitReason = "Intraday Square-off";
+              exitPrice = candle.close;
+            } else if (i < candles.length - 1) {
+              // Check if next candle is on a different day
+              const nextCandleDate = new Date(candles[i+1].timestamp);
+              if (candleDate.getDate() !== nextCandleDate.getDate()) {
+                shouldExit = true;
+                exitReason = "Intraday End-of-Day";
+                exitPrice = candle.close;
+              }
+            }
+          }
+        } else {
+          let slPercent = 2;
+          let targetPercent = 4;
+
+          if (execStrategy?.sellExit?.stopLoss) {
+            slPercent = execStrategy.sellExit.stopLoss.value;
+          } else if (strategy.sell_stop_loss?.parameters?.percentage) {
+            slPercent = strategy.sell_stop_loss.parameters.percentage as number;
+          }
+          
+          if (execStrategy?.sellExit?.target) {
+            targetPercent = execStrategy.sellExit.target.value;
+          } else if (strategy.sell_target?.parameters?.percentage) {
+            targetPercent = strategy.sell_target.parameters.percentage as number;
+          }
+
+          const slPrice = entryPrice * (1 + slPercent / 100);
+
+          if (candle.high >= slPrice) {
+            shouldExit = true;
+            exitReason = "Stop Loss Hit";
+            exitPrice = slPrice;
+          }
+
+          const targetPrice = entryPrice * (1 - targetPercent / 100);
+
+          if (candle.low <= targetPrice && !shouldExit) {
+            shouldExit = true;
+            exitReason = "Target Hit";
+            exitPrice = targetPrice;
+          }
+
+          if (buySignal && !shouldExit) {
+            shouldExit = true;
+            exitReason = "Buy Signal";
+          }
+        }
 
         if (shouldExit) {
           const pnl = currentPosition.type === "BUY"

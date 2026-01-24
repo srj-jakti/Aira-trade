@@ -1,52 +1,10 @@
 import { supabase } from "./utils/supabase";
 import { logger } from "./utils/logger";
 import { createDecipheriv } from "crypto";
-import { redis, REDIS_KEYS } from "./utils/redis";
 
 const ALGORITHM = "aes-256-gcm";
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [2000, 4000, 8000];
-const MAX_SLIPPAGE_PCT = 0.5; // 0.5% max slippage from signal price
-
-/**
- * Validates if the current market price is still "ok to take"
- */
-async function validatePriceHealth(signal: Signal): Promise<{ ok: boolean; currentPrice?: number; reason?: string }> {
-  try {
-    // Get latest tick from Redis for minimum latency
-    const cachedTick = await redis.get(REDIS_KEYS.LATEST_TICK(signal.instrumentToken));
-    if (!cachedTick) return { ok: true }; // Fallback to signal price if no tick available
-
-    const tick = JSON.parse(cachedTick);
-    const currentPrice = tick.price || tick.last_price;
-    if (!currentPrice) return { ok: true };
-
-    const slippage = Math.abs((currentPrice - signal.price) / signal.price) * 100;
-    
-    // Check if price has moved too far in favor or against (avoiding chasing)
-    if (slippage > MAX_SLIPPAGE_PCT) {
-      return { 
-        ok: false, 
-        currentPrice, 
-        reason: `Price moved too far from signal (${slippage.toFixed(2)}% slippage)` 
-      };
-    }
-
-    // Expert rule: Don't buy if price is already above target or sell if below
-    if (signal.action === "BUY" && currentPrice >= signal.target) return { ok: false, reason: "Target already reached" };
-    if (signal.action === "SELL" && currentPrice <= signal.target) return { ok: false, reason: "Target already reached" };
-    
-    // Expert rule: Don't enter if price is too close to Stop Loss (R:R degraded)
-    const risk = Math.abs(currentPrice - signal.stopLoss);
-    const reward = Math.abs(signal.target - currentPrice);
-    if (reward / risk < 1.1) return { ok: false, reason: "Risk/Reward ratio degraded (too close to SL)" };
-
-    return { ok: true, currentPrice };
-  } catch (err) {
-    logger.error("Price health check failed", err);
-    return { ok: true };
-  }
-}
 
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
@@ -355,14 +313,6 @@ async function logPaperOrder(
   config: UserConfig,
   strategyId?: string
 ): Promise<OrderResult> {
-    // Expert Price Health Check
-    const health = await validatePriceHealth(signal);
-    if (!health.ok) {
-        logger.info(`[PAPER] Order for user ${userId} blocked by Expert Price Health: ${health.reason}`);
-        return { success: false, error: `Expert Filter: ${health.reason}` };
-    }
-
-    const fillPrice = health.currentPrice || signal.price;
     const quantity = calculateQuantity(signal, config);
     const orderId = `PAPER-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     
@@ -372,8 +322,7 @@ async function logPaperOrder(
         status: "complete",
     };
 
-    // Use fillPrice for the paper order log
-    await logPaperOrder(userId, { ...signal, price: fillPrice }, result, strategyId);
+    await logPaperOrder(userId, signal, result, strategyId);
     return result;
 }
 
@@ -384,13 +333,6 @@ export async function executeOrder(
   config: UserConfig,
   strategyId?: string
 ): Promise<OrderResult> {
-  // Expert Price Health Check
-  const health = await validatePriceHealth(signal);
-  if (!health.ok) {
-      logger.info(`[LIVE] Order for user ${userId} blocked by Expert Price Health: ${health.reason}`);
-      return { success: false, error: `Expert Filter: ${health.reason}` };
-  }
-
   const quantity = calculateQuantity(signal, config);
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {

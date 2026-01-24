@@ -149,11 +149,11 @@
   }
 
   .glass {
-    @apply bg-muted/5 backdrop-blur-xl border border-border;
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
   }
   
   .glass-dark {
-    @apply bg-muted/40 backdrop-blur-2xl border border-border;
+    @apply bg-black/40 backdrop-blur-2xl border border-white/5;
   }
 
   /* Native touch feedback */

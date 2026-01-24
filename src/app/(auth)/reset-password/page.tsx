@@ -57,13 +57,13 @@ export default function ResetPasswordPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-muted/50 border border-border p-8 rounded-2xl space-y-6 text-center backdrop-blur-sm">
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white/5 border border-white/10 p-8 rounded-2xl space-y-6 text-center backdrop-blur-sm">
           <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-8 h-8 text-green-400" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Password Updated</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold text-white">Password Updated</h1>
+          <p className="text-white/50">
             Your password has been changed successfully. You will be redirected to the sign-in page in a few seconds.
           </p>
           <Link href="/signin">
@@ -77,7 +77,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[120px]" />
       </div>
@@ -86,18 +86,18 @@ export default function ResetPasswordPage() {
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-2 mb-4">
             <Zap className="w-8 h-8 text-blue-400" />
-            <span className="text-2xl font-bold text-foreground">AiRA</span>
+            <span className="text-2xl font-bold text-white">AiRA</span>
           </Link>
-          <h1 className="text-3xl font-bold text-foreground">Set New Password</h1>
-          <p className="text-muted-foreground text-sm">Please enter your new password below</p>
+          <h1 className="text-3xl font-bold text-white">Set New Password</h1>
+          <p className="text-white/50 text-sm">Please enter your new password below</p>
         </div>
 
-        <div className="bg-muted/50 border border-border p-8 rounded-2xl space-y-6 backdrop-blur-sm">
+        <div className="bg-white/5 border border-white/10 p-8 rounded-2xl space-y-6 backdrop-blur-sm">
           <form onSubmit={handleUpdatePassword} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="password" university-id="new-password-label" className="text-muted-foreground">New Password</Label>
+              <Label htmlFor="password" university-id="new-password-label" className="text-white/70">New Password</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/30" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                 <Input
                   id="password"
                   type="password"
@@ -105,15 +105,15 @@ export default function ResetPasswordPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-background/50 border-border text-foreground pl-10 h-11 focus:ring-blue-500/20"
+                  className="bg-white/5 border-white/10 text-white pl-10 h-11 focus:ring-blue-500/20"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" underline-id="confirm-password-label" className="text-muted-foreground">Confirm New Password</Label>
+              <Label htmlFor="confirmPassword" underline-id="confirm-password-label" className="text-white/70">Confirm New Password</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/30" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -121,7 +121,7 @@ export default function ResetPasswordPage() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="bg-background/50 border-border text-foreground pl-10 h-11 focus:ring-blue-500/20"
+                  className="bg-white/5 border-white/10 text-white pl-10 h-11 focus:ring-blue-500/20"
                 />
               </div>
             </div>

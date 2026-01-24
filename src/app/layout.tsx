@@ -15,56 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: {
-    default: "AiRA | AI Market Analysis Platform",
-    template: "%s | AiRA",
-  },
+  title: "AiRA | AI Market Analysis Platform",
   description: "AI-powered market analysis and automation software platform for Indian Markets.",
-  metadataBase: new URL("https://aira.trade"),
-  keywords: ["trading", "AI", "market analysis", "nifty", "banknifty", "automation"],
-  authors: [{ name: "AiRA Team" }],
-  creator: "AiRA",
-  publisher: "AiRA",
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: "https://aira.trade",
-    siteName: "AiRA",
-    title: "AiRA | AI Market Analysis Platform",
-    description: "AI-powered market analysis and automation software platform for Indian Markets.",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "AiRA Platform",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "AiRA | AI Market Analysis Platform",
-    description: "AI-powered market analysis and automation software platform for Indian Markets.",
-    images: ["/og-image.png"],
-    creator: "@aira_trade",
-  },
   manifest: "/manifest.json",
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -81,28 +34,19 @@ export const viewport: Viewport = {
   themeColor: "#000000",
 };
 
-import { ThemeProvider } from "@/components/theme-provider";
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark">
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen overflow-x-hidden pb-[safe-area-inset-bottom]`}
+          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white min-h-screen overflow-x-hidden pb-[safe-area-inset-bottom]`}
         >
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-            <Toaster />
-            <VisualEditsMessenger />
-          </ThemeProvider>
+          {children}
+          <Toaster />
+          <VisualEditsMessenger />
         </body>
     </html>
   );

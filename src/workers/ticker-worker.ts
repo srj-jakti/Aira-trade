@@ -11,7 +11,7 @@
 import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 import { KiteTicker } from "kiteconnect";
-import { createDecipheriv } from "crypto";
+import { createCipheriv, createDecipheriv } from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const MAX_INSTRUMENTS_PER_CONNECTION = 3000;

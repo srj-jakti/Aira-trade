@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function POST_LEGACY(request: NextRequest) {
+export async function POST_LEGACY(request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) {
     return unauthorizedResponse();

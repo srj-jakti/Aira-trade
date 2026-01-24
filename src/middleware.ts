@@ -29,13 +29,9 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-    let user = null;
-    try {
-      const { data } = await supabase.auth.getUser();
-      user = data.user;
-    } catch (error) {
-      console.error("Supabase auth error in middleware:", error);
-    }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
   

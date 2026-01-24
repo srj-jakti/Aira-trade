@@ -52,16 +52,15 @@ export function Logo({ className, iconOnly = false, size = 'md' }: LogoProps) {
           {/* The Bolt / Trend Line */}
           <path 
             d="M25 70L45 45L55 55L75 25" 
-            stroke="currentColor" 
+            stroke="white" 
             strokeWidth="10" 
             strokeLinecap="round" 
             strokeLinejoin="round"
             filter="url(#glow)"
-            className="text-white dark:text-white"
           />
           
           {/* Pulse Dot at the end of trend */}
-          <circle cx="75" cy="25" r="5" fill="currentColor" className="text-white dark:text-white">
+          <circle cx="75" cy="25" r="5" fill="white">
             <animate 
               attributeName="r" 
               values="4;7;4" 
@@ -82,7 +81,7 @@ export function Logo({ className, iconOnly = false, size = 'md' }: LogoProps) {
           <span className={cn(
             "font-semibold tracking-tight transition-colors duration-300",
             sizes[size].text,
-            "bg-gradient-to-br from-foreground via-foreground to-foreground/90 bg-clip-text text-transparent"
+            "bg-gradient-to-br from-white via-white to-white/90 bg-clip-text text-transparent"
           )}>
             AiRA<span className="text-blue-500">.</span>
           </span>

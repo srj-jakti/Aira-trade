@@ -59,46 +59,46 @@ export function ProfileForm() {
     setUpdating(false);
   };
 
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center p-8">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/20" />
-        </div>
-      );
-    }
-  
+  if (loading) {
     return (
-      <form onSubmit={handleUpdate} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">Email Address</Label>
-          <Input 
-            id="email" 
-            value={profile?.email || ""} 
-            disabled 
-            className="bg-muted/50 border-border text-muted-foreground"
-          />
-          <p className="text-[10px] text-muted-foreground/60">Email cannot be changed.</p>
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="fullName">Full Name</Label>
-          <Input 
-            id="fullName" 
-            value={profile?.full_name || ""} 
-            onChange={(e) => setProfile(prev => prev ? { ...prev, full_name: e.target.value } : null)}
-            placeholder="Enter your full name"
-            className="bg-background border-border"
-          />
-        </div>
-  
-        <Button 
-          type="submit" 
-          disabled={updating}
-          className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          {updating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          Update Profile
-        </Button>
-      </form>
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-6 h-6 animate-spin text-white/20" />
+      </div>
     );
+  }
+
+  return (
+    <form onSubmit={handleUpdate} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="email">Email Address</Label>
+        <Input 
+          id="email" 
+          value={profile?.email || ""} 
+          disabled 
+          className="bg-white/5 border-white/10 text-white/40"
+        />
+        <p className="text-[10px] text-white/20">Email cannot be changed.</p>
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor="fullName">Full Name</Label>
+        <Input 
+          id="fullName" 
+          value={profile?.full_name || ""} 
+          onChange={(e) => setProfile(prev => prev ? { ...prev, full_name: e.target.value } : null)}
+          placeholder="Enter your full name"
+          className="bg-white/5 border-white/10"
+        />
+      </div>
+
+      <Button 
+        type="submit" 
+        disabled={updating}
+        className="w-full bg-white text-black hover:bg-white/90"
+      >
+        {updating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+        Update Profile
+      </Button>
+    </form>
+  );
 }

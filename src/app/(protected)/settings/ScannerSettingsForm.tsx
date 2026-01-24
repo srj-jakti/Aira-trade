@@ -82,88 +82,83 @@ export function ScannerSettingsForm() {
     }
   };
 
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center p-8">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/20" />
-        </div>
-      );
-    }
-  
+  if (loading) {
     return (
-      <form onSubmit={handleSave} className="space-y-6">
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="segments" className="text-foreground text-sm font-medium">Trading Segments to Scan</Label>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {["NSE", "NFO", "CDS", "MCX"].map(segment => (
-                  <Button
-                    key={segment}
-                    type="button"
-                    variant={config.segments.includes(segment) ? "default" : "outline"}
-                    size="sm"
-                    className={cn(
-                      "text-xs h-8 px-4 transition-all",
-                      config.segments.includes(segment) 
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                        : "bg-transparent border-border hover:bg-muted"
-                    )}
-                    onClick={() => {
-                      const newSegments = config.segments.includes(segment)
-                        ? config.segments.filter(s => s !== segment)
-                        : [...config.segments, segment];
-                      setConfig(prev => ({ ...prev, segments: newSegments }));
-                    }}
-                  >
-                    {segment}
-                  </Button>
-                ))}
-              </div>
-              <p className="text-[10px] text-muted-foreground pt-1">The AI will identify opportunities in these markets.</p>
-            </div>
-          </div>
-  
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="scanInterval" className="text-foreground text-sm font-medium">Scan Interval</Label>
-              <Select 
-                value={config.scanInterval} 
-                onValueChange={(val) => setConfig(prev => ({ ...prev, scanInterval: val }))}
-              >
-                <SelectTrigger className="bg-background border-border text-foreground h-10">
-                  <SelectValue placeholder="Select interval" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover border-border text-popover-foreground">
-                  <SelectItem value="1">1 Minute</SelectItem>
-                  <SelectItem value="5">5 Minutes</SelectItem>
-                  <SelectItem value="15">15 Minutes</SelectItem>
-                  <SelectItem value="30">30 Minutes</SelectItem>
-                  <SelectItem value="60">1 Hour</SelectItem>
-                  <SelectItem value="strategy">Strategy Timeframe</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[10px] text-muted-foreground pt-1">Frequency at which the scanner evaluates market conditions.</p>
-            </div>
-          </div>
-        </div>
-  
-        <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10 flex gap-3 items-start">
-          <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-blue-600/60 leading-relaxed font-medium">
-            The scanner runs based on all your <strong>Active Strategies</strong>. 
-            It will automatically use your account's daily profit/loss limits and risk settings configured in general settings.
-          </p>
-        </div>
-  
-        <Button 
-          type="submit" 
-          disabled={saving}
-          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold h-11"
-        >
-          {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-          Save Scanner Configuration
-        </Button>
-      </form>
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-6 h-6 animate-spin text-white/20" />
+      </div>
     );
+  }
+
+  return (
+    <form onSubmit={handleSave} className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="segments" className="text-white text-sm font-medium">Trading Segments to Scan</Label>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {["NSE", "NFO", "CDS", "MCX"].map(segment => (
+                <Button
+                  key={segment}
+                  type="button"
+                  variant={config.segments.includes(segment) ? "default" : "outline"}
+                  size="sm"
+                  className={`text-xs h-8 px-4 ${config.segments.includes(segment) ? 'bg-white text-black hover:bg-white/90' : 'bg-transparent border-white/10 hover:bg-white/5'}`}
+                  onClick={() => {
+                    const newSegments = config.segments.includes(segment)
+                      ? config.segments.filter(s => s !== segment)
+                      : [...config.segments, segment];
+                    setConfig(prev => ({ ...prev, segments: newSegments }));
+                  }}
+                >
+                  {segment}
+                </Button>
+              ))}
+            </div>
+            <p className="text-[10px] text-white/40 pt-1">The AI will identify opportunities in these markets.</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="scanInterval" className="text-white text-sm font-medium">Scan Interval</Label>
+            <Select 
+              value={config.scanInterval} 
+              onValueChange={(val) => setConfig(prev => ({ ...prev, scanInterval: val }))}
+            >
+              <SelectTrigger className="bg-white/5 border-white/10 text-white h-10">
+                <SelectValue placeholder="Select interval" />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                <SelectItem value="1">1 Minute</SelectItem>
+                <SelectItem value="5">5 Minutes</SelectItem>
+                <SelectItem value="15">15 Minutes</SelectItem>
+                <SelectItem value="30">30 Minutes</SelectItem>
+                <SelectItem value="60">1 Hour</SelectItem>
+                <SelectItem value="strategy">Strategy Timeframe</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-white/40 pt-1">Frequency at which the scanner evaluates market conditions.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10 flex gap-3 items-start">
+        <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+        <p className="text-[11px] text-blue-200/60 leading-relaxed">
+          The scanner runs based on all your <strong>Active Strategies</strong>. 
+          It will automatically use your account's daily profit/loss limits and risk settings configured in general settings.
+        </p>
+      </div>
+
+      <Button 
+        type="submit" 
+        disabled={saving}
+        className="w-full bg-white text-black hover:bg-white/90 font-bold h-11"
+      >
+        {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+        Save Scanner Configuration
+      </Button>
+    </form>
+  );
 }

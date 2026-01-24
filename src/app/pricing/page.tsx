@@ -105,31 +105,31 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-black">
       <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 via-transparent to-transparent" />
       
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-16 md:py-24">
         <div className="text-center mb-12">
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
             <Zap className="w-8 h-8 text-blue-400" />
-            <span className="text-2xl font-bold text-foreground">AiRA</span>
+            <span className="text-2xl font-bold text-white">AiRA</span>
           </Link>
           
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
             Choose Your Plan
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
+          <p className="text-lg text-white/50 max-w-2xl mx-auto mb-8">
             Access powerful AI-powered analysis and automation tools. All plans include full platform features based on your needs.
           </p>
 
-          <div className="inline-flex items-center gap-2 p-1 bg-muted/50 border border-border rounded-full mb-8">
+          <div className="inline-flex items-center gap-2 p-1 bg-white/5 border border-white/10 rounded-full mb-8">
             <button
               onClick={() => setBillingPeriod("monthly")}
               className={cn(
                 "px-6 py-2 rounded-full text-sm font-medium transition-all",
                 billingPeriod === "monthly"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-white text-black"
+                  : "text-white/60 hover:text-white"
               )}
             >
               Monthly
@@ -139,12 +139,12 @@ export default function PricingPage() {
               className={cn(
                 "px-6 py-2 rounded-full text-sm font-medium transition-all",
                 billingPeriod === "yearly"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-white text-black"
+                  : "text-white/60 hover:text-white"
               )}
             >
               Yearly
-              <Badge className="ml-2 bg-green-500/20 text-green-500 border-green-500/30 text-xs">
+              <Badge className="ml-2 bg-green-500/20 text-green-400 border-green-500/30 text-xs">
                 2 months free
               </Badge>
             </button>
@@ -159,15 +159,15 @@ export default function PricingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
               className={cn(
-                "relative rounded-2xl border p-6 lg:p-8 flex flex-col transition-all",
+                "relative rounded-2xl border p-6 lg:p-8 flex flex-col",
                 plan.popular
-                  ? "bg-primary/5 border-primary/30 scale-105 shadow-xl shadow-primary/5"
-                  : "bg-card border-border hover:border-primary/20"
+                  ? "bg-blue-500/10 border-blue-500/30 scale-105"
+                  : "bg-white/5 border-white/10"
               )}
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-primary text-primary-foreground border-none px-4">
+                  <Badge className="bg-blue-500 text-white border-none px-4">
                     Most Popular
                   </Badge>
                 </div>
@@ -176,39 +176,39 @@ export default function PricingPage() {
               <div className="mb-6">
                 <div className={cn(
                   "w-12 h-12 rounded-xl flex items-center justify-center mb-4",
-                  plan.color === "green" && "bg-green-500/10",
-                  plan.color === "blue" && "bg-blue-500/10",
-                  plan.color === "purple" && "bg-purple-500/10"
+                  plan.color === "green" && "bg-green-500/20",
+                  plan.color === "blue" && "bg-blue-500/20",
+                  plan.color === "purple" && "bg-purple-500/20"
                 )}>
                   <plan.icon className={cn(
                     "w-6 h-6",
-                    plan.color === "green" && "text-green-500",
-                    plan.color === "blue" && "text-blue-500",
-                    plan.color === "purple" && "text-purple-500"
+                    plan.color === "green" && "text-green-400",
+                    plan.color === "blue" && "text-blue-400",
+                    plan.color === "purple" && "text-purple-400"
                   )} />
                 </div>
                 
-                <h3 className="text-xl font-bold text-foreground">{plan.name}</h3>
-                <p className="text-sm text-muted-foreground">{plan.subtitle}</p>
+                <h3 className="text-xl font-bold text-white">{plan.name}</h3>
+                <p className="text-sm text-white/50">{plan.subtitle}</p>
               </div>
 
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-foreground">
+                  <span className="text-4xl font-bold text-white">
                     ₹{getPrice(plan.price).toLocaleString("en-IN")}
                   </span>
-                  <span className="text-muted-foreground">
+                  <span className="text-white/50">
                     /{billingPeriod === "yearly" ? "year" : "month"}
                   </span>
                 </div>
                 {billingPeriod === "yearly" && (
-                  <p className="text-sm text-green-500 mt-1">
+                  <p className="text-sm text-green-400 mt-1">
                     Save ₹{(plan.price * 2).toLocaleString("en-IN")} per year
                   </p>
                 )}
               </div>
 
-              <p className="text-sm text-muted-foreground mb-6">
+              <p className="text-sm text-white/60 mb-6">
                 {plan.description}
               </p>
 
@@ -216,13 +216,13 @@ export default function PricingPage() {
                 {plan.features.map((feature, i) => (
                   <div key={i} className="flex items-start gap-3">
                     {feature.included ? (
-                      <Check className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+                      <Check className="w-5 h-5 text-green-400 shrink-0 mt-0.5" />
                     ) : (
-                      <X className="w-5 h-5 text-muted-foreground/30 shrink-0 mt-0.5" />
+                      <X className="w-5 h-5 text-white/20 shrink-0 mt-0.5" />
                     )}
                     <span className={cn(
                       "text-sm",
-                      feature.included ? "text-foreground/80" : "text-muted-foreground/50"
+                      feature.included ? "text-white/80" : "text-white/30"
                     )}>
                       {feature.text}
                     </span>
@@ -230,10 +230,10 @@ export default function PricingPage() {
                 ))}
               </div>
 
-              <div className="p-3 bg-muted/50 rounded-lg mb-6">
+              <div className="p-3 bg-white/5 rounded-lg mb-6">
                 <div className="flex items-start gap-2">
-                  <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-muted-foreground italic leading-relaxed">
+                  <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-white/50 italic">
                     {plan.sebiLabel}
                   </p>
                 </div>
@@ -242,10 +242,10 @@ export default function PricingPage() {
               <Button
                 onClick={() => handleSubscribe(plan.id)}
                 className={cn(
-                  "w-full h-12 font-bold transition-all",
+                  "w-full h-12 font-medium",
                   plan.popular
-                    ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-                    : "bg-muted hover:bg-muted/80 text-foreground border border-border"
+                    ? "bg-blue-600 hover:bg-blue-700 text-white"
+                    : "bg-white/10 hover:bg-white/20 text-white border border-white/10"
                 )}
               >
                 Get Started
@@ -259,15 +259,15 @@ export default function PricingPage() {
           <div className="p-6 bg-amber-500/10 border border-amber-500/20 rounded-xl">
             <div className="flex items-start gap-4">
               <div className="p-2 bg-amber-500/20 rounded-lg shrink-0">
-                <Shield className="w-6 h-6 text-amber-500" />
+                <Shield className="w-6 h-6 text-amber-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-amber-500 mb-2">Important Disclosure</h3>
-                <p className="text-sm text-amber-600/80 dark:text-amber-300/80 leading-relaxed">
+                <h3 className="font-semibold text-amber-400 mb-2">Important Disclosure</h3>
+                <p className="text-sm text-amber-300/80 leading-relaxed">
                   AiRA is a software platform providing analytical and automation tools. It does not provide investment advice, portfolio management, or trade recommendations. All trading decisions and configurations are made solely by the user. By subscribing, you agree to our{" "}
-                  <Link href="/legal/terms" className="underline hover:text-amber-700 dark:hover:text-amber-200">Terms & Conditions</Link>,{" "}
-                  <Link href="/legal/privacy" className="underline hover:text-amber-700 dark:hover:text-amber-200">Privacy Policy</Link>, and{" "}
-                  <Link href="/legal/risk-disclosure" className="underline hover:text-amber-700 dark:hover:text-amber-200">Risk Disclosure</Link>.
+                  <Link href="/legal/terms" className="underline hover:text-amber-200">Terms & Conditions</Link>,{" "}
+                  <Link href="/legal/privacy" className="underline hover:text-amber-200">Privacy Policy</Link>, and{" "}
+                  <Link href="/legal/risk-disclosure" className="underline hover:text-amber-200">Risk Disclosure</Link>.
                 </p>
               </div>
             </div>
@@ -275,38 +275,55 @@ export default function PricingPage() {
         </div>
 
         <div className="mt-16 text-center">
-          <h2 className="text-2xl font-bold text-foreground mb-4">Frequently Asked Questions</h2>
+          <h2 className="text-2xl font-bold text-white mb-4">Frequently Asked Questions</h2>
           <div className="max-w-3xl mx-auto grid gap-4 text-left">
-            {[
-              { q: "Is AiRA an investment advisor?", a: "No. AiRA is a technology platform / software tool only. We do not provide investment advice, manage funds, or place trades on behalf of users. All actions are user-configured and user-authorized." },
-              { q: "What happens after I subscribe?", a: "You get immediate access to all features included in your plan. You can start creating strategies, using the AI analysis tools, and (for PRO/ELITE) connecting your broker for user-controlled automation." },
-              { q: "Can I cancel my subscription?", a: "Yes. You may cancel your subscription at least 2 days before the next billing date. Cancellation stops future billing but does not trigger a refund for the current period." },
-              { q: "Are there any guaranteed returns?", a: "No. Trading involves risk. Past performance of any strategy does not guarantee future results. AiRA does not guarantee profitability or any specific outcomes." }
-            ].map((faq, i) => (
-              <div key={i} className="p-4 bg-card border border-border rounded-xl">
-                <h3 className="font-semibold text-foreground mb-2">{faq.q}</h3>
-                <p className="text-sm text-muted-foreground">{faq.a}</p>
-              </div>
-            ))}
+            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+              <h3 className="font-semibold text-white mb-2">Is AiRA an investment advisor?</h3>
+              <p className="text-sm text-white/60">
+                No. AiRA is a technology platform / software tool only. We do not provide investment advice, 
+                manage funds, or place trades on behalf of users. All actions are user-configured and user-authorized.
+              </p>
+            </div>
+            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+              <h3 className="font-semibold text-white mb-2">What happens after I subscribe?</h3>
+              <p className="text-sm text-white/60">
+                You get immediate access to all features included in your plan. You can start creating strategies, 
+                using the AI analysis tools, and (for PRO/ELITE) connecting your broker for user-controlled automation.
+              </p>
+            </div>
+            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+              <h3 className="font-semibold text-white mb-2">Can I cancel my subscription?</h3>
+              <p className="text-sm text-white/60">
+                Yes. You may cancel your subscription at least 2 days before the next billing date. 
+                Cancellation stops future billing but does not trigger a refund for the current period.
+              </p>
+            </div>
+            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+              <h3 className="font-semibold text-white mb-2">Are there any guaranteed returns?</h3>
+              <p className="text-sm text-white/60">
+                No. Trading involves risk. Past performance of any strategy does not guarantee future results. 
+                AiRA does not guarantee profitability or any specific outcomes.
+              </p>
+            </div>
           </div>
         </div>
 
-        <footer className="mt-16 pt-8 border-t border-border text-center">
+        <footer className="mt-16 pt-8 border-t border-white/10 text-center">
           <div className="flex items-center justify-center gap-6 mb-4">
-            <Link href="/legal/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/legal/terms" className="text-sm text-white/40 hover:text-white/60 transition-colors">
               Terms & Conditions
             </Link>
-            <Link href="/legal/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/legal/privacy" className="text-sm text-white/40 hover:text-white/60 transition-colors">
               Privacy Policy
             </Link>
-            <Link href="/legal/risk-disclosure" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/legal/risk-disclosure" className="text-sm text-white/40 hover:text-white/60 transition-colors">
               Risk Disclosure
             </Link>
           </div>
-          <p className="text-xs text-muted-foreground/60 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-xs text-white/30 max-w-2xl mx-auto">
             AiRA is a software platform providing analytical and automation tools only. It does not provide investment advice, trading recommendations, or financial services of any kind.
           </p>
-          <p className="text-xs text-muted-foreground/40 mt-4">© 2025 AiRA. All rights reserved.</p>
+          <p className="text-xs text-white/20 mt-4">© 2025 AiRA. All rights reserved.</p>
         </footer>
       </div>
     </div>

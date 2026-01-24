@@ -200,153 +200,153 @@ function ApiKeysFormContent() {
     }
   };
 
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center p-8">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/20" />
-        </div>
-      );
-    }
-  
-      return (
-        <div className="space-y-6">
-          <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-            <div className="flex items-start gap-3">
-              <Globe className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-blue-600 font-medium text-sm mb-1">Kite Connect Redirect URL</p>
-                <p className="text-muted-foreground text-xs mb-2">
-                  When creating your Kite Connect app at{" "}
-                  <a href="https://developers.kite.trade" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline font-medium">
-                    developers.kite.trade
-                  </a>
-                  , use this URL as the Redirect URL:
-                </p>
-                <div className="flex items-center gap-2 p-2 bg-muted/50 rounded border border-border">
-                  <code className="text-green-600 text-xs flex-1 break-all font-mono">{redirectUrl}</code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(redirectUrl)}
-                    className="text-muted-foreground hover:text-foreground h-7 px-2"
-                  >
-                    {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-  
-          <div className="flex items-center justify-between p-4 bg-card border border-border rounded-xl">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${status === 'connected' ? 'bg-green-500/10 text-green-600' : status === 'keys_saved' ? 'bg-yellow-500/10 text-yellow-600' : 'bg-red-500/10 text-red-600'}`}>
-              {status === 'connected' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                {status === 'connected' ? 'Zerodha Connected' : status === 'keys_saved' ? 'Keys Saved - Login Required' : 'Not Connected'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {status === 'connected' && brokerAccount?.user_id_broker 
-                  ? `Broker ID: ${brokerAccount.user_id_broker}` 
-                  : status === 'keys_saved' 
-                    ? 'Click "Connect to Zerodha" to authenticate'
-                    : 'Save your API credentials to get started'}
-              </p>
-            </div>
-          </div>
-          {status === 'connected' && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="border-red-500/30 text-red-600 hover:bg-red-500/10"
-              onClick={handleDisconnect}
-            >
-              Disconnect
-            </Button>
-          )}
-        </div>
-  
-        {status === 'keys_saved' && (
-          <Button
-            onClick={handleConnectZerodha}
-            disabled={connecting}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-          >
-            {connecting ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <ExternalLink className="w-4 h-4 mr-2" />
-            )}
-            {connecting ? 'Waiting for login...' : 'Connect to Zerodha'}
-          </Button>
-        )}
-  
-        {status !== 'connected' && (
-          <form onSubmit={handleSaveKeys} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="apiKey">Zerodha API Key</Label>
-              <div className="relative">
-                <Key className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/40" />
-                <Input 
-                  id="apiKey" 
-                  value={keys.apiKey}
-                  onChange={(e) => setKeys(prev => ({ ...prev, apiKey: e.target.value }))}
-                  placeholder={maskedKeys.apiKey ? `Current: ${maskedKeys.apiKey}` : "Enter your API key"}
-                  className="bg-background border-border pl-10 focus:ring-primary/20"
-                  autoComplete="off"
-                />
-              </div>
-            </div>
-  
-            <div className="space-y-2">
-              <Label htmlFor="apiSecret">Zerodha API Secret</Label>
-              <div className="relative">
-                <ShieldCheck className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/40" />
-                <Input 
-                  id="apiSecret" 
-                  value={keys.apiSecret}
-                  onChange={(e) => setKeys(prev => ({ ...prev, apiSecret: e.target.value }))}
-                  placeholder={maskedKeys.apiSecret ? `Current: ${maskedKeys.apiSecret}` : "Enter your API secret"}
-                  className="bg-background border-border pl-10 focus:ring-primary/20"
-                  type="password"
-                  autoComplete="off"
-                />
-              </div>
-            </div>
-  
-            <div className="pt-2">
-              <Button 
-                type="submit" 
-                disabled={saving || !keys.apiKey.trim() || !keys.apiSecret.trim()}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
-              >
-                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {status === 'keys_saved' ? 'Update API Keys' : 'Save API Keys'}
-              </Button>
-            </div>
-          </form>
-        )}
-        
-        <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-lg">
-          <p className="text-[10px] text-blue-600/80 leading-relaxed font-medium">
-            <strong>How it works:</strong> 1) Save your API Key & Secret from Zerodha Developer Console. 
-            2) Click "Connect to Zerodha" to login with your Zerodha credentials. 
-            3) After login, your broker will be connected automatically.
-          </p>
-        </div>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-6 h-6 animate-spin text-white/20" />
       </div>
     );
   }
-  
-  export function ApiKeysForm() {
+
     return (
-      <Suspense fallback={
-        <div className="flex items-center justify-center p-8">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/20" />
+      <div className="space-y-6">
+        <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+          <div className="flex items-start gap-3">
+            <Globe className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-blue-400 font-medium text-sm mb-1">Kite Connect Redirect URL</p>
+              <p className="text-white/60 text-xs mb-2">
+                When creating your Kite Connect app at{" "}
+                <a href="https://developers.kite.trade" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                  developers.kite.trade
+                </a>
+                , use this URL as the Redirect URL:
+              </p>
+              <div className="flex items-center gap-2 p-2 bg-black/30 rounded border border-white/10">
+                <code className="text-green-400 text-xs flex-1 break-all">{redirectUrl}</code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(redirectUrl)}
+                  className="text-white/60 hover:text-white h-7 px-2"
+                >
+                  {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
-      }>
-        <ApiKeysFormContent />
-      </Suspense>
-    );
-  }
+
+        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl">
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg ${status === 'connected' ? 'bg-green-500/10 text-green-500' : status === 'keys_saved' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'}`}>
+            {status === 'connected' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-white">
+              {status === 'connected' ? 'Zerodha Connected' : status === 'keys_saved' ? 'Keys Saved - Login Required' : 'Not Connected'}
+            </p>
+            <p className="text-xs text-white/40">
+              {status === 'connected' && brokerAccount?.user_id_broker 
+                ? `Broker ID: ${brokerAccount.user_id_broker}` 
+                : status === 'keys_saved' 
+                  ? 'Click "Connect to Zerodha" to authenticate'
+                  : 'Save your API credentials to get started'}
+            </p>
+          </div>
+        </div>
+        {status === 'connected' && (
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+            onClick={handleDisconnect}
+          >
+            Disconnect
+          </Button>
+        )}
+      </div>
+
+      {status === 'keys_saved' && (
+        <Button
+          onClick={handleConnectZerodha}
+          disabled={connecting}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          {connecting ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <ExternalLink className="w-4 h-4 mr-2" />
+          )}
+          {connecting ? 'Waiting for login...' : 'Connect to Zerodha'}
+        </Button>
+      )}
+
+      {status !== 'connected' && (
+        <form onSubmit={handleSaveKeys} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="apiKey">Zerodha API Key</Label>
+            <div className="relative">
+              <Key className="absolute left-3 top-2.5 h-4 w-4 text-white/20" />
+              <Input 
+                id="apiKey" 
+                value={keys.apiKey}
+                onChange={(e) => setKeys(prev => ({ ...prev, apiKey: e.target.value }))}
+                placeholder={maskedKeys.apiKey ? `Current: ${maskedKeys.apiKey}` : "Enter your API key"}
+                className="bg-white/5 border-white/10 pl-10"
+                autoComplete="off"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="apiSecret">Zerodha API Secret</Label>
+            <div className="relative">
+              <ShieldCheck className="absolute left-3 top-2.5 h-4 w-4 text-white/20" />
+              <Input 
+                id="apiSecret" 
+                value={keys.apiSecret}
+                onChange={(e) => setKeys(prev => ({ ...prev, apiSecret: e.target.value }))}
+                placeholder={maskedKeys.apiSecret ? `Current: ${maskedKeys.apiSecret}` : "Enter your API secret"}
+                className="bg-white/5 border-white/10 pl-10"
+                type="password"
+                autoComplete="off"
+              />
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <Button 
+              type="submit" 
+              disabled={saving || !keys.apiKey.trim() || !keys.apiSecret.trim()}
+              className="w-full bg-white text-black hover:bg-white/90"
+            >
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {status === 'keys_saved' ? 'Update API Keys' : 'Save API Keys'}
+            </Button>
+          </div>
+        </form>
+      )}
+      
+      <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-lg">
+        <p className="text-[10px] text-blue-400/80 leading-relaxed">
+          <strong>How it works:</strong> 1) Save your API Key & Secret from Zerodha Developer Console. 
+          2) Click "Connect to Zerodha" to login with your Zerodha credentials. 
+          3) After login, your broker will be connected automatically.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function ApiKeysForm() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-6 h-6 animate-spin text-white/20" />
+      </div>
+    }>
+      <ApiKeysFormContent />
+    </Suspense>
+  );
+}

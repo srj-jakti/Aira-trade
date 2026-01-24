@@ -75,14 +75,14 @@ export default function SignUpPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-muted/50 border border-border p-8 rounded-2xl space-y-6 text-center backdrop-blur-sm">
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white/5 border border-white/10 p-8 rounded-2xl space-y-6 text-center backdrop-blur-sm">
           <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
             <Mail className="w-8 h-8 text-blue-400" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Check your email</h1>
-          <p className="text-muted-foreground">
-            We&apos;ve sent a confirmation link to <span className="text-foreground">{email}</span>. 
+          <h1 className="text-2xl font-bold text-white">Check your email</h1>
+          <p className="text-white/50">
+            We&apos;ve sent a confirmation link to <span className="text-white">{email}</span>. 
             Please check your inbox to activate your account.
           </p>
           <Button
@@ -97,7 +97,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[120px]" />
       </div>
@@ -106,18 +106,18 @@ export default function SignUpPage() {
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-2 mb-4">
             <Zap className="w-8 h-8 text-blue-400" />
-            <span className="text-2xl font-bold text-foreground">AiRA</span>
+            <span className="text-2xl font-bold text-white">AiRA</span>
           </Link>
-          <h1 className="text-3xl font-bold text-foreground">Create Account</h1>
-          <p className="text-muted-foreground text-sm">Start your AI-powered market analysis journey today</p>
+          <h1 className="text-3xl font-bold text-white">Create Account</h1>
+          <p className="text-white/50 text-sm">Start your AI-powered market analysis journey today</p>
         </div>
 
-        <div className="bg-muted/50 border border-border p-8 rounded-2xl space-y-6 backdrop-blur-sm">
+        <div className="bg-white/5 border border-white/10 p-8 rounded-2xl space-y-6 backdrop-blur-sm">
           <Button
             onClick={handleGoogleSignIn}
             disabled={googleLoading}
             variant="outline"
-            className="w-full bg-muted/50 border-border hover:bg-muted text-foreground gap-2 h-11"
+            className="w-full bg-white/5 border-white/10 hover:bg-white/10 text-white gap-2 h-11"
           >
             {googleLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -146,18 +146,18 @@ export default function SignUpPage() {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
+              <span className="w-full border-t border-white/10" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-transparent px-2 text-muted-foreground/30">Or continue with</span>
+              <span className="bg-transparent px-2 text-white/30">Or continue with</span>
             </div>
           </div>
 
           <form onSubmit={handleSignUp} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName" className="text-muted-foreground">Full Name</Label>
+              <Label htmlFor="fullName" className="text-white/70">Full Name</Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/30" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                 <Input
                   id="fullName"
                   type="text"
@@ -165,15 +165,15 @@ export default function SignUpPage() {
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="bg-background/50 border-border text-foreground pl-10 h-11 focus:ring-blue-500/20"
+                  className="bg-white/5 border-white/10 text-white pl-10 h-11 focus:ring-blue-500/20"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-muted-foreground">Email address</Label>
+              <Label htmlFor="email" className="text-white/70">Email address</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/30" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                 <Input
                   id="email"
                   type="email"
@@ -181,15 +181,15 @@ export default function SignUpPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="bg-background/50 border-border text-foreground pl-10 h-11 focus:ring-blue-500/20"
+                  className="bg-white/5 border-white/10 text-white pl-10 h-11 focus:ring-blue-500/20"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-muted-foreground">Password</Label>
+              <Label htmlFor="password" className="text-white/70">Password</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/30" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                 <Input
                   id="password"
                   type="password"
@@ -197,19 +197,19 @@ export default function SignUpPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-background/50 border-border text-foreground pl-10 h-11 focus:ring-blue-500/20"
+                  className="bg-white/5 border-white/10 text-white pl-10 h-11 focus:ring-blue-500/20"
                 />
               </div>
             </div>
 
-            <div className="flex items-start space-x-3 p-3 bg-muted/30 border border-border rounded-lg">
+            <div className="flex items-start space-x-3 p-3 bg-white/5 border border-white/10 rounded-lg">
               <Checkbox 
                 id="terms" 
                 checked={acceptedTerms}
                 onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
-                className="mt-0.5 border-border data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                className="mt-0.5 border-white/20 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
               />
-              <label htmlFor="terms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+              <label htmlFor="terms" className="text-xs text-white/60 leading-relaxed cursor-pointer">
                 I confirm that I understand AiRA is a technology platform providing analytical and automation tools only. It does not offer investment advice, recommendations, or guaranteed outcomes. I accept full responsibility for my actions and agree to the{" "}
                 <Link href="/legal/terms" className="text-blue-400 hover:underline">Terms & Conditions</Link>,{" "}
                 <Link href="/legal/privacy" className="text-blue-400 hover:underline">Privacy Policy</Link>, and{" "}
@@ -231,7 +231,7 @@ export default function SignUpPage() {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-sm text-white/50">
             Already have an account?{" "}
             <Link href="/signin" className="text-blue-400 hover:text-blue-300 transition-colors font-medium">
               Sign in
@@ -239,7 +239,7 @@ export default function SignUpPage() {
           </p>
         </div>
 
-        <p className="text-[10px] text-muted-foreground/40 text-center max-w-sm mx-auto">
+        <p className="text-[10px] text-white/30 text-center max-w-sm mx-auto">
           AiRA is a software platform providing analytical and automation tools only. It does not provide investment advice, trading recommendations, or financial services.
         </p>
       </div>

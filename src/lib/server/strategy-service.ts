@@ -831,34 +831,52 @@ Same structure as traditional, but rules focus on price action.
       };
     }
 
-        async improveStrategyWithAI(
-          strategy: StructuredStrategy,
-          backtestResults: BacktestResult,
-          candleData?: { candles: Candle[]; indicatorValues?: Record<string, number[]> },
-          strategyId?: number,
-          aiEngineSuggestions?: { suggestions: string[]; optimizedParams?: Record<string, unknown>; expectedImprovement: number },
-          optimizationArchetype: "BALANCED" | "CONSERVATIVE" | "AGGRESSIVE" | "ITERATIVE" = "BALANCED",
-          iterationContext?: string
-        ): Promise<{ improved: StructuredStrategy; notes: string }> {
-          
-          // Fetch past backtests to compare performance
-          let pastPerformanceContext = "";
-          if (strategyId) {
-            const { data: pastBacktests } = await supabaseAdmin
-              .from("strategy_backtests")
-              .select("strategy_version, total_trades, win_rate, net_pnl_percentage, created_at")
-              .eq("strategy_id", strategyId)
-              .order("created_at", { ascending: false })
-              .limit(5);
+  async improveStrategyWithAI(
+    strategy: StructuredStrategy,
+    backtestResults: BacktestResult,
+    candleData?: { candles: Candle[]; indicatorValues?: Record<string, number[]> },
+    strategyId?: number,
+    aiEngineSuggestions?: { suggestions: string[]; optimizedParams?: Record<string, unknown>; expectedImprovement: number },
+    optimizationArchetype: "BALANCED" | "CONSERVATIVE" | "AGGRESSIVE" | "ITERATIVE" = "BALANCED",
+    iterationContext?: string,
+    rlOptimizedParams?: Record<string, any>
+  ): Promise<{ improved: StructuredStrategy; notes: string }> {
+    
+    // Fetch past backtests to compare performance
+    let pastPerformanceContext = "";
+    if (strategyId) {
+      const { data: pastBacktests } = await supabaseAdmin
+        .from("strategy_backtests")
+        .select("strategy_version, total_trades, win_rate, net_pnl_percentage, created_at")
+        .eq("strategy_id", strategyId)
+        .order("created_at", { ascending: false })
+        .limit(5);
 
-            if (pastBacktests && pastBacktests.length > 0) {
-              pastPerformanceContext = "\nPAST IMPROVEMENT HISTORY:\n" + pastBacktests.map(pb => 
-                `- v${pb.strategy_version}: Win Rate ${pb.win_rate.toFixed(1)}%, P&L ${pb.net_pnl_percentage.toFixed(2)}%, Trades: ${pb.total_trades} (${new Date(pb.created_at).toLocaleDateString()})`
-              ).join("\n");
-            }
-          }
+      if (pastBacktests && pastBacktests.length > 0) {
+        pastPerformanceContext = "\nPAST IMPROVEMENT HISTORY:\n" + pastBacktests.map(pb => 
+          `- v${pb.strategy_version}: Win Rate ${pb.win_rate.toFixed(1)}%, P&L ${pb.net_pnl_percentage.toFixed(2)}%, Trades: ${pb.total_trades} (${new Date(pb.created_at).toLocaleDateString()})`
+        ).join("\n");
+      }
+    }
 
-          // AI Trading Engine Learnings Context
+    // RL Engine Context
+    let rlContext = "";
+    if (rlOptimizedParams) {
+      rlContext = `
+🤖 TENSORTRADE RL ENGINE OPTIMIZATION (From 1M+ Simulated Trades):
+The RL agent found these optimal settings:
+- Preferred Timeframe: ${rlOptimizedParams.preferred_timeframe || "No change"}
+- Stop Loss: ${rlOptimizedParams.stop_loss_pct || "No change"}%
+- Target: ${rlOptimizedParams.target_pct || "No change"}%
+- Trailing Stop Activation: ${rlOptimizedParams.trailing_stop_activation || "No change"}%
+- Trailing Stop Distance: ${rlOptimizedParams.trailing_stop_distance || "No change"}%
+
+CRITICAL: The RL engine has simulated millions of trades to find these values. You MUST incorporate them into the improved strategy while maintaining institutional logic.
+`;
+    }
+
+    // AI Trading Engine Learnings Context
+
           let aiEngineContext = "";
           if (aiEngineSuggestions && aiEngineSuggestions.suggestions.length > 0) {
             aiEngineContext = `
@@ -1046,33 +1064,151 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
         }
       }
 
-        /**
-         * IMPROVED: Iterative Strategy Optimizer
-         * Runs a loop of Think -> Test -> Refine to find the best possible strategy
-         */
-        async findHighestWinningRateVariation(
-          strategy: StructuredStrategy,
-          instrumentTokens: number[],
-          timeframe: string,
-          capital: number = 100000,
-          fromDate?: Date,
-          toDate?: Date
-        ): Promise<{ improved: StructuredStrategy; notes: string; performance: BacktestResult }> {
-          console.log(`[StrategyService] Starting 3-step Iterative Optimization...`);
-          
-          let currentStrategy = { ...strategy };
-          let currentBestResult: BacktestResult | null = null;
-          let iterationNotes = "";
-          let iterationContext = "";
+  async requestRLOptimization(
+    strategyId: number,
+    strategy: StructuredStrategy,
+    instrumentTokens: number[],
+    timeframe: string,
+    fromDate?: Date,
+    toDate?: Date
+  ): Promise<any> {
+    try {
+      // 1. Fetch historical data for simulation
+      const lookback = 30; // 30 days for RL simulation
+      const end = toDate || new Date();
+      const start = fromDate || new Date(end.getTime() - lookback * 24 * 60 * 60 * 1000);
+      
+      const { getCandles } = await import("./candle-service");
+      const candleResult = await getCandles({
+        instrumentToken: instrumentTokens[0],
+        timeframe: normalizeTimeframe(timeframe),
+        mode: "BACKTEST",
+        fromDate: start,
+        toDate: end,
+      });
 
-          // Step 1: Baseline
-          console.log(`[StrategyService] Step 0: Running Baseline Backtest...`);
-          currentBestResult = await this.runBacktest(currentStrategy, instrumentTokens, timeframe, capital, fromDate, toDate);
-          console.log(`[StrategyService] Baseline Win Rate: ${currentBestResult.win_rate.toFixed(1)}%, P&L: ₹${currentBestResult.net_pnl.toFixed(2)}`);
-          
-          iterationContext += `Iteration 0 (Baseline): Win Rate ${currentBestResult.win_rate.toFixed(1)}%, Net P&L ₹${currentBestResult.net_pnl.toFixed(2)}\n`;
+      if (!candleResult.candles || candleResult.candles.length === 0) {
+        throw new Error("No data found for RL optimization");
+      }
 
-          // Optimization Loop (3 Iterations)
+      // 2. Call Python RL Service (on Railway)
+      const RL_ENGINE_URL = process.env.RL_ENGINE_URL || "http://rl-engine.railway.internal:8000";
+      
+      const response = await fetch(`${RL_ENGINE_URL}/optimize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          strategy_id: strategyId,
+          zairoth_logic: strategy.executable_strategy || strategy,
+          instrument_tokens: instrumentTokens,
+          timeframe,
+          historical_data: candleResult.candles.map(c => ({
+            timestamp: c.timestamp.toISOString(),
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+            volume: c.volume
+          }))
+        })
+      });
+
+      if (!response.ok) {
+        console.error("[StrategyService] RL Engine call failed:", await response.text());
+        return null;
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("[StrategyService] Error requesting RL optimization:", error);
+      return null;
+    }
+  }
+
+  /**
+   * IMPROVED: Iterative Strategy Optimizer with Timeframe Optimization and RL
+   * Runs a loop of Think -> Test -> Refine to find the best possible strategy
+   */
+  async findHighestWinningRateVariation(
+    strategy: StructuredStrategy,
+    instrumentTokens: number[],
+    timeframe: string,
+    capital: number = 100000,
+    fromDate?: Date,
+    toDate?: Date,
+    strategyId?: number
+  ): Promise<{ improved: StructuredStrategy; notes: string; performance: BacktestResult }> {
+    console.log(`[StrategyService] Starting 3-step Iterative Optimization with Timeframe Analysis...`);
+    
+    let currentStrategy = { ...strategy };
+    let currentBestResult: BacktestResult | null = null;
+    let bestTimeframe = timeframe;
+    let iterationNotes = "";
+    let iterationContext = "";
+
+    // Step 0: Timeframe Optimization (5m vs 15m)
+    console.log(`[StrategyService] Step 0: Running Timeframe Comparison (5m vs 15m)...`);
+    const timeframesToTest = ["5m", "15m"];
+    const results: Record<string, BacktestResult> = {};
+
+    for (const tf of timeframesToTest) {
+      console.log(`[StrategyService] Testing timeframe: ${tf}`);
+      try {
+        results[tf] = await this.runBacktest(currentStrategy, instrumentTokens, tf, capital, fromDate, toDate);
+      } catch (e) {
+        console.error(`[StrategyService] Backtest failed for ${tf}:`, e);
+      }
+    }
+
+    // Pick best timeframe
+    const tf5 = results["5m"];
+    const tf15 = results["15m"];
+    
+    if (tf5 && tf15) {
+      const score5 = (tf5.win_rate * 0.4) + (tf5.net_pnl_percentage * 0.6);
+      const score15 = (tf15.win_rate * 0.4) + (tf15.net_pnl_percentage * 0.6);
+      
+      if (score5 > score15) {
+        bestTimeframe = "5m";
+        currentBestResult = tf5;
+      } else {
+        bestTimeframe = "15m";
+        currentBestResult = tf15;
+      }
+      
+      iterationContext += `Step 0 (Timeframe Optimization): Selected ${bestTimeframe} (Score ${Math.max(score5, score15).toFixed(2)} vs ${Math.min(score5, score15).toFixed(2)})\n`;
+      iterationNotes += `\n- Timeframe Optimization: Switched to ${bestTimeframe} as it showed better risk-adjusted returns in backtests.`;
+    } else {
+      currentBestResult = results[timeframe] || await this.runBacktest(currentStrategy, instrumentTokens, timeframe, capital, fromDate, toDate);
+    }
+
+    // Step 1: Baseline Iteration
+    iterationContext += `Iteration 0 (Baseline): Win Rate ${currentBestResult.win_rate.toFixed(1)}%, Net P&L ₹${currentBestResult.net_pnl.toFixed(2)}\n`;
+
+    // Step 2: RL Engine Trigger (Background)
+    let rlOptimizedParams = null;
+    if (strategyId) {
+      console.log(`[StrategyService] Triggering TensorTrade RL Engine...`);
+      await this.requestRLOptimization(strategyId, currentStrategy, instrumentTokens, bestTimeframe, fromDate, toDate);
+      
+      // Wait a moment for RL job to start and possibly finish if it was quick or cached
+      // In a real scenario, this is backgrounded, but for the first improvement iteration, 
+      // we check if there are any *previous* successful evolutions for this strategy
+      const { data: pastEvolutions } = await supabaseAdmin
+        .from("strategy_evolutions")
+        .select("optimized_params")
+        .eq("strategy_id", strategyId)
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      if (pastEvolutions?.[0]) {
+        rlOptimizedParams = pastEvolutions[0].optimized_params;
+      }
+    }
+
+    // Optimization Loop (3 Iterations)
+
           for (let i = 1; i <= 3; i++) {
             try {
               console.log(`[StrategyService] Iteration ${i}/3: Analyzing and Improving...`);

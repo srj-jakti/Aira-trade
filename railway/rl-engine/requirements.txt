@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+tensortrade
+ray[tune]
+pandas
+numpy
+pydantic
+supabase
+python-dotenv
+httpx

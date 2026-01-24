@@ -185,7 +185,7 @@ export default function ScannerPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gradient-to-br from-muted/50 to-transparent p-3 md:p-4 rounded-2xl border border-border shadow-2xl">
         <div className="flex items-center gap-3">
           <div className="size-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-            <Radar className={`size-5 text-blue-500 ${isActive ? 'animate-pulse' : ''}`} />
+            <Radar className={`size-5 text-blue-600 ${isActive ? 'animate-pulse' : ''}`} />
           </div>
           <div>
             <h1 className="text-lg md:text-xl font-bold text-foreground tracking-tight leading-none">
@@ -205,7 +205,7 @@ export default function ScannerPage() {
             />
             <span className={cn(
               "text-[9px] font-black px-1.5 py-0.5 rounded-full",
-              isActive ? "bg-blue-500/20 text-blue-500" : "bg-muted text-muted-foreground/40"
+              isActive ? "bg-blue-500/20 text-blue-600" : "bg-muted/20 text-muted-foreground"
             )}>
               {isActive ? "LIVE" : "OFF"}
             </span>
@@ -226,18 +226,18 @@ export default function ScannerPage() {
 
       <div className="p-2.5 bg-blue-500/5 border border-blue-500/10 rounded-xl flex items-start gap-2.5">
         <div className="size-5 rounded-md bg-blue-500/10 flex items-center justify-center shrink-0 border border-blue-500/10">
-          <Info className="size-3 text-blue-500" />
+          <Info className="size-3 text-blue-600" />
         </div>
-        <p className="text-[10px] text-blue-500/60 font-medium leading-relaxed">
+        <p className="text-[10px] text-blue-600/60 font-medium leading-relaxed">
           Analytical outputs based on user-configured rules. Informational purposes only. No trading advice.
         </p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {[
-          { label: "Active Signals", value: currentOutputs.length, sub: "Live monitoring", icon: Activity, color: "text-blue-500" },
-          { label: "Scan Accuracy", value: pastOutputs.length > 0 ? `${((pastOutputs.filter(s => s.status === 'target_hit').length / pastOutputs.length) * 100).toFixed(0)}%` : "0%", sub: `Based on ${pastOutputs.length} hits`, icon: TrendingUp, color: "text-green-500" },
-          { label: "Daily Realized", value: `₹${pastOutputs.reduce((acc, s) => acc + (s.pnl || 0), 0).toFixed(0)}`, sub: "Scanner outcomes", icon: Clock, color: "text-orange-500" }
+          { label: "Active Signals", value: currentOutputs.length, sub: "Live monitoring", icon: Activity, color: "text-blue-600" },
+          { label: "Scan Accuracy", value: pastOutputs.length > 0 ? `${((pastOutputs.filter(s => s.status === 'target_hit').length / pastOutputs.length) * 100).toFixed(0)}%` : "0%", sub: `Based on ${pastOutputs.length} hits`, icon: TrendingUp, color: "text-green-600" },
+          { label: "Daily Realized", value: `₹${pastOutputs.reduce((acc, s) => acc + (s.pnl || 0), 0).toFixed(0)}`, sub: "Scanner outcomes", icon: Clock, color: "text-orange-600" }
         ].map((stat, i) => (
           <Card key={i} className={cn("bg-card border-border group", i === 2 && "col-span-2 md:col-span-1")}>
             <CardHeader className="flex flex-row items-center justify-between pb-1">
@@ -272,12 +272,12 @@ export default function ScannerPage() {
             <CardHeader className="bg-muted/30 border-b border-border py-3">
               <CardTitle className="text-sm font-bold text-foreground flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Activity className="size-3.5 text-blue-500" />
+                  <Activity className="size-3.5 text-blue-600" />
                   Live Analysis
                 </div>
                 <div className="flex items-center gap-1">
                   {isPricesConnected ? (
-                    <div className="flex items-center gap-1 text-green-500">
+                    <div className="flex items-center gap-1 text-green-600">
                       <Wifi className="size-3" />
                       <span className="text-[9px] uppercase font-bold">Live Prices</span>
                     </div>
@@ -324,7 +324,7 @@ export default function ScannerPage() {
                           <TableCell>
                             <Badge className={cn(
                               "text-[8px] font-black px-1.5 py-0 border-none",
-                              output.direction === 'LONG' ? "bg-green-500/20 text-green-500" : "bg-red-500/20 text-red-500"
+                              output.direction === 'LONG' ? "bg-green-500/20 text-green-600" : "bg-red-500/20 text-red-600"
                             )}>
                               {output.direction}
                             </Badge>
@@ -333,18 +333,18 @@ export default function ScannerPage() {
                             <div className="text-muted-foreground/60 text-[9px]">E: ₹{output.entry_price.toFixed(2)}</div>
                             <div className={cn(
                               "font-bold",
-                              livePrice ? (unrealizedPnl >= 0 ? "text-green-500" : "text-red-500") : "text-muted-foreground/60"
+                              livePrice ? (unrealizedPnl >= 0 ? "text-green-600" : "text-red-600") : "text-muted-foreground/60"
                             )}>
                               L: ₹{currentPrice.toFixed(2)}
                               {livePrice && <span className="text-[8px] ml-1">({pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%)</span>}
                             </div>
                           </TableCell>
                           <TableCell className="text-[10px] font-medium">
-                            <div className="text-green-500/60">T: ₹{output.target_price.toFixed(2)}</div>
-                            <div className="text-red-500/60">S: ₹{output.sl_price.toFixed(2)}</div>
+                            <div className="text-green-600/60">T: ₹{output.target_price.toFixed(2)}</div>
+                            <div className="text-red-600/60">S: ₹{output.sl_price.toFixed(2)}</div>
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className={cn("font-bold text-xs", unrealizedPnl >= 0 ? 'text-green-500' : 'text-red-500')}>
+                            <div className={cn("font-bold text-xs", unrealizedPnl >= 0 ? 'text-green-600' : 'text-red-600')}>
                               {livePrice ? `₹${unrealizedPnl.toFixed(1)}` : (output.pnl ? `₹${output.pnl.toFixed(1)}` : '-')}
                             </div>
                             <div className="text-[9px] text-muted-foreground/40 font-medium">
@@ -365,7 +365,7 @@ export default function ScannerPage() {
           <Card className="bg-card border-border overflow-hidden">
             <CardHeader className="bg-muted/30 border-b border-border py-3">
               <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
-                <History className="size-3.5 text-purple-500" />
+                <History className="size-3.5 text-purple-600" />
                 Historical Logs
               </CardTitle>
             </CardHeader>
@@ -392,16 +392,16 @@ export default function ScannerPage() {
                         <TableCell>
                           <span className={cn(
                             "text-[9px] font-black",
-                            output.direction === 'LONG' ? "text-green-500" : "text-red-500"
+                            output.direction === 'LONG' ? "text-green-600" : "text-red-600"
                           )}>{output.direction}</span>
                         </TableCell>
                         <TableCell>
                           {output.status === 'target_hit' ? (
-                            <div className="flex items-center gap-1 text-green-500 font-bold text-[10px]">
+                            <div className="flex items-center gap-1 text-green-600 font-bold text-[10px]">
                               <CheckCircle2 className="size-3" /> TARGET
                             </div>
                           ) : output.status === 'sl_hit' ? (
-                            <div className="flex items-center gap-1 text-red-500 font-bold text-[10px]">
+                            <div className="flex items-center gap-1 text-red-600 font-bold text-[10px]">
                               <XCircle className="size-3" /> STOPLOSS
                             </div>
                           ) : (
@@ -409,7 +409,7 @@ export default function ScannerPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className={cn("font-bold text-xs font-mono", (output.pnl || 0) >= 0 ? 'text-green-500' : 'text-red-500')}>
+                          <div className={cn("font-bold text-xs font-mono", (output.pnl || 0) >= 0 ? 'text-green-600' : 'text-red-600')}>
                             ₹{(output.pnl || 0).toFixed(1)}
                           </div>
                           <div className="text-[8px] text-muted-foreground/40 font-medium">
@@ -429,7 +429,7 @@ export default function ScannerPage() {
           <Card className="bg-card border-border">
             <CardHeader className="py-4">
               <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Settings2 className="size-3.5 text-orange-500" />
+                <Settings2 className="size-3.5 text-orange-600" />
                 Scanner Config
               </CardTitle>
             </CardHeader>

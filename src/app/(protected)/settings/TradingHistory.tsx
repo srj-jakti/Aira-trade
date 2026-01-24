@@ -55,93 +55,93 @@ export function TradingHistory() {
     loadTrades(1);
   }, []);
 
-  if (loading && trades.length === 0) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="w-6 h-6 animate-spin text-white/20" />
-      </div>
-    );
-  }
-
-  if (trades.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-white/40 text-sm">No trading history found yet.</p>
-        <p className="text-white/20 text-xs mt-1">Trades executed by the AI will appear here.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-white/5 hover:bg-transparent">
-              <TableHead className="text-white/40 font-bold uppercase text-[10px]">Symbol</TableHead>
-              <TableHead className="text-white/40 font-bold uppercase text-[10px]">Type</TableHead>
-              <TableHead className="text-white/40 font-bold uppercase text-[10px]">Price</TableHead>
-              <TableHead className="text-white/40 font-bold uppercase text-[10px]">Qty</TableHead>
-              <TableHead className="text-white/40 font-bold uppercase text-[10px]">P&L</TableHead>
-              <TableHead className="text-white/40 font-bold uppercase text-[10px] text-right">Date</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {trades.map((trade) => (
-              <TableRow key={trade.id} className="border-white/5 hover:bg-white/[0.02]">
-                <TableCell className="font-medium text-white">{trade.symbol}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={trade.type === 'BUY' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}>
-                    {trade.type}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-white/60">₹{trade.price}</TableCell>
-                <TableCell className="text-white/60">{trade.quantity}</TableCell>
-                <TableCell>
-                  <span className={`flex items-center gap-1 ${trade.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {trade.pnl >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                    ₹{Math.abs(trade.pnl)}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right text-white/40 text-xs">
-                  {new Date(trade.executed_at).toLocaleDateString()}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between px-2">
-          <p className="text-xs text-white/40">
-            Showing {((pagination.page - 1) * pagination.limit) + 1}-{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-8 w-8 p-0 border-white/10"
-              onClick={() => loadTrades(pagination.page - 1)}
-              disabled={pagination.page <= 1 || loading}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-xs text-white/60">
-              {pagination.page} / {pagination.totalPages}
-            </span>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-8 w-8 p-0 border-white/10"
-              onClick={() => loadTrades(pagination.page + 1)}
-              disabled={pagination.page >= pagination.totalPages || loading}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+    if (loading && trades.length === 0) {
+      return (
+        <div className="flex items-center justify-center p-8">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/20" />
         </div>
-      )}
-    </div>
-  );
+      );
+    }
+  
+    if (trades.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground text-sm">No trading history found yet.</p>
+          <p className="text-muted-foreground/60 text-xs mt-1">Trades executed by the AI will appear here.</p>
+        </div>
+      );
+    }
+  
+    return (
+      <div className="space-y-4">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-muted-foreground font-bold uppercase text-[10px]">Symbol</TableHead>
+                <TableHead className="text-muted-foreground font-bold uppercase text-[10px]">Type</TableHead>
+                <TableHead className="text-muted-foreground font-bold uppercase text-[10px]">Price</TableHead>
+                <TableHead className="text-muted-foreground font-bold uppercase text-[10px]">Qty</TableHead>
+                <TableHead className="text-muted-foreground font-bold uppercase text-[10px]">P&L</TableHead>
+                <TableHead className="text-muted-foreground font-bold uppercase text-[10px] text-right">Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {trades.map((trade) => (
+                <TableRow key={trade.id} className="border-border hover:bg-muted/50">
+                  <TableCell className="font-medium text-foreground">{trade.symbol}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={trade.type === 'BUY' ? 'bg-green-500/10 text-green-600 border-green-500/20' : 'bg-red-500/10 text-red-600 border-red-500/20'}>
+                      {trade.type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">₹{trade.price}</TableCell>
+                  <TableCell className="text-muted-foreground">{trade.quantity}</TableCell>
+                  <TableCell>
+                    <span className={`flex items-center gap-1 font-medium ${trade.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {trade.pnl >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                      ₹{Math.abs(trade.pnl).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground text-xs">
+                    {new Date(trade.executed_at).toLocaleDateString()}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+  
+        {pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between px-2 pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground">
+              Showing {((pagination.page - 1) * pagination.limit) + 1}-{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-8 w-8 p-0 border-border hover:bg-muted"
+                onClick={() => loadTrades(pagination.page - 1)}
+                disabled={pagination.page <= 1 || loading}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {pagination.page} / {pagination.totalPages}
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-8 w-8 p-0 border-border hover:bg-muted"
+                onClick={() => loadTrades(pagination.page + 1)}
+                disabled={pagination.page >= pagination.totalPages || loading}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
 }

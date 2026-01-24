@@ -35,12 +35,12 @@ import { cn } from "@/lib/utils";
 import { usePrices } from "@/hooks/useMarketData";
 
 const SIGNAL_STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
-  PENDING: { icon: Clock, color: "text-yellow-400", label: "Pending" },
-  PENDING_EXECUTION: { icon: Loader2, color: "text-blue-400", label: "Queued" },
-  EXECUTING: { icon: Loader2, color: "text-blue-400", label: "Executing" },
-  EXECUTED: { icon: CheckCircle2, color: "text-green-400", label: "Executed" },
+  PENDING: { icon: Clock, color: "text-yellow-600", label: "Pending" },
+  PENDING_EXECUTION: { icon: Loader2, color: "text-blue-600", label: "Queued" },
+  EXECUTING: { icon: Loader2, color: "text-blue-600", label: "Executing" },
+  EXECUTED: { icon: CheckCircle2, color: "text-green-600", label: "Executed" },
   FILLED: { icon: CheckCircle2, color: "text-green-500", label: "Filled" },
-  REJECTED: { icon: XCircle, color: "text-red-400", label: "Rejected" },
+  REJECTED: { icon: XCircle, color: "text-red-600", label: "Rejected" },
   CANCELLED: { icon: XCircle, color: "text-gray-400", label: "Cancelled" },
   EXPIRED: { icon: Clock, color: "text-gray-500", label: "Expired" },
   FAILED: { icon: AlertCircle, color: "text-red-500", label: "Failed" },

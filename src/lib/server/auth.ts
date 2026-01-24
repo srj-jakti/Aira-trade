@@ -1,6 +1,6 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export interface AuthResult {
   authenticated: boolean;
@@ -16,7 +16,7 @@ export interface AdminAuthResult extends AuthResult {
 export async function getAuthenticatedUser(): Promise<AuthResult> {
   try {
     const cookieStore = await cookies();
-    
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -29,10 +29,18 @@ export async function getAuthenticatedUser(): Promise<AuthResult> {
       }
     );
 
-    const { data: { user }, error } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
     if (error || !user) {
-      return { authenticated: false, userId: null, email: null, error: 'Not authenticated' };
+      return {
+        authenticated: false,
+        userId: null,
+        email: null,
+        error: "Not authenticated",
+      };
     }
 
     return {
@@ -40,23 +48,28 @@ export async function getAuthenticatedUser(): Promise<AuthResult> {
       userId: user.id,
       email: user.email || null,
     };
-  } catch (error) {
-    return { authenticated: false, userId: null, email: null, error: 'Auth check failed' };
+  } catch {
+    return {
+      authenticated: false,
+      userId: null,
+      email: null,
+      error: "Auth check failed",
+    };
   }
 }
 
 export async function getAdminUser(): Promise<AdminAuthResult> {
   const authResult = await getAuthenticatedUser();
-  
+
   if (!authResult.authenticated || !authResult.email) {
     return { ...authResult, isAdmin: false };
   }
 
   try {
     const { data, error } = await supabaseAdmin
-      .from('admin_users')
-      .select('id')
-      .eq('email', authResult.email)
+      .from("admin_users")
+      .select("id")
+      .eq("email", authResult.email)
       .single();
 
     if (error || !data) {
@@ -69,12 +82,11 @@ export async function getAdminUser(): Promise<AdminAuthResult> {
   }
 }
 
-// Standard API response helpers
-export function unauthorizedResponse(message = 'Unauthorized') {
+export function unauthorizedResponse(message = "Unauthorized") {
   return Response.json({ error: message }, { status: 401 });
 }
 
-export function forbiddenResponse(message = 'Forbidden') {
+export function forbiddenResponse(message = "Forbidden") {
   return Response.json({ error: message }, { status: 403 });
 }
 
@@ -82,8 +94,12 @@ export function badRequestResponse(message: string, details?: unknown) {
   return Response.json({ error: message, details }, { status: 400 });
 }
 
-export function serverErrorResponse(message = 'Internal server error') {
+export function serverErrorResponse(message = "Internal server error") {
   return Response.json({ error: message }, { status: 500 });
+}
+
+export function errorResponse(message: string, status = 500) {
+  return Response.json({ error: message }, { status });
 }
 
 export function successResponse<T>(data: T, status = 200) {

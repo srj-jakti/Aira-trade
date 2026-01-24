@@ -197,7 +197,6 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     }
   }, [instrumentToken, timeframe, maxCandles]);
 
-  // Setup realtime subscription
   useEffect(() => {
     if (!enabled || !instrumentToken) {
       if (candlePollRef.current) {
@@ -234,17 +233,10 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     };
   }, [enabled, instrumentToken, timeframe, fetchCandles, fetchLatestTick, pollInterval]);
 
-  /**
-   * Fetch fresh data (replaces all candles)
-   */
   const refetch = useCallback(async () => {
     await fetchCandles(true);
   }, [fetchCandles]);
 
-  /**
-   * Fetch older candles (scroll-back / pagination)
-   * Returns true if more data was loaded, false if no more data
-   */
   const fetchOlder = useCallback(async (): Promise<boolean> => {
     if (!hasMore || isLoadingMore) {
       return false;
@@ -256,8 +248,13 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     }
 
     setIsLoadingMore(true);
+    fetchAttemptsRef.current++;
     
     try {
+      const beforeParam = oldestTimestamp 
+        ? `&before=${encodeURIComponent(oldestTimestamp)}`
+        : "";
+      
       const response = await fetch(
         `/api/market-data/live?instrument=${instrumentToken}&timeframe=${timeframe}&limit=500${beforeParam}`
       );
@@ -277,10 +274,8 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
       setDataSource(data.dataSource || "ZERODHA_REALTIME");
       
       setCandles((prev) => {
-        // Prepend older candles
         const combined = [...olderCandles, ...prev];
         
-        // Remove duplicates by timestamp
         const uniqueMap = new Map<string, CandleData>();
         for (const candle of combined) {
           uniqueMap.set(candle.timestamp, candle);
@@ -290,7 +285,6 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
           (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
 
-        // Memory management: trim newest if exceeding limit
         if (unique.length > maxCandles) {
           unique = unique.slice(0, maxCandles);
         }
@@ -298,7 +292,6 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
         return unique;
       });
 
-      // Update pagination state
       setHasMore(data.hasMore ?? false);
       if (data.oldestTimestamp) {
         setOldestTimestamp(data.oldestTimestamp);

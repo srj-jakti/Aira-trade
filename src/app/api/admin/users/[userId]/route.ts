@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   getAdminUser,
   unauthorizedResponse,
@@ -6,9 +6,9 @@ import {
   badRequestResponse,
   serverErrorResponse,
   successResponse,
-} from '@/lib/server/auth';
-import { uuidSchema } from '@/lib/validations';
-import { logAudit } from '@/lib/server/audit';
+} from "@/lib/server/auth";
+import { uuidSchema } from "@/lib/validations";
+import { logAudit } from "@/lib/server/audit";
 
 const VALID_PLANS = ["basic", "pro", "elite", "admin"];
 const VALID_DURATIONS = ["1_month", "3_months", "6_months", "1_year", "lifetime"];
@@ -40,13 +40,13 @@ export async function DELETE(
     return unauthorizedResponse();
   }
   if (!admin.isAdmin) {
-    return forbiddenResponse('Admin access required');
+    return forbiddenResponse("Admin access required");
   }
 
   const { userId } = await params;
   const validation = uuidSchema.safeParse(userId);
   if (!validation.success) {
-    return badRequestResponse('Invalid user ID');
+    return badRequestResponse("Invalid user ID");
   }
 
   if (userId === admin.userId) {
@@ -54,7 +54,6 @@ export async function DELETE(
   }
 
   try {
-    // Delete in order with error tracking
     const tables = [
       "strategies",
       "trading_preferences",
@@ -67,22 +66,9 @@ export async function DELETE(
       "profiles",
     ];
 
-    const errors: string[] = [];
-
     for (const table of tables) {
-      const { error } = await supabaseAdmin
-        .from(table)
-        .delete()
-        .eq(table === 'profiles' ? 'id' : 'user_id', userId);
-
-      if (error && error.code !== 'PGRST116') {
-        errors.push(`${table}: ${error.message}`);
-      }
-    }
-
-    if (errors.length > 0) {
-      console.error('Delete user errors:', errors);
-      return serverErrorResponse();
+      const column = table === "profiles" ? "id" : "user_id";
+      await supabaseAdmin.from(table).delete().eq(column, userId);
     }
 
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);

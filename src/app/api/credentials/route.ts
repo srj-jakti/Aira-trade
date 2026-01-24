@@ -1,17 +1,16 @@
-import { NextRequest } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
-import { 
-  getAuthenticatedUser, 
-  unauthorizedResponse, 
-  badRequestResponse, 
+import { NextRequest } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  getAuthenticatedUser,
+  unauthorizedResponse,
+  badRequestResponse,
   serverErrorResponse,
-  successResponse 
-} from '@/lib/server/auth';
-import { encrypt, decrypt, maskCredential } from '@/lib/server/encryption';
-import { credentialsSchema } from '@/lib/validations';
-import { logAudit } from '@/lib/server/audit';
+  successResponse,
+} from "@/lib/server/auth";
+import { encrypt, decrypt, maskCredential } from "@/lib/server/encryption";
+import { credentialsSchema } from "@/lib/validations";
+import { logAudit } from "@/lib/server/audit";
 
-// GET - Retrieve masked credentials
 export async function GET() {
   const auth = await getAuthenticatedUser();
   if (!auth.authenticated) {
@@ -20,12 +19,12 @@ export async function GET() {
 
   try {
     const { data, error } = await supabaseAdmin
-      .from('user_config')
-      .select('config')
-      .eq('user_id', auth.userId)
+      .from("user_config")
+      .select("preferences")
+      .eq("user_id", auth.userId)
       .single();
 
-    if (error && error.code !== 'PGRST116') {
+    if (error && error.code !== "PGRST116") {
       return serverErrorResponse();
     }
 
@@ -33,12 +32,11 @@ export async function GET() {
       return successResponse({ credentials: {} });
     }
 
-    // Decrypt and mask all credential values
-    const config = data.config as Record<string, string>;
+    const prefs = data.preferences as Record<string, string>;
     const masked: Record<string, string> = {};
 
-    for (const [key, value] of Object.entries(config)) {
-      if (value && typeof value === 'string') {
+    for (const [key, value] of Object.entries(prefs)) {
+      if (value && typeof value === "string" && (key.includes("_key") || key.includes("_secret") || key.includes("_token"))) {
         try {
           const decrypted = decrypt(value);
           masked[key] = maskCredential(decrypted);
@@ -54,7 +52,6 @@ export async function GET() {
   }
 }
 
-// POST - Save/update credentials
 export async function POST(request: NextRequest) {
   const auth = await getAuthenticatedUser();
   if (!auth.authenticated) {
@@ -66,38 +63,38 @@ export async function POST(request: NextRequest) {
     const validation = credentialsSchema.safeParse(body);
 
     if (!validation.success) {
-      return badRequestResponse('Invalid credentials format', validation.error.flatten());
+      return badRequestResponse("Invalid credentials format", validation.error.flatten());
     }
 
-    // Encrypt all credential values
-    const encryptedConfig: Record<string, string> = {};
+    const encryptedPrefs: Record<string, string> = {};
     for (const [key, value] of Object.entries(validation.data)) {
-      if (value && typeof value === 'string' && value.trim()) {
-        encryptedConfig[key] = encrypt(value);
+      if (value && typeof value === "string" && value.trim()) {
+        encryptedPrefs[key] = encrypt(value);
       }
     }
 
-    // Get existing config to merge
     const { data: existing } = await supabaseAdmin
-      .from('user_config')
-      .select('config')
-      .eq('user_id', auth.userId)
+      .from("user_config")
+      .select("preferences")
+      .eq("user_id", auth.userId)
       .single();
 
-    const mergedConfig = {
-      ...(existing?.config || {}),
-      ...encryptedConfig,
+    const mergedPrefs = {
+      ...(existing?.preferences || {}),
+      ...encryptedPrefs,
+      updated_at: new Date().toISOString(),
     };
 
-    const { error } = await supabaseAdmin
-      .from('user_config')
-      .upsert({
+    const { error } = await supabaseAdmin.from("user_config").upsert(
+      {
         user_id: auth.userId,
-        config: mergedConfig,
+        preferences: mergedPrefs,
         updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id',
-      });
+      },
+      {
+        onConflict: "user_id",
+      }
+    );
 
     if (error) {
       return serverErrorResponse();
@@ -105,8 +102,8 @@ export async function POST(request: NextRequest) {
 
     await logAudit({
       user_id: auth.userId!,
-      action: existing ? 'credential_updated' : 'credential_created',
-      target_table: 'user_config',
+      action: existing ? "credential_updated" : "credential_created",
+      target_table: "user_config",
       metadata: { keys_updated: Object.keys(validation.data) },
     });
 
@@ -116,7 +113,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE - Remove specific credentials
 export async function DELETE(request: NextRequest) {
   const auth = await getAuthenticatedUser();
   if (!auth.authenticated) {
@@ -125,33 +121,33 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const { keys } = await request.json();
-    
+
     if (!Array.isArray(keys) || keys.length === 0) {
-      return badRequestResponse('Keys array required');
+      return badRequestResponse("Keys array required");
     }
 
     const { data: existing } = await supabaseAdmin
-      .from('user_config')
-      .select('config')
-      .eq('user_id', auth.userId)
+      .from("user_config")
+      .select("preferences")
+      .eq("user_id", auth.userId)
       .single();
 
-    if (!existing?.config) {
+    if (!existing?.preferences) {
       return successResponse({ success: true });
     }
 
-    const updatedConfig = { ...existing.config };
+    const updatedPrefs = { ...existing.preferences } as Record<string, unknown>;
     for (const key of keys) {
-      delete updatedConfig[key];
+      delete updatedPrefs[key];
     }
 
     const { error } = await supabaseAdmin
-      .from('user_config')
+      .from("user_config")
       .update({
-        config: updatedConfig,
+        preferences: updatedPrefs,
         updated_at: new Date().toISOString(),
       })
-      .eq('user_id', auth.userId);
+      .eq("user_id", auth.userId);
 
     if (error) {
       return serverErrorResponse();
@@ -159,8 +155,8 @@ export async function DELETE(request: NextRequest) {
 
     await logAudit({
       user_id: auth.userId!,
-      action: 'credential_deleted',
-      target_table: 'user_config',
+      action: "credential_deleted",
+      target_table: "user_config",
       metadata: { keys_deleted: keys },
     });
 

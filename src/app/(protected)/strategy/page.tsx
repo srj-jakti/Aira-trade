@@ -146,15 +146,22 @@ interface TradeEntry {
 }
 
 interface Strategy {
-  id: string | number;
+  id: number;
   name: string;
   description: string;
-  status: string;
+  visibility: string;
   is_active: boolean;
   is_paper_trading?: boolean;
   selected_instruments?: number[];
   selected_timeframes: string[];
   created_at: string;
+  admin_approved?: boolean;
+  creator?: string;
+  stats?: {
+    win_rate: number;
+    net_pnl_percentage: number;
+    total_trades: number;
+  };
 }
 
 interface Signal {
@@ -307,23 +314,21 @@ function ActiveStrategiesTab() {
     }
   }, [selectedStrategyId]);
 
-    const fetchActiveStrategies = async () => {
-      try {
-        const res = await fetch("/api/strategies");
-        if (res.ok) {
-          const data = await res.json();
-          const activeOnes = (data.strategies || []).filter((s: Strategy) => s.is_active);
-          setStrategies(activeOnes);
-          if (activeOnes.length > 0 && !selectedStrategyId) {
-            setSelectedStrategyId(activeOnes[0].id);
-          }
+  const fetchActiveStrategies = async () => {
+    try {
+      const res = await fetch("/api/strategies");
+      if (res.ok) {
+        const data = await res.json();
+        const activeOnes = (data.strategies || []).filter((s: Strategy) => s.is_active);
+        setStrategies(activeOnes);
+        if (activeOnes.length > 0 && !selectedStrategyId) {
+          setSelectedStrategyId(activeOnes[0].id);
         }
-      } catch (err) {
-        console.error("Error fetching active strategies:", err);
-      } finally {
-        setLoading(false);
       }
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchStrategyData = async (id: number) => {
     try {
@@ -2086,127 +2091,333 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
       </AlertDialog>
     </>
   );
+}
+
+function PublicStrategiesTab() {
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPublicStrategies();
+  }, []);
+
+  const fetchPublicStrategies = async () => {
+    try {
+      const res = await fetch("/api/strategies/public");
+      if (res.ok) {
+        const data = await res.json();
+        setStrategies((data.strategies || []).filter((s: Strategy) => s.visibility === "public"));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="bg-white/5 border-white/10">
+        <CardContent className="flex items-center justify-center min-h-[300px]">
+          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0A0A0B] text-white selection:bg-blue-500/30">
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-[#0A0A0B]/80 backdrop-blur-md border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-2 bg-blue-500/10 rounded-lg">
-              <BrainCircuit className="w-5 h-5 text-blue-400" />
-            </div>
-            <h1 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-              Trading Strategies
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" className="hidden sm:flex border-white/10 hover:bg-white/5 h-9">
-              <Filter className="w-4 h-4 mr-2" />
-              Filter
-            </Button>
-            <Button className="bg-blue-600 hover:bg-blue-500 text-white h-9 shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Strategy
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        {/* Search Bar */}
-        <div className="relative mb-8 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 group-focus-within:text-blue-400 transition-colors" />
-          <input 
-            type="text" 
-            placeholder="Search by name, indicator, or rule..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/40 transition-all text-sm"
-          />
-        </div>
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-            <p className="text-white/40 text-sm animate-pulse">Analyzing market patterns...</p>
+    <Card className="bg-white/5 border-white/10">
+      <CardHeader>
+        <CardTitle className="text-white text-lg">Public Marketplace</CardTitle>
+        <CardDescription className="text-white/40">
+          Discover strategies shared by the community.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {strategies.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-white/5 rounded-xl">
+            <Globe className="w-12 h-12 text-white/10 mb-4" />
+            <p className="text-white/40">No public strategies available yet</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <AnimatePresence mode="popLayout">
-              {filteredStrategies.length > 0 ? (
-                filteredStrategies.map((strategy, index) => (
-                  <motion.div
-                    key={strategy.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="group relative bg-[#121214] border border-white/5 rounded-2xl p-6 hover:border-blue-500/30 hover:bg-[#161618] transition-all cursor-pointer overflow-hidden"
-                  >
-                    {/* Glow effect */}
-                    <div className="absolute -inset-px bg-gradient-to-br from-blue-500/0 via-blue-500/0 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                    <div className="relative z-10">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="p-2.5 bg-white/5 rounded-xl group-hover:bg-blue-500/10 group-hover:text-blue-400 transition-colors">
-                          <Zap className="w-5 h-5" />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {strategy.is_active && (
-                            <span className="flex h-2 w-2 relative">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                            </span>
-                          )}
-                          <span className="text-[10px] uppercase tracking-wider font-bold text-white/30 px-2 py-1 bg-white/5 rounded-md">
-                            {strategy.status || "Draft"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <h3 className="text-lg font-semibold mb-2 group-hover:text-blue-400 transition-colors">
-                        {strategy.name}
-                      </h3>
-                      <p className="text-sm text-white/50 line-clamp-2 mb-6 min-h-[40px]">
-                        {strategy.description}
-                      </p>
-
-                      <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/5">
-                        <div className="flex items-center gap-2">
-                          <Activity className="w-3.5 h-3.5 text-white/40" />
-                          <span className="text-xs text-white/60">
-                            {strategy.performance || "0.00%"}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-end gap-1 text-blue-400 font-medium">
-                          <span className="text-xs">Manage</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </div>
-                      </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {strategies.map((strategy) => (
+              <div
+                key={strategy.id}
+                className="p-4 bg-white/5 border border-white/10 rounded-xl"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-white font-medium">{strategy.name}</h3>
+                  <Badge variant="outline" className="border-green-500/30 text-green-400">
+                    Public
+                  </Badge>
+                </div>
+                <p className="text-white/40 text-sm mb-3">{strategy.description}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/30 text-xs">by {strategy.creator}</span>
+                  {strategy.stats && (
+                    <div className="flex gap-3 text-xs">
+                      <span className="text-green-400">
+                        {strategy.stats.win_rate?.toFixed(0)}% Win
+                      </span>
+                      <span className={strategy.stats.net_pnl_percentage >= 0 ? "text-green-400" : "text-red-400"}>
+                        {strategy.stats.net_pnl_percentage >= 0 ? "+" : ""}
+                        {strategy.stats.net_pnl_percentage?.toFixed(1)}%
+                      </span>
                     </div>
-                  </motion.div>
-                ))
-              ) : (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="col-span-full py-20 flex flex-col items-center text-center bg-white/5 rounded-3xl border border-dashed border-white/10"
-                >
-                  <TrendingUp className="w-12 h-12 text-white/10 mb-4" />
-                  <h3 className="text-lg font-medium mb-1">No strategies found</h3>
-                  <p className="text-white/40 text-sm max-w-xs mx-auto mb-6">
-                    {searchQuery ? `No results match "${searchQuery}"` : "You haven't created any strategies yet."}
-                  </p>
-                  <Button className="bg-white text-black hover:bg-white/90">
-                    Create your first strategy
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
-      </main>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InviteOnlyTab() {
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [accessData, setAccessData] = useState<{
+    incomingRequests: unknown[];
+    myRequests: unknown[];
+    myGrants: unknown[];
+  }>({ incomingRequests: [], myRequests: [], myGrants: [] });
+  const [loading, setLoading] = useState(true);
+  const [activeSubTab, setActiveSubTab] = useState<"browse" | "requests" | "manage">("browse");
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const [publicRes, accessRes] = await Promise.all([
+        fetch("/api/strategies/public"),
+        fetch("/api/strategies/access"),
+      ]);
+
+      if (publicRes.ok) {
+        const data = await publicRes.json();
+        setStrategies((data.strategies || []).filter((s: Strategy) => s.visibility === "invite_only"));
+      }
+
+      if (accessRes.ok) {
+        const data = await accessRes.json();
+        setAccessData(data);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestAccess = async (strategyId: number) => {
+    const res = await fetch("/api/strategies/access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ strategyId, message: "I would like access to this strategy." }),
+    });
+    if (res.ok) {
+      alert("Access request sent!");
+      fetchData();
+    } else {
+      const error = await res.json();
+      alert(error.error || "Failed to request access");
+    }
+  };
+
+  const handleRequest = async (requestId: number, action: "approve" | "reject") => {
+    const res = await fetch(`/api/strategies/access/${requestId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    if (res.ok) {
+      fetchData();
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="bg-white/5 border-white/10">
+        <CardContent className="flex items-center justify-center min-h-[300px]">
+          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-2">
+        <Button
+          variant={activeSubTab === "browse" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setActiveSubTab("browse")}
+          className={activeSubTab === "browse" ? "bg-cyan-500" : "border-white/10 text-white/60"}
+        >
+          Browse
+        </Button>
+        <Button
+          variant={activeSubTab === "requests" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setActiveSubTab("requests")}
+          className={activeSubTab === "requests" ? "bg-cyan-500" : "border-white/10 text-white/60"}
+        >
+          My Requests
+        </Button>
+        <Button
+          variant={activeSubTab === "manage" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setActiveSubTab("manage")}
+          className={activeSubTab === "manage" ? "bg-cyan-500" : "border-white/10 text-white/60"}
+        >
+          Manage Invites
+          {accessData.incomingRequests.length > 0 && (
+            <Badge className="ml-2 bg-red-500">{accessData.incomingRequests.length}</Badge>
+          )}
+        </Button>
+      </div>
+
+      {activeSubTab === "browse" && (
+        <Card className="bg-white/5 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-white text-lg">Invite-Only Strategies</CardTitle>
+            <CardDescription className="text-white/40">
+              Request access to exclusive strategies.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {strategies.length === 0 ? (
+              <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-white/5 rounded-xl">
+                <UserCheck className="w-12 h-12 text-white/10 mb-4" />
+                <p className="text-white/40">No invite-only strategies available</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {strategies.map((strategy) => (
+                  <div
+                    key={strategy.id}
+                    className="p-4 bg-white/5 border border-white/10 rounded-xl"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-purple-400" />
+                        <h3 className="text-white font-medium">{strategy.name}</h3>
+                      </div>
+                      <Badge variant="outline" className="border-purple-500/30 text-purple-400">
+                        Invite Only
+                      </Badge>
+                    </div>
+                    <p className="text-white/40 text-sm mb-3">{strategy.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-white/30 text-xs">by {strategy.creator}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => requestAccess(strategy.id)}
+                        className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                      >
+                        Request Access
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeSubTab === "requests" && (
+        <Card className="bg-white/5 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-white text-lg">My Access Requests</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {accessData.myRequests.length === 0 ? (
+              <p className="text-white/40 text-center py-8">No access requests</p>
+            ) : (
+              <div className="space-y-3">
+                {accessData.myRequests.map((req: any) => (
+                  <div key={req.id} className="p-3 bg-white/5 border border-white/10 rounded-lg flex items-center justify-between">
+                    <div>
+                      <p className="text-white">{req.strategies?.name}</p>
+                      <p className="text-white/40 text-sm">Status: {req.status}</p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={
+                        req.status === "approved"
+                          ? "border-green-500/30 text-green-400"
+                          : req.status === "rejected"
+                          ? "border-red-500/30 text-red-400"
+                          : "border-yellow-500/30 text-yellow-400"
+                      }
+                    >
+                      {req.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeSubTab === "manage" && (
+        <Card className="bg-white/5 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-white text-lg">Manage Invite Requests</CardTitle>
+            <CardDescription className="text-white/40">
+              Approve or reject access requests for your invite-only strategies.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {accessData.incomingRequests.length === 0 ? (
+              <p className="text-white/40 text-center py-8">No pending requests</p>
+            ) : (
+              <div className="space-y-3">
+                {accessData.incomingRequests.map((req: any) => (
+                  <div key={req.id} className="p-4 bg-white/5 border border-white/10 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-white font-medium">{req.profiles?.username || req.profiles?.email}</p>
+                        <p className="text-white/40 text-sm">Requesting: {req.strategies?.name}</p>
+                      </div>
+                      <Badge variant="outline" className="border-yellow-500/30 text-yellow-400">
+                        {req.status}
+                      </Badge>
+                    </div>
+                    {req.message && (
+                      <p className="text-white/60 text-sm mb-3 italic">&quot;{req.message}&quot;</p>
+                    )}
+                    {req.status === "pending" && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleRequest(req.id, "approve")}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          <Check className="w-4 h-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRequest(req.id, "reject")}
+                          className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

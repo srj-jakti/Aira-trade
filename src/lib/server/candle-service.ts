@@ -6,12 +6,13 @@
  * 
  * DATA TYPES:
  * - LIVE mode: Uses live_candles table (for charts, AI, scanner, auto-trading)
+ * - RUNTIME_HISTORICAL mode: Fetches from Zerodha Historical API on-demand for deep scroll-back
  * - BACKTEST mode: Uses historical_candles table (for backtesting ONLY)
  */
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-export type CandleMode = "LIVE" | "BACKTEST";
+export type CandleMode = "LIVE" | "RUNTIME_HISTORICAL" | "BACKTEST";
 
 export interface CandleData {
   timestamp: Date;
@@ -74,13 +75,14 @@ export async function getCandles(options: GetCandlesOptions): Promise<GetCandles
     toDate,
   } = options;
 
-  // SAFETY GUARD: Validate mode
-  if (mode !== "LIVE" && mode !== "BACKTEST") {
-    throw new Error(`Invalid candle mode: ${mode}. Must be LIVE or BACKTEST.`);
+  if (mode !== "LIVE" && mode !== "RUNTIME_HISTORICAL" && mode !== "BACKTEST") {
+    throw new Error(`Invalid candle mode: ${mode}. Must be LIVE, RUNTIME_HISTORICAL, or BACKTEST.`);
   }
 
   if (mode === "LIVE") {
     return getLiveModeCandles(instrumentToken, timeframe, limit, beforeTimestamp);
+  } else if (mode === "RUNTIME_HISTORICAL") {
+    return getRuntimeHistoricalCandles(instrumentToken, timeframe, limit, beforeTimestamp);
   } else {
     return getBacktestModeCandles(instrumentToken, timeframe, fromDate, toDate);
   }
@@ -557,7 +559,7 @@ export function validateCandleMode(
   
   if (requestedMode === "BACKTEST" && liveComponents.some(c => componentLower.includes(c))) {
     throw new Error(
-      `SAFETY VIOLATION: Component "${component}" requested BACKTEST mode but should use LIVE mode. ` +
+      `SAFETY VIOLATION: Component "${component}" requested BACKTEST mode but should use LIVE or RUNTIME_HISTORICAL mode. ` +
       `Backtest data is for backtesting only.`
     );
   }

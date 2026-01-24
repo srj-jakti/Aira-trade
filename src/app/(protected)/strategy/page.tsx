@@ -307,19 +307,23 @@ function ActiveStrategiesTab() {
     }
   }, [selectedStrategyId]);
 
-  const fetchActiveStrategies = async () => {
-    try {
-      const res = await fetch("/api/strategies");
-      if (res.ok) {
-        const data = await res.json();
-        const activeOnes = (data.strategies || []).filter((s: Strategy) => s.is_active);
-        setStrategies(activeOnes);
-        if (activeOnes.length > 0 && !selectedStrategyId) {
-          setSelectedStrategyId(activeOnes[0].id);
+    const fetchActiveStrategies = async () => {
+      try {
+        const res = await fetch("/api/strategies");
+        if (res.ok) {
+          const data = await res.json();
+          const activeOnes = (data.strategies || []).filter((s: Strategy) => s.is_active);
+          setStrategies(activeOnes);
+          if (activeOnes.length > 0 && !selectedStrategyId) {
+            setSelectedStrategyId(activeOnes[0].id);
+          }
         }
+      } catch (err) {
+        console.error("Error fetching active strategies:", err);
+      } finally {
+        setLoading(false);
       }
-    }
-  };
+    };
 
   const fetchStrategyData = async (id: number) => {
     try {

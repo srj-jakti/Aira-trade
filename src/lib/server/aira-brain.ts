@@ -1069,6 +1069,79 @@ Keep it ELITE. Avoid retail indicator talk. Focus on Price Action Sequences.`;
 
     return data?.length || 0;
   }
+
+  async refineRLOptimization(
+    strategyId: number,
+    rlParams: Record<string, any>,
+    globalWeights: Record<string, any>
+  ): Promise<AIAnalysisResult> {
+    const systemPrompt = `ROLE:
+You are the Lead Institutional Strategist at Aira. 
+Your job is to translate raw mathematical RL optimizations into high-conviction institutional trading logic.
+
+🧠 CONTEXT:
+The RL Engine has simulated millions of trades to find these optimal parameters.
+The "Global Brain" contains the collective intelligence from all Aira users.
+
+RL PARAMETERS: ${JSON.stringify(rlParams)}
+GLOBAL BRAIN WEIGHTS: ${JSON.stringify(globalWeights)}
+
+TASK:
+1. Explain the "Institutional Why" behind these parameters.
+   - e.g. "The RL engine found SL at 1.2% works best. This aligns with institutional liquidity sweeps often occurring within 1-1.5% of the entry zone."
+2. Suggest 1-2 "Human" filters that complement these RL findings (FVG, Order Blocks, MSS).
+3. Provide a refined "Thesis" for this strategy version.
+
+OUTPUT FORMAT (JSON):
+{
+  "institutional_thesis": "string",
+  "parameter_justifications": [
+    { "param": "string", "reason": "string" }
+  ],
+  "structural_refinements": [
+    { "concept": "string", "implementation": "string" }
+  ]
+}`;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: `Refine the RL optimization for strategy #${strategyId}` },
+    ];
+
+    return this.executeAnalysis("rl_refinement", messages, { maxTokens: 1000 });
+  }
+
+  async suggestOptimalTimeframe(
+    tf5Result: any,
+    tf15Result: any
+  ): Promise<AIAnalysisResult> {
+    const systemPrompt = `ROLE:
+You are an expert intraday trader. Analyze backtest results for two timeframes (5m and 15m) and pick the one that offers the best balance of profitability, risk (Drawdown), and execution stability.
+
+BACKTEST DATA:
+5m: ${JSON.stringify(tf5Result)}
+15m: ${JSON.stringify(tf15Result)}
+
+INSTRUCTIONS:
+1. Recommend the optimal timeframe.
+2. Explain WHY (e.g. "15m provides cleaner structure and avoids noise" or "5m captures momentum shifts faster").
+3. Suggest if any parameter should change if the user switches timeframe.
+
+OUTPUT FORMAT (JSON):
+{
+  "recommended_timeframe": "5m | 15m",
+  "reasoning": "string",
+  "trade_off_analysis": "string",
+  "parameter_tweak": "string"
+}`;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: "Compare 5m and 15m timeframes and suggest the best one." },
+    ];
+
+    return this.executeAnalysis("timeframe_optimization", messages, { maxTokens: 1000 });
+  }
 }
 
 export const airaBrain = AiraBrain.getInstance();

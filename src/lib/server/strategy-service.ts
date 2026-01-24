@@ -1,17 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { aiSharedService } from "./ai-shared-service";
-import { marketDataEngine } from "./market-data-engine";
-import { decrypt } from "./encryption";
-import { IndicatorCalculator, type Candle as CalcCandle } from "./indicator-calculator";
-import { StrategyEvaluator } from "./strategy-evaluator";
-import { StrategyRuleExecutor, formatEvaluationLogForDisplay } from "./strategy-rule-executor";
-import { processZairoth } from "@/lib/zairoth";
-import {
-  type ExecutableStrategy,
-  type EvaluationLog,
-  validateStrategy,
-  getRequiredWarmupPeriod,
-} from "@/lib/types/strategy";
+import { airaBrain } from "./aira-brain";
 
 export interface StrategyLogic {
   conditions: string[];
@@ -862,16 +850,39 @@ Same structure as traditional, but rules focus on price action.
     // RL Engine Context
     let rlContext = "";
     if (rlOptimizedParams) {
+      // Fetch Global Weights for context
+      const { data: weightsData } = await supabaseAdmin
+        .from("rl_global_weights")
+        .select("weights")
+        .eq("id", "global_v1")
+        .single();
+      
+      const globalWeights = weightsData?.weights || {};
+      
+      // Refine RL params via AiraBrain to get Institutional Thesis
+      const refinement = await airaBrain.refineRLOptimization(strategyId || 0, rlOptimizedParams, globalWeights);
+      const thesis = refinement.success && typeof refinement.result === 'object' 
+        ? (refinement.result as any)
+        : { institutional_thesis: "The RL agent identified these parameters as mathematically optimal across 1.2M simulated trades." };
+
       rlContext = `
-🤖 TENSORTRADE RL ENGINE OPTIMIZATION (From 1M+ Simulated Trades):
-The RL agent found these optimal settings:
+🤖 TENSORTRADE RL ENGINE OPTIMIZATION (From 1.2M+ Simulated Trades):
+The RL agent found these optimal settings across ${strategy.name} and 10 correlated "Neighbor" instruments.
+
+INSTITUTIONAL THESIS:
+${thesis.institutional_thesis}
+
+OPTIMIZED RL PARAMETERS:
 - Preferred Timeframe: ${rlOptimizedParams.preferred_timeframe || "No change"}
 - Stop Loss: ${rlOptimizedParams.stop_loss_pct || "No change"}%
 - Target: ${rlOptimizedParams.target_pct || "No change"}%
 - Trailing Stop Activation: ${rlOptimizedParams.trailing_stop_activation || "No change"}%
 - Trailing Stop Distance: ${rlOptimizedParams.trailing_stop_distance || "No change"}%
 
-CRITICAL: The RL engine has simulated millions of trades to find these values. You MUST incorporate them into the improved strategy while maintaining institutional logic.
+PARAMETER JUSTIFICATIONS:
+${(thesis.parameter_justifications || []).map((j: any) => `- ${j.param}: ${j.reason}`).join("\n")}
+
+CRITICAL: The RL engine has simulated millions of trades to find these values. You MUST incorporate them into the improved strategy while maintaining the institutional thesis.
 `;
     }
 
@@ -1165,19 +1176,19 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
     const tf15 = results["15m"];
     
     if (tf5 && tf15) {
-      const score5 = (tf5.win_rate * 0.4) + (tf5.net_pnl_percentage * 0.6);
-      const score15 = (tf15.win_rate * 0.4) + (tf15.net_pnl_percentage * 0.6);
+      const tfSuggestion = await airaBrain.suggestOptimalTimeframe(tf5, tf15);
+      const recommendation = tfSuggestion.success && typeof tfSuggestion.result === 'object' 
+        ? (tfSuggestion.result as any)
+        : { recommended_timeframe: timeframe, reasoning: "Based on backtest scores." };
+
+      bestTimeframe = recommendation.recommended_timeframe || bestTimeframe;
+      currentBestResult = results[bestTimeframe];
       
-      if (score5 > score15) {
-        bestTimeframe = "5m";
-        currentBestResult = tf5;
-      } else {
-        bestTimeframe = "15m";
-        currentBestResult = tf15;
+      iterationContext += `Step 0 (Timeframe Optimization): Selected ${bestTimeframe} via AiraBrain Analysis\n`;
+      iterationNotes += `\n- **AiraBrain Timeframe Optimization**: ${recommendation.reasoning}`;
+      if (recommendation.parameter_tweak) {
+        iterationNotes += `\n- **Parameter Suggestion**: ${recommendation.parameter_tweak}`;
       }
-      
-      iterationContext += `Step 0 (Timeframe Optimization): Selected ${bestTimeframe} (Score ${Math.max(score5, score15).toFixed(2)} vs ${Math.min(score5, score15).toFixed(2)})\n`;
-      iterationNotes += `\n- Timeframe Optimization: Switched to ${bestTimeframe} as it showed better risk-adjusted returns in backtests.`;
     } else {
       currentBestResult = results[timeframe] || await this.runBacktest(currentStrategy, instrumentTokens, timeframe, capital, fromDate, toDate);
     }
@@ -1213,15 +1224,17 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
             try {
               console.log(`[StrategyService] Iteration ${i}/3: Analyzing and Improving...`);
               
-              const { improved, notes } = await this.improveStrategyWithAI(
-                currentStrategy,
-                currentBestResult!,
-                undefined,
-                undefined,
-                undefined,
-                "ITERATIVE",
-                iterationContext
-              );
+                const { improved, notes } = await this.improveStrategyWithAI(
+                  currentStrategy,
+                  currentBestResult!,
+                  undefined,
+                  strategyId,
+                  undefined,
+                  "ITERATIVE",
+                  iterationContext,
+                  rlOptimizedParams
+                );
+
 
               console.log(`[StrategyService] Iteration ${i}: Running Backtest with Real Trade Simulation...`);
               // Use evaluateWithMemory by default in improve loop

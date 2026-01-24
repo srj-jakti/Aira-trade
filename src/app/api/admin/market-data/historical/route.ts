@@ -151,11 +151,3 @@ export async function GET() {
     usage: "POST with Bearer token, optional body: { instrumentToken?, timeframe?, days? }"
   });
 }
-
-export async function GET() {
-  return NextResponse.json({ 
-    status: "ok",
-    description: "Historical data backfill API",
-    usage: "POST with Bearer token, optional body: { instrumentToken?, timeframe?, days? }"
-  });
-}

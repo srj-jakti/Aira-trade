@@ -623,7 +623,7 @@ function CreateStrategyTab({
   initialData?: any;
   onCancel?: () => void;
 }) {
-  const [step, setStep] = useState<"selection" | "input" | "review" | "backtest" | "improve" | "save">("selection");
+  const [step, setStep] = useState<"input" | "review" | "backtest" | "improve" | "save">("input");
   const [rawInput, setRawInput] = useState("");
     const [formatting, setFormatting] = useState(false);
     const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false);
@@ -712,7 +712,7 @@ function CreateStrategyTab({
     const [toDate, setToDate] = useState(() => new Date().toISOString().split("T")[0]);
     const [selectedTf, setSelectedTf] = useState("15m");
     const [showToolbox, setShowToolbox] = useState(false);
-    const [creationMode, setCreationMode] = useState<"traditional" | "neural">("traditional");
+    const [creationMode] = useState<"traditional">("traditional");
     const [referenceInstrument, setReferenceInstrument] = useState("");
   const [refInstrumentSearch, setRefInstrumentSearch] = useState("");
   const [refInstruments, setRefInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
@@ -898,7 +898,7 @@ function CreateStrategyTab({
           body: JSON.stringify({ 
             rawInput, 
             aiAnalysisEnabled,
-            mode: creationMode,
+            mode: "traditional",
             currentStrategy: strategy
           }),
         });
@@ -915,31 +915,6 @@ function CreateStrategyTab({
         setFormatting(false);
       }
     };
-
-  const generateStrategy = async () => {
-    setGenerating(true);
-    try {
-      const res = await fetch("/api/ai/generate-strategy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userInput: rawInput.trim() || undefined,
-          referenceInstrument: referenceInstrument || undefined,
-          mode: creationMode,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setRawInput(data.strategy);
-      } else {
-        alert("Failed to generate strategy. Please try again.");
-      }
-    } catch {
-      alert("Error generating strategy");
-    } finally {
-      setGenerating(false);
-    }
-  };
 
     const runBacktest = async (timeframe: string) => {
       if (!strategy || selectedInstruments.length === 0) return;
@@ -1051,7 +1026,7 @@ function CreateStrategyTab({
   };
 
   const resetForm = () => {
-    setStep("selection");
+    setStep("input");
     setRawInput("");
     setStrategy(null);
     setBacktestResults({});
@@ -1063,6 +1038,7 @@ function CreateStrategyTab({
     setToDate("");
     setReferenceInstrument("");
     setCurrentDraftId(null);
+    setCreationMode("traditional");
     if (onCancel && initialData) onCancel();
   };
 
@@ -1150,27 +1126,27 @@ function CreateStrategyTab({
       )}
 
       <div className="flex items-center justify-between gap-0.5 mb-6 bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto scrollbar-hide">
-        {["selection", "input", "backtest", "improve", "save"].map((s, i) => (
+        {["input", "backtest", "improve", "save"].map((s, i) => (
           <div key={s} className="flex items-center flex-1 last:flex-none">
             <div
               className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-sm font-medium transition-colors shrink-0 ${
                 step === s
                   ? "bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)]"
-                  : ["selection", "input", "backtest", "improve", "save"].indexOf(step) > i
+                  : ["input", "backtest", "improve", "save"].indexOf(step) > i
                   ? "bg-green-500 text-white"
                   : "bg-white/10 text-white/40"
               }`}
             >
-              {["selection", "input", "backtest", "improve", "save"].indexOf(step) > i ? (
+              {["input", "backtest", "improve", "save"].indexOf(step) > i ? (
                 <Check className="w-3 h-3 sm:w-4 sm:h-4" />
               ) : (
                 i + 1
               )}
             </div>
-            {i < 4 && (
+            {i < 3 && (
               <div
                 className={`flex-1 h-0.5 mx-0.5 sm:mx-2 ${
-                  ["selection", "input", "backtest", "improve", "save"].indexOf(step) > i
+                  ["input", "backtest", "improve", "save"].indexOf(step) > i
                     ? "bg-green-500"
                     : "bg-white/10"
                 }`}
@@ -1180,46 +1156,6 @@ function CreateStrategyTab({
         ))}
       </div>
 
-      {step === "selection" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-8">
-          <Card 
-            className="bg-white/5 border-white/10 hover:border-cyan-500/50 transition-all cursor-pointer group"
-            onClick={() => {
-              setCreationMode("traditional");
-              setStep("input");
-            }}
-          >
-            <CardHeader className="text-center">
-              <div className="w-16 h-16 rounded-full bg-cyan-500/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-cyan-500/20 transition-all">
-                <Activity className="w-8 h-8 text-cyan-400" />
-              </div>
-              <CardTitle className="text-white text-xl">Traditional Indicators</CardTitle>
-              <CardDescription className="text-white/40">
-                Create strategy using technical indicators like RSI, EMA, Supertrend, etc.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className="bg-white/5 border-white/10 hover:border-purple-500/50 transition-all cursor-pointer group"
-            onClick={() => {
-              setCreationMode("neural");
-              setStep("input");
-            }}
-          >
-            <CardHeader className="text-center">
-              <div className="w-16 h-16 rounded-full bg-purple-500/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-purple-500/20 transition-all">
-                <Bot className="w-8 h-8 text-purple-400" />
-              </div>
-              <CardTitle className="text-white text-xl">Fully AI Based (Neural)</CardTitle>
-              <CardDescription className="text-white/40">
-                AI powered logic based on Price Action, Market Structure, and Neural analysis.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      )}
-
       {step === "input" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-6">
@@ -1227,110 +1163,90 @@ function CreateStrategyTab({
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-white text-lg flex items-center gap-2">
-                    {creationMode === "traditional" ? (
-                      <Activity className="w-5 h-5 text-cyan-400" />
-                    ) : (
-                      <Bot className="w-5 h-5 text-purple-400" />
-                    )}
-                    {creationMode === "traditional" ? "Traditional Setup" : "AI Neural Setup"}
+                    <Activity className="w-5 h-5 text-cyan-400" />
+                    Traditional Setup
                   </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setStep("selection")} className="text-white/40 hover:text-white">
-                    Change Mode
-                  </Button>
                 </div>
                 <CardDescription className="text-white/40">
-                  {creationMode === "traditional" 
-                    ? "Specify indicators and crossover logic for your strategy." 
-                    : "Describe the price behavior and market conditions for AI to analyze."}
+                  Specify indicators and crossover logic for your strategy.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                  <Textarea
-                    placeholder={creationMode === "traditional" 
-                      ? "Example: Buy when RSI(14) crosses above 30 and Price is above EMA(200)..." 
-                      : "Example: Identify bullish market structure with HH/HL. Enter on a retracement to a 15m Fair Value Gap..."}
-                    value={rawInput}
-                    onChange={(e) => setRawInput(e.target.value)}
-                    className="min-h-[250px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none font-mono text-sm"
-                  />
+                    <Textarea
+                      placeholder="Example: Buy when RSI(14) crosses above 30 and Price is above EMA(200)..."
+                      value={rawInput}
+                      onChange={(e) => setRawInput(e.target.value)}
+                      className="min-h-[250px] bg-white/5 border-white/10 text-white placeholder:text-white/30 resize-none font-mono text-sm"
+                    />
 
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <Sparkles className="w-4 h-4 text-cyan-400" />
-                        <div>
-                          <Label className="text-white text-sm">Deep AI Analysis</Label>
-                          <p className="text-white/40 text-[10px]">Optimize logic for higher accuracy</p>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <Sparkles className="w-4 h-4 text-cyan-400" />
+                          <div>
+                            <Label className="text-white text-sm">Deep AI Analysis</Label>
+                            <p className="text-white/40 text-[10px]">Optimize logic for higher accuracy</p>
+                          </div>
+                        </div>
+                        <Switch checked={aiAnalysisEnabled} onCheckedChange={setAiAnalysisEnabled} />
+                      </div>
+
+                      <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                        <Label className="text-white/60 text-[10px] uppercase tracking-wider mb-2 block">Reference Instrument (Optional)</Label>
+                        <div className="relative">
+                          {referenceInstrument ? (
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
+                                {referenceInstrument}
+                              </Badge>
+                              <button onClick={() => setReferenceInstrument("")} className="text-white/40 hover:text-white">
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <Input
+                                placeholder="Search index (e.g., NIFTY 50)..."
+                                value={refInstrumentSearch}
+                                onChange={(e) => {
+                                  setRefInstrumentSearch(e.target.value);
+                                  searchRefInstruments(e.target.value);
+                                }}
+                                className="bg-white/5 border-white/10 text-white h-8 text-xs"
+                              />
+                              {refInstruments.length > 0 && (
+                                <div className="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl max-h-32 overflow-y-auto">
+                                  {refInstruments.map((inst) => (
+                                    <button
+                                      key={inst.instrument_token}
+                                      className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-white text-xs"
+                                      onClick={() => {
+                                        setReferenceInstrument(inst.tradingsymbol);
+                                        setRefInstrumentSearch("");
+                                        setRefInstruments([]);
+                                      }}
+                                    >
+                                      {inst.tradingsymbol}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
-                      <Switch checked={aiAnalysisEnabled} onCheckedChange={setAiAnalysisEnabled} />
                     </div>
 
-                    <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
-                      <Label className="text-white/60 text-[10px] uppercase tracking-wider mb-2 block">Reference Instrument (Optional)</Label>
-                      <div className="relative">
-                        {referenceInstrument ? (
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
-                              {referenceInstrument}
-                            </Badge>
-                            <button onClick={() => setReferenceInstrument("")} className="text-white/40 hover:text-white">
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <Input
-                              placeholder="Search index (e.g., NIFTY 50)..."
-                              value={refInstrumentSearch}
-                              onChange={(e) => {
-                                setRefInstrumentSearch(e.target.value);
-                                searchRefInstruments(e.target.value);
-                              }}
-                              className="bg-white/5 border-white/10 text-white h-8 text-xs"
-                            />
-                            {refInstruments.length > 0 && (
-                              <div className="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl max-h-32 overflow-y-auto">
-                                {refInstruments.map((inst) => (
-                                  <button
-                                    key={inst.instrument_token}
-                                    className="w-full text-left px-3 py-1.5 hover:bg-white/5 text-white text-xs"
-                                    onClick={() => {
-                                      setReferenceInstrument(inst.tradingsymbol);
-                                      setRefInstrumentSearch("");
-                                      setRefInstruments([]);
-                                    }}
-                                  >
-                                    {inst.tradingsymbol}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
+                    <div className="flex gap-2 pt-2">
+                        <Button
+                          onClick={formatStrategy}
+                          disabled={!rawInput.trim() || formatting || generating}
+                          className="w-full bg-cyan-500 hover:bg-cyan-600 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                        >
+                          {formatting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                          {strategy ? "Refine Strategy" : "Format Logic"}
+                        </Button>
                     </div>
-                  </div>
-
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      onClick={generateStrategy}
-                      disabled={generating || formatting}
-                      className="flex-1 border-white/10 text-white/60 hover:bg-white/5"
-                    >
-                      {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-                      Generate
-                    </Button>
-                      <Button
-                        onClick={formatStrategy}
-                        disabled={!rawInput.trim() || formatting || generating}
-                        className="flex-1 bg-cyan-500 hover:bg-cyan-600 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
-                      >
-                        {formatting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
-                        {strategy ? "Refine Strategy" : "Format Logic"}
-                      </Button>
-                  </div>
               </CardContent>
             </Card>
           </div>

@@ -1,5 +1,8 @@
 node_modules
 dist
-build
+.git
+.next
+.env
+.env.local
+bun.lockb
 *.log
-.cache

@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { VisualEditsMessenger } from "orchids-visual-edits";
 import { Toaster } from "@/components/ui/sonner";
-import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,12 +43,11 @@ export default function RootLayout({
     <html lang="en" className="dark">
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white min-h-screen overflow-x-hidden pb-[safe-area-inset-bottom]`}
-          >
-            {children}
-            <PWAInstallPrompt />
-            <Toaster />
-            <VisualEditsMessenger />
-          </body>
+        >
+          {children}
+          <Toaster />
+          <VisualEditsMessenger />
+        </body>
     </html>
   );
 }

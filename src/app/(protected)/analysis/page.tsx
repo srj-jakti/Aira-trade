@@ -24,15 +24,6 @@ interface AnalysisResult {
   target: number | null;
   stopLoss: number | null;
   reasoning: string;
-  unifiedScore?: number;
-  engineAlignment?: string;
-  consensusVerdict?: string;
-  hasRlSignal?: boolean;
-  rlSignal?: {
-    direction: string;
-    confidence: number;
-    strategy: string;
-  };
 }
 
 interface AnalysisOutput {
@@ -462,103 +453,8 @@ const response = await fetch(
             )}
           </div>
 
-          <div className="lg:col-span-1 space-y-4">
-            {analysis && (
-              <Card className="bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border-indigo-500/20 overflow-hidden relative group">
-                <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-40 transition-opacity">
-                  <BrainCircuit className="w-12 h-12 text-indigo-400" />
-                </div>
-                <CardHeader className="p-4 pb-2">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline" className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 text-[10px] tracking-wider uppercase font-bold">
-                      Unified Conviction Hub
-                    </Badge>
-                    <div className="flex items-center gap-1 text-[10px] text-white/40 uppercase tracking-tighter">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                      Live Sync
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <div className="flex flex-col items-center text-center space-y-3">
-                    <div className="relative w-24 h-24 flex items-center justify-center">
-                      <svg className="w-full h-full transform -rotate-90">
-                        <circle
-                          cx="48"
-                          cy="48"
-                          r="42"
-                          stroke="currentColor"
-                          strokeWidth="6"
-                          fill="transparent"
-                          className="text-white/5"
-                        />
-                        <circle
-                          cx="48"
-                          cy="48"
-                          r="42"
-                          stroke="currentColor"
-                          strokeWidth="6"
-                          fill="transparent"
-                          strokeDasharray={264}
-                          strokeDashoffset={264 - (264 * (analysis.unifiedScore || 0)) / 100}
-                          className={cn(
-                            "transition-all duration-1000 ease-out",
-                            (analysis.unifiedScore || 0) > 75 ? "text-green-500" :
-                            (analysis.unifiedScore || 0) > 50 ? "text-blue-500" :
-                            (analysis.unifiedScore || 0) > 25 ? "text-yellow-500" : "text-red-500"
-                          )}
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-2xl font-bold font-mono leading-none">{analysis.unifiedScore || 0}%</span>
-                        <span className="text-[9px] text-white/40 uppercase font-bold">Conviction</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 w-full">
-                      <h3 className={cn(
-                        "text-lg font-bold tracking-tight",
-                        (analysis.unifiedScore || 0) > 70 ? "text-white" : "text-white/80"
-                      )}>
-                        {analysis.consensusVerdict || "Calculating Consensus..."}
-                      </h3>
-                      <div className="flex items-center justify-center gap-2">
-                        <Badge variant="secondary" className="bg-white/5 text-white/60 border-white/10 text-[10px]">
-                          {analysis.engineAlignment || "Engine Syncing"}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 w-full pt-2">
-                      <div className="p-2 bg-white/5 rounded border border-white/5 flex flex-col items-center">
-                        <span className="text-[9px] text-white/40 uppercase">Human-Like AI</span>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          {getTrendIcon(analysis.trend)}
-                          <span className="text-xs font-bold capitalize">{analysis.trend}</span>
-                        </div>
-                      </div>
-                      <div className="p-2 bg-white/5 rounded border border-white/5 flex flex-col items-center">
-                        <span className="text-[9px] text-white/40 uppercase">RL Engine</span>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          {analysis.hasRlSignal ? (
-                            <>
-                              {getTrendIcon(analysis.rlSignal?.direction === 'LONG' || analysis.rlSignal?.direction === 'BUY' ? 'bullish' : 'bearish')}
-                              <span className="text-xs font-bold">{analysis.rlSignal?.direction}</span>
-                            </>
-                          ) : (
-                            <span className="text-xs text-white/30 font-bold">SCANNING</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            <Card className="bg-white/5 border-white/10">
-
+        <div className="lg:col-span-1 space-y-4">
+          <Card className="bg-white/5 border-white/10">
             <CardHeader className="p-3 md:p-4 border-b border-white/10">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <BrainCircuit className="w-4 h-4 text-purple-400" />

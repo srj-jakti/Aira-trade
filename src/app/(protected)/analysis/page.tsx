@@ -266,15 +266,14 @@ const response = await fetch(
 
   return (
     <div className="p-2 md:p-4 space-y-4 max-w-[1600px] mx-auto">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex flex-col gap-3">
         <InstrumentSearch
           onSelect={setSelectedInstrument}
           selectedInstrument={selectedInstrument}
-          className="flex-1 min-w-[280px]"
+          className="w-full"
         />
-        <div className="flex items-center gap-2">
-          {/* Timeframe Switcher */}
-          <div className="flex items-center gap-1 bg-muted/50 border border-white/10 p-1 rounded-md">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-0.5 bg-muted/50 border border-white/10 p-0.5 rounded-md flex-shrink-0 overflow-x-auto">
             {[
               { label: "1m", value: "1m" },
               { label: "5m", value: "5m" },
@@ -287,7 +286,7 @@ const response = await fetch(
                 key={tf.value}
                 onClick={() => handleTimeframeChange(tf.value)}
                 className={cn(
-                  "px-2.5 py-1 text-xs rounded transition-all",
+                  "px-2 py-1 text-[10px] sm:text-xs rounded transition-all whitespace-nowrap",
                   timeframe === tf.value
                     ? "bg-blue-500/20 text-blue-600 font-semibold ring-1 ring-blue-500/30"
                     : "text-white/40 hover:text-white/70 hover:bg-muted/50"
@@ -298,16 +297,16 @@ const response = await fetch(
             ))}
           </div>
 
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowIndicatorPanel(!showIndicatorPanel)}
-              className="bg-card border-border hover:bg-accent/50"
+              className="bg-card border-border hover:bg-accent/50 h-7 px-2 text-xs"
             >
-              <Settings2 className="w-4 h-4 mr-2" />
-              Indicators
-              <ChevronDown className={cn("w-3 h-3 ml-1 transition-transform", showIndicatorPanel && "rotate-180")} />
+              <Settings2 className="w-3.5 h-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Indicators</span>
+              <ChevronDown className={cn("w-3 h-3 ml-0.5 transition-transform", showIndicatorPanel && "rotate-180")} />
             </Button>
             
             {showIndicatorPanel && (
@@ -340,10 +339,10 @@ const response = await fetch(
               size="sm"
               onClick={handleRefresh}
               disabled={isLoadingChart || isLoadingAnalysis}
-              className="bg-card border-border hover:bg-accent/50"
+              className="bg-card border-border hover:bg-accent/50 h-7 px-2 text-xs flex-shrink-0"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${(isLoadingChart || isLoadingAnalysis) ? "animate-spin" : ""}`} />
-              Refresh
+              <RefreshCw className={`w-3.5 h-3.5 sm:mr-1.5 ${(isLoadingChart || isLoadingAnalysis) ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
           )}
         </div>

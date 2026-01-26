@@ -15,7 +15,7 @@ declare global {
   }
 }
 
-export const plans = [
+const plans = [
     {
     id: "basic",
     name: "BASIC",

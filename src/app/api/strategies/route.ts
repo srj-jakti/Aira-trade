@@ -7,6 +7,8 @@ import {
   successResponse,
 } from "@/lib/server/auth";
 import { strategyService } from "@/lib/server/strategy-service";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { SUBSCRIPTION_PLANS } from "@/lib/subscription/plans";
 
 import { strategyExecutionEngine } from "@/lib/server/strategy-execution-engine";
 
@@ -15,7 +17,6 @@ export async function GET(request: NextRequest) {
   if (!user.authenticated) return unauthorizedResponse();
 
   try {
-    // Ensure execution engine is running
     strategyExecutionEngine.start();
     
     const strategies = await strategyService.getUserStrategies(user.userId!);
@@ -47,6 +48,20 @@ export async function POST(request: NextRequest) {
 
     if (!["private", "public", "invite_only"].includes(visibility)) {
       return badRequestResponse("Invalid visibility option");
+    }
+
+    const { data: subscription } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan_id, status")
+      .eq("user_id", user.userId!)
+      .eq("status", "active")
+      .single();
+
+    const planId = subscription?.plan_id || "basic";
+    const plan = SUBSCRIPTION_PLANS[planId as keyof typeof SUBSCRIPTION_PLANS] || SUBSCRIPTION_PLANS.basic;
+    
+    if (visibility === "invite_only" && !plan.features.inviteOnlyStrategies) {
+      return badRequestResponse("Invite-only strategies require ELITE plan or higher");
     }
 
     const strategyId = await strategyService.saveStrategy(

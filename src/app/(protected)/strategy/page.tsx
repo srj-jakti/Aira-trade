@@ -611,10 +611,24 @@ function CreateStrategyTab({
 }) {
   const [step, setStep] = useState<"input" | "review" | "backtest" | "improve" | "save">("input");
   const [rawInput, setRawInput] = useState("");
-    const [formatting, setFormatting] = useState(false);
-    const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false);
-    const [generating, setGenerating] = useState(false);
-    const [strategy, setStrategy] = useState<StructuredStrategy | null>(null);
+  const [formatting, setFormatting] = useState(false);
+  const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [strategy, setStrategy] = useState<StructuredStrategy | null>(null);
+  const [subscriptionData, setSubscriptionData] = useState<{ plan_id: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/subscription")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.subscription) {
+          setSubscriptionData({ plan_id: data.subscription.plan_id || "basic" });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const canUseInviteOnly = subscriptionData?.plan_id === "elite" || subscriptionData?.plan_id === "admin";
 
     const updateStrategyParam = (path: string, field: string, value: any) => {
       setStrategy((prev) => {
@@ -1555,33 +1569,38 @@ function CreateStrategyTab({
             </div>
 
             <div>
-              <Label className="text-foreground/60 mb-2 block">Visibility</Label>
-              <Select value={visibility} onValueChange={(v: "private" | "public" | "invite_only") => setVisibility(v)}>
-                <SelectTrigger className="bg-muted/50 border-border text-foreground">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-border">
-                  <SelectItem value="private" className="text-foreground">
-                    <div className="flex items-center gap-2">
-                      <Lock className="w-4 h-4" />
-                      Private - Only you can see
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="public" className="text-foreground">
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-4 h-4" />
-                      Public - Visible to everyone (requires approval)
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="invite_only" className="text-foreground">
-                    <div className="flex items-center gap-2">
-                      <UserCheck className="w-4 h-4" />
-                      Invite Only - Controlled access (requires approval)
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                <Label className="text-foreground/60 mb-2 block">Visibility</Label>
+                <Select value={visibility} onValueChange={(v: "private" | "public" | "invite_only") => setVisibility(v)}>
+                  <SelectTrigger className="bg-muted/50 border-border text-foreground">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a1a] border-border">
+                    <SelectItem value="private" className="text-foreground">
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-4 h-4" />
+                        Private - Only you can see
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="public" className="text-foreground">
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4" />
+                        Public - Visible to everyone (requires approval)
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="invite_only" className="text-foreground" disabled={!canUseInviteOnly}>
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="w-4 h-4" />
+                        Invite Only - Controlled access {!canUseInviteOnly && "(ELITE Plan)"}
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {!canUseInviteOnly && visibility === "invite_only" && (
+                  <p className="text-yellow-400 text-xs mt-2">
+                    Invite-only strategies require ELITE plan. <a href="/pricing" className="underline">Upgrade now</a>
+                  </p>
+                )}
+              </div>
 
             <div className="flex items-center justify-between p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
               <div className="space-y-0.5">

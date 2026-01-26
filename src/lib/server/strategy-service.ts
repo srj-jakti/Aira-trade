@@ -1,5 +1,21 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { airaBrain } from "./aira-brain";
+import {
+  type ExecutableStrategy,
+  type EvaluationLog,
+  getRequiredWarmupPeriod,
+  validateStrategy,
+} from "@/lib/types/strategy";
+import { StrategyRuleExecutor } from "./strategy-rule-executor";
+import { StrategyEvaluator } from "./strategy-evaluator";
+import { type Candle as CalcCandle } from "./indicator-calculator";
+import { decrypt } from "./encryption";
+import { marketDataEngine } from "./market-data-engine";
+
+const getAIServices = async () => {
+  const { airaBrain } = await import("./aira-brain");
+  const { aiSharedService } = await import("./ai-shared-service");
+  return { airaBrain, aiSharedService };
+};
 
 export interface StrategyLogic {
   conditions: string[];
@@ -122,6 +138,8 @@ class StrategyService {
     mode: "traditional" | "neural" = "traditional",
     currentStrategy?: StructuredStrategy
   ): Promise<StructuredStrategy & { zairoth_intent?: string }> {
+    const { aiSharedService } = await getAIServices();
+    
     // Phase 1: Generate ZAIROTH Intent (Backend only, hidden from user)
     const zairothResult = await aiSharedService.generateZairothIntent(rawInput);
     let zairothContext = "";
@@ -829,6 +847,7 @@ Same structure as traditional, but rules focus on price action.
     iterationContext?: string,
     rlOptimizedParams?: Record<string, any>
   ): Promise<{ improved: StructuredStrategy; notes: string }> {
+    const { airaBrain, aiSharedService } = await getAIServices();
     
     // Fetch past backtests to compare performance
     let pastPerformanceContext = "";
@@ -1149,6 +1168,8 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
     toDate?: Date,
     strategyId?: number
   ): Promise<{ improved: StructuredStrategy; notes: string; performance: BacktestResult }> {
+    const { airaBrain } = await getAIServices();
+    
     console.log(`[StrategyService] Starting 3-step Iterative Optimization with Timeframe Analysis...`);
     
     let currentStrategy = { ...strategy };

@@ -84,7 +84,6 @@ export const viewport: Viewport = {
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { PWAInstallPrompt } from "@/components/pwa/PWAInstallPrompt";
-import { BetaBadge } from "@/components/BetaBadge";
 
 export const runtime = "nodejs";
 
@@ -104,11 +103,11 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
             >
-              <ServiceWorkerRegister />
-              <PWAInstallPrompt />
-              <BetaBadge />
-              {children}
-              <Toaster />
+                <ServiceWorkerRegister />
+                <PWAInstallPrompt />
+                {children}
+                <Toaster />
+
               <VisualEditsMessenger />
             </ThemeProvider>
 

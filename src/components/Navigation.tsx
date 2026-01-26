@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
+import { BetaBadge } from "./BetaBadge";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -24,7 +25,10 @@ export function Navigation() {
         <header className="md:hidden fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/60 backdrop-blur-xl flex items-center justify-between px-4 h-14">
           <Link href="/dashboard" className="flex items-center gap-2">
             <Logo size="sm" />
-            <span className="text-xs font-bold tracking-tight text-foreground uppercase">AiRA</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold tracking-tight text-foreground uppercase">AiRA</span>
+              <BetaBadge />
+            </div>
           </Link>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -33,13 +37,17 @@ export function Navigation() {
 
         <header className="hidden md:flex fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/40 backdrop-blur-xl items-center justify-between px-8 h-16">
 
-        <Link href="/dashboard" className="hover:opacity-80 transition-opacity flex items-center gap-2">
-          <Logo size="md" />
-          <div className="flex flex-col -gap-1">
-            <span className="text-sm font-bold tracking-tight text-foreground">AIRA</span>
-            <span className="text-[10px] font-medium text-muted-foreground tracking-[0.2em] uppercase">Trade</span>
-          </div>
-        </Link>
+          <Link href="/dashboard" className="hover:opacity-80 transition-opacity flex items-center gap-2">
+            <Logo size="md" />
+            <div className="flex flex-col -gap-1 relative">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-bold tracking-tight text-foreground">AIRA</span>
+                <BetaBadge />
+              </div>
+              <span className="text-[10px] font-medium text-muted-foreground tracking-[0.2em] uppercase">Trade</span>
+            </div>
+          </Link>
+
 
         <nav className="flex items-center gap-2 bg-muted/50 p-1 rounded-full border border-border">
           {navItems.map((item) => (

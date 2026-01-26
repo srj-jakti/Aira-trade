@@ -5,6 +5,7 @@ export const SUBSCRIPTION_PLANS = {
     name: "BASIC",
     subtitle: "Platform Access",
     monthlyPrice: 599,
+    yearlyPrice: 5990,
     features: {
       strategyCreation: true,
       strategyLibrary: true,
@@ -25,6 +26,7 @@ export const SUBSCRIPTION_PLANS = {
     name: "PRO",
     subtitle: "User-Controlled Automation",
     monthlyPrice: 1499,
+    yearlyPrice: 14990,
     features: {
       strategyCreation: true,
       strategyLibrary: true,
@@ -46,6 +48,7 @@ export const SUBSCRIPTION_PLANS = {
     name: "ELITE (Creator)",
     subtitle: "Advanced Automation & Strategy Sharing",
     monthlyPrice: 3499,
+    yearlyPrice: 34990,
     features: {
       strategyCreation: true,
       strategyLibrary: true,
@@ -67,6 +70,7 @@ export const SUBSCRIPTION_PLANS = {
     name: "ADMIN",
     subtitle: "Full Access",
     monthlyPrice: 0,
+    yearlyPrice: 0,
     features: {
       strategyCreation: true,
       strategyLibrary: true,

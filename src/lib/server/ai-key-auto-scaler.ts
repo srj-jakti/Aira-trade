@@ -1,5 +1,4 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { decrypt } from "@/lib/server/encryption";
 
 export type TaskComplexity = "fast" | "standard" | "deep";
 export type AIProvider = "openai" | "anthropic" | "google" | "groq";

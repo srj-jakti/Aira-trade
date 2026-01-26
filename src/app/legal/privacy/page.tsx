@@ -1,4 +1,4 @@
-import { Zap, ArrowLeft, Shield } from "lucide-react";
+import { ArrowLeft, Shield } from "lucide-react";
 import Link from "next/link";
 
 export default function PrivacyPolicyPage() {

@@ -8,9 +8,8 @@ import {
 } from "@/lib/server/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt } from "@/lib/server/encryption";
-import { getURL } from "@/lib/utils";
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated || !user.userId) return unauthorizedResponse();
 

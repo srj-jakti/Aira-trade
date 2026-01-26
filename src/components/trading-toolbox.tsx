@@ -3,7 +3,6 @@
 import { useState, useMemo } from "react";
 import { Search, X, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Collapsible,

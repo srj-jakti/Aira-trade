@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Heart,
   Network,
-  Cpu,
   History,
   Lock
 } from "lucide-react";

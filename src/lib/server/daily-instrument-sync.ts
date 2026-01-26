@@ -3,7 +3,6 @@ import { apiKeyPoolManager } from "./api-key-pool-manager";
 import { decrypt } from "./encryption";
 import { atmStrikeManager } from "./atm-strike-manager";
 
-const CURRENCY_PAIRS = ["USDINR", "EURINR", "GBPINR", "JPYINR"];
 const INDEX_TOKENS = [256265, 260105, 257801, 258057]; // Nifty, BankNifty, FinNifty, Midcap
 
 interface SyncStats {

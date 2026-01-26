@@ -8,7 +8,6 @@ import {
   Globe,
   UserCheck,
   Zap,
-  Send,
   Loader2,
   ArrowRight,
   Check,
@@ -21,16 +20,11 @@ import {
   Target,
   Shield,
   Clock,
-  RefreshCw,
   Save,
   Play,
   Sparkles,
   Eye,
   EyeOff,
-  Users,
-  Calendar,
-  Link2,
-  Wrench,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -73,14 +67,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { TradingToolbox } from "@/components/trading-toolbox";
 import { TradingTool } from "@/lib/trading-tools";
 
 interface StrategyLogic {

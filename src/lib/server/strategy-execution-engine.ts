@@ -1,6 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { IndicatorCalculator, type Candle } from "./indicator-calculator";
-import { type StructuredStrategy } from "./strategy-service";
+import { type Candle } from "./indicator-calculator";
 import { StrategyEvaluator } from "./strategy-evaluator";
 import { processZairoth, evaluateSafety } from "@/lib/zairoth";
 import { brainAuditLogger } from "./brain-audit-logger";

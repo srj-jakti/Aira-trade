@@ -1,8 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt } from "@/lib/server/encryption";
 import crypto from "crypto";
-import { getToolsForAIContext, getRandomArchetype, STRATEGY_ARCHETYPES, TRADING_TOOLS } from "@/lib/trading-tools";
-import { processZairoth, evaluateSafety, ZairothResult, applyVolatilityGating, VolatilityContext } from "@/lib/zairoth";
+import { getToolsForAIContext, getRandomArchetype, TRADING_TOOLS } from "@/lib/trading-tools";
+import { processZairoth, ZairothResult, applyVolatilityGating, VolatilityContext } from "@/lib/zairoth";
 
 export type BrainState = "IDLE" | "ACTIVE" | "PROCESSING" | "SHUTDOWN";
 

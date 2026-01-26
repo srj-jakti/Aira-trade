@@ -1,7 +1,6 @@
 import {
   getAdminUser,
   unauthorizedResponse,
-  forbiddenResponse,
   successResponse,
 } from "@/lib/server/auth";
 

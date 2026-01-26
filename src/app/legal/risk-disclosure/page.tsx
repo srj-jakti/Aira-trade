@@ -1,4 +1,4 @@
-import { Zap, ArrowLeft, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
 export default function RiskDisclosurePage() {

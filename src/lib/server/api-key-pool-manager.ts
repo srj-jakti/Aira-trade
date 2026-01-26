@@ -5,7 +5,6 @@ const MAX_WEBSOCKET_INSTRUMENTS_PER_KEY = 3000;
 const ANALYSIS_KEY_ROLE = "analysis";
 const TRADING_KEY_ROLE = "trading";
 const SCANNER_KEY_ROLE = "scanner";
-const GENERAL_KEY_ROLE = "general";
 
 export interface ApiKeyConfig {
   id: string;

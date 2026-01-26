@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Loader2, TrendingUp, TrendingDown, Target, AlertTriangle, Info, RotateCcw, FileText } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, AlertTriangle, Info, RotateCcw, FileText } from "lucide-react";
 import { resetPaperBalance, togglePaperTrading } from "@/app/(protected)/dashboard/actions";
 
 const SEGMENTS = [

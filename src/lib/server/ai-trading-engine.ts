@@ -1,4 +1,3 @@
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { airaBrain } from "./aira-brain";
 
 export interface TradeDecision {

@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import {
   getAuthenticatedUser,
   unauthorizedResponse,
-  badRequestResponse,
   serverErrorResponse,
   successResponse,
 } from "@/lib/server/auth";

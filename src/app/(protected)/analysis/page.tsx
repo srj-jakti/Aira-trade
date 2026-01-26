@@ -5,7 +5,6 @@ import { BrainCircuit, LineChart, Target, TrendingUp, TrendingDown, Minus, Alert
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InstrumentSearch, type Instrument } from "@/components/InstrumentSearch";
 import { TradingViewChart, type CandleData } from "@/components/TradingViewChart";
 import { cn } from "@/lib/utils";

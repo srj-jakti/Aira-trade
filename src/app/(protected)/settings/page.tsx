@@ -33,7 +33,6 @@ import { ProfileForm } from "./ProfileForm";
 import { PasswordForm } from "./PasswordForm";
 import { ApiKeysForm } from "./ApiKeysForm";
 import { RiskSettingsForm } from "./RiskSettingsForm";
-import { ScannerSettingsForm } from "./ScannerSettingsForm";
 import { TradingHistory } from "./TradingHistory";
 import { AIAnalysisReports } from "./AIAnalysisReports";
 
@@ -42,7 +41,7 @@ const SUBSCRIPTION_PLANS = [
     id: "basic",
     name: "BASIC",
     subtitle: "Platform Access",
-    price: 999,
+    price: 599,
     icon: Zap,
     color: "green",
     features: [
@@ -77,7 +76,7 @@ const SUBSCRIPTION_PLANS = [
     id: "elite",
     name: "ELITE",
     subtitle: "Advanced Automation",
-    price: 2499,
+    price: 3499,
     icon: Crown,
     color: "purple",
     features: [

@@ -1,5 +1,4 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { apiKeyPoolManager } from "./api-key-pool-manager";
 
 const KEY_INDICES = [
   { name: "NIFTY", token: 256265, strikeStep: 50, exchange: "NFO" },

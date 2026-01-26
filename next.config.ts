@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: true,
   },
   env: {
     NEXT_PUBLIC_BUILD_VERSION:

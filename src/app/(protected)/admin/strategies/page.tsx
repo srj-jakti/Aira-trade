@@ -42,67 +42,67 @@ export default function AdminStrategiesPage() {
     fetchStrategies();
   }, []);
 
-  const fetchStrategies = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/strategies");
-      const data = await res.json();
-      setStrategies(data.strategies || []);
-    } catch (error) {
-      toast.error("Failed to fetch strategies");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleApprove = async (strategyId: number) => {
-    try {
-      const res = await fetch("/api/admin/strategies/approve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ strategyId, approved: true }),
-      });
-      
-      if (res.ok) {
-        toast.success("Strategy approved successfully");
-        fetchStrategies();
-      } else {
-        throw new Error();
+    const fetchStrategies = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/admin/strategies");
+        const data = await res.json();
+        setStrategies(data.strategies || []);
+      } catch {
+        toast.error("Failed to fetch strategies");
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      toast.error("Failed to approve strategy");
-    }
-  };
+    };
 
-  const handleReject = async () => {
-    if (!rejectionReason) {
-      toast.error("Please provide a reason for rejection");
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/admin/strategies/approve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          strategyId: selectedStrategy.id, 
-          approved: false, 
-          reason: rejectionReason 
-        }),
-      });
-      
-      if (res.ok) {
-        toast.success("Strategy rejected");
-        setIsRejecting(false);
-        setRejectionReason("");
-        fetchStrategies();
-      } else {
-        throw new Error();
+    const handleApprove = async (strategyId: number) => {
+      try {
+        const res = await fetch("/api/admin/strategies/approve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ strategyId, approved: true }),
+        });
+        
+        if (res.ok) {
+          toast.success("Strategy approved successfully");
+          fetchStrategies();
+        } else {
+          throw new Error();
+        }
+      } catch {
+        toast.error("Failed to approve strategy");
       }
-    } catch (error) {
-      toast.error("Failed to reject strategy");
-    }
-  };
+    };
+
+    const handleReject = async () => {
+      if (!rejectionReason) {
+        toast.error("Please provide a reason for rejection");
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/admin/strategies/approve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            strategyId: selectedStrategy.id, 
+            approved: false, 
+            reason: rejectionReason 
+          }),
+        });
+        
+        if (res.ok) {
+          toast.success("Strategy rejected");
+          setIsRejecting(false);
+          setRejectionReason("");
+          fetchStrategies();
+        } else {
+          throw new Error();
+        }
+      } catch {
+        toast.error("Failed to reject strategy");
+      }
+    };
 
   return (
     <div className="p-6 space-y-6">

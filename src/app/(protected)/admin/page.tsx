@@ -186,7 +186,7 @@ interface SystemHealth {
   };
 }
 
-interface AIRecommendation {
+interface _AIRecommendation {
   category: string;
   severity: "critical" | "warning" | "info";
   title: string;
@@ -328,7 +328,7 @@ function ZerodhaConfigManager() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingConfig, setEditingConfig] = useState<ZerodhaConfig | null>(null);
   const [loginInProgress, setLoginInProgress] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
+  const [_showPassword, _setShowPassword] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     fetchConfigs();

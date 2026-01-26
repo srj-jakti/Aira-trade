@@ -51,13 +51,13 @@ export default function Dashboard() {
   const [isPaperTradingEnabled, setIsPaperTradingEnabled] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
   const [loading, setLoading] = useState(true);
-  const [tradingEngine, setTradingEngine] = useState<{
+  const [_tradingEngine, setTradingEngine] = useState<{
     status: string;
     lastHeartbeat?: string;
     activeUsers: number;
     errorMessage?: string;
   }>({ status: "stopped", activeUsers: 0 });
-  const [userTradingStatus, setUserTradingStatus] = useState<{
+  const [_userTradingStatus, setUserTradingStatus] = useState<{
     lastEvaluation?: string;
     nextEvaluation?: string;
     evaluationError?: string;
@@ -77,14 +77,14 @@ export default function Dashboard() {
   const [pl, setPl] = useState({ total: "0.00", day: "0.00", isPositive: true });
   const [positionsSummary, setPositionsSummary] = useState({ active: 0, total: 0 });
   const [activePositions, setActivePositions] = useState<any[]>([]);
-  const [recentOrders, setRecentOrders] = useState([]);
+  const [_recentOrders, setRecentOrders] = useState([]);
 
   const positionTokens = useMemo(() => 
     activePositions.map((p: any) => p.instrument_token).filter((t: any) => typeof t === 'number'),
     [activePositions]
   );
 
-  const { prices: livePrices, isConnected: isLiveConnected, getPrice } = usePrices(
+  const { prices: _livePrices, isConnected: isLiveConnected, getPrice } = usePrices(
     positionTokens,
     positionTokens.length > 0
   );

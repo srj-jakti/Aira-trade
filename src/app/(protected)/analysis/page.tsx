@@ -91,7 +91,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     enabled: !!selectedInstrument,
   });
 
-    const { price: currentPrice, tick: currentTick, isConnected: isPriceConnected } = useLatestPrice({
+    const { price: currentPrice, tick: currentTick, isConnected: _isPriceConnected } = useLatestPrice({
       instrumentToken: selectedInstrument?.instrument_token || 0,
       enabled: !!selectedInstrument,
     });
@@ -104,7 +104,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ instrumentToken, source: "ai_analysis" }),
       });
-    } catch (e) {
+    } catch {
     }
   }, []);
 

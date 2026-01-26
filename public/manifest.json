@@ -3,6 +3,7 @@
   "short_name": "AiRA",
   "description": "AI-powered market analysis and automation software platform",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

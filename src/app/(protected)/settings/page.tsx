@@ -333,105 +333,27 @@ export default function SettingsPage() {
                               </div>
                             </div>
                           ) : (
-                          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                            <div className="flex items-center gap-3">
-                              <Info className="w-5 h-5 text-amber-500" />
-                              <div>
-                                <p className="font-medium text-amber-600">No Active Subscription</p>
-                                <p className="text-xs text-amber-600/60">Subscribe to unlock all platform features</p>
+                            <div className="p-6 bg-amber-500/10 border border-amber-500/20 rounded-xl flex flex-col md:flex-row items-center justify-between gap-4">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-amber-500/20 rounded-lg">
+                                  <Info className="w-5 h-5 text-amber-500" />
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-amber-600">No Active Subscription</p>
+                                  <p className="text-sm text-amber-600/60">Subscribe to a plan to unlock all platform features including AI automation.</p>
+                                </div>
                               </div>
+                              <Link href="/pricing">
+                                <Button className="bg-amber-500 hover:bg-amber-600 text-white border-none whitespace-nowrap">
+                                  View Plans & Subscribe
+                                  <ArrowRight className="w-4 h-4 ml-2" />
+                                </Button>
+                              </Link>
                             </div>
-                          </div>
-                        )}
-  
-                          <div>
-                            <h3 className="text-sm font-medium text-muted-foreground mb-4">Available Plans</h3>
-                            <div className="grid md:grid-cols-3 gap-4">
-                              {SUBSCRIPTION_PLANS.filter(p => p.id !== "admin").map((plan) => (
-                              <div
-                                key={plan.id}
-                                className={cn(
-                                  "relative p-4 rounded-xl border transition-all",
-                                  subscription?.plan_id === plan.id
-                                    ? "bg-blue-500/5 border-blue-500/30 shadow-sm"
-                                    : "bg-card border-border hover:border-border/80"
-                                )}
-                              >
-                                {plan.popular && (
-                                  <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-blue-600 text-white border-none text-xs">
-                                    Popular
-                                  </Badge>
-                                )}
-                                
-                                <div className="flex items-center gap-2 mb-3">
-                                  <div className={cn(
-                                    "w-8 h-8 rounded-lg flex items-center justify-center",
-                                    plan.color === "green" && "bg-green-500/10",
-                                    plan.color === "blue" && "bg-blue-500/10",
-                                    plan.color === "purple" && "bg-purple-500/10"
-                                  )}>
-                                    <plan.icon className={cn(
-                                      "w-4 h-4",
-                                      plan.color === "green" && "text-green-600",
-                                      plan.color === "blue" && "text-blue-600",
-                                      plan.color === "purple" && "text-purple-600"
-                                    )} />
-                                  </div>
-                                  <div>
-                                    <h4 className="font-semibold text-foreground text-sm">{plan.name}</h4>
-                                    <p className="text-xs text-muted-foreground">{plan.subtitle}</p>
-                                  </div>
-                                </div>
-  
-                                <div className="mb-3">
-                                  <span className="text-2xl font-bold text-foreground">₹{plan.price.toLocaleString("en-IN")}</span>
-                                  <span className="text-muted-foreground text-sm">/month</span>
-                                </div>
-  
-                                <div className="space-y-2 mb-4">
-                                  {plan.features.slice(0, 4).map((feature, i) => (
-                                    <div key={i} className="flex items-center gap-2">
-                                      {feature.included ? (
-                                        <Check className="w-3 h-3 text-green-600" />
-                                      ) : (
-                                        <X className="w-3 h-3 text-muted-foreground/30" />
-                                      )}
-                                      <span className={cn(
-                                        "text-xs",
-                                        feature.included ? "text-foreground/80" : "text-muted-foreground/40"
-                                      )}>
-                                        {feature.text}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-  
-                                <div className="p-2 bg-muted rounded-lg mb-3">
-                                  <p className="text-[10px] text-muted-foreground italic">{plan.sebiLabel}</p>
-                                </div>
-  
-                                {subscription?.plan_id === plan.id ? (
-                                  <Badge className="w-full justify-center bg-blue-500/10 text-blue-600 border-blue-500/20">
-                                    Current Plan
-                                  </Badge>
-                                ) : (
-                                  <Link href="/pricing" className="block">
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm" 
-                                      className="w-full border-border text-foreground hover:bg-muted"
-                                    >
-                                      {subscription?.status === "active" ? "Switch" : "Subscribe"}
-                                      <ArrowRight className="w-3 h-3 ml-1" />
-                                    </Button>
-                                  </Link>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-  
-                        <div className="p-3 bg-muted border border-border rounded-lg">
+                          )}
+    
+                          <div className="p-3 bg-muted/30 border border-border/50 rounded-lg">
+
                           <p className="text-[10px] text-muted-foreground text-center">
                             AiRA is a software platform providing analytical and automation tools only. 
                             It does not provide investment advice or trading recommendations.{" "}

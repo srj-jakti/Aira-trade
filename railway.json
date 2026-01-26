@@ -21,6 +21,13 @@
         "builder": "DOCKERFILE",
         "dockerfilePath": "Dockerfile"
       }
+    },
+    "cron-maintenance": {
+      "root": "railway/cron-maintenance",
+      "build": {
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "Dockerfile"
+      }
     }
   }
 }

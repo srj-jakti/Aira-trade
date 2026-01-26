@@ -53,10 +53,10 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
+            {
+              key: 'X-Frame-Options',
+              value: 'SAMEORIGIN',
+            },
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
@@ -87,4 +87,4 @@ const nextConfig: NextConfig = {
 } as NextConfig;
 
 export default nextConfig;
-// Orchids restart: 1769437487291
+// Orchids restart: 1769437835144

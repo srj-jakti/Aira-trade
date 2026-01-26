@@ -9,11 +9,11 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export const plans = [
-  {
+    {
     id: "basic",
     name: "BASIC",
     subtitle: "Platform Access",
-    price: 999,
+    price: 599,
     period: "month",
     description: "Access to AiRA's AI-powered software tools for research, analysis, and strategy design.",
     sebiLabel: "For research, analysis, and strategy development only.",
@@ -62,13 +62,13 @@ export const plans = [
     popular: true,
     visible: true,
   },
-    {
-      id: "elite",
-      name: "ELITE",
-      subtitle: "Advanced Automation & Strategy Sharing",
-      price: 2499,
-      period: "month",
-      description: "Advanced platform access for power users who want automation + private strategy distribution.",
+      {
+        id: "elite",
+        name: "ELITE",
+        subtitle: "Advanced Automation & Strategy Sharing",
+        price: 3499,
+        period: "month",
+        description: "Advanced platform access for power users who want automation + private strategy distribution.",
       sebiLabel: "Advanced execution automation and private strategy distribution tools. User retains full control.",
       icon: Crown,
       color: "purple",

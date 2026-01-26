@@ -99,6 +99,19 @@ export const plans = [
 
 export default function PricingPage() {
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   const getPrice = (basePrice: number) => {
     if (billingPeriod === "yearly") {
@@ -107,8 +120,81 @@ export default function PricingPage() {
     return basePrice;
   };
 
-  const handleSubscribe = (planId: string) => {
-    console.log("Subscribe to plan:", planId);
+  const handleSubscribe = async (planId: string) => {
+    setError(null);
+    setLoadingPlan(planId);
+
+    try {
+      const response = await fetch("/api/subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId, billingPeriod }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push("/signin?redirect=/pricing");
+          return;
+        }
+        throw new Error(data.error || "Failed to create order");
+      }
+
+      const options = {
+        key: data.keyId,
+        amount: data.amount,
+        currency: data.currency,
+        name: "AiRA",
+        description: `${data.orderDetails.planName} Plan - ${billingPeriod === "yearly" ? "Yearly" : "Monthly"}`,
+        order_id: data.orderId,
+        prefill: data.prefill,
+        theme: {
+          color: "#3b82f6",
+        },
+        handler: async function (response: any) {
+          try {
+            const verifyResponse = await fetch("/api/subscription/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                planId,
+                billingPeriod,
+              }),
+            });
+
+            const verifyData = await verifyResponse.json();
+
+            if (verifyResponse.ok && verifyData.success) {
+              router.push("/dashboard?subscription=success");
+            } else {
+              setError(verifyData.error || "Payment verification failed");
+            }
+          } catch (err) {
+            setError("Payment verification failed. Please contact support.");
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setLoadingPlan(null);
+          },
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.on("payment.failed", function (response: any) {
+        setError(response.error.description || "Payment failed");
+        setLoadingPlan(null);
+      });
+      razorpay.open();
+    } catch (err: any) {
+      setError(err.message || "Something went wrong");
+    } finally {
+      setLoadingPlan(null);
+    }
   };
 
   return (

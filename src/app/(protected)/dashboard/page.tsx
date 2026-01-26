@@ -77,7 +77,7 @@ export default function Dashboard() {
   const [pl, setPl] = useState({ total: "0.00", day: "0.00", isPositive: true });
   const [positionsSummary, setPositionsSummary] = useState({ active: 0, total: 0 });
   const [activePositions, setActivePositions] = useState<any[]>([]);
-  const [_recentOrders, setRecentOrders] = useState([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
   const positionTokens = useMemo(() => 
     activePositions.map((p: any) => p.instrument_token).filter((t: any) => typeof t === 'number'),

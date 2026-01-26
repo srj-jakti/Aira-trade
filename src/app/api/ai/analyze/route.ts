@@ -5,6 +5,9 @@ import {
   badRequestResponse,
   serverErrorResponse,
 } from "@/lib/server/auth";
+
+export const runtime = "nodejs";
+
 import { aiSharedService } from "@/lib/server/ai-shared-service";
 import { getCandlesForAI, validateCandleMode } from "@/lib/server/candle-service";
 import { getLatestTick } from "@/lib/server/market-data-engine";

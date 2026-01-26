@@ -4,6 +4,9 @@ import {
   unauthorizedResponse,
   serverErrorResponse,
 } from "@/lib/server/auth";
+
+export const runtime = "nodejs";
+
 import { aiSharedService } from "@/lib/server/ai-shared-service";
 import { checkAILimit, logAIUsage } from "@/lib/server/ai-usage";
 import { supabaseAdmin } from "@/lib/supabase/admin";

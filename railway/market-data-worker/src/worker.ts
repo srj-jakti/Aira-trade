@@ -248,20 +248,28 @@ class MarketDataWorker {
 
   private async getApiKeyConfigs(): Promise<ApiKeyConfig[]> {
     console.log("[MarketDataWorker] Fetching api_key_configs...");
-    const { data: apiKeyData, error: apiKeyError } = await supabase
-      .from("api_key_configs")
-      .select("id, label, tier_assignment, zerodha_config_id")
-      .eq("is_active", true);
-
-    if (apiKeyError) {
-      console.error("[MarketDataWorker] Error fetching api_key_configs:", apiKeyError);
-      return [];
+    
+    // First try api_key_configs table, but gracefully handle if it doesn't exist
+    let apiKeyData: any[] | null = null;
+    try {
+      const { data, error: apiKeyError } = await supabase
+        .from("api_key_configs")
+        .select("id, label, tier_assignment, zerodha_config_id")
+        .eq("is_active", true);
+      
+      if (!apiKeyError) {
+        apiKeyData = data;
+      } else if (!apiKeyError.message?.includes("does not exist")) {
+        console.error("[MarketDataWorker] Error fetching api_key_configs:", apiKeyError);
+      }
+    } catch (e) {
+      console.log("[MarketDataWorker] api_key_configs table not found, using legacy mode");
     }
     
     console.log(`[MarketDataWorker] Found ${apiKeyData?.length || 0} active api_key_configs`);
 
     if (!apiKeyData || apiKeyData.length === 0) {
-      console.log("[MarketDataWorker] No api_key_configs found, checking legacy configs...");
+      console.log("[MarketDataWorker] No api_key_configs found, using legacy admin configs...");
       return [];
     }
 
@@ -303,16 +311,23 @@ class MarketDataWorker {
   }
 
   private async getLegacyAdminConfigs(): Promise<{ id: string; name: string; apiKey: string; accessToken: string }[]> {
+    const now = new Date().toISOString();
+    
     const { data: configs, error } = await supabase
       .from("admin_zerodha_configs")
-      .select("id, name, api_key, access_token")
+      .select("id, name, api_key, access_token, token_expires_at")
       .eq("is_active", true)
       .eq("connection_status", "connected")
-      .not("access_token", "is", null);
+      .not("access_token", "is", null)
+      .gte("token_expires_at", now); // Only get configs with non-expired tokens
 
     if (error || !configs) {
       console.error("[MarketDataWorker] Failed to fetch legacy configs:", error?.message);
       return [];
+    }
+
+    if (configs.length === 0) {
+      console.warn("[MarketDataWorker] No admin configs with valid tokens found. All tokens may be expired.");
     }
 
     return configs.map(c => ({
@@ -881,15 +896,14 @@ class MarketDataWorker {
       this.lastTickCountReset = now;
     }
 
-    await supabase.from("data_engine_status").upsert({
+    await supabase.from("trading_engine_status").upsert({
       engine_type: "market_data",
       status: this.isRunning ? "running" : "stopped",
-      websocket_status: connectedCount > 0 ? "connected" : "disconnected",
-      subscribed_instruments: stats.totalSubscriptions,
-      ticks_per_second: this.ticksPerSecond,
-      last_tick_at: this.lastTickAt,
-      updated_at: new Date().toISOString(),
       last_heartbeat: new Date().toISOString(),
+      active_users: stats.totalSubscriptions,
+      evaluations_last_minute: this.ticksPerSecond,
+      error_message: connectedCount === 0 ? "No WebSocket connections" : null,
+      updated_at: new Date().toISOString(),
     }, { onConflict: "engine_type" });
   }
 
@@ -929,10 +943,10 @@ class MarketDataWorker {
 
     this.connections.clear();
 
-    await supabase.from("data_engine_status").upsert({
+    await supabase.from("trading_engine_status").upsert({
       engine_type: "market_data",
       status: "stopped",
-      websocket_status: "disconnected",
+      error_message: "Worker shutdown",
       updated_at: new Date().toISOString(),
     }, { onConflict: "engine_type" });
 

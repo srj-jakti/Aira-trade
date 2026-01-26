@@ -48,12 +48,20 @@ class ApiKeyPoolManager {
   }
 
   async getAllActiveKeys(): Promise<ApiKeyConfig[]> {
+    const now = new Date().toISOString();
+    
     const { data: configs } = await supabaseAdmin
       .from("admin_zerodha_configs")
       .select("*")
       .eq("is_active", true)
       .eq("connection_status", "connected")
+      .not("access_token", "is", null)
+      .gte("token_expires_at", now)
       .order("priority", { ascending: true });
+
+    if (!configs || configs.length === 0) {
+      console.warn("[ApiKeyPoolManager] No configs with valid tokens found. Tokens may be expired.");
+    }
 
     return (configs || []) as ApiKeyConfig[];
   }

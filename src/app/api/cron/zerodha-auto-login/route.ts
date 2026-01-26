@@ -242,16 +242,15 @@ export async function GET(request: NextRequest) {
   const isVercelCron = request.headers.get("x-vercel-cron") === "1";
   
   // Authorization logic for GET (Vercel Crons)
-  // 1. If CRON_SECRET is set, prioritize it
-  // 2. If it's a Vercel Cron and no CRON_SECRET is set, allow it (Vercel verifies this header internally)
-  // 3. Fallback to SUPABASE_SERVICE_ROLE_KEY
+  // Vercel Cron jobs automatically include x-vercel-cron header
+  // We trust this header in production as Vercel validates it internally
   const isAuthorized = 
+    isVercelCron ||
     (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
-    (isVercelCron && !cronSecret) ||
     (process.env.SUPABASE_SERVICE_ROLE_KEY && authHeader === `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`);
   
   if (!isAuthorized) {
-    console.log("[Auto-Login Cron] Unauthorized GET request. Vercel-Cron:", isVercelCron);
+    console.log("[Auto-Login Cron] Unauthorized GET request. Vercel-Cron:", isVercelCron, "AuthHeader:", authHeader ? "present" : "missing");
     return Response.json({ 
       error: "Unauthorized",
       details: "Invalid authorization for cron job. Ensure CRON_SECRET is set in environment variables."

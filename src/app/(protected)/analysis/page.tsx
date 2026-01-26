@@ -265,15 +265,15 @@ const response = await fetch(
   };
 
   return (
-    <div className="p-2 md:p-4 space-y-4 max-w-[1600px] mx-auto">
-      <div className="flex flex-col gap-3">
+    <div className="p-2 md:p-4 space-y-3 max-w-[1600px] mx-auto pt-14 md:pt-2">
+      <div className="flex flex-col gap-2">
         <InstrumentSearch
           onSelect={setSelectedInstrument}
           selectedInstrument={selectedInstrument}
           className="w-full"
         />
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-0.5 bg-muted/50 border border-white/10 p-0.5 rounded-md flex-shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-0.5 bg-muted/50 border border-white/10 p-0.5 rounded-md shrink-0">
             {[
               { label: "1m", value: "1m" },
               { label: "5m", value: "5m" },
@@ -286,7 +286,7 @@ const response = await fetch(
                 key={tf.value}
                 onClick={() => handleTimeframeChange(tf.value)}
                 className={cn(
-                  "px-2 py-1 text-[10px] sm:text-xs rounded transition-all whitespace-nowrap",
+                  "px-1.5 sm:px-2 py-1 text-[10px] rounded transition-all whitespace-nowrap",
                   timeframe === tf.value
                     ? "bg-blue-500/20 text-blue-600 font-semibold ring-1 ring-blue-500/30"
                     : "text-white/40 hover:text-white/70 hover:bg-muted/50"
@@ -297,15 +297,15 @@ const response = await fetch(
             ))}
           </div>
 
-          <div className="relative flex-shrink-0">
+          <div className="relative shrink-0">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowIndicatorPanel(!showIndicatorPanel)}
-              className="bg-card border-border hover:bg-accent/50 h-7 px-2 text-xs"
+              className="bg-card border-border hover:bg-accent/50 h-7 px-1.5 sm:px-2 text-xs"
             >
-              <Settings2 className="w-3.5 h-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">Indicators</span>
+              <Settings2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline ml-1">Ind</span>
               <ChevronDown className={cn("w-3 h-3 ml-0.5 transition-transform", showIndicatorPanel && "rotate-180")} />
             </Button>
             
@@ -339,29 +339,29 @@ const response = await fetch(
               size="sm"
               onClick={handleRefresh}
               disabled={isLoadingChart || isLoadingAnalysis}
-              className="bg-card border-border hover:bg-accent/50 h-7 px-2 text-xs flex-shrink-0"
+              className="bg-card border-border hover:bg-accent/50 h-7 px-1.5 sm:px-2 text-xs shrink-0"
             >
-              <RefreshCw className={`w-3.5 h-3.5 sm:mr-1.5 ${(isLoadingChart || isLoadingAnalysis) ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${(isLoadingChart || isLoadingAnalysis) ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline ml-1">Refresh</span>
             </Button>
           )}
         </div>
       </div>
 
-      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-start gap-2">
-        <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
-        <p className="text-xs text-blue-300/80">
-          AI analysis outputs are for informational purposes only. They do not constitute investment advice. All decisions are made by you.
+      <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-start gap-2">
+        <Info className="h-3.5 w-3.5 text-blue-600 mt-0.5 shrink-0" />
+        <p className="text-[10px] text-blue-300/80">
+          AI analysis outputs are for informational purposes only. They do not constitute investment advice.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="lg:col-span-2 space-y-3">
             <Card className="bg-card border-border overflow-hidden">
-              <CardHeader className="p-3 md:p-4 border-b border-white/10">
-                <CardTitle className="text-sm font-medium flex items-center justify-between">
+              <CardHeader className="p-2 md:p-3 border-b border-white/10">
+                <CardTitle className="text-xs font-medium flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <LineChart className="w-4 h-4 text-blue-600" />
+                    <LineChart className="w-3.5 h-3.5 text-blue-600" />
                     {selectedInstrument ? (
                       <span>
                         {selectedInstrument.tradingsymbol}
@@ -401,7 +401,7 @@ const response = await fetch(
                 </CardTitle>
               </CardHeader>
             <CardContent className="p-0">
-              <div className="h-[280px] md:h-[350px]">
+              <div className="h-[250px] md:h-[320px]">
                     <TradingViewChart
                       data={chartData}
                       symbol={selectedInstrument?.tradingsymbol}
@@ -422,29 +422,29 @@ const response = await fetch(
 
             {analysis && chartData.length > 0 && (
               <Card className="bg-card border-border">
-                <CardContent className="p-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <div className="text-xs text-white/50 mb-1">Entry Price</div>
-                      <div className="font-mono font-semibold text-blue-600">{formatPrice(analysis.entry)}</div>
+                <CardContent className="p-2 md:p-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="text-center p-2 bg-muted/50 rounded-lg">
+                      <div className="text-[10px] text-white/50 mb-0.5">Entry Price</div>
+                      <div className="font-mono font-semibold text-blue-600 text-sm">{formatPrice(analysis.entry)}</div>
                     </div>
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <div className="text-xs text-white/50 mb-1">Target</div>
-                      <div className="font-mono font-semibold text-green-600 flex items-center justify-center gap-1">
+                    <div className="text-center p-2 bg-muted/50 rounded-lg">
+                      <div className="text-[10px] text-white/50 mb-0.5">Target</div>
+                      <div className="font-mono font-semibold text-green-600 flex items-center justify-center gap-1 text-sm">
                         <ArrowUp className="w-3 h-3" />
                         {formatPrice(analysis.target)}
                       </div>
                     </div>
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <div className="text-xs text-white/50 mb-1">Stop Loss</div>
-                      <div className="font-mono font-semibold text-red-600 flex items-center justify-center gap-1">
+                    <div className="text-center p-2 bg-muted/50 rounded-lg">
+                      <div className="text-[10px] text-white/50 mb-0.5">Stop Loss</div>
+                      <div className="font-mono font-semibold text-red-600 flex items-center justify-center gap-1 text-sm">
                         <ArrowDown className="w-3 h-3" />
                         {formatPrice(analysis.stopLoss)}
                       </div>
                     </div>
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <div className="text-xs text-white/50 mb-1">Confidence</div>
-                      <div className="font-mono font-semibold text-purple-600">{analysis.confidence}%</div>
+                    <div className="text-center p-2 bg-muted/50 rounded-lg">
+                      <div className="text-[10px] text-white/50 mb-0.5">Confidence</div>
+                      <div className="font-mono font-semibold text-purple-600 text-sm">{analysis.confidence}%</div>
                     </div>
                   </div>
                 </CardContent>
@@ -452,15 +452,15 @@ const response = await fetch(
             )}
           </div>
 
-        <div className="lg:col-span-1 space-y-4">
+        <div className="lg:col-span-1 space-y-3">
           <Card className="bg-card border-border">
-            <CardHeader className="p-3 md:p-4 border-b border-white/10">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <BrainCircuit className="w-4 h-4 text-purple-600" />
+            <CardHeader className="p-2 md:p-3 border-b border-white/10">
+              <CardTitle className="text-xs font-medium flex items-center gap-2">
+                <BrainCircuit className="w-3.5 h-3.5 text-purple-600" />
                 AI Analysis
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4">
+            <CardContent className="p-2 md:p-3">
               {isLoadingAnalysis ? (
                 <div className="min-h-[200px] flex flex-col items-center justify-center gap-2">
                   <Loader2 className="w-6 h-6 animate-spin text-purple-600" />

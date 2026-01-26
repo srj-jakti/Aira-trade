@@ -229,67 +229,67 @@ export default function AdminPage() {
 
   return (
     <div className="flex flex-col h-full bg-[#030303]">
-      <div className="flex-1 p-2 md:p-4 pt-3 space-y-3 max-w-7xl mx-auto w-full">
-        <div className="flex items-center gap-3">
+      <div className="flex-1 p-4 md:p-8 pt-6 space-y-6 max-w-7xl mx-auto w-full">
+        <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={() => router.push("/settings")}
-            className="text-white/60 hover:text-white h-7 px-2"
+            className="text-white/60 hover:text-white"
           >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Settings
           </Button>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">Admin Panel</h1>
-            <p className="text-white/50 text-xs">Manage global configurations and system health.</p>
+            <h1 className="text-3xl font-bold tracking-tight text-white">Admin Panel</h1>
+            <p className="text-white/50 text-sm">Manage global configurations and system health.</p>
           </div>
         </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
-            <div className="px-0 overflow-x-auto">
-                <TabsList className="inline-flex h-auto items-center gap-0.5 rounded-lg border border-white/10 bg-white/5 p-0.5 w-full min-w-max">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <div className="px-0">
+                <TabsList className="flex h-auto sm:h-11 items-center justify-between gap-0.5 rounded-xl border border-white/10 bg-white/5 p-1 w-full sm:w-max overflow-x-auto scrollbar-hide">
                   <TabsTrigger 
                     value="zerodha" 
-                    className="flex items-center gap-1.5 px-2 py-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-md transition-all text-[10px] sm:text-xs whitespace-nowrap"
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
                   >
-                    <Key className="w-3.5 h-3.5 shrink-0" />
-                    <span>APIs</span>
+                    <Key className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">APIs</span>
                   </TabsTrigger>
                   <TabsTrigger 
                     value="ai-config" 
-                    className="flex items-center gap-1.5 px-2 py-1.5 data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-md transition-all text-[10px] sm:text-xs whitespace-nowrap"
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-blue-500 data-[state=active]:text-white rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
                   >
-                    <BrainCircuit className="w-3.5 h-3.5 shrink-0" />
-                    <span>AI</span>
+                    <BrainCircuit className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">AI</span>
                   </TabsTrigger>
                   <TabsTrigger 
                     value="system-health" 
-                    className="flex items-center gap-1.5 px-2 py-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white rounded-md transition-all text-[10px] sm:text-xs whitespace-nowrap"
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
                   >
-                    <Activity className="w-3.5 h-3.5 shrink-0" />
-                    <span>Health</span>
+                    <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Health</span>
                   </TabsTrigger>
                   <TabsTrigger 
                     value="users" 
-                    className="flex items-center gap-1.5 px-2 py-1.5 data-[state=active]:bg-purple-500 data-[state=active]:text-white rounded-md transition-all text-[10px] sm:text-xs whitespace-nowrap"
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-purple-500 data-[state=active]:text-white rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
                   >
-                    <Users className="w-3.5 h-3.5 shrink-0" />
-                    <span>Users</span>
+                    <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Users</span>
                   </TabsTrigger>
                   <TabsTrigger 
                     value="strategies" 
-                    className="flex items-center gap-1.5 px-2 py-1.5 data-[state=active]:bg-yellow-500 data-[state=active]:text-white rounded-md transition-all text-[10px] sm:text-xs whitespace-nowrap"
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-yellow-500 data-[state=active]:text-white rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
                   >
-                    <Target className="w-3.5 h-3.5 shrink-0" />
-                    <span>Strats</span>
+                    <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Strats</span>
                   </TabsTrigger>
                   <TabsTrigger 
                     value="brain" 
-                    className="flex items-center gap-1.5 px-2 py-1.5 data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-md transition-all text-[10px] sm:text-xs whitespace-nowrap"
+                    className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-purple-600 data-[state=active]:text-white rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
                   >
-                    <Brain className="w-3.5 h-3.5 shrink-0" />
-                    <span>Brain</span>
+                    <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate w-full text-center sm:text-left">Brain</span>
                   </TabsTrigger>
                   </TabsList>
 

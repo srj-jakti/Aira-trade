@@ -85,7 +85,7 @@ export async function createOrder(
 export async function createSubscription(
   planId: string,
   totalCount: number,
-  customerNotify: number,
+  customerNotify: 0 | 1,
   notes: Record<string, string>
 ) {
   return razorpay.subscriptions.create({

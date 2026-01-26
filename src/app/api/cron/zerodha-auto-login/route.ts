@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt, encrypt } from "@/lib/server/encryption";
 import { performZerodhaFullLogin } from "@/lib/server/zerodha-auth";
 import { zerodhaService } from "@/lib/server/zerodha-service";
+import { fetchAndStoreInstruments } from "@/lib/server/market-data-engine";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";

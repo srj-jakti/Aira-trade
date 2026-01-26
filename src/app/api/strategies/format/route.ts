@@ -14,7 +14,14 @@ export async function POST(request: NextRequest) {
 
     try {
       const body = await request.json();
-      const { rawInput, aiAnalysisEnabled = false, mode = "traditional", currentStrategy = null } = body;
+      const { 
+        rawInput, 
+        aiAnalysisEnabled = false, 
+        mode = "traditional", 
+        currentStrategy = null,
+        selectedInstruments = [],
+        timeframe = "15m"
+      } = body;
 
       if (!rawInput || typeof rawInput !== "string" || rawInput.trim().length < 5) {
         return badRequestResponse("Please provide a valid strategy description");
@@ -27,10 +34,45 @@ export async function POST(request: NextRequest) {
         currentStrategy
       );
       
-      // Pass the flag back to the UI so it can be saved
       formattedStrategy.ai_analysis_enabled = aiAnalysisEnabled;
 
-      return successResponse({ strategy: formattedStrategy });
+      let instrumentScores = null;
+      let recommendedInstruments = null;
+
+      if (selectedInstruments.length > 0) {
+        try {
+          const { rlKnowledgeEngine } = await import("@/lib/server/rl-knowledge-engine");
+          
+          const tokens = selectedInstruments.map((i: { instrument_token: number }) => i.instrument_token);
+          
+          instrumentScores = await rlKnowledgeEngine.scoreTradeSelection(
+            tokens,
+            rawInput,
+            timeframe,
+            { trend: "SIDEWAYS", volatility: "NORMAL", volume: "AVERAGE" }
+          );
+
+          const selection = await rlKnowledgeEngine.selectBestInstrumentsForStrategy(
+            tokens,
+            rawInput,
+            timeframe,
+            5
+          );
+          
+          recommendedInstruments = {
+            tokens: selection.selected,
+            reasoning: selection.reasoning
+          };
+        } catch (error) {
+          console.error("RL scoring failed during format:", error);
+        }
+      }
+
+      return successResponse({ 
+        strategy: formattedStrategy,
+        instrumentScores,
+        recommendedInstruments 
+      });
     } catch (error) {
     console.error("Error formatting strategy:", error);
     return serverErrorResponse("Failed to format strategy with AI");

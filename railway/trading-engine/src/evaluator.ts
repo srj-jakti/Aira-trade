@@ -5,6 +5,7 @@ import { Signal } from "./executor";
 import { createDecipheriv } from "crypto";
 import { processZairothSafe, evaluateSafety } from "../../../src/lib/zairoth";
 import { redis, REDIS_KEYS } from "./utils/redis";
+import { getRLScoreForInstrument, extractPatternType } from "./rl-scorer";
 
 const ALGORITHM = "aes-256-gcm";
 
@@ -351,6 +352,41 @@ export async function evaluateWithAI(
   const instrumentToken = candles.length > 0 ? candles[0].instrument_token : null;
   if (!instrumentToken) return null;
 
+  // RL Knowledge Engine Pre-Check
+  const patternType = extractPatternType(strategy.zairoth_intent || strategy.name || "");
+  const instrumentCandles = candles
+    .filter(c => c.instrument_token === instrumentToken)
+    .sort((a, b) => new Date(a.bucket_start).getTime() - new Date(b.bucket_start).getTime());
+  
+  // Determine market trend from candles
+  let marketTrend = "SIDEWAYS";
+  if (instrumentCandles.length >= 20) {
+    const closes = instrumentCandles.slice(-20).map(c => c.close);
+    const first = closes[0];
+    const last = closes[closes.length - 1];
+    const change = ((last - first) / first) * 100;
+    if (change > 2) marketTrend = "UPTREND";
+    else if (change < -2) marketTrend = "DOWNTREND";
+  }
+
+  const rlScore = await getRLScoreForInstrument(
+    instrumentToken,
+    patternType,
+    strategy.timeframe,
+    { trend: marketTrend, volatility: "NORMAL" }
+  );
+
+  // Block trade if RL score indicates AVOID or STRONG_AVOID
+  if (rlScore.recommendation === "STRONG_AVOID") {
+    logger.warn(`[RL] Blocking trade for ${instrumentToken}: ${rlScore.reasoning}`);
+    return null;
+  }
+
+  if (rlScore.recommendation === "AVOID" && rlScore.confidence > 0.3) {
+    logger.warn(`[RL] Blocking trade for ${instrumentToken} (confidence: ${rlScore.confidence}): ${rlScore.reasoning}`);
+    return null;
+  }
+
   // Zairoth Validation Check
   if (strategy.zairoth_intent) {
     const zairoth = processZairothSafe(strategy.zairoth_intent);
@@ -367,14 +403,20 @@ export async function evaluateWithAI(
   }
 
   const ruleResult = await evaluateWithRules(strategy, candles, userConfig.user_id);
-  if (ruleResult) return ruleResult;
+  
+  // Apply RL score adjustment to rule-based signals
+  if (ruleResult) {
+    if (rlScore.recommendation === "STRONG_BUY") {
+      ruleResult.confidence = Math.min(100, ruleResult.confidence + 10);
+      ruleResult.reasoning += ` [RL: ${rlScore.reasoning}]`;
+    } else if (rlScore.recommendation === "NEUTRAL") {
+      ruleResult.confidence = Math.max(50, ruleResult.confidence - 5);
+    }
+    return ruleResult;
+  }
 
   const aiConfig = await getActiveAIConfig();
   if (!aiConfig) return null;
-
-  const instrumentCandles = candles
-    .filter(c => c.instrument_token === instrumentToken)
-    .sort((a, b) => new Date(a.bucket_start).getTime() - new Date(b.bucket_start).getTime());
 
   const recentCandles = instrumentCandles.slice(-20); // More context
   const messages = [

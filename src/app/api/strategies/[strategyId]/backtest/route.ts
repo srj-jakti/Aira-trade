@@ -77,6 +77,15 @@ export async function POST(
       zerodhaConfigId
     );
 
+    const { data: instrumentsData } = await supabaseAdmin
+      .from("instruments")
+      .select("instrument_token, tradingsymbol")
+      .in("instrument_token", tokens);
+    
+    const instrumentMap = new Map(
+      (instrumentsData || []).map(i => [i.instrument_token, i.tradingsymbol])
+    );
+
         if (strategyId !== "preview") {
           const id = parseInt(strategyId);
           await strategyService.saveBacktestResult(
@@ -88,7 +97,6 @@ export async function POST(
             strategy
           );
 
-          // AI Learning: Feed backtest results to AI Trading Engine and Self-Learning Engine
           if (result.trades && result.trades.length > 0) {
             const trades = result.trades.map((t: { pnl: number; entry_price: number; exit_price: number; entry_time: string; exit_time: string }) => ({
               pnl: t.pnl,
@@ -104,7 +112,6 @@ export async function POST(
               trades
             );
 
-            // Trigger Self-Learning Engine observation
             const { selfLearningEngine } = await import("@/lib/server/self-learning-engine");
             await selfLearningEngine.observeBacktestResult({
               strategyId: id.toString(),
@@ -118,8 +125,36 @@ export async function POST(
               }
             });
 
-            // Automatically trigger improvement if performance is poor or after N backtests
-            // For now, let's be proactive: if win rate < 45% or P&L is negative, auto-improve
+            const { rlKnowledgeEngine } = await import("@/lib/server/rl-knowledge-engine");
+            const patternType = extractPatternType(strategy);
+            
+            for (const token of tokens) {
+              const tradingSymbol = instrumentMap.get(token) || `TOKEN_${token}`;
+              const tokenTrades = result.trades;
+              const tokenProfitable = tokenTrades.filter((t: { pnl: number }) => t.pnl > 0).length;
+              const tokenWinRate = tokenTrades.length > 0 ? (tokenProfitable / tokenTrades.length) * 100 : 0;
+              const tokenAvgPnl = tokenTrades.length > 0 
+                ? tokenTrades.reduce((sum: number, t: { pnl: number }) => sum + t.pnl, 0) / tokenTrades.length 
+                : 0;
+              
+              await rlKnowledgeEngine.updateInstrumentKnowledge(
+                token,
+                tradingSymbol,
+                patternType,
+                timeframe,
+                {
+                  pnl: tokenAvgPnl,
+                  isProfit: result.net_pnl > 0,
+                  riskReward: result.profit_factor || 1,
+                  entryConditions: {
+                    indicators: strategy.entry?.indicators || [],
+                    conditions: strategy.entry?.conditions || [],
+                  },
+                  marketCondition: result.win_rate > 50 ? "trending" : "ranging",
+                }
+              );
+            }
+
             if (result.win_rate < 45 || result.net_pnl < 0) {
               await selfLearningEngine.autoImproveStrategy(id.toString(), user.user.id);
             }
@@ -139,18 +174,41 @@ export async function POST(
         created_at: new Date().toISOString(),
       });
 
-      // Generate AI Insights for the strategy
       let aiInsights = null;
+      let rlInsights = null;
+      
       if (strategyId !== "preview") {
         const id = parseInt(strategyId);
         const improvements = await aiTradingEngine.suggestStrategyImprovements(id);
         aiInsights = improvements;
+        
+        try {
+          const { rlKnowledgeEngine } = await import("@/lib/server/rl-knowledge-engine");
+          rlInsights = await rlKnowledgeEngine.getGlobalRLInsights();
+        } catch (e) {
+          console.error("Failed to get RL insights:", e);
+        }
       }
 
-      return successResponse({ result, aiInsights });
+      return successResponse({ result, aiInsights, rlInsights });
   } catch (error) {
     console.error("Error running backtest:", error);
     const message = error instanceof Error ? error.message : "Backtest failed";
     return serverErrorResponse(message);
   }
+}
+
+function extractPatternType(strategy: Record<string, unknown>): string {
+  const strategyStr = JSON.stringify(strategy).toLowerCase();
+  
+  if (strategyStr.includes("rsi") && strategyStr.includes("oversold")) return "rsi_oversold";
+  if (strategyStr.includes("rsi") && strategyStr.includes("overbought")) return "rsi_overbought";
+  if (strategyStr.includes("macd") && strategyStr.includes("cross")) return "macd_crossover";
+  if (strategyStr.includes("ema") && strategyStr.includes("cross")) return "ema_crossover";
+  if (strategyStr.includes("breakout")) return "breakout";
+  if (strategyStr.includes("reversal")) return "reversal";
+  if (strategyStr.includes("momentum")) return "momentum";
+  if (strategyStr.includes("support") || strategyStr.includes("resistance")) return "sr_bounce";
+  
+  return "generic";
 }

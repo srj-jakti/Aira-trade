@@ -846,7 +846,7 @@ Same structure as traditional, but rules focus on price action.
     optimizationArchetype: "BALANCED" | "CONSERVATIVE" | "AGGRESSIVE" | "ITERATIVE" = "BALANCED",
     iterationContext?: string,
     rlOptimizedParams?: Record<string, any>
-  ): Promise<{ improved: StructuredStrategy; notes: string }> {
+  ): Promise<{ improved: StructuredStrategy; notes: string; tokensUsed?: number; model?: string }> {
     const { airaBrain, aiSharedService } = await getAIServices();
     
     // Fetch past backtests to compare performance
@@ -1076,18 +1076,19 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
             return obj;
           };
     
-            if (parsed.improved) {
-              const improved = this.syncConditionsWithExecutable(ensureFields(parsed.improved));
-              const notes = parsed.notes || "Strategy optimized based on backtest analysis.";
-              return { improved, notes };
-            } else if (parsed.name) {
-              const improved = this.syncConditionsWithExecutable(ensureFields(parsed));
-              const notes = parsed.notes || "Strategy optimized based on backtest analysis.";
-              return { improved, notes };
-            }
-      
-            if (parsed.improved) return parsed;
-            return { improved: ensureFields(parsed), notes: "Strategy optimized." };
+              if (parsed.improved) {
+                const improved = this.syncConditionsWithExecutable(ensureFields(parsed.improved));
+                const notes = parsed.notes || "Strategy optimized based on backtest analysis.";
+                return { improved, notes, tokensUsed: result.tokensUsed, model: result.model };
+              } else if (parsed.name) {
+                const improved = this.syncConditionsWithExecutable(ensureFields(parsed));
+                const notes = parsed.notes || "Strategy optimized based on backtest analysis.";
+                return { improved, notes, tokensUsed: result.tokensUsed, model: result.model };
+              }
+        
+              if (parsed.improved) return { ...parsed, tokensUsed: result.tokensUsed, model: result.model };
+              return { improved: ensureFields(parsed), notes: "Strategy optimized.", tokensUsed: result.tokensUsed, model: result.model };
+
         } catch (e) {
           console.error("[StrategyService] Failed to parse AI improvement response:", e);
           throw new Error("Failed to parse AI improvement response");

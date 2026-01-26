@@ -9,6 +9,8 @@ import { aiSharedService } from "@/lib/server/ai-shared-service";
 import { getCandlesForAI, validateCandleMode } from "@/lib/server/candle-service";
 import { getLatestTick } from "@/lib/server/market-data-engine";
 import { logInstrumentSearch } from "@/lib/server/dynamic-instrument-manager";
+import { checkAILimit, logAIUsage } from "@/lib/server/ai-usage";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
  * POST /api/ai/analyze
@@ -18,9 +20,28 @@ import { logInstrumentSearch } from "@/lib/server/dynamic-instrument-manager";
  */
 export async function POST(request: NextRequest) {
   const user = await getAuthenticatedUser();
-  if (!user.authenticated) return unauthorizedResponse();
+  if (!user.authenticated || !user.userId) return unauthorizedResponse();
 
   try {
+    // 1. Get user's subscription plan for limit checking
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan_id")
+      .eq("user_id", user.userId)
+      .single();
+    
+    const planId = sub?.plan_id || "basic";
+
+    // 2. Check limits
+    const limitCheck = await checkAILimit(user.userId, planId);
+    if (!limitCheck.allowed) {
+      return NextResponse.json({
+        success: false,
+        error: limitCheck.reason,
+        usage: limitCheck.usage
+      }, { status: 429 });
+    }
+
     let body;
     try {
       body = await request.json();
@@ -137,41 +158,21 @@ export async function POST(request: NextRequest) {
           entry: parsed.entry_zone?.[0] || null,
           target: parsed.target_zone?.[0] || null,
           stopLoss: parsed.stoploss_zone?.[0] || null,
-          reasoning: summary.join(". "),
-        };
-      }
+        reasoning: summary.join(". "),
+      };
+    }
 
+    // 3. Log AI usage
+    logAIUsage(
+      user.userId,
+      "analyze",
+      humanAnalysis.tokensUsed || 0,
+      humanAnalysis.model,
+      { instrument: tradingsymbol, timeframe }
+    ).catch(console.error);
 
-      // Fallback analysis if AI fails
-      if (!humanAnalysis.success && !parsed) {
-        const recentCandles = candles.slice(-30);
-        const prices = recentCandles.map(c => c.close);
-        const highs = recentCandles.map(c => c.high);
-        const lows = recentCandles.map(c => c.low);
-        
-        const currentPrice = prices[prices.length - 1];
-        const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-        const maxHigh = Math.max(...highs);
-        const minLow = Math.min(...lows);
-        
-        const priceChange = ((currentPrice - prices[0]) / prices[0]) * 100;
-        
-        result = {
-          trend: priceChange > 2 ? "bullish" : priceChange < -2 ? "bearish" : "neutral",
-          strength: Math.min(100, Math.abs(priceChange) * 10),
-          support: minLow,
-          resistance: maxHigh,
-          analysis: `Based on ${recentCandles.length} candles of ${timeframe} data: Price ${priceChange > 0 ? "up" : "down"} ${Math.abs(priceChange).toFixed(2)}%. Current: ${currentPrice.toFixed(2)}, Avg: ${avgPrice.toFixed(2)}.`,
-          signal: priceChange > 3 ? "buy" : priceChange < -3 ? "sell" : "hold",
-          confidence: Math.min(80, 50 + Math.abs(priceChange) * 5),
-          entry: currentPrice,
-          target: currentPrice * (priceChange > 0 ? 1.05 : 0.95),
-          stopLoss: currentPrice * (priceChange > 0 ? 0.97 : 1.03),
-          reasoning: `Technical analysis based on recent price movement of ${priceChange.toFixed(2)}%.`,
-        };
-      }
+    return NextResponse.json({
 
-      return NextResponse.json({
         success: true,
         analysis: result,
         hasData: true,

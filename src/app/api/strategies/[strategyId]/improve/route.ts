@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   getAuthenticatedUser,
   unauthorizedResponse,
@@ -8,16 +8,38 @@ import {
 } from "@/lib/server/auth";
 import { strategyService } from "@/lib/server/strategy-service";
 import { aiTradingEngine } from "@/lib/server/ai-trading-engine";
+import { checkAILimit, logAIUsage } from "@/lib/server/ai-usage";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ strategyId: string }> }
 ) {
   const user = await getAuthenticatedUser();
-  if (!user.authenticated) return unauthorizedResponse();
+  if (!user.authenticated || !user.userId) return unauthorizedResponse();
 
-    try {
-      const { strategyId: id } = await params;
+  try {
+    // 1. Get user's plan for limit checking
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan_id")
+      .eq("user_id", user.userId)
+      .single();
+    
+    const planId = sub?.plan_id || "basic";
+
+    // 2. Check limits
+    const limitCheck = await checkAILimit(user.userId, planId);
+    if (!limitCheck.allowed) {
+      return NextResponse.json({
+        success: false,
+        error: limitCheck.reason,
+        usage: limitCheck.usage
+      }, { status: 429 });
+    }
+
+    const { strategyId: id } = await params;
+
       const body = await request.json();
       const { strategy, backtestResults, candleData, mode = "simple", instrumentTokens, timeframe, capital } = body;
 
@@ -51,6 +73,15 @@ export async function POST(
         strategyIdNum,
         aiEngineSuggestions
       );
+
+      // 3. Log AI usage
+      logAIUsage(
+        user.userId,
+        "improve",
+        improvement.tokensUsed || 0,
+        improvement.model,
+        { strategyId: strategyIdNum, mode }
+      ).catch(console.error);
 
       return successResponse({
         ...improvement,

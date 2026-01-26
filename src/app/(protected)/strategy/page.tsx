@@ -28,6 +28,15 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
@@ -1732,9 +1741,78 @@ function StrategySection({
   );
 }
 
+function EquityCurveChart({ data }: { data: any[] }) {
+  const minEquity = Math.min(...data.map(d => d.equity));
+  const maxEquity = Math.max(...data.map(d => d.equity));
+  const padding = (maxEquity - minEquity) * 0.1 || 1000;
+
+  return (
+    <div className="h-[200px] w-full mt-4 bg-muted/30 rounded-lg p-2 border border-border">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data}>
+          <defs>
+            <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+          <XAxis 
+            dataKey="time" 
+            hide 
+          />
+          <YAxis 
+            hide 
+            domain={[minEquity - padding, maxEquity + padding]} 
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "rgba(0,0,0,0.9)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "8px",
+              fontSize: "12px",
+            }}
+            itemStyle={{ color: "#06b6d4" }}
+            labelStyle={{ color: "rgba(255,255,255,0.5)" }}
+            formatter={(value: number) => [`₹${value.toLocaleString()}`, "Equity"]}
+          />
+          <Area
+            type="monotone"
+            dataKey="equity"
+            stroke="#06b6d4"
+            fillOpacity={1}
+            fill="url(#colorEquity)"
+            strokeWidth={2}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 function BacktestResultCard({ timeframe, result }: { timeframe: string; result: BacktestResult }) {
   const [showTrades, setShowTrades] = useState(false);
   const tf = TIMEFRAMES.find((t) => t.value === timeframe);
+
+  const equityData = useMemo(() => {
+    let currentEquity = result.capital_used;
+    const data = [{ 
+      time: "Start", 
+      equity: currentEquity,
+      pnl: 0
+    }];
+    
+    (result.trade_log || []).forEach((trade, idx) => {
+      currentEquity += (trade.pnl || 0);
+      data.push({
+        time: new Date(trade.entry_time).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        equity: currentEquity,
+        pnl: trade.pnl || 0
+      });
+    });
+    
+    return data;
+  }, [result]);
 
   return (
     <div className="p-4 bg-muted/50 border border-border rounded-lg">
@@ -1784,6 +1862,8 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
           <p className="text-foreground/20 text-[10px]">Total exposure</p>
         </div>
       </div>
+
+      <EquityCurveChart data={equityData} />
 
       <div className="flex gap-4 mt-4 text-xs">
         <span className="text-muted-foreground">

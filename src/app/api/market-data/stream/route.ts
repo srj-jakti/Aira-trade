@@ -5,6 +5,7 @@ import { KiteTicker } from "kiteconnect";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
+export const runtime = "nodejs";
 
 interface KiteTickData {
   instrument_token: number;

@@ -6,6 +6,8 @@ import { createDecipheriv } from "crypto";
 import { processZairothSafe, evaluateSafety } from "../../../src/lib/zairoth";
 import { redis, REDIS_KEYS } from "./utils/redis";
 import { getRLScoreForInstrument, extractPatternType } from "./rl-scorer";
+import { MarketContextEngine, MarketContext } from "./market-context";
+import { TradeFilter } from "./trade-filter";
 
 const ALGORITHM = "aes-256-gcm";
 
@@ -285,6 +287,7 @@ export interface TradeSetup {
   confirmations: SignalMemory[];
   setupCandleIndex: number;
   reason: string;
+  context?: MarketContext;
 }
 
 // In-memory persistent state for Signal Memory
@@ -352,28 +355,21 @@ export async function evaluateWithAI(
   const instrumentToken = candles.length > 0 ? candles[0].instrument_token : null;
   if (!instrumentToken) return null;
 
-  // RL Knowledge Engine Pre-Check
-  const patternType = extractPatternType(strategy.zairoth_intent || strategy.name || "");
   const instrumentCandles = candles
     .filter(c => c.instrument_token === instrumentToken)
     .sort((a, b) => new Date(a.bucket_start).getTime() - new Date(b.bucket_start).getTime());
   
-  // Determine market trend from candles
-  let marketTrend = "SIDEWAYS";
-  if (instrumentCandles.length >= 20) {
-    const closes = instrumentCandles.slice(-20).map(c => c.close);
-    const first = closes[0];
-    const last = closes[closes.length - 1];
-    const change = ((last - first) / first) * 100;
-    if (change > 2) marketTrend = "UPTREND";
-    else if (change < -2) marketTrend = "DOWNTREND";
-  }
+  // 1. ANALYZE MARKET CONTEXT
+  const context = MarketContextEngine.analyze(instrumentCandles);
+  logger.info(`[CONTEXT] ${instrumentToken}: Regime=${context.regime}, Volatility=${context.volatility}, Structure=${context.marketStructure}`);
 
+  // 2. RL KNOWLEDGE ENGINE PRE-CHECK
+  const patternType = extractPatternType(strategy.zairoth_intent || strategy.name || "");
   const rlScore = await getRLScoreForInstrument(
     instrumentToken,
     patternType,
     strategy.timeframe,
-    { trend: marketTrend, volatility: "NORMAL" }
+    { trend: context.regime.includes("UP") ? "UPTREND" : context.regime.includes("DOWN") ? "DOWNTREND" : "SIDEWAYS", volatility: context.volatility }
   );
 
   // Block trade if RL score indicates AVOID or STRONG_AVOID
@@ -382,12 +378,7 @@ export async function evaluateWithAI(
     return null;
   }
 
-  if (rlScore.recommendation === "AVOID" && rlScore.confidence > 0.3) {
-    logger.warn(`[RL] Blocking trade for ${instrumentToken} (confidence: ${rlScore.confidence}): ${rlScore.reasoning}`);
-    return null;
-  }
-
-  // Zairoth Validation Check
+  // 3. ZAIROTH SAFETY CHECK
   if (strategy.zairoth_intent) {
     const zairoth = processZairothSafe(strategy.zairoth_intent);
     if (zairoth.success) {
@@ -397,57 +388,62 @@ export async function evaluateWithAI(
       });
       if (!safety.safe) {
         logger.warn(`[ZAIROTH] Safety check failed for ${strategy.name}: ${safety.reason}`);
-        return null; // Block trade
+        return null;
       }
     }
   }
 
-  const ruleResult = await evaluateWithRules(strategy, candles, userConfig.user_id);
+  // 4. RULE-BASED EVALUATION (with context awareness)
+  const ruleResult = await evaluateWithRules(strategy, candles, userConfig.user_id, context);
   
-  // Apply RL score adjustment to rule-based signals
   if (ruleResult) {
-    if (rlScore.recommendation === "STRONG_BUY") {
-      ruleResult.confidence = Math.min(100, ruleResult.confidence + 10);
-      ruleResult.reasoning += ` [RL: ${rlScore.reasoning}]`;
-    } else if (rlScore.recommendation === "NEUTRAL") {
-      ruleResult.confidence = Math.max(50, ruleResult.confidence - 5);
+    const filter = TradeFilter.evaluate(ruleResult, context, rlScore);
+    if (filter.allow) {
+      ruleResult.confidence = filter.adjustedConfidence;
+      ruleResult.reasoning += ` [Filter: ${filter.reason}]`;
+      return ruleResult;
     }
-    return ruleResult;
+    logger.info(`[FILTER] Rule-based signal rejected: ${filter.reason}`);
   }
 
+  // 5. SEMANTIC AI EVALUATION (The "Human Eye")
   const aiConfig = await getActiveAIConfig();
   if (!aiConfig) return null;
 
-  const recentCandles = instrumentCandles.slice(-20); // More context
+  const recentCandles = instrumentCandles.slice(-25);
   const messages = [
     {
       role: "system",
-      content: `ROLE:
-You are an Institutional Grade Systematic Trader.
-Your objective is to filter signals with extremely high precision.
-Only signal a trade if it aligns with "Smart Money" concepts (Liquidity, Structure, Momentum).
+      content: `ROLE: Institutional Systematic Trader.
+OBJECTIVE: Identify high-probability institutional setups.
 
-🔒 CORE INSTITUTIONAL RULES:
-- MARKET STRUCTURE: Identify if we are in HH/HL (BULLISH) or LH/LL (BEARISH). Don't fight the trend.
-- MOMENTUM: Check RSI. Avoid buying if RSI is already > 70 (Overbought) unless it's a breakout with high volume.
-- LIQUIDITY: Look for volume spikes at support/resistance.
-- VOLATILITY: Don't enter if price has moved more than 3x its ATR in a single candle (Exhaustion).
-- WAIT: If uncertain, return HOLD. Hold is the smartest trade in chop.
+MARKET CONTEXT:
+- Regime: ${context.regime}
+- Trend Strength: ${context.trendStrength}/100
+- Volatility: ${context.volatility}
+- Structure: ${context.marketStructure}
+- RSI: ${context.rsi.toFixed(2)}
+- EMA Distance: ${context.distanceFromEMA.toFixed(2)}%
+
+INSTITUTIONAL CRITERIA:
+1. Don't buy into resistance or sell into support.
+2. Avoid chasing vertical moves (high EMA distance).
+3. Look for "stop hunts" or liquidity sweeps.
+4. Trend alignment: Only trade in the direction of ${context.regime} unless it's a clear exhaustion reversal.
 
 Respond ONLY with JSON:
 {
   "signal": "BUY" | "SELL" | "HOLD",
   "confidence": 0-100,
-  "market_regime": "TRENDING_UP" | "TRENDING_DOWN" | "RANGING" | "VOLATILE",
-  "key_levels": {"support": number, "resistance": number},
-  "reasoning": "technical institutional justification"
+  "tp_sl_ratio": number,
+  "reasoning": "Technical justification based on context"
 }`,
     },
     {
       role: "user",
-      content: `Analyze data for ${strategy.name}. 
-Current Strategy Intent: ${strategy.zairoth_intent || "Discretionary Institutional Trading"}
-Recent candles (Last 20): ${JSON.stringify(recentCandles.map(c => ({
+      content: `Analyze setup for ${strategy.name}. 
+Intent: ${strategy.zairoth_intent || "N/A"}
+Candles: ${JSON.stringify(recentCandles.map(c => ({
   t: c.bucket_start,
   o: c.open,
   h: c.high,
@@ -456,9 +452,7 @@ Recent candles (Last 20): ${JSON.stringify(recentCandles.map(c => ({
   v: c.volume,
   rsi: c.indicators?.RSI_14,
   ema: c.indicators?.EMA_20
-})))}
-Buy Logic: ${JSON.stringify(strategy.buy_entry_logic)}
-Sell Logic: ${JSON.stringify(strategy.sell_entry_logic)}`,
+})))}`,
     },
   ];
 
@@ -467,15 +461,29 @@ Sell Logic: ${JSON.stringify(strategy.sell_entry_logic)}`,
 
   try {
     const parsed = JSON.parse(result);
-    if (parsed.signal === "HOLD" || parsed.confidence < 75) {
-      if (parsed.signal !== "HOLD") logger.info(`[EXPERT] AI Signal filtered due to low confidence (${parsed.confidence}%): ${parsed.reasoning}`);
+    if (parsed.signal === "HOLD") return null;
+
+    const tempSignal: Signal = {
+      action: parsed.signal as "BUY" | "SELL",
+      instrument: `TOKEN_${instrumentToken}`,
+      instrumentToken: instrumentToken,
+      price: instrumentCandles[instrumentCandles.length - 1].close,
+      stopLoss: 0, // Calculated below
+      target: 0, // Calculated below
+      confidence: parsed.confidence,
+      reasoning: parsed.reasoning
+    };
+
+    const filter = TradeFilter.evaluate(tempSignal, context, rlScore);
+    if (!filter.allow) {
+      logger.info(`[FILTER] AI Signal rejected: ${filter.reason}`);
       return null;
     }
 
-    // Double Check with Hardcoded Expert Heuristics
+    // Expert Heuristics Check
     const expertCheck = validateExpertEntry(instrumentCandles, parsed.signal);
     if (!expertCheck.ok) {
-      logger.info(`[EXPERT] AI Signal ${parsed.signal} rejected by heuristics: ${expertCheck.reason}`);
+      logger.info(`[EXPERT] AI Signal rejected: ${expertCheck.reason}`);
       return null;
     }
 
@@ -485,10 +493,10 @@ Sell Logic: ${JSON.stringify(strategy.sell_entry_logic)}`,
       instrument: `TOKEN_${last.instrument_token}`,
       instrumentToken: last.instrument_token,
       price: last.close,
-      stopLoss: last.close * (parsed.signal === "BUY" ? 0.985 : 1.015), // Tighter stops for institutional
-      target: last.close * (parsed.signal === "BUY" ? 1.045 : 0.955),
-      confidence: parsed.confidence || 50,
-      reasoning: `[INSTITUTIONAL] ${parsed.reasoning}`,
+      stopLoss: last.close * (parsed.signal === "BUY" ? 0.99 : 1.01),
+      target: last.close * (parsed.signal === "BUY" ? 1.03 : 0.97),
+      confidence: filter.adjustedConfidence,
+      reasoning: `[SEMANTIC AI] ${parsed.reasoning} [Filter: ${filter.reason}]`,
     };
   } catch {
     return null;
@@ -634,7 +642,12 @@ function calculateSimpleIndicators(candles: CandleData[]): Map<string, number[]>
   return cache;
 }
 
-export async function evaluateWithRules(strategy: Strategy, candles: CandleData[], userId: string): Promise<Signal | null> {
+export async function evaluateWithRules(
+  strategy: Strategy,
+  candles: CandleData[],
+  userId: string,
+  context?: MarketContext
+): Promise<Signal | null> {
   if (candles.length < 5) return null;
 
   const instrumentToken = candles[0]?.instrument_token;
@@ -663,9 +676,13 @@ export async function evaluateWithRules(strategy: Strategy, candles: CandleData[
           intentSignal: null,
           confirmations: [],
           setupCandleIndex: -1,
-          reason: "Initialized"
+          reason: "Initialized",
+          context: context // Store context in setup
         }
       };
+    } else {
+      // Update context if provided
+      if (context) state.setup.context = context;
     }
 
     // Clean expired signals

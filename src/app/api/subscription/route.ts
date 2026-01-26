@@ -48,12 +48,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
+    if (planId === "admin") {
+      return NextResponse.json({ error: "Invalid plan selection" }, { status: 400 });
+    }
+
     const plan = SUBSCRIPTION_PLANS[planId as keyof typeof SUBSCRIPTION_PLANS];
     const amount = billingPeriod === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
 
+    const receipt = `sub_${user.id.slice(0, 8)}_${Date.now()}`;
+    
+    const order = await createOrder(amount, "INR", receipt, {
+      user_id: user.id,
+      plan_id: planId,
+      billing_period: billingPeriod,
+      user_email: user.email || "",
+    });
+
     return NextResponse.json({
       success: true,
-      message: "Payment gateway integration pending",
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       orderDetails: {
         planId,
         planName: plan.name,
@@ -62,8 +78,13 @@ export async function POST(request: Request) {
         currency: "INR",
         disclaimer: "AiRA is a software platform providing analytical and automation tools only. It does not provide investment advice, trading recommendations, or financial services.",
       },
+      prefill: {
+        email: user.email,
+        name: user.user_metadata?.full_name || "",
+      },
     });
   } catch (error: any) {
+    console.error("Subscription order creation error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -324,31 +324,47 @@ export default function PricingPage() {
               </div>
 
               <div className="p-3 bg-muted/50 rounded-lg mb-6">
-                <div className="flex items-start gap-2">
-                  <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-muted-foreground italic leading-relaxed">
-                    {plan.sebiLabel}
-                  </p>
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-muted-foreground italic leading-relaxed">
+                      {plan.sebiLabel}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <Button
-                onClick={() => handleSubscribe(plan.id)}
-                className={cn(
-                  "w-full h-12 font-bold transition-all",
-                  plan.popular
-                    ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-                    : "bg-muted hover:bg-muted/80 text-foreground border border-border"
-                )}
-              >
-                Get Started
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </motion.div>
-          ))}
-        </div>
+                <Button
+                  onClick={() => handleSubscribe(plan.id)}
+                  disabled={loadingPlan !== null}
+                  className={cn(
+                    "w-full h-12 font-bold transition-all",
+                    plan.popular
+                      ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+                      : "bg-muted hover:bg-muted/80 text-foreground border border-border"
+                  )}
+                >
+                  {loadingPlan === plan.id ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      Get Started
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+              </motion.div>
+            ))}
+          </div>
 
-        <div className="max-w-4xl mx-auto">
+          {error && (
+            <div className="max-w-md mx-auto mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-center">
+              <p className="text-sm text-red-500">{error}</p>
+            </div>
+          )}
+
+          <div className="max-w-4xl mx-auto">
           <div className="p-6 bg-amber-500/10 border border-amber-500/20 rounded-xl">
             <div className="flex items-start gap-4">
               <div className="p-2 bg-amber-500/20 rounded-lg shrink-0">

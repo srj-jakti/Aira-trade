@@ -168,8 +168,23 @@ async function runAutoLogin(triggerType: string) {
     .eq("is_active", true)
     .not("totp_secret", "is", null);
 
+  // Filter for Elite plans only
+  const eliteUserAccounts = [];
+  if (userAccounts && userAccounts.length > 0) {
+    const userIds = userAccounts.map(a => a.user_id);
+    const { data: subscriptions } = await supabaseAdmin
+      .from("subscriptions")
+      .select("user_id, plan_name, status")
+      .in("user_id", userIds)
+      .eq("status", "active")
+      .eq("plan_name", "ELITE");
+
+    const eliteUserIds = new Set(subscriptions?.map(s => s.user_id) || []);
+    eliteUserAccounts.push(...userAccounts.filter(a => eliteUserIds.has(a.user_id)));
+  }
+
   const userResults = [];
-  for (const account of userAccounts || []) {
+  for (const account of eliteUserAccounts) {
     const result = await loginUserAccount(account);
     userResults.push(result);
   }

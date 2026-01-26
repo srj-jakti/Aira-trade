@@ -19,9 +19,20 @@ const navItems = [
 export function Navigation() {
   const pathname = usePathname();
 
-  return (
-    <>
-      <header className="hidden md:flex fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/40 backdrop-blur-xl items-center justify-between px-8 h-16">
+    return (
+      <>
+        <header className="md:hidden fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/60 backdrop-blur-xl flex items-center justify-between px-4 h-14">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <Logo size="sm" />
+            <span className="text-xs font-bold tracking-tight text-foreground uppercase">AiRA</span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+          </div>
+        </header>
+
+        <header className="hidden md:flex fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/40 backdrop-blur-xl items-center justify-between px-8 h-16">
+
         <Link href="/dashboard" className="hover:opacity-80 transition-opacity flex items-center gap-2">
           <Logo size="md" />
           <div className="flex flex-col -gap-1">

@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       plan_name: plan.name.toLowerCase(),
       status: "active",
       billing_period: billingPeriod,
-      amount: payment.amount / 100,
+      amount: Number(payment.amount) / 100,
       currency: payment.currency,
       payment_gateway: "razorpay",
       payment_gateway_subscription_id: razorpay_payment_id,

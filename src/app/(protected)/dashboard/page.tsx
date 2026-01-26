@@ -155,8 +155,8 @@ export default function Dashboard() {
     }
 
     return (
-      <div className="p-3 md:p-6 space-y-3 md:space-y-4 max-w-[1600px] mx-auto animate-in fade-in duration-500">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gradient-to-br from-muted/50 to-transparent p-3 md:p-4 rounded-2xl border border-border shadow-2xl">
+      <div className="p-2 md:p-4 space-y-2 md:space-y-3 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 bg-gradient-to-br from-muted/50 to-transparent p-2 md:p-3 rounded-2xl border border-border shadow-2xl">
             <div className="flex items-center gap-3">
               <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-lg shadow-primary/5">
                 <Zap className={cn("size-5 transition-colors", isAiTradingEnabled ? "text-primary fill-primary" : "text-muted-foreground/40")} />

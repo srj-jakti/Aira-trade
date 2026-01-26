@@ -265,14 +265,14 @@ const response = await fetch(
   };
 
   return (
-    <div className="p-2 md:p-4 space-y-3 max-w-[1600px] mx-auto pt-14 md:pt-2">
-      <div className="flex flex-col gap-2">
+    <div className="p-1.5 md:p-4 space-y-1.5 md:space-y-2 max-w-[1600px] mx-auto">
+        <div className="flex flex-col gap-1 md:gap-2">
         <InstrumentSearch
           onSelect={setSelectedInstrument}
           selectedInstrument={selectedInstrument}
           className="w-full"
         />
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1 flex-wrap">
           <div className="flex items-center gap-0.5 bg-muted/50 border border-white/10 p-0.5 rounded-md shrink-0">
             {[
               { label: "1m", value: "1m" },
@@ -355,8 +355,8 @@ const response = await fetch(
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <div className="lg:col-span-2 space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 md:gap-3">
+          <div className="lg:col-span-2 space-y-2 md:space-y-3">
             <Card className="bg-card border-border overflow-hidden">
               <CardHeader className="p-2 md:p-3 border-b border-white/10">
                 <CardTitle className="text-xs font-medium flex items-center justify-between">

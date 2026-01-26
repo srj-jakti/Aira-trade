@@ -24,15 +24,7 @@ export async function getDashboardStatus() {
 
     let balance = { total: "10,00,000.00", available: "10,00,000.00" };
     let pl = { total: "0.00", day: "0.00", isPositive: true };
-    let activePositions: {
-      id: string;
-      symbol: string;
-      type: string;
-      qty: number;
-      avgPrice: string;
-      pl: string;
-      plPercent: string;
-    }[] = [];
+    let activePositions: any[] = [];
     let recentOrders: any[] = [];
 
     if (isPaperMode) {

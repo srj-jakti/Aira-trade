@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+export const runtime = "nodejs";
 import { createClient } from "@/lib/supabase/server";
 import { SUBSCRIPTION_PLANS } from "@/lib/subscription/plans";
 

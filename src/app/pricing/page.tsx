@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export const plans = [
+const plans = [
   {
     id: "basic",
     name: "BASIC",

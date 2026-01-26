@@ -84,6 +84,8 @@ export const viewport: Viewport = {
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 
+export const runtime = "nodejs";
+
 export default function RootLayout({
   children,
 }: Readonly<{

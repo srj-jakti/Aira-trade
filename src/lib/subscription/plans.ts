@@ -1,10 +1,10 @@
 export const SUBSCRIPTION_PLANS = {
   basic: {
     id: "basic",
+    razorpayPlanId: "plan_S8Our5iKR2PZGt",
     name: "BASIC",
     subtitle: "Platform Access",
-    monthlyPrice: 999,
-    yearlyPrice: 9990,
+    monthlyPrice: 599,
     features: {
       strategyCreation: true,
       strategyLibrary: true,
@@ -21,10 +21,10 @@ export const SUBSCRIPTION_PLANS = {
   },
   pro: {
     id: "pro",
+    razorpayPlanId: "plan_S8OvlvnY53QDUx",
     name: "PRO",
     subtitle: "User-Controlled Automation",
     monthlyPrice: 1499,
-    yearlyPrice: 14990,
     features: {
       strategyCreation: true,
       strategyLibrary: true,
@@ -42,10 +42,10 @@ export const SUBSCRIPTION_PLANS = {
   },
   elite: {
     id: "elite",
-    name: "ELITE",
+    razorpayPlanId: "plan_S8OxZcbUCx1Nyk",
+    name: "ELITE (Creator)",
     subtitle: "Advanced Automation & Strategy Sharing",
-    monthlyPrice: 2499,
-    yearlyPrice: 24990,
+    monthlyPrice: 3499,
     features: {
       strategyCreation: true,
       strategyLibrary: true,
@@ -63,10 +63,10 @@ export const SUBSCRIPTION_PLANS = {
   },
   admin: {
     id: "admin",
+    razorpayPlanId: "",
     name: "ADMIN",
     subtitle: "Full Access",
     monthlyPrice: 0,
-    yearlyPrice: 0,
     features: {
       strategyCreation: true,
       strategyLibrary: true,

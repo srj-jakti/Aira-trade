@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { AlertCircle, RefreshCcw } from "lucide-react";
 
 export default function Error({

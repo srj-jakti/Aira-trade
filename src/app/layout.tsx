@@ -82,6 +82,7 @@ export const viewport: Viewport = {
 };
 
 import { ThemeProvider } from "@/components/theme-provider";
+import Script from "next/script";
 
 export default function RootLayout({
   children,
@@ -93,6 +94,12 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen overflow-x-hidden pb-[safe-area-inset-bottom]`}
         >
+        <Script
+          id="orchids-browser-logs"
+          src="https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/scripts/orchids-browser-logs.js"
+          strategy="afterInteractive"
+          data-orchids-project-id="4c5c238c-6da6-4257-86ab-86cbb8b4222d"
+        />
           <ThemeProvider
             attribute="class"
             defaultTheme="dark"

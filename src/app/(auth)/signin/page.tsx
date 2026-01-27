@@ -51,6 +51,10 @@ function SignInContent() {
         provider: "google",
         options: {
           redirectTo: `${getURL()}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 

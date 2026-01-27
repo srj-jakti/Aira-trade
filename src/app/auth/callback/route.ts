@@ -34,6 +34,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
     );
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error && data.user) {
+      console.log("Auth callback success for user:", data.user.id);
       const { data: existingProfile } = await supabaseAdmin
         .from("profiles")
         .select("id")

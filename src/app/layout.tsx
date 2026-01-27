@@ -88,6 +88,7 @@ export const viewport: Viewport = {
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import Script from "next/script";
+import { useEffect } from "react";
 
 export default function RootLayout({
   children,

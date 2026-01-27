@@ -1,0 +1,14 @@
+node_modules
+build
+dist
+.git
+.trae
+.log
+.figma
+railway
+scripts
+AGENTS.md
+ARCHITECTURE_REFACTOR_GUIDE.md
+AUDIT_REPORT.md
+download.log
+railway.json

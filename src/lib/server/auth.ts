@@ -6,6 +6,7 @@ export interface AuthResult {
   authenticated: boolean;
   userId: string | null;
   email: string | null;
+  user: { id: string } | null;
   error?: string;
 }
 
@@ -39,6 +40,7 @@ export async function getAuthenticatedUser(): Promise<AuthResult> {
         authenticated: false,
         userId: null,
         email: null,
+        user: null,
         error: "Not authenticated",
       };
     }
@@ -47,12 +49,14 @@ export async function getAuthenticatedUser(): Promise<AuthResult> {
       authenticated: true,
       userId: user.id,
       email: user.email || null,
+      user: { id: user.id },
     };
   } catch {
     return {
       authenticated: false,
       userId: null,
       email: null,
+      user: null,
       error: "Auth check failed",
     };
   }
@@ -61,7 +65,7 @@ export async function getAuthenticatedUser(): Promise<AuthResult> {
 export async function getAdminUser(): Promise<AdminAuthResult> {
   const authResult = await getAuthenticatedUser();
 
-  if (!authResult.authenticated || !authResult.email) {
+  if (!authResult.authenticated || !authResult.email || !authResult.user) {
     return { ...authResult, isAdmin: false };
   }
 

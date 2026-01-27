@@ -32,7 +32,7 @@ export async function POST(
     }
 
     const apiKey = decrypt(config.api_key);
-    let testResult: { success: boolean; error?: string } = {
+    let testResult: { success: boolean; error?: string | undefined } = {
       success: false,
       error: "Unknown provider",
     };

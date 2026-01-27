@@ -56,14 +56,14 @@ export async function POST(
 
     await supabaseAdmin.from("brain_events").insert({
       event_type: "BACKTEST_START",
-      details: {
-        strategyId,
-        instrumentTokens: tokens,
-        timeframe,
-        capital: capital || 100000,
-        userId: user.user.id,
-        hasZairothIntent: !!zairothIntent,
-      },
+        details: {
+          strategyId,
+          instrumentTokens: tokens,
+          timeframe,
+          capital: capital || 100000,
+          userId: user.user!.id,
+          hasZairothIntent: !!zairothIntent,
+        },
       created_at: new Date().toISOString(),
     });
 

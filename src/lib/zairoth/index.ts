@@ -28,12 +28,12 @@ export function processZairoth(input: string, version: '1.0' | '2.0' = '1.0'): Z
     const validation = validateZairothSafe(instructions);
     const canonical = compileZairoth(instructions);
     
-    return {
-      instructions,
-      validation,
-      canonical,
-      version: '1.0'
-    };
+      return {
+        instructions,
+        validation,
+        canonical: canonical as any,
+        version: '1.0'
+      };
   } catch (error) {
     if (error instanceof ZairothError) {
       throw error;

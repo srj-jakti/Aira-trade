@@ -59,9 +59,9 @@ async function diagnostic() {
       try {
         const apiKey = decrypt(c.api_key);
         console.log(`Config ${c.name}: Decryption successful`);
-      } catch (e) {
-        console.error(`Config ${c.name}: Decryption failed:`, e.message);
-      }
+        } catch (e: any) {
+          console.error(`Config ${c.name}: Decryption failed:`, e.message);
+        }
     }
   }
 }

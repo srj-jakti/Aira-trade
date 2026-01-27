@@ -86,7 +86,9 @@ export interface Signal {
   stopLoss: number;
   target: number;
   confidence: number;
-  reasoning?: string;
+  reasoning: string;
+  quantity?: number;
+  safe?: boolean;
 }
 
 export interface UserConfig {
@@ -205,6 +207,7 @@ async function logPaperOrder(
   result: OrderResult,
   strategyId?: string
 ): Promise<void> {
+    const quantity = signal.quantity || 1;
     await supabase.from("paper_orders").insert({
       user_id: userId,
       strategy_id: strategyId,
@@ -244,20 +247,21 @@ async function logPaperOrder(
                   updated_at: new Date().toISOString()
               }).eq("id", existingPos.id);
           }
-      } else {
-          await supabase.from("paper_positions").insert({
-              user_id: userId,
-              strategy_id: strategyId,
-              instrument_token: signal.instrumentToken,
-              tradingsymbol: signal.instrument,
-              quantity: quantity,
-              entry_price: signal.price,
-              stop_loss: signal.stopLoss,
-              target_price: signal.target,
-              status: "OPEN",
-              position_type: signal.action === "BUY" ? "LONG" : "SHORT"
-          });
-      }
+        } else {
+            const quantity = signal.quantity || 1;
+            await supabase.from("paper_positions").insert({
+                user_id: userId,
+                strategy_id: strategyId,
+                instrument_token: signal.instrumentToken,
+                tradingsymbol: signal.instrument,
+                quantity: quantity,
+                entry_price: signal.price,
+                stop_loss: signal.stopLoss,
+                target_price: signal.target,
+                status: "OPEN",
+                position_type: signal.action === "BUY" ? "LONG" : "SHORT"
+            });
+        }
     }
   }
 

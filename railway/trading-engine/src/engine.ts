@@ -8,6 +8,13 @@ import { logger } from "./utils/logger";
 import { redis, REDIS_KEYS } from "./utils/redis";
 import { setupGracefulShutdown, getShutdownFlag } from "./utils/shutdown";
 import { isRateLimited, isOrderRateLimited, incrementRateLimit } from "./rate-limiter";
+import { 
+  acquireExecutionLock, 
+  releaseExecutionLock, 
+  releaseStaleLocks, 
+  disableAutoTrading, 
+  calculateNextEvaluation 
+} from "./utils/locks";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -513,22 +520,22 @@ async function monitorPositions(tableName: "user_positions" | "paper_positions")
               continue;
             }
           } else {
-            // Paper Trade History
-            await supabase.from("paper_trade_history").insert({
-              user_id: position.user_id,
-              strategy_id: position.strategy_id,
-              instrument_token: position.instrument_token,
-              tradingsymbol: position.tradingsymbol,
-              transaction_type: position.position_type === "LONG" ? "SELL" : "BUY",
-              quantity: position.quantity,
-              entry_price: position.entry_price,
-              exit_price: currentPrice,
-              pnl: pnl,
-              pnl_percent: pnlPercent,
-              entry_at: position.created_at,
-              exit_at: new Date().toISOString(),
-              exit_reason: exitReason
-            });
+          // Paper Trade History
+          await supabase.from("paper_trade_history").insert({
+            user_id: position.user_id,
+            strategy_id: (position as any).strategy_id,
+            instrument_token: position.instrument_token,
+            tradingsymbol: position.tradingsymbol,
+            transaction_type: position.position_type === "LONG" ? "SELL" : "BUY",
+            quantity: position.quantity,
+            entry_price: position.entry_price,
+            exit_price: currentPrice,
+            pnl: pnl,
+            pnl_percent: pnlPercent,
+            entry_at: (position as any).created_at,
+            exit_at: new Date().toISOString(),
+            exit_reason: exitReason
+          });
           }
 
             await supabase
@@ -682,8 +689,8 @@ async function processScannerUser(user: any): Promise<void> {
     if (candles.length === 0) return;
 
     const signal = await evaluateWithAI(strategy, candles, {
-      risk_per_trade: user.risk_per_trade || 1,
-      max_daily_loss: user.max_daily_loss || 1000,
+      risk_per_trade: (user as any).risk_per_trade || 1,
+      max_daily_loss: (user as any).max_daily_loss || 1000,
       user_id: user_id,
       capital_used: 0
     });

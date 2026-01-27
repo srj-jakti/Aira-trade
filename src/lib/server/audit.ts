@@ -11,7 +11,10 @@ export type AuditAction =
   | "admin_user_rejected"
   | "admin_user_deleted"
   | "admin_config_updated"
-  | "profile_updated";
+  | "profile_updated"
+  | "ai_config_created"
+  | "ai_config_updated"
+  | "ai_config_deleted";
 
 interface AuditLogEntry {
   user_id: string;

@@ -166,7 +166,7 @@ export function applyVolatilityGating(
     }
 
     // Rule 3: Warning for moderate volatility with medium certainty
-    if (volatility.level === 'high' && inst.certainty === 0.6) {
+    if (volatility.level === 'high' && (inst.certainty as any) === 0.6) {
       violations.push({
         line: index + 1,
         message: `Volatility Warning: Medium certainty (••) intent during high volatility. Proceed with caution.`,

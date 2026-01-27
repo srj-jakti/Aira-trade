@@ -95,7 +95,7 @@ async function callAI(config: any, messages: any[]) {
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
+    const data: any = await response.json();
     if (config.provider === "anthropic") {
       return data.content?.[0]?.text || null;
     }
@@ -379,14 +379,14 @@ export async function evaluateWithAI(
   }
 
   // 3. ZAIROTH SAFETY CHECK
-  if (strategy.zairoth_intent) {
-    const zairoth = processZairothSafe(strategy.zairoth_intent);
-    if (zairoth.success) {
-      const safety = evaluateSafety(zairoth.result.instructions, { 
-        capital_used: userConfig.capital_used || 0,
-        risk_per_trade: userConfig.risk_per_trade 
-      });
-      if (!safety.safe) {
+    if (strategy.zairoth_intent) {
+      const zairoth = processZairothSafe(strategy.zairoth_intent);
+      if (zairoth.success) {
+        const safety: any = evaluateSafety((zairoth.result as any).instructions, { 
+          capital_used: userConfig.capital_used || 0,
+          risk_per_trade: userConfig.risk_per_trade 
+        });
+        if (!safety.safe) {
         logger.warn(`[ZAIROTH] Safety check failed for ${strategy.name}: ${safety.reason}`);
         return null;
       }

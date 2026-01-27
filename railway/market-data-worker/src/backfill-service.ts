@@ -312,13 +312,13 @@ export class BackfillService {
         },
       });
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: response.statusText }));
-        throw new Error(error.message || `HTTP ${response.status}`);
-      }
+        if (!response.ok) {
+          const error: any = await response.json().catch(() => ({ message: response.statusText }));
+          throw new Error(error.message || `HTTP ${response.status}`);
+        }
 
-      const data = await response.json();
-      const candles = data.data?.candles || [];
+        const data: any = await response.json();
+        const candles = data.data?.candles || [];
 
       return candles.map((c: (string | number)[]) => ({
         timestamp: new Date(c[0] as string).toISOString(),
@@ -436,12 +436,11 @@ export class BackfillService {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - retention.days - 1); // Keep 1 extra day buffer
 
-      const { error, count } = await this.supabase
-        .from("live_candles")
-        .delete()
-        .eq("timeframe", timeframe)
-        .lt("timestamp", cutoffDate.toISOString())
-        .select("*", { count: "exact", head: true });
+        const { error, count } = await this.supabase
+          .from("live_candles")
+          .delete({ count: "exact" })
+          .eq("timeframe", timeframe)
+          .lt("timestamp", cutoffDate.toISOString());
 
       if (!error && count && count > 0) {
         console.log(`[BackfillService] Cleaned ${count} old ${timeframe} candles`);

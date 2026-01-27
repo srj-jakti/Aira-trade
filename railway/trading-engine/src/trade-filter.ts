@@ -76,7 +76,8 @@ export class TradeFilter {
     };
   }
 
-  private static checkRegimeAlignment(action: "BUY" | "SELL", context: MarketContext): { ok: boolean; reason: string } {
+  private static checkRegimeAlignment(action: "BUY" | "SELL" | "HOLD", context: MarketContext): { ok: boolean; reason: string } {
+    if (action === "HOLD") return { ok: true, reason: "" };
     if (context.regime === "TRENDING_UP" && action === "SELL") {
       return { ok: false, reason: "Selling into strong uptrend" };
     }

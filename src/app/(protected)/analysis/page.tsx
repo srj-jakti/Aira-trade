@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BrainCircuit, LineChart, Target, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw, ArrowUp, ArrowDown, Loader2, ChevronDown, Eye, EyeOff, Settings2, Info, Wifi, WifiOff } from "lucide-react";
+import { BrainCircuit, LineChart, Target, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw, ArrowUp, ArrowDown, Loader2, ChevronDown, Eye, EyeOff, Settings2, Info, Wifi, WifiOff, Share2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { TradingViewChart, type CandleData } from "@/components/TradingViewChart
 import { cn } from "@/lib/utils";
 import { useLiveCandles } from "@/hooks/use-live-candles";
 import { useLatestPrice } from "@/hooks/use-realtime-ticks";
+import { toast } from "sonner";
 
 interface AnalysisResult {
   trend: string;
@@ -208,16 +209,55 @@ const response = await fetch(
     }
   };
 
-  const handleRefresh = () => {
-    if (selectedInstrument) {
-      fetchChartData(selectedInstrument, timeframe);
-      fetchAnalysis(selectedInstrument, timeframe);
-      fetchAnalysisOutputs(selectedInstrument);
-      refetchCandles();
-    }
-  };
+    const handleRefresh = () => {
+      if (selectedInstrument) {
+        fetchChartData(selectedInstrument, timeframe);
+        fetchAnalysis(selectedInstrument, timeframe);
+        fetchAnalysisOutputs(selectedInstrument);
+        refetchCandles();
+      }
+    };
 
-  const toggleIndicator = (id: string) => {
+    const handleShare = (platform: "whatsapp" | "x" | "instagram" | "copy") => {
+      if (!analysis || !selectedInstrument) return;
+
+      const text = `📊 *AiRA Market Analysis: ${selectedInstrument.tradingsymbol}*
+      
+  Trend: ${analysis.trend.toUpperCase()} (${analysis.strength}% Strength)
+  Signal: ${analysis.signal.toUpperCase()}
+  Confidence: ${analysis.confidence}%
+  
+  🎯 Target: ₹${formatPrice(analysis.target)}
+  🛑 Stop Loss: ₹${formatPrice(analysis.stopLoss)}
+  
+  🤖 Analyzed by AiRA RL Engine.
+  Check it out at: ${window.location.origin}/analysis`;
+
+      const encodedText = encodeURIComponent(text);
+      const url = encodeURIComponent(window.location.origin + "/analysis");
+
+      switch (platform) {
+        case "whatsapp":
+          window.open(`https://wa.me/?text=${encodedText}`, "_blank");
+          break;
+        case "x":
+          window.open(`https://twitter.com/intent/tweet?text=${encodedText}`, "_blank");
+          break;
+        case "instagram":
+          // Instagram doesn't support direct text sharing via URL like others
+          // Usually copy to clipboard is the fallback
+          navigator.clipboard.writeText(text);
+          toast.success("Analysis copied to clipboard for Instagram!");
+          break;
+        case "copy":
+          navigator.clipboard.writeText(text);
+          toast.success("Analysis copied to clipboard!");
+          break;
+      }
+    };
+
+    const toggleIndicator = (id: string) => {
+
     setIndicators(prev => prev.map(ind => 
       ind.id === id ? { ...ind, visible: !ind.visible } : ind
     ));

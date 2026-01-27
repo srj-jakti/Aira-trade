@@ -89,10 +89,17 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
   const volumeSeriesRef = useRef<any>(null);
   const indicatorSeriesRef = useRef<Map<string, any>>(new Map());
   const [ohlcData, setOhlcData] = useState<{ o: number; h: number; l: number; c: number; time: string } | null>(null);
-  const [chartReady, setChartReady] = useState(false);
-  const [countdown, setCountdown] = useState<string>("");
+    const [chartReady, setChartReady] = useState(false);
+    const [countdown, setCountdown] = useState<string>("");
+    const isFirstLoadRef = useRef(true);
 
-  // Memoize sorted data to prevent expensive recalculations
+    // Reset first load when symbol or timeframe changes
+    useEffect(() => {
+      isFirstLoadRef.current = true;
+    }, [symbol, timeframe]);
+
+    // Memoize sorted data to prevent expensive recalculations
+
   const sortedData = useMemo(() => deduplicateAndSortCandles(data), [data]);
 
   const formatPrice = useCallback((price: number) => {
@@ -185,18 +192,20 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
               style: 3,
             },
           },
-          rightPriceScale: {
-            borderColor: "rgba(255, 255, 255, 0.1)",
-            scaleMargins: { top: 0.1, bottom: 0.2 },
-            autoScale: true,
-            alignLabels: true,
-          },
-          timeScale: {
-            borderColor: "rgba(255, 255, 255, 0.1)",
-            timeVisible: true,
-            secondsVisible: false,
-            rightOffset: 12,
-            barSpacing: 6,
+            rightPriceScale: {
+              borderColor: "rgba(255, 255, 255, 0.1)",
+              scaleMargins: { top: 0.1, bottom: 0.2 },
+              autoScale: true,
+              alignLabels: true,
+            },
+            timeScale: {
+              borderColor: "rgba(255, 255, 255, 0.1)",
+              timeVisible: true,
+              secondsVisible: false,
+              rightOffset: 30,
+              barSpacing: 20,
+              minBarSpacing: 8,
+
             tickMarkFormatter: (time: number) => {
               const date = new Date(time * 1000);
               return date.toLocaleTimeString("en-IN", {
@@ -343,7 +352,10 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
         candleSeriesRef.current.setData(candleData);
         volumeSeriesRef.current.setData(volumeData);
 
-        chartInstanceRef.current.timeScale().fitContent();
+        if (isFirstLoadRef.current) {
+          chartInstanceRef.current.timeScale().fitContent();
+          isFirstLoadRef.current = false;
+        }
       } catch (error) {
         console.error("[TradingViewChart] Error setting data:", error);
       }

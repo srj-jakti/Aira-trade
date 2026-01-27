@@ -27,6 +27,7 @@ import {
   EyeOff,
   Pencil,
   Trash2,
+  Search,
 } from "lucide-react";
 import {
   AreaChart,
@@ -2249,6 +2250,7 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [selectedStrategy, setSelectedStrategy] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchStrategies();
@@ -2265,6 +2267,15 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
       setLoading(false);
     }
   };
+
+  const filteredStrategies = useMemo(() => {
+    if (!searchQuery.trim()) return strategies;
+    const query = searchQuery.toLowerCase();
+    return strategies.filter(s => 
+      s.name.toLowerCase().includes(query) || 
+      s.description?.toLowerCase().includes(query)
+    );
+  }, [strategies, searchQuery]);
 
   const toggleActive = async (id: number, active: boolean) => {
     const res = await fetch(`/api/strategies/${id}/activate`, {
@@ -2305,23 +2316,40 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
     <>
       <Card className="bg-muted/50 border-border">
         <CardHeader>
-          <CardTitle className="text-foreground text-lg">Private Strategies</CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Your personal strategies. Toggle to activate for AI analysis.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle className="text-foreground text-lg">Private Strategies</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Your personal strategies. Toggle to activate for AI analysis.
+              </CardDescription>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search strategies..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 bg-muted/50 border-border text-foreground h-9"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {strategies.length === 0 ? (
+          {filteredStrategies.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-border rounded-xl">
               <Lock className="w-12 h-12 text-foreground/10 mb-4" />
-              <p className="text-muted-foreground">No private strategies saved</p>
-              <p className="text-foreground/20 text-sm mt-1">
-                Create your first strategy in the Create tab
+              <p className="text-muted-foreground">
+                {searchQuery ? "No strategies match your search" : "No private strategies saved"}
               </p>
+              {!searchQuery && (
+                <p className="text-foreground/20 text-sm mt-1">
+                  Create your first strategy in the Create tab
+                </p>
+              )}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {strategies.map((strategy) => (
+              {filteredStrategies.map((strategy) => (
                 <div
                   key={strategy.id}
                   className="p-4 bg-muted/50 border border-border rounded-xl hover:border-cyan-500/30 transition-colors"
@@ -2454,6 +2482,7 @@ function PublicStrategiesTab() {
   const [selectedStrategy, setSelectedStrategy] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [activating, setActivating] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchPublicStrategies();
@@ -2470,6 +2499,16 @@ function PublicStrategiesTab() {
       setLoading(false);
     }
   };
+
+  const filteredStrategies = useMemo(() => {
+    if (!searchQuery.trim()) return strategies;
+    const query = searchQuery.toLowerCase();
+    return strategies.filter(s => 
+      s.name.toLowerCase().includes(query) || 
+      s.description?.toLowerCase().includes(query) ||
+      s.creator?.toLowerCase().includes(query)
+    );
+  }, [strategies, searchQuery]);
 
   const activateStrategy = async (strategyId: number, active: boolean) => {
     setActivating(strategyId);
@@ -2507,20 +2546,35 @@ function PublicStrategiesTab() {
     <>
       <Card className="bg-muted/50 border-border">
         <CardHeader>
-          <CardTitle className="text-foreground text-lg">Public Marketplace</CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Discover strategies shared by the community. View details, backtest, and activate.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle className="text-foreground text-lg">Public Marketplace</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Discover strategies shared by the community. View details, backtest, and activate.
+              </CardDescription>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or creator..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 bg-muted/50 border-border text-foreground h-9"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {strategies.length === 0 ? (
+          {filteredStrategies.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-border rounded-xl">
               <Globe className="w-12 h-12 text-foreground/10 mb-4" />
-              <p className="text-muted-foreground">No public strategies available yet</p>
+              <p className="text-muted-foreground">
+                {searchQuery ? "No strategies match your search" : "No public strategies available yet"}
+              </p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {strategies.map((strategy) => (
+              {filteredStrategies.map((strategy) => (
                 <div
                   key={strategy.id}
                   className="p-4 bg-muted/50 border border-border rounded-xl hover:border-green-500/30 transition-colors group"

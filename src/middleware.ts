@@ -75,7 +75,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const protectedRoutes = ["/dashboard", "/strategy", "/analysis", "/scanner", "/settings", "/admin"];
+  const protectedRoutes = ["/strategy", "/analysis", "/scanner", "/settings", "/admin"];
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
 
   if (user && isProtectedRoute) {

@@ -204,13 +204,20 @@ function PricingContent() {
       <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 via-transparent to-transparent" />
       
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-16 md:py-24">
-        <div className="text-center mb-12">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <Zap className="w-8 h-8 text-blue-400" />
-            <span className="text-2xl font-bold text-foreground">AiRA</span>
-          </Link>
+          <div className="flex items-center justify-between mb-12">
+            <Link href="/" className="inline-flex items-center gap-2">
+              <Zap className="w-8 h-8 text-blue-400" />
+              <span className="text-2xl font-bold text-foreground">AiRA</span>
+            </Link>
+            <Link href="/dashboard">
+              <Button variant="outline" className="border-border text-foreground hover:bg-muted">
+                Back to Dashboard
+              </Button>
+            </Link>
+          </div>
           
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
             Choose Your Plan
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">

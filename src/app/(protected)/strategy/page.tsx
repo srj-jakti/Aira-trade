@@ -280,8 +280,8 @@ export default function StrategyPage() {
             </TabsContent>
 
             <TabsContent value="public" className="space-y-6 mt-0">
-              <PublicStrategiesTab />
-            </TabsContent>
+                <PublicStrategiesTab onBacktest={handleEdit} />
+              </TabsContent>
 
             <TabsContent value="invite-only" className="space-y-6 mt-0">
               <InviteOnlyTab />
@@ -2476,13 +2476,14 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
   );
 }
 
-function PublicStrategiesTab() {
+function PublicStrategiesTab({ onBacktest }: { onBacktest?: (strategy: any) => void }) {
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStrategy, setSelectedStrategy] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [activating, setActivating] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [strategyDetails, setStrategyDetails] = useState<any>(null);
 
   useEffect(() => {
     fetchPublicStrategies();
@@ -2529,6 +2530,20 @@ function PublicStrategiesTab() {
       alert("Error activating strategy");
     } finally {
       setActivating(null);
+    }
+  };
+
+  const handleBacktest = async (strategy: any) => {
+    try {
+      const res = await fetch(`/api/strategies/${strategy.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (onBacktest) {
+          onBacktest(data.strategy);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching strategy details:", err);
     }
   };
 
@@ -2652,17 +2667,18 @@ function PublicStrategiesTab() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <StrategyDetailsDialog
-        strategy={selectedStrategy}
-        open={showDetails}
-        onOpenChange={setShowDetails}
-        onActivate={(active) => selectedStrategy && activateStrategy(selectedStrategy.id, active)}
-      />
-    </>
-  );
+        <StrategyDetailsDialog
+          strategy={selectedStrategy}
+          open={showDetails}
+          onOpenChange={setShowDetails}
+          onBacktest={() => selectedStrategy && handleBacktest(selectedStrategy)}
+          onActivate={(active) => selectedStrategy && activateStrategy(selectedStrategy.id, active)}
+        />
+      </>
+    );
 }
 
 function InviteOnlyTab() {

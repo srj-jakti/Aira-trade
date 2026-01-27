@@ -7,10 +7,10 @@
         },
         "build": {
           "builder": "DOCKERFILE",
-          "watchPatterns": ["railway/trading-engine/**"]
+          "watchPatterns": ["railway/trading-engine/**", "src/lib/zairoth/**"]
         },
         "deploy": {
-          "startCommand": "cd railway/trading-engine && npm install && npm run build && node dist/engine.js",
+          "startCommand": "cd railway/trading-engine && npm install && npm run build && node dist/railway/trading-engine/src/engine.js",
           "restartPolicyType": "ON_FAILURE",
           "restartPolicyMaxRetries": 10
         }
@@ -39,6 +39,20 @@
         },
         "deploy": {
           "startCommand": "cd railway/cron-maintenance && npm install && npm run build && node dist/worker.js",
+          "restartPolicyType": "ON_FAILURE",
+          "restartPolicyMaxRetries": 10
+        }
+      },
+      "rl-engine": {
+        "source": {
+          "repo": null
+        },
+        "build": {
+          "builder": "DOCKERFILE",
+          "watchPatterns": ["railway/rl-engine/**"]
+        },
+        "deploy": {
+          "startCommand": "cd railway/rl-engine && python main.py",
           "restartPolicyType": "ON_FAILURE",
           "restartPolicyMaxRetries": 10
         }

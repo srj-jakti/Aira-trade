@@ -6,6 +6,9 @@ const loaderPath = require.resolve('orchids-visual-edits/loader.js');
 
 const nextConfig: NextConfig = {
   experimental: {
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
   },
   output: "standalone",
   images: {

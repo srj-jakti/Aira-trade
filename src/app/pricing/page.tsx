@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { motion } from "framer-motion";
 import { Check, X, Zap, Shield, Crown, ArrowRight, Info, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -97,7 +97,7 @@ const plans = [
   ];
 
 
-export default function PricingPage() {
+function PricingContent() {
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -439,5 +439,17 @@ export default function PricingPage() {
         </footer>
       </div>
     </div>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <PricingContent />
+    </Suspense>
   );
 }

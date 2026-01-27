@@ -572,3 +572,54 @@ Processing HCLTECH (1850625)...
     Downloaded 16125 candles from 2025-06-01 to 2025-07-31
     Downloaded 14625 candles from 2025-04-02 to 2025-06-01
     Downloaded 15000 candles from 2025-02-01 to 2025-04-02
+    Downloaded 1875 candles from 2025-01-27 to 2025-02-01
+  Completed 1m: Total 92307 candles.
+  Timeframe: 5m (1 years)...
+    Downloaded 4887 candles from 2025-10-19 to 2026-01-27
+    Downloaded 5100 candles from 2025-07-11 to 2025-10-19
+    Downloaded 5100 candles from 2025-04-02 to 2025-07-11
+    Downloaded 3375 candles from 2025-01-27 to 2025-04-02
+  Completed 5m: Total 18462 candles.
+  Timeframe: 15m (1 years)...
+    Downloaded 3329 candles from 2025-07-11 to 2026-01-27
+    Downloaded 2825 candles from 2025-01-27 to 2025-07-11
+  Completed 15m: Total 6154 candles.
+  Timeframe: 1h (3 years)...
+    Downloaded 1891 candles from 2024-12-23 to 2026-01-27
+    Downloaded 1883 candles from 2023-11-19 to 2024-12-23
+    Downloaded 1394 candles from 2023-01-27 to 2023-11-19
+  Completed 1h: Total 5168 candles.
+  Timeframe: day (5 years)...
+    Downloaded 1240 candles from 2021-01-27 to 2026-01-27
+  Completed day: Total 1240 candles.
+  Timeframe: week (10 years)...
+    Downloaded 287 candles from 2020-08-06 to 2026-01-27
+    Downloaded 237 candles from 2016-01-27 to 2020-08-06
+  Completed week: Total 524 candles.
+
+Processing HDFCBANK (341249)...
+  Timeframe: 1m (1 years)...
+    Downloaded 14625 candles from 2025-11-28 to 2026-01-27
+    Downloaded 15060 candles from 2025-09-29 to 2025-11-28
+    Downloaded 15000 candles from 2025-07-31 to 2025-09-29
+    Downloaded 16125 candles from 2025-06-01 to 2025-07-31
+    Downloaded 14625 candles from 2025-04-02 to 2025-06-01
+    Downloaded 15000 candles from 2025-02-01 to 2025-04-02
+    Downloaded 1875 candles from 2025-01-27 to 2025-02-01
+  Completed 1m: Total 92310 candles.
+  Timeframe: 5m (1 years)...
+    Downloaded 4887 candles from 2025-10-19 to 2026-01-27
+    Downloaded 5100 candles from 2025-07-11 to 2025-10-19
+    Downloaded 5100 candles from 2025-04-02 to 2025-07-11
+    Downloaded 3375 candles from 2025-01-27 to 2025-04-02
+  Completed 5m: Total 18462 candles.
+  Timeframe: 15m (1 years)...
+    Downloaded 3329 candles from 2025-07-11 to 2026-01-27
+    Downloaded 2825 candles from 2025-01-27 to 2025-07-11
+  Completed 15m: Total 6154 candles.
+  Timeframe: 1h (3 years)...
+    Downloaded 1891 candles from 2024-12-23 to 2026-01-27
+    Downloaded 1883 candles from 2023-11-19 to 2024-12-23
+    Downloaded 1394 candles from 2023-01-27 to 2023-11-19
+  Completed 1h: Total 5168 candles.
+  Timeframe: day (5 years)...

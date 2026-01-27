@@ -8,3 +8,9 @@ pydantic
 supabase
 python-dotenv
 httpx
+pandas-ta
+xgboost
+darts
+scikit-learn
+backtrader
+matplotlib

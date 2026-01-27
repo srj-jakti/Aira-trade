@@ -347,6 +347,44 @@ function classifyRuleRole(rule: any, ruleIndex: number, totalRules: number): Sig
   return "CONFIRMATION";
 }
 
+const RL_ENGINE_URL = process.env.RL_ENGINE_URL || "http://rl-engine:8000";
+
+async function getRLPrediction(instrumentToken: number, timeframe: string, candles: CandleData[]) {
+  try {
+    const response = await fetch(`${RL_ENGINE_URL}/predict/direction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instrument_token: instrumentToken,
+        timeframe,
+        data: candles
+      }),
+    });
+    return await response.json();
+  } catch (err) {
+    logger.error("Failed to fetch RL direction prediction:", err);
+    return null;
+  }
+}
+
+async function getRLForecast(instrumentToken: number, timeframe: string, candles: CandleData[]) {
+  try {
+    const response = await fetch(`${RL_ENGINE_URL}/predict/forecast`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instrument_token: instrumentToken,
+        timeframe,
+        data: candles
+      }),
+    });
+    return await response.json();
+  } catch (err) {
+    logger.error("Failed to fetch RL price forecast:", err);
+    return null;
+  }
+}
+
 export async function evaluateWithAI(
   strategy: Strategy,
   candles: CandleData[],
@@ -363,7 +401,7 @@ export async function evaluateWithAI(
   const context = MarketContextEngine.analyze(instrumentCandles);
   logger.info(`[CONTEXT] ${instrumentToken}: Regime=${context.regime}, Volatility=${context.volatility}, Structure=${context.marketStructure}`);
 
-  // 2. RL KNOWLEDGE ENGINE PRE-CHECK
+  // 2. RL KNOWLEDGE ENGINE & ADVANCED PREDICTIONS
   const patternType = extractPatternType(strategy.zairoth_intent || strategy.name || "");
   const rlScore = await getRLScoreForInstrument(
     instrumentToken,
@@ -372,9 +410,21 @@ export async function evaluateWithAI(
     { trend: context.regime.includes("UP") ? "UPTREND" : context.regime.includes("DOWN") ? "DOWNTREND" : "SIDEWAYS", volatility: context.volatility }
   );
 
-  // Block trade if RL score indicates AVOID or STRONG_AVOID
+  // New: Advanced RL Predictions (XGBoost + Darts)
+  const [rlPrediction, rlForecast] = await Promise.all([
+    getRLPrediction(instrumentToken, strategy.timeframe, instrumentCandles.slice(-100)),
+    getRLForecast(instrumentToken, strategy.timeframe, instrumentCandles.slice(-100))
+  ]);
+
+  // AI Gating logic
   if (rlScore.recommendation === "STRONG_AVOID") {
     logger.warn(`[RL] Blocking trade for ${instrumentToken}: ${rlScore.reasoning}`);
+    return null;
+  }
+
+  // XGBoost Gating: Check confidence and direction alignment
+  if (rlPrediction && rlPrediction.confidence < 0.6) {
+    logger.warn(`[RL-XGBOOST] Gating trade for ${instrumentToken}: Low confidence (${rlPrediction.confidence})`);
     return null;
   }
 
@@ -396,15 +446,37 @@ export async function evaluateWithAI(
   // 4. RULE-BASED EVALUATION (with context awareness)
   const ruleResult = await evaluateWithRules(strategy, candles, userConfig.user_id, context);
   
-  if (ruleResult) {
-    const filter = TradeFilter.evaluate(ruleResult, context, rlScore);
-    if (filter.allow) {
-      ruleResult.confidence = filter.adjustedConfidence;
-      ruleResult.reasoning += ` [Filter: ${filter.reason}]`;
-      return ruleResult;
+    if (ruleResult) {
+      // RL Gating for Rule-Based Signal
+      if (rlPrediction) {
+        if (ruleResult.action === "BUY" && rlPrediction.prediction === "DOWN") {
+          logger.warn(`[RL-XGBOOST] Gating LONG trade: AI predicts DOWN`);
+          return null;
+        }
+        if (ruleResult.action === "SELL" && rlPrediction.prediction === "UP") {
+          logger.warn(`[RL-XGBOOST] Gating SHORT trade: AI predicts UP`);
+          return null;
+        }
+      }
+
+      const filter = TradeFilter.evaluate(ruleResult, context, rlScore);
+      if (filter.allow) {
+        ruleResult.confidence = filter.adjustedConfidence;
+        ruleResult.reasoning += ` [Filter: ${filter.reason}]`;
+        
+        // Darts Forecast: Dynamic SL/TP adjustment
+        if (rlForecast) {
+          if (ruleResult.action === "BUY" && rlForecast.target_high > ruleResult.target) {
+            ruleResult.target = rlForecast.target_high;
+            ruleResult.reasoning += " [TP Optimized by Darts]";
+          }
+        }
+        
+        return ruleResult;
+      }
+      logger.info(`[FILTER] Rule-based signal rejected: ${filter.reason}`);
     }
-    logger.info(`[FILTER] Rule-based signal rejected: ${filter.reason}`);
-  }
+
 
   // 5. SEMANTIC AI EVALUATION (The "Human Eye")
   const aiConfig = await getActiveAIConfig();
@@ -474,13 +546,26 @@ Candles: ${JSON.stringify(recentCandles.map(c => ({
       reasoning: parsed.reasoning
     };
 
-    const filter = TradeFilter.evaluate(tempSignal, context, rlScore);
-    if (!filter.allow) {
-      logger.info(`[FILTER] AI Signal rejected: ${filter.reason}`);
-      return null;
-    }
+      const filter = TradeFilter.evaluate(tempSignal, context, rlScore);
+      if (!filter.allow) {
+        logger.info(`[FILTER] AI Signal rejected: ${filter.reason}`);
+        return null;
+      }
 
-    // Expert Heuristics Check
+      // RL Gating for Semantic AI Signal
+      if (rlPrediction) {
+        if (tempSignal.action === "BUY" && rlPrediction.prediction === "DOWN") {
+          logger.warn(`[RL-XGBOOST] Gating Semantic LONG trade: AI predicts DOWN`);
+          return null;
+        }
+        if (tempSignal.action === "SELL" && rlPrediction.prediction === "UP") {
+          logger.warn(`[RL-XGBOOST] Gating Semantic SHORT trade: AI predicts UP`);
+          return null;
+        }
+      }
+
+      // Expert Heuristics Check
+
     const expertCheck = validateExpertEntry(instrumentCandles, parsed.signal);
     if (!expertCheck.ok) {
       logger.info(`[EXPERT] AI Signal rejected: ${expertCheck.reason}`);

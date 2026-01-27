@@ -810,7 +810,24 @@ function CreateStrategyTab({
   useEffect(() => {
     if (initialData) {
       setRawInput(initialData.raw_input || "");
-      setStrategy(initialData.strategy_logic || null);
+      
+      const strategyFromData = initialData.strategy_logic || (initialData.buy_entry_logic ? {
+        name: initialData.name || "Imported Strategy",
+        description: initialData.description || "",
+        strategy_type: initialData.strategy_type,
+        buy_entry_logic: initialData.buy_entry_logic || { conditions: [] },
+        buy_stop_loss: initialData.buy_stop_loss || { conditions: [] },
+        buy_target: initialData.buy_target || { conditions: [] },
+        buy_trailing_sl: initialData.buy_trailing_sl || { conditions: [] },
+        sell_entry_logic: initialData.sell_entry_logic || { conditions: [] },
+        sell_stop_loss: initialData.sell_stop_loss || { conditions: [] },
+        sell_target: initialData.sell_target || { conditions: [] },
+        sell_trailing_sl: initialData.sell_trailing_sl || { conditions: [] },
+        hold_logic: initialData.hold_logic || { conditions: [] },
+        executable_strategy: initialData.executable_strategy || null,
+      } : null);
+      
+      setStrategy(strategyFromData);
       setSelectedTimeframes(initialData.selected_timeframes || []);
       setIsPaperTrading(initialData.is_paper_trading || false);
       setVisibility(initialData.visibility || "private");

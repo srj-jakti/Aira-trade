@@ -33,20 +33,21 @@ export async function GET(
       return Response.json({ error: "Strategy not found" }, { status: 404 });
     }
 
-    if (strategy.visibility === "invite_only" && strategy.user_id !== user.userId) {
-      const safeStrategy = {
-        id: strategy.id,
-        name: strategy.name,
-        description: strategy.description,
-        visibility: strategy.visibility,
-        selected_timeframes: strategy.selected_timeframes,
-        is_active: strategy.is_active,
-        created_at: strategy.created_at,
-      };
-      return successResponse({ strategy: safeStrategy, hasFullAccess: false });
-    }
+      if (strategy.visibility === "invite_only" && strategy.user_id !== user.userId) {
+        const safeStrategy = {
+          id: strategy.id,
+          name: strategy.name,
+          description: strategy.description,
+          visibility: strategy.visibility,
+          selected_timeframes: strategy.selected_timeframes,
+          is_active: strategy.is_active,
+          created_at: strategy.created_at,
+        };
+        return successResponse({ strategy: safeStrategy, hasFullAccess: false });
+      }
 
-    return successResponse({ strategy, hasFullAccess: true });
+      const isOwner = strategy.user_id === user.userId;
+      return successResponse({ strategy, hasFullAccess: true, isOwner });
   } catch (error) {
     console.error("Error fetching strategy:", error);
     return serverErrorResponse();

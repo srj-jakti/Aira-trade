@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Check, X, Zap, Shield, Crown, ArrowRight, Info, Loader2 } from "lucide-react";
+import { Check, X, Zap, Shield, Crown, ArrowRight, Info, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 declare global {
   interface Window {
@@ -102,6 +102,8 @@ export default function PricingPage() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const reason = searchParams.get("reason");
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -214,6 +216,24 @@ export default function PricingPage() {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
             Access powerful AI-powered analysis and automation tools. All plans include full platform features based on your needs.
           </p>
+
+          {reason === "subscription_required" && (
+            <div className="max-w-xl mx-auto mb-8 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+              <p className="text-sm text-amber-600 dark:text-amber-300">
+                A subscription is required to access the platform. Please choose a plan to continue.
+              </p>
+            </div>
+          )}
+
+          {reason === "upgrade_required" && (
+            <div className="max-w-xl mx-auto mb-8 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-500 shrink-0" />
+              <p className="text-sm text-blue-600 dark:text-blue-300">
+                Your current plan doesn't include access to that feature. Upgrade to unlock it.
+              </p>
+            </div>
+          )}
 
           <div className="inline-flex items-center gap-2 p-1 bg-muted/50 border border-border rounded-full mb-8">
             <button

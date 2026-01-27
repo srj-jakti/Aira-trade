@@ -137,6 +137,19 @@ class KillSwitchManager {
     await this.setFlag("DISABLE_SCANNER", true, reason);
   }
 
+  async enableSafeMode(reason: string): Promise<void> {
+    await this.setFlag("DISABLE_TRADING", true, `SAFE_MODE: ${reason}`);
+    await this.setFlag("DISABLE_SCANNER", true, `SAFE_MODE: ${reason}`);
+    
+    await supabaseAdmin.from("system_flags").upsert({
+      flag_name: "SAFE_MODE",
+      flag_value: true,
+      updated_at: new Date().toISOString(),
+      updated_by: "system",
+      reason,
+    }, { onConflict: "flag_name" });
+  }
+
   getFlags(): SystemFlags {
     return { ...this.flags };
   }

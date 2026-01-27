@@ -22,7 +22,7 @@ interface AdminConfig {
 
 interface TickerConnection {
   configId: string;
-  ticker: KiteTicker;
+  ticker: any; // Using any for KiteTicker to avoid type mismatch
   isConnected: boolean;
   subscribedTokens: Set<number>;
   lastHeartbeat: number;

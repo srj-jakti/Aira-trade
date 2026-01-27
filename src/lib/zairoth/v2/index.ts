@@ -8,6 +8,8 @@ export * from './validator';
 export interface ZairothResultV2 {
   instructions: ZairothInstructionV2[];
   validation: ValidationResult;
+  canonical: string;
+  raw: string;
   version: '2.0';
 }
 
@@ -18,6 +20,8 @@ export function processZairothV2(input: string): ZairothResultV2 {
   return {
     instructions,
     validation,
+    canonical: input, // Simplified for now as V2 compiler might not be ready
+    raw: input,
     version: '2.0'
   };
 }

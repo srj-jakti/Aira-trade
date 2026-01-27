@@ -51,14 +51,24 @@ class AdminZerodhaPool {
   }
 
   async releaseConfig(configId: string): Promise<void> {
-    await supabaseAdmin.rpc("decrement_zerodha_load", { config_id: configId }).catch(() => {
-      supabaseAdmin
+    try {
+      const { error } = await supabaseAdmin.rpc("decrement_zerodha_load", { config_id: configId });
+      if (error) {
+        await supabaseAdmin
+          .from("admin_zerodha_configs")
+          .update({ 
+            current_load: Math.max(0, (this.configs.find(c => c.id === configId)?.current_load || 1) - 1)
+          })
+          .eq("id", configId);
+      }
+    } catch (e) {
+      await supabaseAdmin
         .from("admin_zerodha_configs")
         .update({ 
           current_load: Math.max(0, (this.configs.find(c => c.id === configId)?.current_load || 1) - 1)
         })
         .eq("id", configId);
-    });
+    }
     
     const config = this.configs.find(c => c.id === configId);
     if (config) {

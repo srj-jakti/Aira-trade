@@ -351,11 +351,11 @@ class MarketDataWorker {
 
   private createConnection(config: ApiKeyConfig, websocketId: string): Promise<boolean> {
     return new Promise((resolve) => {
-      try {
-        const ticker = new KiteTicker({
-          api_key: config.apiKey,
-          access_token: config.accessToken,
-        });
+        try {
+          const ticker: any = new KiteTicker({
+            api_key: config.apiKey,
+            access_token: config.accessToken,
+          });
 
         const connection: WebSocketConnection = {
           id: websocketId,

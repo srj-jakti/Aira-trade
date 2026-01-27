@@ -30,10 +30,8 @@ function extractCookies(response: Response, existingCookies: Map<string, string>
     });
   };
 
-  // @ts-expect-error - getSetCookie is available in modern Node.js
-  if (typeof response.headers.getSetCookie === 'function') {
-    // @ts-expect-error
-    const setCookies = response.headers.getSetCookie();
+    if (typeof (response.headers as any).getSetCookie === 'function') {
+      const setCookies = (response.headers as any).getSetCookie();
     setCookies.forEach((c: string) => {
       const cookiePart = c.split(';')[0];
       if (cookiePart) {

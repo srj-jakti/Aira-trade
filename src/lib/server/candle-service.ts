@@ -329,11 +329,11 @@ async function getBacktestModeCandles(
         if (config && isExpired && config.auto_login_enabled) {
           console.log(`[CandleService] Zerodha token expired for ${config.name}. Attempting silent login...`);
           
-          const apiKey = decrypt(config.api_key) || "";
-          const apiSecret = decrypt(config.api_secret) || "";
-          const userId = decrypt(config.user_id) || "";
-          const password = decrypt(config.password) || "";
-          const totpSecret = decrypt(config.totp_secret) || "";
+          const apiKey = decrypt(config.api_key || "") || "";
+          const apiSecret = decrypt(config.api_secret || "") || "";
+          const userId = decrypt(config.user_id || "") || "";
+          const password = decrypt(config.password || "") || "";
+          const totpSecret = decrypt(config.totp_secret || "") || "";
 
           const loginResult = await performZerodhaFullLogin({
             api_key: apiKey,

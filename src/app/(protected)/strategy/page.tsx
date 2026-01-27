@@ -196,8 +196,8 @@ export default function StrategyPage() {
   const [activeTab, setActiveTab] = useState("create");
   const [editingStrategy, setEditingStrategy] = useState<any>(null);
 
-  const handleEdit = (strategy: any) => {
-    setEditingStrategy(strategy);
+  const handleEdit = (strategy: any, goToBacktest?: boolean) => {
+    setEditingStrategy({ ...strategy, _goToBacktest: goToBacktest });
     setActiveTab("create");
   };
 
@@ -819,7 +819,7 @@ function CreateStrategyTab({
         fetchInstrumentsForTokens(initialData.selected_instruments);
       }
       
-      setStep("review");
+      setStep(initialData._goToBacktest ? "backtest" : "review");
     } else {
       resetForm();
     }
@@ -2476,7 +2476,7 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
   );
 }
 
-function PublicStrategiesTab({ onBacktest }: { onBacktest?: (strategy: any) => void }) {
+function PublicStrategiesTab({ onBacktest }: { onBacktest?: (strategy: any, goToBacktest?: boolean) => void }) {
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStrategy, setSelectedStrategy] = useState<any>(null);
@@ -2539,7 +2539,7 @@ function PublicStrategiesTab({ onBacktest }: { onBacktest?: (strategy: any) => v
       if (res.ok) {
         const data = await res.json();
         if (onBacktest) {
-          onBacktest(data.strategy);
+          onBacktest(data.strategy, true);
         }
       }
     } catch (err) {

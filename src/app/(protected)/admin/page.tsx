@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BrainStatusDashboard } from "@/components/BrainStatusDashboard";
+import { formatStrategyRule } from "@/lib/zairoth/v2/strategy-utils";
 import { 
   Database, 
   Key, 

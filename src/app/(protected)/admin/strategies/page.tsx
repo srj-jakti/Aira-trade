@@ -29,12 +29,33 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Eye, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Eye, CheckCircle, XCircle, Clock, Loader2 } from "lucide-react";
+
+function formatCondition(condition: any): string {
+  if (typeof condition === 'string') return condition;
+  if (typeof condition === 'object' && condition !== null) {
+    const { indicator, operator, value } = condition;
+    const opMap: Record<string, string> = {
+      'gt': '>',
+      'lt': '<',
+      'gte': '>=',
+      'lte': '<=',
+      'eq': '=',
+      'cross_above': 'crosses above',
+      'cross_below': 'crosses below',
+    };
+    const opStr = opMap[operator] || operator || '';
+    return `${indicator || ''} ${opStr} ${value || ''}`.trim();
+  }
+  return String(condition);
+}
 
 export default function AdminStrategiesPage() {
   const [strategies, setStrategies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStrategy, setSelectedStrategy] = useState<any>(null);
+  const [strategyDetails, setStrategyDetails] = useState<any>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
 
@@ -74,35 +95,54 @@ export default function AdminStrategiesPage() {
       }
     };
 
-    const handleReject = async () => {
-      if (!rejectionReason) {
-        toast.error("Please provide a reason for rejection");
-        return;
-      }
-
-      try {
-        const res = await fetch("/api/admin/strategies/approve", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            strategyId: selectedStrategy.id, 
-            approved: false, 
-            reason: rejectionReason 
-          }),
-        });
-        
-        if (res.ok) {
-          toast.success("Strategy rejected");
-          setIsRejecting(false);
-          setRejectionReason("");
-          fetchStrategies();
-        } else {
-          throw new Error();
+      const handleReject = async () => {
+        if (!rejectionReason) {
+          toast.error("Please provide a reason for rejection");
+          return;
         }
-      } catch {
-        toast.error("Failed to reject strategy");
-      }
-    };
+
+        try {
+          const res = await fetch("/api/admin/strategies/approve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              strategyId: selectedStrategy.id, 
+              approved: false, 
+              reason: rejectionReason 
+            }),
+          });
+          
+          if (res.ok) {
+            toast.success("Strategy rejected");
+            setIsRejecting(false);
+            setRejectionReason("");
+            fetchStrategies();
+          } else {
+            throw new Error();
+          }
+        } catch {
+          toast.error("Failed to reject strategy");
+        }
+      };
+
+      const fetchStrategyDetails = async (strategyId: number) => {
+        setDetailsLoading(true);
+        setStrategyDetails(null);
+        try {
+          const res = await fetch(`/api/admin/strategies/${strategyId}/details`);
+          const data = await res.json();
+          setStrategyDetails(data.strategy || null);
+        } catch {
+          toast.error("Failed to fetch strategy details");
+        } finally {
+          setDetailsLoading(false);
+        }
+      };
+
+      const handleViewStrategy = (strategy: any) => {
+        setSelectedStrategy(strategy);
+        fetchStrategyDetails(strategy.id);
+      };
 
   return (
     <div className="p-6 space-y-6">
@@ -154,62 +194,83 @@ export default function AdminStrategiesPage() {
                       )}
                     </TableCell>
                     <TableCell>{new Date(strategy.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="ghost" size="icon" onClick={() => setSelectedStrategy(strategy)}>
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>{strategy.name}</DialogTitle>
-                            <DialogDescription>{strategy.description}</DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="p-3 border rounded bg-muted/30">
-                                <h4 className="font-semibold mb-2">Buy Entry Logic</h4>
-                                <ul className="text-xs list-disc pl-4">
-                                  {strategy.buy_entry_logic?.conditions?.map((c: string, i: number) => (
-                                    <li key={i}>{c}</li>
-                                  ))}
-                                </ul>
+                      <TableCell className="text-right space-x-2">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handleViewStrategy(strategy)}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle>{strategy.name}</DialogTitle>
+                              <DialogDescription>{strategy.description}</DialogDescription>
+                            </DialogHeader>
+                            {detailsLoading ? (
+                              <div className="flex justify-center items-center py-8">
+                                <Loader2 className="w-6 h-6 animate-spin" />
                               </div>
-                              <div className="p-3 border rounded bg-muted/30">
-                                <h4 className="font-semibold mb-2">Sell Entry Logic</h4>
-                                <ul className="text-xs list-disc pl-4">
-                                  {strategy.sell_entry_logic?.conditions?.map((c: string, i: number) => (
-                                    <li key={i}>{c}</li>
-                                  ))}
-                                </ul>
+                            ) : strategyDetails ? (
+                              <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="p-3 border rounded bg-muted/30">
+                                    <h4 className="font-semibold mb-2">Buy Entry Logic</h4>
+                                    <ul className="text-xs list-disc pl-4">
+                                      {strategyDetails.buy_entry_logic?.conditions?.map((c: any, i: number) => (
+                                        <li key={i}>{formatCondition(c)}</li>
+                                      )) || <li className="text-muted-foreground">No conditions defined</li>}
+                                    </ul>
+                                  </div>
+                                  <div className="p-3 border rounded bg-muted/30">
+                                    <h4 className="font-semibold mb-2">Sell Entry Logic</h4>
+                                    <ul className="text-xs list-disc pl-4">
+                                      {strategyDetails.sell_entry_logic?.conditions?.map((c: any, i: number) => (
+                                        <li key={i}>{formatCondition(c)}</li>
+                                      )) || <li className="text-muted-foreground">No conditions defined</li>}
+                                    </ul>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="p-3 border rounded bg-muted/30">
+                                    <h4 className="font-semibold mb-2">Risk Management (Buy)</h4>
+                                    <p className="text-xs">Stop Loss: {strategyDetails.buy_stop_loss?.value ?? strategyDetails.buy_stop_loss?.parameters?.percentage ?? 'N/A'}%</p>
+                                    <p className="text-xs">Target: {strategyDetails.buy_target?.value ?? strategyDetails.buy_target?.parameters?.percentage ?? 'N/A'}%</p>
+                                    {strategyDetails.buy_trailing_sl && (
+                                      <p className="text-xs">Trailing SL: Activate at {strategyDetails.buy_trailing_sl.activation}%, Distance {strategyDetails.buy_trailing_sl.distance}%</p>
+                                    )}
+                                  </div>
+                                  <div className="p-3 border rounded bg-muted/30">
+                                    <h4 className="font-semibold mb-2">Strategy Info</h4>
+                                    <p className="text-xs">Type: {strategyDetails.type || 'N/A'}</p>
+                                    <p className="text-xs">Timeframes: {strategyDetails.selected_timeframes?.join(', ') || 'N/A'}</p>
+                                    <p className="text-xs">Version: {strategyDetails.version || 1}</p>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="p-3 border rounded bg-muted/30">
-                              <h4 className="font-semibold mb-2">Risk Management</h4>
-                              <p className="text-xs">Stop Loss: {strategy.buy_stop_loss?.parameters?.percentage}%</p>
-                              <p className="text-xs">Target: {strategy.buy_target?.parameters?.percentage}%</p>
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            {strategy.admin_approved === null && (
-                              <>
-                                <Button 
-                                  variant="destructive" 
-                                  onClick={() => {
-                                    setSelectedStrategy(strategy);
-                                    setIsRejecting(true);
-                                  }}
-                                >
-                                  Reject
-                                </Button>
-                                <Button onClick={() => handleApprove(strategy.id)}>Approve</Button>
-                              </>
+                            ) : (
+                              <div className="text-center py-8 text-muted-foreground">
+                                No details available
+                              </div>
                             )}
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </TableCell>
+                            <DialogFooter>
+                              {strategy.admin_approved === null && (
+                                <>
+                                  <Button 
+                                    variant="destructive" 
+                                    onClick={() => {
+                                      setSelectedStrategy(strategy);
+                                      setIsRejecting(true);
+                                    }}
+                                  >
+                                    Reject
+                                  </Button>
+                                  <Button onClick={() => handleApprove(strategy.id)}>Approve</Button>
+                                </>
+                              )}
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

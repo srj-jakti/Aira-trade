@@ -98,6 +98,7 @@ interface StructuredStrategy {
   sell_target: StrategyLogic;
   sell_trailing_sl: StrategyLogic;
   hold_logic: StrategyLogic;
+  executable_strategy?: any;
 }
 
 interface BacktestResult {

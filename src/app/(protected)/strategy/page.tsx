@@ -2005,10 +2005,250 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
   );
 }
 
+function StrategyDetailsDialog({ 
+  strategy, 
+  open, 
+  onOpenChange,
+  onBacktest,
+  onActivate,
+  isOwner = false
+}: { 
+  strategy: any; 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  onBacktest?: () => void;
+  onActivate?: (active: boolean) => void;
+  isOwner?: boolean;
+}) {
+  const [details, setDetails] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open && strategy?.id) {
+      fetchDetails();
+    }
+  }, [open, strategy?.id]);
+
+  const fetchDetails = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/strategies/${strategy.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDetails(data.strategy);
+      }
+    } catch (err) {
+      console.error("Error fetching strategy details:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCondition = (condition: any): string => {
+    if (typeof condition === 'string') return condition;
+    if (typeof condition === 'object' && condition !== null) {
+      const { indicator, operator, value } = condition;
+      const opMap: Record<string, string> = {
+        'gt': '>', 'lt': '<', 'gte': '>=', 'lte': '<=', 'eq': '=',
+        'cross_above': 'crosses above', 'cross_below': 'crosses below',
+      };
+      const opStr = opMap[operator] || operator || '';
+      return `${indicator || ''} ${opStr} ${value || ''}`.trim();
+    }
+    return String(condition);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-[#1a1a1a] border-border text-foreground max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {strategy?.name}
+            {strategy?.is_active && (
+              <Badge className="bg-green-500/20 text-green-400 border-none">Active</Badge>
+            )}
+          </DialogTitle>
+          <DialogDescription className="text-foreground/50">
+            {strategy?.description}
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+          </div>
+        ) : details ? (
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 bg-muted/50 border border-border rounded-lg text-center">
+                <p className="text-muted-foreground text-xs mb-1">Win Rate</p>
+                <p className="text-green-400 text-lg font-bold">
+                  {strategy?.stats?.win_rate?.toFixed(0) || "N/A"}%
+                </p>
+              </div>
+              <div className="p-3 bg-muted/50 border border-border rounded-lg text-center">
+                <p className="text-muted-foreground text-xs mb-1">Net P&L</p>
+                <p className={`text-lg font-bold ${(strategy?.stats?.net_pnl_percentage || 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  {strategy?.stats?.net_pnl_percentage?.toFixed(1) || "N/A"}%
+                </p>
+              </div>
+              <div className="p-3 bg-muted/50 border border-border rounded-lg text-center">
+                <p className="text-muted-foreground text-xs mb-1">Total Trades</p>
+                <p className="text-foreground text-lg font-bold">
+                  {strategy?.stats?.total_trades || "N/A"}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="w-4 h-4 text-green-400" />
+                  <span className="text-green-400 font-medium text-sm">BUY Logic</span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <p className="text-foreground/40 uppercase mb-1">Entry Conditions</p>
+                    <ul className="text-foreground/70 space-y-0.5">
+                      {details.buy_entry_logic?.conditions?.map((c: any, i: number) => (
+                        <li key={i}>• {formatCondition(c)}</li>
+                      )) || <li className="text-foreground/30">Not defined</li>}
+                    </ul>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                      <p className="text-foreground/40 uppercase">Stop Loss</p>
+                      <p className="text-red-400">
+                        {details.buy_stop_loss?.parameters?.percentage 
+                          ? `${details.buy_stop_loss.parameters.percentage}%`
+                          : details.buy_stop_loss?.description || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-foreground/40 uppercase">Target</p>
+                      <p className="text-green-400">
+                        {details.buy_target?.parameters?.percentage 
+                          ? `${details.buy_target.parameters.percentage}%`
+                          : details.buy_target?.description || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingDown className="w-4 h-4 text-red-400" />
+                  <span className="text-red-400 font-medium text-sm">SELL Logic</span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <p className="text-foreground/40 uppercase mb-1">Entry Conditions</p>
+                    <ul className="text-foreground/70 space-y-0.5">
+                      {details.sell_entry_logic?.conditions?.map((c: any, i: number) => (
+                        <li key={i}>• {formatCondition(c)}</li>
+                      )) || <li className="text-foreground/30">Not defined</li>}
+                    </ul>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                      <p className="text-foreground/40 uppercase">Stop Loss</p>
+                      <p className="text-red-400">
+                        {details.sell_stop_loss?.parameters?.percentage 
+                          ? `${details.sell_stop_loss.parameters.percentage}%`
+                          : details.sell_stop_loss?.description || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-foreground/40 uppercase">Target</p>
+                      <p className="text-green-400">
+                        {details.sell_target?.parameters?.percentage 
+                          ? `${details.sell_target.parameters.percentage}%`
+                          : details.sell_target?.description || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-muted/50 border border-border rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-foreground/40 text-xs uppercase">Timeframes</p>
+                  <div className="flex gap-2 mt-1">
+                    {details.selected_timeframes?.map((tf: string) => (
+                      <Badge key={tf} variant="outline" className="border-cyan-500/30 text-cyan-400 text-xs">
+                        {TIMEFRAMES.find(t => t.value === tf)?.label || tf}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-foreground/40 text-xs uppercase">Created</p>
+                  <p className="text-foreground/60 text-sm">
+                    {new Date(details.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="py-8 text-center text-muted-foreground">
+            No details available
+          </div>
+        )}
+
+        <DialogFooter className="flex gap-2">
+          {onBacktest && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                onOpenChange(false);
+                onBacktest();
+              }}
+              className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Backtest
+            </Button>
+          )}
+          {onActivate && (
+            <Button
+              onClick={() => {
+                onActivate(!strategy?.is_active);
+                onOpenChange(false);
+              }}
+              className={strategy?.is_active 
+                ? "bg-red-500 hover:bg-red-600" 
+                : "bg-green-500 hover:bg-green-600"
+              }
+            >
+              {strategy?.is_active ? (
+                <>
+                  <X className="w-4 h-4 mr-2" />
+                  Deactivate
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 mr-2" />
+                  Activate
+                </>
+              )}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) {
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [selectedStrategy, setSelectedStrategy] = useState<any>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     fetchStrategies();
@@ -2076,78 +2316,99 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
               <Lock className="w-12 h-12 text-foreground/10 mb-4" />
               <p className="text-muted-foreground">No private strategies saved</p>
               <p className="text-foreground/20 text-sm mt-1">
-                Create your first strategy in the Create AI tab
+                Create your first strategy in the Create tab
               </p>
             </div>
           ) : (
-            <div className="grid gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               {strategies.map((strategy) => (
                 <div
                   key={strategy.id}
-                  className="p-4 bg-muted/50 border border-border rounded-xl"
+                  className="p-4 bg-muted/50 border border-border rounded-xl hover:border-cyan-500/30 transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-foreground font-medium">{strategy.name}</h3>
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${
-                            strategy.visibility === "private"
-                              ? "border-white/20 text-muted-foreground"
-                              : strategy.visibility === "public"
-                              ? "border-green-500/30 text-green-400"
-                              : "border-purple-500/30 text-purple-400"
-                          }`}
-                        >
-                          {strategy.visibility === "invite_only" ? "Invite Only" : strategy.visibility}
-                        </Badge>
-                        {strategy.visibility !== "private" && !strategy.admin_approved && (
-                          <Badge variant="outline" className="text-xs border-yellow-500/30 text-yellow-400">
-                            Pending Approval
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-muted-foreground text-sm mt-1">{strategy.description}</p>
-                      <div className="flex gap-2 mt-2">
-                        {strategy.selected_timeframes?.map((tf) => (
-                          <Badge
-                            key={tf}
-                            variant="outline"
-                            className="text-xs border-border text-foreground/50"
-                          >
-                            {TIMEFRAMES.find((t) => t.value === tf)?.label || tf}
-                          </Badge>
-                        ))}
-                      </div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-foreground font-medium">{strategy.name}</h3>
+                      {strategy.is_active && (
+                        <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                      )}
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 mr-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-white/10"
-                          onClick={() => onEdit?.(strategy)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-red-400 hover:bg-red-400/10"
-                          onClick={() => setDeletingId(strategy.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Status</p>
-                        <Switch
-                          checked={strategy.is_active}
-                          onCheckedChange={(checked) => toggleActive(strategy.id, checked)}
-                        />
-                      </div>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${
+                        strategy.visibility === "private"
+                          ? "border-white/20 text-muted-foreground"
+                          : strategy.visibility === "public"
+                          ? "border-green-500/30 text-green-400"
+                          : "border-purple-500/30 text-purple-400"
+                      }`}
+                    >
+                      {strategy.visibility === "invite_only" ? "Invite Only" : strategy.visibility}
+                    </Badge>
+                  </div>
+                  
+                  <p className="text-muted-foreground text-sm mb-3 line-clamp-2">{strategy.description}</p>
+                  
+                  <div className="flex gap-2 mb-3">
+                    {strategy.selected_timeframes?.slice(0, 3).map((tf) => (
+                      <Badge
+                        key={tf}
+                        variant="outline"
+                        className="text-xs border-border text-foreground/50"
+                      >
+                        {TIMEFRAMES.find((t) => t.value === tf)?.label || tf}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  {strategy.stats && (
+                    <div className="flex gap-4 mb-3 text-xs">
+                      <span className="text-green-400">
+                        {strategy.stats.win_rate?.toFixed(0)}% Win
+                      </span>
+                      <span className={strategy.stats.net_pnl_percentage >= 0 ? "text-green-400" : "text-red-400"}>
+                        {strategy.stats.net_pnl_percentage >= 0 ? "+" : ""}
+                        {strategy.stats.net_pnl_percentage?.toFixed(1)}%
+                      </span>
                     </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-3 border-t border-border">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+                        onClick={() => {
+                          setSelectedStrategy(strategy);
+                          setShowDetails(true);
+                        }}
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        View
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-muted-foreground hover:text-foreground hover:bg-white/10"
+                        onClick={() => onEdit?.(strategy)}
+                      >
+                        <Pencil className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-muted-foreground hover:text-red-400 hover:bg-red-400/10"
+                        onClick={() => setDeletingId(strategy.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <Switch
+                      checked={strategy.is_active}
+                      onCheckedChange={(checked) => toggleActive(strategy.id, checked)}
+                    />
                   </div>
                 </div>
               ))}
@@ -2155,6 +2416,14 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
           )}
         </CardContent>
       </Card>
+
+      <StrategyDetailsDialog
+        strategy={selectedStrategy}
+        open={showDetails}
+        onOpenChange={setShowDetails}
+        onActivate={(active) => selectedStrategy && toggleActive(selectedStrategy.id, active)}
+        isOwner={true}
+      />
 
       <AlertDialog open={deletingId !== null} onOpenChange={(open) => !open && setDeletingId(null)}>
         <AlertDialogContent className="bg-[#1a1a1a] border-border text-foreground">
@@ -2182,6 +2451,9 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
 function PublicStrategiesTab() {
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedStrategy, setSelectedStrategy] = useState<any>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [activating, setActivating] = useState<number | null>(null);
 
   useEffect(() => {
     fetchPublicStrategies();
@@ -2199,6 +2471,28 @@ function PublicStrategiesTab() {
     }
   };
 
+  const activateStrategy = async (strategyId: number, active: boolean) => {
+    setActivating(strategyId);
+    try {
+      const res = await fetch(`/api/strategies/${strategyId}/activate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active }),
+      });
+      if (res.ok) {
+        fetchPublicStrategies();
+        alert(active ? "Strategy activated!" : "Strategy deactivated!");
+      } else {
+        const error = await res.json();
+        alert(error.error || "Failed to activate strategy");
+      }
+    } catch (err) {
+      alert("Error activating strategy");
+    } finally {
+      setActivating(null);
+    }
+  };
+
   if (loading) {
     return (
       <Card className="bg-muted/50 border-border">
@@ -2210,37 +2504,50 @@ function PublicStrategiesTab() {
   }
 
   return (
-    <Card className="bg-muted/50 border-border">
-      <CardHeader>
-        <CardTitle className="text-foreground text-lg">Public Marketplace</CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Discover strategies shared by the community.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {strategies.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-border rounded-xl">
-            <Globe className="w-12 h-12 text-foreground/10 mb-4" />
-            <p className="text-muted-foreground">No public strategies available yet</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {strategies.map((strategy) => (
-              <div
-                key={strategy.id}
-                className="p-4 bg-muted/50 border border-border rounded-xl"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-foreground font-medium">{strategy.name}</h3>
-                  <Badge variant="outline" className="border-green-500/30 text-green-400">
-                    Public
-                  </Badge>
-                </div>
-                <p className="text-muted-foreground text-sm mb-3">{strategy.description}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-foreground/30 text-xs">by {strategy.creator}</span>
+    <>
+      <Card className="bg-muted/50 border-border">
+        <CardHeader>
+          <CardTitle className="text-foreground text-lg">Public Marketplace</CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Discover strategies shared by the community. View details, backtest, and activate.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {strategies.length === 0 ? (
+            <div className="flex flex-col items-center justify-center min-h-[200px] border-2 border-dashed border-border rounded-xl">
+              <Globe className="w-12 h-12 text-foreground/10 mb-4" />
+              <p className="text-muted-foreground">No public strategies available yet</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {strategies.map((strategy) => (
+                <div
+                  key={strategy.id}
+                  className="p-4 bg-muted/50 border border-border rounded-xl hover:border-green-500/30 transition-colors group"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-foreground font-medium truncate pr-2">{strategy.name}</h3>
+                    <Badge variant="outline" className="border-green-500/30 text-green-400 shrink-0">
+                      Public
+                    </Badge>
+                  </div>
+                  
+                  <p className="text-muted-foreground text-sm mb-3 line-clamp-2">{strategy.description}</p>
+                  
+                  <div className="flex gap-2 mb-3">
+                    {strategy.selected_timeframes?.slice(0, 2).map((tf) => (
+                      <Badge
+                        key={tf}
+                        variant="outline"
+                        className="text-xs border-border text-foreground/50"
+                      >
+                        {TIMEFRAMES.find((t) => t.value === tf)?.label || tf}
+                      </Badge>
+                    ))}
+                  </div>
+
                   {strategy.stats && (
-                    <div className="flex gap-3 text-xs">
+                    <div className="flex gap-4 mb-3 text-xs">
                       <span className="text-green-400">
                         {strategy.stats.win_rate?.toFixed(0)}% Win
                       </span>
@@ -2248,15 +2555,59 @@ function PublicStrategiesTab() {
                         {strategy.stats.net_pnl_percentage >= 0 ? "+" : ""}
                         {strategy.stats.net_pnl_percentage?.toFixed(1)}%
                       </span>
+                      <span className="text-foreground/40">
+                        {strategy.stats.total_trades} trades
+                      </span>
                     </div>
                   )}
+
+                  <div className="flex items-center justify-between pt-3 border-t border-border">
+                    <span className="text-foreground/30 text-xs">by {strategy.creator}</span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+                        onClick={() => {
+                          setSelectedStrategy(strategy);
+                          setShowDetails(true);
+                        }}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        View
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-green-400 hover:text-green-300 hover:bg-green-500/10"
+                        onClick={() => activateStrategy(strategy.id, true)}
+                        disabled={activating === strategy.id}
+                      >
+                        {activating === strategy.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <>
+                            <Zap className="w-3 h-3 mr-1" />
+                            Activate
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <StrategyDetailsDialog
+        strategy={selectedStrategy}
+        open={showDetails}
+        onOpenChange={setShowDetails}
+        onActivate={(active) => selectedStrategy && activateStrategy(selectedStrategy.id, active)}
+      />
+    </>
   );
 }
 
@@ -2269,6 +2620,8 @@ function InviteOnlyTab() {
   }>({ incomingRequests: [], myRequests: [], myGrants: [] });
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<"browse" | "requests" | "manage">("browse");
+  const [selectedStrategy, setSelectedStrategy] = useState<any>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -2321,6 +2674,25 @@ function InviteOnlyTab() {
     }
   };
 
+  const activateStrategy = async (strategyId: number, active: boolean) => {
+    try {
+      const res = await fetch(`/api/strategies/${strategyId}/activate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active }),
+      });
+      if (res.ok) {
+        fetchData();
+        alert(active ? "Strategy activated!" : "Strategy deactivated!");
+      } else {
+        const error = await res.json();
+        alert(error.error || "Failed to activate strategy");
+      }
+    } catch (err) {
+      alert("Error activating strategy");
+    }
+  };
+
   if (loading) {
     return (
       <Card className="bg-muted/50 border-border">
@@ -2332,43 +2704,44 @@ function InviteOnlyTab() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex gap-2">
-        <Button
-          variant={activeSubTab === "browse" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setActiveSubTab("browse")}
-          className={activeSubTab === "browse" ? "bg-cyan-500" : "border-border text-foreground/60"}
-        >
-          Browse
-        </Button>
-        <Button
-          variant={activeSubTab === "requests" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setActiveSubTab("requests")}
-          className={activeSubTab === "requests" ? "bg-cyan-500" : "border-border text-foreground/60"}
-        >
-          My Requests
-        </Button>
-        <Button
-          variant={activeSubTab === "manage" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setActiveSubTab("manage")}
-          className={activeSubTab === "manage" ? "bg-cyan-500" : "border-border text-foreground/60"}
-        >
-          Manage Invites
-          {accessData.incomingRequests.length > 0 && (
-            <Badge className="ml-2 bg-red-500">{accessData.incomingRequests.length}</Badge>
-          )}
-        </Button>
-      </div>
+    <>
+      <div className="space-y-6">
+        <div className="flex gap-2">
+          <Button
+            variant={activeSubTab === "browse" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveSubTab("browse")}
+            className={activeSubTab === "browse" ? "bg-cyan-500" : "border-border text-foreground/60"}
+          >
+            Browse
+          </Button>
+          <Button
+            variant={activeSubTab === "requests" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveSubTab("requests")}
+            className={activeSubTab === "requests" ? "bg-cyan-500" : "border-border text-foreground/60"}
+          >
+            My Requests
+          </Button>
+          <Button
+            variant={activeSubTab === "manage" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveSubTab("manage")}
+            className={activeSubTab === "manage" ? "bg-cyan-500" : "border-border text-foreground/60"}
+          >
+            Manage Invites
+            {accessData.incomingRequests.length > 0 && (
+              <Badge className="ml-2 bg-red-500">{accessData.incomingRequests.length}</Badge>
+            )}
+          </Button>
+        </div>
 
       {activeSubTab === "browse" && (
         <Card className="bg-muted/50 border-border">
           <CardHeader>
             <CardTitle className="text-foreground text-lg">Invite-Only Strategies</CardTitle>
             <CardDescription className="text-muted-foreground">
-              Request access to exclusive strategies.
+              Request access to exclusive strategies. View details and activate once approved.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -2378,32 +2751,59 @@ function InviteOnlyTab() {
                 <p className="text-muted-foreground">No invite-only strategies available</p>
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {strategies.map((strategy) => (
                   <div
                     key={strategy.id}
-                    className="p-4 bg-muted/50 border border-border rounded-xl"
+                    className="p-4 bg-muted/50 border border-border rounded-xl hover:border-purple-500/30 transition-colors"
                   >
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Lock className="w-4 h-4 text-purple-400" />
-                        <h3 className="text-foreground font-medium">{strategy.name}</h3>
+                        <h3 className="text-foreground font-medium truncate">{strategy.name}</h3>
                       </div>
-                      <Badge variant="outline" className="border-purple-500/30 text-purple-400">
+                      <Badge variant="outline" className="border-purple-500/30 text-purple-400 shrink-0">
                         Invite Only
                       </Badge>
                     </div>
-                    <p className="text-muted-foreground text-sm mb-3">{strategy.description}</p>
-                    <div className="flex items-center justify-between">
+                    <p className="text-muted-foreground text-sm mb-3 line-clamp-2">{strategy.description}</p>
+                    
+                    {strategy.stats && (
+                      <div className="flex gap-4 mb-3 text-xs">
+                        <span className="text-green-400">
+                          {strategy.stats.win_rate?.toFixed(0)}% Win
+                        </span>
+                        <span className={strategy.stats.net_pnl_percentage >= 0 ? "text-green-400" : "text-red-400"}>
+                          {strategy.stats.net_pnl_percentage >= 0 ? "+" : ""}
+                          {strategy.stats.net_pnl_percentage?.toFixed(1)}%
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-3 border-t border-border">
                       <span className="text-foreground/30 text-xs">by {strategy.creator}</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => requestAccess(strategy.id)}
-                        className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-                      >
-                        Request Access
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+                          onClick={() => {
+                            setSelectedStrategy(strategy);
+                            setShowDetails(true);
+                          }}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => requestAccess(strategy.id)}
+                          className="h-7 text-xs border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                        >
+                          Request Access
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -2424,23 +2824,49 @@ function InviteOnlyTab() {
             ) : (
               <div className="space-y-3">
                 {accessData.myRequests.map((req: any) => (
-                  <div key={req.id} className="p-3 bg-muted/50 border border-border rounded-lg flex items-center justify-between">
-                    <div>
-                      <p className="text-foreground">{req.strategies?.name}</p>
-                      <p className="text-muted-foreground text-sm">Status: {req.status}</p>
+                  <div key={req.id} className="p-4 bg-muted/50 border border-border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-foreground font-medium">{req.strategies?.name}</p>
+                        <p className="text-muted-foreground text-sm">Status: {req.status}</p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={
+                          req.status === "approved"
+                            ? "border-green-500/30 text-green-400"
+                            : req.status === "rejected"
+                            ? "border-red-500/30 text-red-400"
+                            : "border-yellow-500/30 text-yellow-400"
+                        }
+                      >
+                        {req.status}
+                      </Badge>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className={
-                        req.status === "approved"
-                          ? "border-green-500/30 text-green-400"
-                          : req.status === "rejected"
-                          ? "border-red-500/30 text-red-400"
-                          : "border-yellow-500/30 text-yellow-400"
-                      }
-                    >
-                      {req.status}
-                    </Badge>
+                    {req.status === "approved" && (
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-border">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedStrategy(req.strategies);
+                            setShowDetails(true);
+                          }}
+                          className="text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10"
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          View Details
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => activateStrategy(req.strategies?.id, true)}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          <Zap className="w-4 h-4 mr-1" />
+                          Activate
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -2499,11 +2925,19 @@ function InviteOnlyTab() {
                     )}
                   </div>
                 ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-    </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      <StrategyDetailsDialog
+        strategy={selectedStrategy}
+        open={showDetails}
+        onOpenChange={setShowDetails}
+        onActivate={(active) => selectedStrategy && activateStrategy(selectedStrategy.id, active)}
+      />
+    </>
   );
 }

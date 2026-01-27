@@ -98,7 +98,7 @@ const [zerodhaConfigs, aiConfigs, userCount, tradeCount, strategyCount, healthLo
     const aiErrors = aiData.filter(c => c.last_error).length;
     const failedLogins = (loginLogs.data || []).filter(l => l.status === "error").length;
 
-    const health: SystemHealthData & { engines: any[] } = {
+    const health: SystemHealthData & { engines: any[]; workers: any } = {
       zerodha: {
         total: zerodhaData.length,
         connected: zerodhaConnected,
@@ -140,13 +140,13 @@ const [zerodhaConfigs, aiConfigs, userCount, tradeCount, strategyCount, healthLo
         avgResponseTime: 0,
         errorRate: 0,
       },
-engines: (engineStatus.data || []).map(e => ({
-          type: e.engine_type,
-          last_instrument_sync_at: e.last_instrument_sync_at,
-          auto_sync_instruments: e.auto_sync_instruments,
-          status: e.status,
-          last_run_at: e.last_run_at
-        })),
+      engines: (engineStatus.data ? (Array.isArray(engineStatus.data) ? engineStatus.data : [engineStatus.data]) : []).map((e: any) => ({
+            type: e.engine_type,
+            last_instrument_sync_at: e.last_instrument_sync_at,
+            auto_sync_instruments: e.auto_sync_instruments,
+            status: e.status,
+            last_run_at: e.last_run_at || e.last_heartbeat
+          })),
         workers: {
           marketData: engineStatus.data ? {
             status: engineStatus.data.status || "unknown",

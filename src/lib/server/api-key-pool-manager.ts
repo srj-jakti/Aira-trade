@@ -145,6 +145,26 @@ class ApiKeyPoolManager {
     return pool.analysisKeys;
   }
 
+  async getKeyForAnalysis(): Promise<ApiKeyConfig | null> {
+    const keys = await this.getAnalysisKeys();
+    return keys[0] || null;
+  }
+
+  async getPoolStatus(): Promise<any> {
+    const pool = await this.getPoolAllocation();
+    return {
+      capacity: pool.totalCapacity,
+      used: pool.usedCapacity,
+      analysis: pool.analysisKeys.length,
+      general: pool.generalKeys.length,
+    };
+  }
+
+  async checkAndScalePool(): Promise<void> {
+    // Basic scaling logic
+    await this.getPoolAllocation(true);
+  }
+
   async getTradingKey(): Promise<ApiKeyConfig | null> {
     const pool = await this.getPoolAllocation();
     return pool.tradingKey || pool.analysisKeys[0] || null;

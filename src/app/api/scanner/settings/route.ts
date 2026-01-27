@@ -18,7 +18,7 @@ export async function GET() {
 
     if (error && error.code !== "PGRST116") throw error;
 
-    const settings = data || {};
+    const settings = (data || {}) as any;
     const scanner_config = settings.scanner_config || {};
 
     // Use general settings as defaults if scanner-specific settings are missing

@@ -116,11 +116,17 @@ export async function GET(request: NextRequest) {
         oi: c.oi,
       }));
 
-      supabaseAdmin
-        .from("historical_candles")
-        .upsert(rows, { onConflict: "instrument_token,timeframe,timestamp" })
-        .then(() => console.log(`[HistoricalAPI] Cached ${rows.length} candles`))
-        .catch(err => console.error("[HistoricalAPI] Cache error:", err));
+      (async () => {
+        try {
+          const { error } = await supabaseAdmin
+            .from("historical_candles")
+            .upsert(rows, { onConflict: "instrument_token,timeframe,timestamp" });
+          if (!error) console.log(`[HistoricalAPI] Cached ${rows.length} candles`);
+          else console.error("[HistoricalAPI] Cache error:", error);
+        } catch (e) {
+          console.error("[HistoricalAPI] Cache error:", e);
+        }
+      })();
     }
 
     return successResponse({

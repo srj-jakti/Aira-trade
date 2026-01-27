@@ -55,7 +55,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/cron/") ||
     pathname.startsWith("/api/admin/system-health/") ||
     pathname.startsWith("/api/subscription") ||
-    pathname === "/favicon.ico";
+    pathname === "/favicon.ico" ||
+    (pathname === "/" && request.nextUrl.searchParams.has("code"));
 
   if (user && (
     pathname === "/signin" ||

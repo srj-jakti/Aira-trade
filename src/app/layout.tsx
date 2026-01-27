@@ -54,6 +54,10 @@ export const metadata: Metadata = {
     creator: "@aira_trade",
   },
   manifest: "/manifest.json",
+  icons: [
+    { rel: "icon", url: "/favicon.ico" },
+    { rel: "apple-touch-icon", url: "/icon-192x192.png" }
+  ],
   robots: {
     index: true,
     follow: true,

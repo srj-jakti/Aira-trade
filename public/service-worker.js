@@ -84,7 +84,7 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  if (request.method !== "GET") {
+  if (request.method !== "GET" || url.pathname.startsWith("/auth/") || url.searchParams.has("code")) {
     return;
   }
 

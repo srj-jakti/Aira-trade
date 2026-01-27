@@ -230,22 +230,35 @@ export default function AdminStrategiesPage() {
                                     </ul>
                                   </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="p-3 border rounded bg-muted/30">
-                                    <h4 className="font-semibold mb-2">Risk Management (Buy)</h4>
-                                    <p className="text-xs">Stop Loss: {strategyDetails.buy_stop_loss?.value ?? strategyDetails.buy_stop_loss?.parameters?.percentage ?? 'N/A'}%</p>
-                                    <p className="text-xs">Target: {strategyDetails.buy_target?.value ?? strategyDetails.buy_target?.parameters?.percentage ?? 'N/A'}%</p>
-                                    {strategyDetails.buy_trailing_sl && (
-                                      <p className="text-xs">Trailing SL: Activate at {strategyDetails.buy_trailing_sl.activation}%, Distance {strategyDetails.buy_trailing_sl.distance}%</p>
-                                    )}
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-3 border rounded bg-muted/30">
+                                      <h4 className="font-semibold mb-2">Risk Management (Buy)</h4>
+                                      <p className="text-xs">Stop Loss: {strategyDetails.buy_stop_loss?.value 
+                                        ? `${strategyDetails.buy_stop_loss.value}${strategyDetails.buy_stop_loss.type?.includes('percentage') ? '%' : ''}`
+                                        : strategyDetails.buy_stop_loss?.parameters?.percentage 
+                                          ? `${strategyDetails.buy_stop_loss.parameters.percentage}%`
+                                          : 'N/A'}</p>
+                                      <p className="text-xs">Target: {strategyDetails.buy_target?.value 
+                                        ? `${strategyDetails.buy_target.value}${strategyDetails.buy_target.type?.includes('percentage') ? '%' : ''}`
+                                        : strategyDetails.buy_target?.parameters?.percentage 
+                                          ? `${strategyDetails.buy_target.parameters.percentage}%`
+                                          : 'N/A'}</p>
+                                      {strategyDetails.buy_trailing_sl && (
+                                        <p className="text-xs">
+                                          Trailing SL: {strategyDetails.buy_trailing_sl.type === 'activation_distance' 
+                                            ? `Activate at ${strategyDetails.buy_trailing_sl.activation}%, Distance ${strategyDetails.buy_trailing_sl.distance}%`
+                                            : strategyDetails.buy_trailing_sl.value || strategyDetails.buy_trailing_sl.type}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="p-3 border rounded bg-muted/30">
+                                      <h4 className="font-semibold mb-2">Strategy Info</h4>
+                                      <p className="text-xs">Type: {strategyDetails.type || 'N/A'}</p>
+                                      <p className="text-xs">Timeframes: {Array.isArray(strategyDetails.selected_timeframes) ? strategyDetails.selected_timeframes.join(', ') : 'N/A'}</p>
+                                      <p className="text-xs">Version: {strategyDetails.version || 1}</p>
+                                    </div>
                                   </div>
-                                  <div className="p-3 border rounded bg-muted/30">
-                                    <h4 className="font-semibold mb-2">Strategy Info</h4>
-                                    <p className="text-xs">Type: {strategyDetails.type || 'N/A'}</p>
-                                    <p className="text-xs">Timeframes: {strategyDetails.selected_timeframes?.join(', ') || 'N/A'}</p>
-                                    <p className="text-xs">Version: {strategyDetails.version || 1}</p>
-                                  </div>
-                                </div>
+
                               </div>
                             ) : (
                               <div className="text-center py-8 text-muted-foreground">

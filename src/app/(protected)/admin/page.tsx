@@ -2861,61 +2861,78 @@ function StrategyApprovalManager() {
                     <span className="text-green-400 font-medium">BUY Side Logic</span>
                   </div>
                   <div className="space-y-3 text-sm">
-                    <div>
-                      <p className="text-white/40 text-xs uppercase mb-1">Entry Conditions</p>
-                      <ul className="text-white/80">
-                        {(selectedStrategy.buy_entry_logic as any)?.conditions?.map((c: string, i: number) => (
-                          <li key={i}>• {c}</li>
-                        )) || <li className="text-white/40">Not defined</li>}
-                      </ul>
-                    </div>
-                    <div>
-                      <p className="text-white/40 text-xs uppercase mb-1">Stop Loss</p>
-                      <p className="text-white/80">{(selectedStrategy.buy_stop_loss as any)?.description || "Not defined"}</p>
-                    </div>
-                    <div>
-                      <p className="text-white/40 text-xs uppercase mb-1">Target</p>
-                      <p className="text-white/80">{(selectedStrategy.buy_target as any)?.description || "Not defined"}</p>
+                      <div>
+                        <p className="text-white/40 text-xs uppercase mb-1">Entry Conditions</p>
+                        <ul className="text-white/80">
+                          {(selectedStrategy.buy_entry_logic as any)?.conditions?.map((c: any, i: number) => (
+                            <li key={i}>• {formatCondition(c)}</li>
+                          )) || <li className="text-white/40">Not defined</li>}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-white/40 text-xs uppercase mb-1">Stop Loss</p>
+                        <p className="text-white/80">
+                          {(selectedStrategy.buy_stop_loss as any)?.value 
+                            ? `${(selectedStrategy.buy_stop_loss as any).value}${(selectedStrategy.buy_stop_loss as any).type?.includes('percentage') ? '%' : ''}`
+                            : (selectedStrategy.buy_stop_loss as any)?.description || "Not defined"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-white/40 text-xs uppercase mb-1">Target</p>
+                        <p className="text-white/80">
+                          {(selectedStrategy.buy_target as any)?.value 
+                            ? `${(selectedStrategy.buy_target as any).value}${(selectedStrategy.buy_target as any).type?.includes('percentage') ? '%' : ''}`
+                            : (selectedStrategy.buy_target as any)?.description || "Not defined"}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-                  <div className="flex items-center gap-2 mb-3">
-                    <TrendingDown className="w-5 h-5 text-red-400" />
-                    <span className="text-red-400 font-medium">SELL Side Logic</span>
+                  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <TrendingDown className="w-5 h-5 text-red-400" />
+                      <span className="text-red-400 font-medium">SELL Side Logic</span>
+                    </div>
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <p className="text-white/40 text-xs uppercase mb-1">Entry Conditions</p>
+                        <ul className="text-white/80">
+                          {(selectedStrategy.sell_entry_logic as any)?.conditions?.map((c: any, i: number) => (
+                            <li key={i}>• {formatCondition(c)}</li>
+                          )) || <li className="text-white/40">Not defined</li>}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-white/40 text-xs uppercase mb-1">Stop Loss</p>
+                        <p className="text-white/80">
+                          {(selectedStrategy.sell_stop_loss as any)?.value 
+                            ? `${(selectedStrategy.sell_stop_loss as any).value}${(selectedStrategy.sell_stop_loss as any).type?.includes('percentage') ? '%' : ''}`
+                            : (selectedStrategy.sell_stop_loss as any)?.description || "Not defined"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-white/40 text-xs uppercase mb-1">Target</p>
+                        <p className="text-white/80">
+                          {(selectedStrategy.sell_target as any)?.value 
+                            ? `${(selectedStrategy.sell_target as any).value}${(selectedStrategy.sell_target as any).type?.includes('percentage') ? '%' : ''}`
+                            : (selectedStrategy.sell_target as any)?.description || "Not defined"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <p className="text-white/40 text-xs uppercase mb-1">Entry Conditions</p>
-                      <ul className="text-white/80">
-                        {(selectedStrategy.sell_entry_logic as any)?.conditions?.map((c: string, i: number) => (
-                          <li key={i}>• {c}</li>
-                        )) || <li className="text-white/40">Not defined</li>}
-                      </ul>
-                    </div>
-                    <div>
-                      <p className="text-white/40 text-xs uppercase mb-1">Stop Loss</p>
-                      <p className="text-white/80">{(selectedStrategy.sell_stop_loss as any)?.description || "Not defined"}</p>
-                    </div>
-                    <div>
-                      <p className="text-white/40 text-xs uppercase mb-1">Target</p>
-                      <p className="text-white/80">{(selectedStrategy.sell_target as any)?.description || "Not defined"}</p>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Shield className="w-5 h-5 text-yellow-400" />
-                    <span className="text-yellow-400 font-medium">Hold / No-Trade Logic</span>
+                  <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Shield className="w-5 h-5 text-yellow-400" />
+                      <span className="text-yellow-400 font-medium">Hold / No-Trade Logic</span>
+                    </div>
+                    <ul className="text-white/80 text-sm">
+                      {(selectedStrategy.hold_logic as any)?.conditions?.map((c: any, i: number) => (
+                        <li key={i}>• {formatCondition(c)}</li>
+                      )) || <li className="text-white/40">Not defined</li>}
+                    </ul>
                   </div>
-                  <ul className="text-white/80 text-sm">
-                    {(selectedStrategy.hold_logic as any)?.conditions?.map((c: string, i: number) => (
-                      <li key={i}>• {c}</li>
-                    )) || <li className="text-white/40">Not defined</li>}
-                  </ul>
-                </div>
+
               </div>
 
               <div className="space-y-4">

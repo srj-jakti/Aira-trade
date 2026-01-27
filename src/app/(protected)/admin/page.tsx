@@ -40,6 +40,25 @@ import {
   Shield,
   Brain
 } from "lucide-react";
+
+function formatCondition(condition: any): string {
+  if (typeof condition === 'string') return condition;
+  if (typeof condition === 'object' && condition !== null) {
+    const { indicator, operator, value } = condition;
+    const opMap: Record<string, string> = {
+      'gt': '>',
+      'lt': '<',
+      'gte': '>=',
+      'lte': '<=',
+      'eq': '=',
+      'cross_above': 'crosses above',
+      'cross_below': 'crosses below',
+    };
+    const opStr = opMap[operator] || operator || '';
+    return `${indicator || ''} ${opStr} ${value || ''}`.trim();
+  }
+  return String(condition);
+}
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -2869,22 +2888,27 @@ function StrategyApprovalManager() {
                           )) || <li className="text-white/40">Not defined</li>}
                         </ul>
                       </div>
-                      <div>
-                        <p className="text-white/40 text-xs uppercase mb-1">Stop Loss</p>
-                        <p className="text-white/80">
-                          {(selectedStrategy.buy_stop_loss as any)?.value 
-                            ? `${(selectedStrategy.buy_stop_loss as any).value}${(selectedStrategy.buy_stop_loss as any).type?.includes('percentage') ? '%' : ''}`
-                            : (selectedStrategy.buy_stop_loss as any)?.description || "Not defined"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-white/40 text-xs uppercase mb-1">Target</p>
-                        <p className="text-white/80">
-                          {(selectedStrategy.buy_target as any)?.value 
-                            ? `${(selectedStrategy.buy_target as any).value}${(selectedStrategy.buy_target as any).type?.includes('percentage') ? '%' : ''}`
-                            : (selectedStrategy.buy_target as any)?.description || "Not defined"}
-                        </p>
-                      </div>
+                        <div>
+                          <p className="text-white/40 text-xs uppercase mb-1">Stop Loss</p>
+                          <p className="text-white/80">
+                            {(selectedStrategy.buy_stop_loss as any)?.value 
+                              ? `${(selectedStrategy.buy_stop_loss as any).value}${(selectedStrategy.buy_stop_loss as any).type?.includes('percentage') ? '%' : ''}`
+                              : (selectedStrategy.buy_stop_loss as any)?.parameters?.percentage 
+                                ? `${(selectedStrategy.buy_stop_loss as any).parameters.percentage}%`
+                                : (selectedStrategy.buy_stop_loss as any)?.description || "Not defined"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-white/40 text-xs uppercase mb-1">Target</p>
+                          <p className="text-white/80">
+                            {(selectedStrategy.buy_target as any)?.value 
+                              ? `${(selectedStrategy.buy_target as any).value}${(selectedStrategy.buy_target as any).type?.includes('percentage') ? '%' : ''}`
+                              : (selectedStrategy.buy_target as any)?.parameters?.percentage 
+                                ? `${(selectedStrategy.buy_target as any).parameters.percentage}%`
+                                : (selectedStrategy.buy_target as any)?.description || "Not defined"}
+                          </p>
+                        </div>
+
                     </div>
                   </div>
 
@@ -2902,22 +2926,27 @@ function StrategyApprovalManager() {
                           )) || <li className="text-white/40">Not defined</li>}
                         </ul>
                       </div>
-                      <div>
-                        <p className="text-white/40 text-xs uppercase mb-1">Stop Loss</p>
-                        <p className="text-white/80">
-                          {(selectedStrategy.sell_stop_loss as any)?.value 
-                            ? `${(selectedStrategy.sell_stop_loss as any).value}${(selectedStrategy.sell_stop_loss as any).type?.includes('percentage') ? '%' : ''}`
-                            : (selectedStrategy.sell_stop_loss as any)?.description || "Not defined"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-white/40 text-xs uppercase mb-1">Target</p>
-                        <p className="text-white/80">
-                          {(selectedStrategy.sell_target as any)?.value 
-                            ? `${(selectedStrategy.sell_target as any).value}${(selectedStrategy.sell_target as any).type?.includes('percentage') ? '%' : ''}`
-                            : (selectedStrategy.sell_target as any)?.description || "Not defined"}
-                        </p>
-                      </div>
+                        <div>
+                          <p className="text-white/40 text-xs uppercase mb-1">Stop Loss</p>
+                          <p className="text-white/80">
+                            {(selectedStrategy.sell_stop_loss as any)?.value 
+                              ? `${(selectedStrategy.sell_stop_loss as any).value}${(selectedStrategy.sell_stop_loss as any).type?.includes('percentage') ? '%' : ''}`
+                              : (selectedStrategy.sell_stop_loss as any)?.parameters?.percentage 
+                                ? `${(selectedStrategy.sell_stop_loss as any).parameters.percentage}%`
+                                : (selectedStrategy.sell_stop_loss as any)?.description || "Not defined"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-white/40 text-xs uppercase mb-1">Target</p>
+                          <p className="text-white/80">
+                            {(selectedStrategy.sell_target as any)?.value 
+                              ? `${(selectedStrategy.sell_target as any).value}${(selectedStrategy.sell_target as any).type?.includes('percentage') ? '%' : ''}`
+                              : (selectedStrategy.sell_target as any)?.parameters?.percentage 
+                                ? `${(selectedStrategy.sell_target as any).parameters.percentage}%`
+                                : (selectedStrategy.sell_target as any)?.description || "Not defined"}
+                          </p>
+                        </div>
+
                     </div>
                   </div>
 
@@ -2977,15 +3006,16 @@ function StrategyApprovalManager() {
                             <Badge variant="outline" className="border-cyan-500/30 text-cyan-400">
                               {TIMEFRAMES.find(t => t.value === bt.timeframe)?.label || bt.timeframe}
                             </Badge>
-                            <span className={`font-medium ${bt.net_pnl_percentage >= 0 ? "text-green-400" : "text-red-400"}`}>
-                              {bt.net_pnl_percentage >= 0 ? "+" : ""}{bt.net_pnl_percentage.toFixed(2)}%
+                            <span className={`font-medium ${(bt.net_pnl_percentage || 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                              {(bt.net_pnl_percentage || 0) >= 0 ? "+" : ""}{(bt.net_pnl_percentage || 0).toFixed(2)}%
                             </span>
                           </div>
                           <div className="grid grid-cols-3 gap-2 text-xs text-white/60">
-                            <span>Trades: {bt.total_trades}</span>
-                            <span>Win: {bt.win_rate.toFixed(0)}%</span>
-                            <span>DD: {bt.max_drawdown_percentage.toFixed(1)}%</span>
+                            <span>Trades: {bt.total_trades || 0}</span>
+                            <span>Win: {(bt.win_rate || 0).toFixed(0)}%</span>
+                            <span>DD: {(bt.max_drawdown_percentage || 0).toFixed(1)}%</span>
                           </div>
+
                         </div>
                       ))}
                     </div>

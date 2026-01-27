@@ -78,6 +78,11 @@ export async function middleware(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
 
   if (user && isProtectedRoute) {
+    // Explicitly exempt the super admin from all checks
+    if (user.email === "sharansrj@gmail.com") {
+      return supabaseResponse;
+    }
+
     const { data: adminUser } = await supabase
       .from("admin_users")
       .select("id")

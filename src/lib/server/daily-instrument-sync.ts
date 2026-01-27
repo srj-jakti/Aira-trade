@@ -258,6 +258,25 @@ class DailyInstrumentSyncManager {
       optionChainsRefreshed: 0,
     };
   }
+
+  async getSyncStatus() {
+    const { count: subscribedCount } = await supabaseAdmin
+      .from("instruments")
+      .select("*", { count: "exact", head: true })
+      .eq("is_subscribed", true);
+
+    const { count: expiredCount } = await supabaseAdmin
+      .from("instruments")
+      .select("*", { count: "exact", head: true })
+      .lt("expiry", new Date().toISOString().split("T")[0]);
+
+    return {
+      isSyncing: this.isSyncing,
+      lastSyncAt: this.lastSyncAt,
+      subscribedCount: subscribedCount || 0,
+      expiredCount: expiredCount || 0,
+    };
+  }
 }
 
 export const dailySyncManager = DailyInstrumentSyncManager.getInstance();

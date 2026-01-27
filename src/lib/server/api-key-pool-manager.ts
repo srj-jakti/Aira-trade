@@ -150,21 +150,6 @@ class ApiKeyPoolManager {
     return keys[0] || null;
   }
 
-  async getPoolStatus(): Promise<any> {
-    const pool = await this.getPoolAllocation();
-    return {
-      capacity: pool.totalCapacity,
-      used: pool.usedCapacity,
-      analysis: pool.analysisKeys.length,
-      general: pool.generalKeys.length,
-    };
-  }
-
-  async checkAndScalePool(): Promise<void> {
-    // Basic scaling logic
-    await this.getPoolAllocation(true);
-  }
-
   async getTradingKey(): Promise<ApiKeyConfig | null> {
     const pool = await this.getPoolAllocation();
     return pool.tradingKey || pool.analysisKeys[0] || null;
@@ -213,6 +198,33 @@ class ApiKeyPoolManager {
       apiKey: decrypt(config.api_key),
       apiSecret: decrypt(config.api_secret),
       accessToken: config.access_token ? decrypt(config.access_token) : null,
+    };
+  }
+
+  async getPoolStatus() {
+    const pool = await this.getPoolAllocation();
+    return {
+      totalKeys: pool.analysisKeys.length + (pool.tradingKey ? 1 : 0) + (pool.scannerKey ? 1 : 0) + pool.generalKeys.length,
+      activeKeys: pool.analysisKeys.length + (pool.tradingKey ? 1 : 0) + (pool.scannerKey ? 1 : 0) + pool.generalKeys.length,
+      analysisKey: pool.analysisKeys[0] || null,
+      totalCapacity: pool.totalCapacity,
+      websocketKeys: [
+        ...pool.analysisKeys,
+        ...(pool.tradingKey ? [pool.tradingKey] : []),
+        ...(pool.scannerKey ? [pool.scannerKey] : []),
+        ...pool.generalKeys
+      ].filter(k => k.websocket_connected)
+    };
+  }
+
+  async checkAndScalePool() {
+    const pool = await this.getPoolAllocation();
+    const utilization = pool.totalCapacity > 0 ? (pool.usedCapacity / pool.totalCapacity) * 100 : 0;
+    
+    return {
+      needsMoreKeys: utilization > 80,
+      recommendation: utilization > 80 ? "Add more Zerodha API keys to handle load" : "Capacity is adequate",
+      currentUtilization: utilization
     };
   }
 }

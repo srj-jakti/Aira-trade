@@ -151,14 +151,14 @@ class MultiAdminTickerPool {
           resolve(true);
         });
 
-        ticker.on("ticks", (ticks: KiteTickData[]) => {
-          this.handleTicks(ticks, config.id);
-          connection.lastHeartbeat = Date.now();
-        });
+          ticker.on("ticks", (ticks: KiteTickData[]) => {
+            this.handleTicks(ticks, config.id);
+            connection.lastHeartbeat = Date.now();
+          });
 
-        ticker.on("disconnect", (code: number) => {
-          console.log(`[MultiTicker][${config.name}] Disconnected: ${code}`);
-          connection.isConnected = false;
+          (ticker as any).on("disconnect", (code: number) => {
+            console.log(`[MultiTicker][${config.name}] Disconnected: ${code}`);
+            connection.isConnected = false;
           this.updateConfigStatus(config.id, "disconnected", "websocket_disconnected");
           
           // Redistribute instruments from this connection

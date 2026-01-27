@@ -161,9 +161,9 @@ class AIRAIntelligenceOrchestrator {
       {
         pnl: feedback.pnl,
         isProfit: feedback.outcome === "PROFIT",
-        riskReward: feedback.riskReward,
-        entryConditions: feedback.entryConditions,
-        marketCondition: feedback.marketContext.regime.includes("TREND") ? "trending" : "ranging",
+          riskReward: feedback.riskReward,
+          entryConditions: feedback.entryConditions as any,
+          marketCondition: feedback.marketContext.regime.includes("TREND") ? "trending" : "ranging",
       }
     );
 

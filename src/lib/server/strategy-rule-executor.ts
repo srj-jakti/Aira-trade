@@ -315,9 +315,9 @@ export class StrategyRuleExecutor {
           };
         }
 
-        const passed = this.compare(actualValue, rule.operator, expectedValue, prevActual, expectedValue, secondValue);
-        const opDisplay = rule.operator === "BETWEEN" ? `BETWEEN ${expectedValue},${secondValue}` : `${rule.operator} ${expectedValue}`;
-        return {
+          const passed = this.compare(actualValue, rule.operator, expectedValue, prevActual, expectedValue, secondValue);
+          const opDisplay = (rule.operator as any) === "BETWEEN" ? `BETWEEN ${expectedValue},${secondValue}` : `${rule.operator} ${expectedValue}`;
+          return {
           passed,
           actualValue,
           expectedValue,

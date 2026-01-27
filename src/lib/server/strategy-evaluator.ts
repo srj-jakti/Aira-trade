@@ -132,8 +132,8 @@ export class StrategyEvaluator {
 
         // Price vs MA
         if (lowerCond.includes("price") || lowerCond.includes("close")) {
-          if (lowerCond.includes("crosses above")) return prevCandle && prevCandle.close < prevMa && candle.close >= ma;
-          if (lowerCond.includes("crosses below")) return prevCandle && prevCandle.close > prevMa && candle.close <= ma;
+          if (lowerCond.includes("crosses above")) return !!(prevCandle && prevCandle.close < prevMa && candle.close >= ma);
+          if (lowerCond.includes("crosses below")) return !!(prevCandle && prevCandle.close > prevMa && candle.close <= ma);
           if (lowerCond.includes(">") || lowerCond.includes("above") || lowerCond.includes("greater")) return candle.close > ma;
           if (lowerCond.includes("<") || lowerCond.includes("below") || lowerCond.includes("less")) return candle.close < ma;
         }
@@ -230,8 +230,8 @@ export class StrategyEvaluator {
       // 10. Price Action
       if (lowerCond.includes("bullish candle")) return candle.close > candle.open;
       if (lowerCond.includes("bearish candle")) return candle.close < candle.open;
-      if (lowerCond.includes("higher high")) return prevCandle && candle.high > prevCandle.high;
-      if (lowerCond.includes("lower low")) return prevCandle && candle.low < prevCandle.low;
+      if (lowerCond.includes("higher high")) return !!(prevCandle && candle.high > prevCandle.high);
+      if (lowerCond.includes("lower low")) return !!(prevCandle && candle.low < prevCandle.low);
 
       // Default: If unknown, don't break the 'every' check if it's not a critical error
       // But return false to be safe for signals

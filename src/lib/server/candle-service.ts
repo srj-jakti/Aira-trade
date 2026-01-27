@@ -326,15 +326,22 @@ async function getBacktestModeCandles(
       // Check if token is expired (expired if now > token_expires_at)
       const isExpired = config?.token_expires_at ? new Date() > new Date(config.token_expires_at) : true;
 
-      if (config && isExpired && config.auto_login_enabled) {
-        console.log(`[CandleService] Zerodha token expired for ${config.name}. Attempting silent login...`);
-        const loginResult = await performZerodhaFullLogin({
-          api_key: decrypt(config.api_key),
-          api_secret: decrypt(config.api_secret),
-          user_id: decrypt(config.user_id),
-          password: decrypt(config.password),
-          totp_secret: decrypt(config.totp_secret),
-        });
+        if (config && isExpired && config.auto_login_enabled) {
+          console.log(`[CandleService] Zerodha token expired for ${config.name}. Attempting silent login...`);
+          
+          const apiKey = decrypt(config.api_key) || "";
+          const apiSecret = decrypt(config.api_secret) || "";
+          const userId = decrypt(config.user_id) || "";
+          const password = decrypt(config.password) || "";
+          const totpSecret = decrypt(config.totp_secret) || "";
+
+          const loginResult = await performZerodhaFullLogin({
+            api_key: apiKey,
+            api_secret: apiSecret,
+            user_id: userId,
+            password: password,
+            totp_secret: totpSecret,
+          });
 
         if (loginResult.success && loginResult.accessToken) {
           const tokenExpiry = new Date();
@@ -409,17 +416,17 @@ async function getBacktestModeCandles(
                 .from("historical_candles")
                 .upsert(batch, { onConflict: "instrument_token,timeframe,timestamp" });
             }
-            console.log(`[CandleService] Backfilled ${rows.length} candles into historical_candles`);
-
-            const candles = rows.map(r => ({
-              timestamp: new Date(r.timestamp),
-              open: r.open,
-              high: r.high,
-              low: r.low,
-              close: r.close,
-              volume: r.volume,
-              oi: r.oi
-            }));
+              console.log(`[CandleService] Backfilled ${rows.length} candles into historical_candles`);
+  
+              const candles = rows.map((r: any) => ({
+                timestamp: new Date(r.timestamp),
+                open: r.open,
+                high: r.high,
+                low: r.low,
+                close: r.close,
+                volume: r.volume,
+                oi: r.oi
+              }));
 
             return {
               candles,

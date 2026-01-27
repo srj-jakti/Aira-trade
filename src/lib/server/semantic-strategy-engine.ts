@@ -64,10 +64,14 @@ class SemanticStrategyEngine {
 
     const combined: StrategyUnderstanding = {
       strategyId,
+      semanticIntent: (aiUnderstanding as any).semanticIntent || "Custom strategy",
+      coreConcept: (aiUnderstanding as any).coreConcept || ruleBasedUnderstanding.coreConcept || "Manual Strategy",
+      humanReadableDescription: (aiUnderstanding as any).humanReadableDescription || "Strategy based on custom technical indicators",
+      strategyType: ruleBasedUnderstanding.strategyType || "UNKNOWN",
       ...ruleBasedUnderstanding,
       ...aiUnderstanding,
       confidenceScore: this.calculateConfidence(ruleBasedUnderstanding, aiUnderstanding),
-    };
+    } as StrategyUnderstanding;
 
     await this.saveUnderstanding(combined);
 

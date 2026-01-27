@@ -35,7 +35,7 @@ type TickerMode = "ltp" | "quote" | "full";
 
 class ZerodhaTickerService {
   private static instance: ZerodhaTickerService;
-  private ticker: KiteTicker | null = null;
+  private ticker: any = null;
   private isConnected: boolean = false;
   private isConnecting: boolean = false;
   private currentConfigId: string | null = null;

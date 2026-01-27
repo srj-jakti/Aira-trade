@@ -40,22 +40,22 @@ export class IntentGateway {
         gatewayId,
         source: request.source,
         userId: request.userId,
-        input: request.input,
-        success: true,
-        zairothRaw: result.raw,
-        canonical: result.canonical,
-        validation: result.validation,
-        metadata: request.metadata,
-        timestamp,
-      });
-
-      return {
-        success: true,
-        canonical: result.canonical,
-        zairothResult: result,
-        gatewayId,
-        timestamp,
-      };
+          input: request.input,
+          success: true,
+          zairothRaw: result.raw,
+          canonical: result.canonical as any,
+          validation: result.validation,
+          metadata: request.metadata,
+          timestamp,
+        });
+  
+        return {
+          success: true,
+          canonical: result.canonical as any,
+          zairothResult: result,
+          gatewayId,
+          timestamp,
+        };
     } catch (error) {
       const errorMessage = error instanceof ZairothError 
         ? error.message 
@@ -88,26 +88,26 @@ export class IntentGateway {
     const result = processZairothSafe(request.input);
 
     if (result.success) {
-      await this.logGatewayRequest({
-        gatewayId,
-        source: request.source,
-        userId: request.userId,
-        input: request.input,
-        success: true,
-        zairothRaw: result.result.raw,
-        canonical: result.result.canonical,
-        validation: result.result.validation,
-        metadata: request.metadata,
-        timestamp,
-      });
-
-      return {
-        success: true,
-        canonical: result.result.canonical,
-        zairothResult: result.result,
-        gatewayId,
-        timestamp,
-      };
+        await this.logGatewayRequest({
+          gatewayId,
+          source: request.source,
+          userId: request.userId,
+          input: request.input,
+          success: true,
+          zairothRaw: result.result.raw,
+          canonical: result.result.canonical as any,
+          validation: result.result.validation,
+          metadata: request.metadata,
+          timestamp,
+        });
+  
+        return {
+          success: true,
+          canonical: result.result.canonical as any,
+          zairothResult: result.result,
+          gatewayId,
+          timestamp,
+        };
     } else {
       await this.logGatewayRequest({
         gatewayId,

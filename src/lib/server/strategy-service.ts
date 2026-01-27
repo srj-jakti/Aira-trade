@@ -680,27 +680,23 @@ Same structure as traditional, but rules focus on price action.
       };
     }
 
-    if (exec.buyExit?.trailingSL) {
-      strategy.buy_trailing_sl.parameters = {
-        enabled: exec.buyExit.trailingSL.enabled,
-        activation_percent: exec.buyExit.trailingSL.activationPercent,
-        trail_percent: exec.buyExit.trailingSL.trailPercent
-      };
-      if (exec.buyExit.trailingSL.enabled) {
-        strategy.buy_trailing_sl.conditions = [`Activate at ${exec.buyExit.trailingSL.activationPercent}% profit, trail by ${exec.buyExit.trailingSL.trailPercent}%`];
-      }
-    }
-
-      if (exec.sellExit?.trailingSL) {
-        strategy.sell_trailing_sl.parameters = {
-          enabled: exec.sellExit.trailingSL.enabled,
-          activation_percent: exec.sellExit.trailingSL.activationPercent,
-          trail_percent: exec.sellExit.trailingSL.trailPercent
-        };
-        if (exec.sellExit.trailingSL.enabled) {
-          strategy.sell_trailing_sl.conditions = [`Activate at ${exec.sellExit.trailingSL.activationPercent}% profit, trail by ${exec.sellExit.trailingSL.trailPercent}%`];
+      if (exec.buyExit?.trailingSL) {
+        (strategy.buy_trailing_sl.parameters as any).enabled = exec.buyExit.trailingSL.enabled;
+        (strategy.buy_trailing_sl.parameters as any).activation_percent = exec.buyExit.trailingSL.activationPercent;
+        (strategy.buy_trailing_sl.parameters as any).trail_percent = exec.buyExit.trailingSL.trailPercent;
+        if (exec.buyExit.trailingSL.enabled) {
+          strategy.buy_trailing_sl.conditions = [`Activate at ${exec.buyExit.trailingSL.activationPercent}% profit, trail by ${exec.buyExit.trailingSL.trailPercent}%`];
         }
       }
+  
+        if (exec.sellExit?.trailingSL) {
+          (strategy.sell_trailing_sl.parameters as any).enabled = exec.sellExit.trailingSL.enabled;
+          (strategy.sell_trailing_sl.parameters as any).activation_percent = exec.sellExit.trailingSL.activationPercent;
+          (strategy.sell_trailing_sl.parameters as any).trail_percent = exec.sellExit.trailingSL.trailPercent;
+          if (exec.sellExit.trailingSL.enabled) {
+            strategy.sell_trailing_sl.conditions = [`Activate at ${exec.sellExit.trailingSL.activationPercent}% profit, trail by ${exec.sellExit.trailingSL.trailPercent}%`];
+          }
+        }
       return strategy;
     }
 

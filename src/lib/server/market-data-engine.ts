@@ -100,6 +100,10 @@ class MarketDataEngine {
     }));
   }
 
+  getLatestTick(instrumentToken: number): MarketTick | null {
+    return this.lastTicks.get(instrumentToken) || null;
+  }
+
   async storeTick(tick: MarketTick): Promise<void> {
     await supabaseAdmin.from("realtime_ticks").insert({
       instrument_token: tick.instrumentToken,

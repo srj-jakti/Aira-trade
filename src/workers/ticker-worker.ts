@@ -89,7 +89,7 @@ interface AdminConfig {
 interface TickerConnection {
   configId: string;
   configName: string;
-  ticker: KiteTicker;
+  ticker: any;
   isConnected: boolean;
   subscribedTokens: Set<number>;
   lastHeartbeat: number;
@@ -247,7 +247,7 @@ class UnifiedTickerWorker {
           connection.lastHeartbeat = Date.now();
         });
 
-        ticker.on("disconnect", (code: number) => {
+        (ticker as any).on("disconnect", (code: number) => {
           console.log(`[Worker][${config.name}] Disconnected: ${code}`);
           connection.isConnected = false;
           this.updateConfigStatus(config.id, "disconnected");

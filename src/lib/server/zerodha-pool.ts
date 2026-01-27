@@ -76,17 +76,19 @@ class AdminZerodhaPool {
     }
   }
 
-  private async incrementLoad(configId: string): Promise<void> {
-    await supabaseAdmin.rpc("increment_zerodha_load", { config_id: configId }).catch(() => {
-      supabaseAdmin
-        .from("admin_zerodha_configs")
-        .update({ 
-          current_load: (this.configs.find(c => c.id === configId)?.current_load || 0) + 1
-        })
-        .eq("id", configId);
-    });
-    
-    const config = this.configs.find(c => c.id === configId);
+    private async incrementLoad(configId: string): Promise<void> {
+      try {
+        await supabaseAdmin.rpc("increment_zerodha_load", { config_id: configId });
+      } catch (err) {
+        await supabaseAdmin
+          .from("admin_zerodha_configs")
+          .update({ 
+            current_load: (this.configs.find(c => c.id === configId)?.current_load || 0) + 1
+          })
+          .eq("id", configId);
+      }
+      
+      const config = this.configs.find(c => c.id === configId);
     if (config) {
       config.current_load += 1;
     }

@@ -236,7 +236,7 @@ class InstrumentSubscriptionOptimizer {
 
     // Process interest logs
     for (const log of interestLogs || []) {
-      const existing = scores.get(log.instrument_token) || {
+      const existing: InstrumentPriority = scores.get(log.instrument_token) || {
         instrument_token: log.instrument_token,
         tradingsymbol: "",
         priority_score: 0,
@@ -251,7 +251,7 @@ class InstrumentSubscriptionOptimizer {
 
     // Add positions (highest priority)
     for (const pos of positions || []) {
-      const existing = scores.get(pos.instrument_token) || {
+      const existing: InstrumentPriority = scores.get(pos.instrument_token) || {
         instrument_token: pos.instrument_token,
         tradingsymbol: "",
         priority_score: 0,
@@ -268,7 +268,7 @@ class InstrumentSubscriptionOptimizer {
     for (const strategy of strategies || []) {
       const targets = strategy.target_instruments || [];
       for (const token of targets) {
-        const existing = scores.get(token) || {
+        const existing: InstrumentPriority = scores.get(token) || {
           instrument_token: token,
           tradingsymbol: "",
           priority_score: 0,

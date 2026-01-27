@@ -114,7 +114,7 @@ async function processUser(user: TradingPreference): Promise<void> {
   // FIRST: Check if daily quota already hit
   const quotaCheck = await checkDailyQuotaHit(user_id);
   if (quotaCheck.hit) {
-    await autoDisableOnQuotaHit(user_id, quotaCheck.reason!);
+    await autoDisableOnQuotaHit(user_id, quotaCheck.reason || "Daily quota limit reached");
     return; // Skip this user entirely
   }
 
@@ -275,6 +275,7 @@ async function evaluationLoop(): Promise<void> {
           risk_per_trade:max_allocation_per_trade,
           max_daily_loss:daily_loss_limit,
           max_trades_per_day:daily_profit_limit,
+          daily_pnl_realized,
           priority_score,
           paper_trading_enabled
         `)

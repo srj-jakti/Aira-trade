@@ -115,7 +115,7 @@ class MarketDataWorker {
   private apiKeyConfigs: Map<string, ApiKeyConfig> = new Map();
   private tickBuffer: Array<Record<string, unknown>> = [];
   private candleBuffers: Map<string, CandleBuffer> = new Map();
-  private isRunning = false;
+  public isRunning = false;
   private isShuttingDown = false;
   private tickCount = 0;
   private ticksPerSecond = 0;
@@ -382,7 +382,7 @@ class MarketDataWorker {
           connection.lastHeartbeat = Date.now();
         });
 
-        (ticker as any).on("disconnect", (code: number) => {
+        ticker.on("disconnect", (code: number) => {
           console.log(`[MarketDataWorker][${websocketId}] Disconnected: ${code}`);
           connection.isConnected = false;
           this.subscriptionManager.setWebSocketConnected(websocketId, false);
@@ -1073,7 +1073,7 @@ async function heartbeatLoop(): Promise<void> {
     while (!getShutdownFlag()) {
         try {
           // If worker is not running, try to start it periodically
-          if (!worker["isRunning"]) {
+          if (!worker.isRunning) {
             console.log("[MarketDataWorker] Worker not running, attempting periodic restart...");
             await worker.start().catch(err => console.error("[MarketDataWorker] Restart failed:", err));
           }

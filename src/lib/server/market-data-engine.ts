@@ -27,7 +27,12 @@ export interface ZerodhaConfig {
   name: string;
   api_key: string;
   api_secret: string;
+  user_id?: string;
+  password?: string;
+  totp_secret?: string;
   access_token: string | null;
+  token_expires_at?: string | null;
+  auto_login_enabled?: boolean;
   connection_status: string;
   priority: number;
   is_active: boolean;

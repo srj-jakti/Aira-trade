@@ -351,6 +351,81 @@ class TradeExecutionEngine {
     }
   }
 
+  async modifyOrder(
+    userId: string,
+    orderId: string,
+    params: {
+      quantity?: number;
+      price?: number;
+      triggerPrice?: number;
+      orderType?: string;
+    }
+  ): Promise<OrderResult> {
+    const account = await this.getUserBrokerAccount(userId);
+    if (!account || !account.is_connected || !account.access_token) {
+      return { success: false, error: "Broker not connected" };
+    }
+
+    try {
+      const apiKey = decrypt(account.api_key);
+      const accessToken = decrypt(account.access_token!);
+
+      const body: Record<string, string> = {};
+      if (params.quantity) body.quantity = params.quantity.toString();
+      if (params.price) body.price = params.price.toString();
+      if (params.triggerPrice) body.trigger_price = params.triggerPrice.toString();
+      if (params.orderType) body.order_type = params.orderType;
+
+      const response = await fetch(`https://api.kite.trade/orders/regular/${orderId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-Kite-Version": "3",
+          Authorization: `token ${apiKey}:${accessToken}`,
+        },
+        body: new URLSearchParams(body),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return { success: false, error: data.message || "Modify failed" };
+      }
+
+      return { success: true, orderId: data.data?.order_id || orderId };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    }
+  }
+
+  async cancelOrder(userId: string, orderId: string): Promise<OrderResult> {
+    const account = await this.getUserBrokerAccount(userId);
+    if (!account || !account.is_connected || !account.access_token) {
+      return { success: false, error: "Broker not connected" };
+    }
+
+    try {
+      const apiKey = decrypt(account.api_key);
+      const accessToken = decrypt(account.access_token!);
+
+      const response = await fetch(`https://api.kite.trade/orders/regular/${orderId}`, {
+        method: "DELETE",
+        headers: {
+          "X-Kite-Version": "3",
+          Authorization: `token ${apiKey}:${accessToken}`,
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return { success: false, error: data.message || "Cancel failed" };
+      }
+
+      return { success: true, orderId: data.data?.order_id || orderId };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    }
+  }
+
   // Other methods (modify, cancel, status) remain similar but with decryption fixes if needed
 }
 

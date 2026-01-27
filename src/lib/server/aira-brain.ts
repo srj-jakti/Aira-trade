@@ -420,6 +420,8 @@ class AiraBrain {
 
   async generateEmbedding(text: string): Promise<number[]> {
     const config = await this.getActiveConfig(); // Default to active config, assuming it's OpenAI-compatible
+    let targetEmbeddingConfig: AIConfig;
+    
     if (!config || config.provider !== 'openai') {
       // If no OpenAI config, we might need a fallback or specific embedding config
       const { data: embeddingConfigs } = await supabaseAdmin
@@ -430,12 +432,12 @@ class AiraBrain {
         .limit(1);
       
       if (!embeddingConfigs?.[0]) throw new Error("No OpenAI config found for embeddings");
-      var embeddingConfig = embeddingConfigs[0];
+      targetEmbeddingConfig = embeddingConfigs[0];
     } else {
-      var embeddingConfig = config;
+      targetEmbeddingConfig = config;
     }
 
-    const apiKey = decrypt(embeddingConfig.api_key);
+    const apiKey = decrypt(targetEmbeddingConfig.api_key);
     const response = await fetch("https://api.openai.com/v1/embeddings", {
       method: "POST",
       headers: {
@@ -833,11 +835,11 @@ Generate ONLY the ZAIROTH lines. No explanations. No markdown. No code blocks.`;
             undefined
           );
 
-          // Update zairoth object with gated instructions
-          zairoth = {
-            ...zairoth,
-            instructions: gating.gatedInstructions,
-          };
+            // Update zairoth object with gated instructions
+            zairoth = {
+              ...zairoth,
+              instructions: gating.gatedInstructions as any,
+            } as any;
           
           return { ...result, zairoth };
         } catch (error: unknown) {

@@ -168,7 +168,7 @@ export async function PATCH(
         action: "admin_plan_assigned",
         target_table: "subscriptions",
         target_id: userId,
-        details: { plan, duration, reason } as any,
+        metadata: { plan, duration, reason } as any,
       });
 
         return successResponse({ 

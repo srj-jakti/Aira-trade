@@ -14,12 +14,13 @@ export interface ZairothResult {
   instructions: ZairothInstruction[];
   validation: ValidationResult;
   canonical: string;
+  raw: string;
   version?: '1.0' | '2.0';
 }
 
 export function processZairoth(input: string, version: '1.0' | '2.0' = '1.0'): ZairothResult | ZairothResultV2 {
   if (version === '2.0') {
-    return processZairothV2(input);
+    return { ...processZairothV2(input), raw: input } as any;
   }
 
   try {
@@ -32,6 +33,7 @@ export function processZairoth(input: string, version: '1.0' | '2.0' = '1.0'): Z
         instructions,
         validation,
         canonical: canonical as any,
+        raw: input,
         version: '1.0'
       };
   } catch (error) {

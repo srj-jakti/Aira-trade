@@ -97,82 +97,82 @@ export async function POST(
             strategy
           );
 
-          if (result.trades && result.trades.length > 0) {
-            const trades = result.trades.map((t: { pnl: number; entry_price: number; exit_price: number; entry_time: string; exit_time: string }) => ({
-              pnl: t.pnl,
-              entryPrice: t.entry_price,
-              exitPrice: t.exit_price,
-              duration: `${Math.round((new Date(t.exit_time).getTime() - new Date(t.entry_time).getTime()) / 60000)}m`
-            }));
-            
-            await aiTradingEngine.updateStrategyPerformance(
-              id,
-              user.user.id,
-              "backtest",
-              trades
-            );
-
-            const { selfLearningEngine } = await import("@/lib/server/self-learning-engine");
-            await selfLearningEngine.observeBacktestResult({
-              strategyId: id.toString(),
-              userId: user.user.id,
-              zairothIntent: strategy.zairoth_intent,
-              result: {
-                netPnl: result.net_pnl,
-                winRate: result.win_rate,
-                totalTrades: result.total_trades,
-                maxDrawdown: result.max_drawdown,
-              }
-            });
-
-            const { rlKnowledgeEngine } = await import("@/lib/server/rl-knowledge-engine");
-            const patternType = extractPatternType(strategy);
-            
-            for (const token of tokens) {
-              const tradingSymbol = instrumentMap.get(token) || `TOKEN_${token}`;
-              const tokenTrades = result.trades;
-              const tokenProfitable = tokenTrades.filter((t: { pnl: number }) => t.pnl > 0).length;
-              const tokenWinRate = tokenTrades.length > 0 ? (tokenProfitable / tokenTrades.length) * 100 : 0;
-              const tokenAvgPnl = tokenTrades.length > 0 
-                ? tokenTrades.reduce((sum: number, t: { pnl: number }) => sum + t.pnl, 0) / tokenTrades.length 
-                : 0;
+            if (result.trades && result.trades.length > 0) {
+              const trades = result.trades.map((t: any) => ({
+                pnl: t.pnl,
+                entryPrice: t.entry_price,
+                exitPrice: t.exit_price,
+                duration: `${Math.round((new Date(t.exit_time || "").getTime() - new Date(t.entry_time).getTime()) / 60000)}m`
+              }));
               
-              await rlKnowledgeEngine.updateInstrumentKnowledge(
-                token,
-                tradingSymbol,
-                patternType,
-                timeframe,
-                {
-                  pnl: tokenAvgPnl,
-                  isProfit: result.net_pnl > 0,
-                  riskReward: result.profit_factor || 1,
-                  entryConditions: {
-                    indicators: strategy.entry?.indicators || [],
-                    conditions: strategy.entry?.conditions || [],
-                  },
-                  marketCondition: result.win_rate > 50 ? "trending" : "ranging",
-                }
+              await aiTradingEngine.updateStrategyPerformance(
+                id,
+                user.user!.id,
+                "backtest",
+                trades
               );
-            }
 
-            if (result.win_rate < 45 || result.net_pnl < 0) {
-              await selfLearningEngine.autoImproveStrategy(id.toString(), user.user.id);
+              const { selfLearningEngine } = await import("@/lib/server/self-learning-engine");
+              await selfLearningEngine.observeBacktestResult({
+                strategyId: id.toString(),
+                userId: user.user!.id,
+                zairothIntent: strategy.zairoth_intent,
+                result: {
+                  netPnl: result.net_pnl,
+                  winRate: result.win_rate,
+                  totalTrades: result.total_trades,
+                  maxDrawdown: result.max_drawdown,
+                }
+              });
+
+              const { rlKnowledgeEngine } = await import("@/lib/server/rl-knowledge-engine");
+              const patternType = extractPatternType(strategy);
+              
+              for (const token of tokens) {
+                const tradingSymbol = instrumentMap.get(token) || `TOKEN_${token}`;
+                const tokenTrades = result.trades;
+                const tokenProfitable = tokenTrades.filter((t: any) => (t.pnl || 0) > 0).length;
+                const tokenWinRate = tokenTrades.length > 0 ? (tokenProfitable / tokenTrades.length) * 100 : 0;
+                const tokenAvgPnl = tokenTrades.length > 0 
+                  ? tokenTrades.reduce((sum: number, t: any) => sum + (t.pnl || 0), 0) / tokenTrades.length 
+                  : 0;
+                
+                await rlKnowledgeEngine.updateInstrumentKnowledge(
+                  token,
+                  tradingSymbol,
+                  patternType,
+                  timeframe,
+                  {
+                    pnl: tokenAvgPnl,
+                    isProfit: result.net_pnl > 0,
+                    riskReward: result.profit_factor || 1,
+                    entryConditions: {
+                      indicators: strategy.entry?.indicators || [],
+                      conditions: strategy.entry?.conditions || [],
+                    },
+                    marketCondition: result.win_rate > 50 ? "trending" : "ranging",
+                  }
+                );
+              }
+
+              if (result.win_rate < 45 || result.net_pnl < 0) {
+                await selfLearningEngine.autoImproveStrategy(id.toString(), user.user!.id);
+              }
             }
           }
-        }
 
 
-      await supabaseAdmin.from("brain_events").insert({
-        event_type: "BACKTEST_COMPLETE",
-        details: {
-          strategyId,
-          totalTrades: result.total_trades,
-          netPnl: result.net_pnl,
-          winRate: result.win_rate,
-          userId: user.user.id,
-        },
-        created_at: new Date().toISOString(),
-      });
+        await supabaseAdmin.from("brain_events").insert({
+          event_type: "BACKTEST_COMPLETE",
+          details: {
+            strategyId,
+            totalTrades: result.total_trades,
+            netPnl: result.net_pnl,
+            winRate: result.win_rate,
+            userId: user.user!.id,
+          },
+          created_at: new Date().toISOString(),
+        });
 
       let aiInsights = null;
       let rlInsights = null;

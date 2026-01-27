@@ -54,6 +54,8 @@ export interface BacktestResult {
   max_drawdown: number;
   max_drawdown_percentage: number;
   trade_log: TradeEntry[];
+  trades?: TradeEntry[];
+  profit_factor?: number;
   data_source: string;
   candle_count: number;
   date_range: { from: string; to: string };
@@ -1806,6 +1808,9 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
     console.log(`[Backtest] COMPLETE: ${totalTrades} trades, BUY signals: ${buySignalCount}, SELL signals: ${sellSignalCount}`);
     console.log(`[Backtest] P&L: ${netPnl.toFixed(2)} (${((netPnl/capital)*100).toFixed(2)}%), Win Rate: ${totalTrades > 0 ? ((wins/totalTrades)*100).toFixed(1) : 0}%`);
 
+    const grossProfit = trades.filter(t => (t.pnl || 0) > 0).reduce((sum, t) => sum + (t.pnl || 0), 0);
+    const grossLoss = Math.abs(trades.filter(t => (t.pnl || 0) < 0).reduce((sum, t) => sum + (t.pnl || 0), 0));
+
     return {
       capital_used: capital,
       total_trades: totalTrades,
@@ -1819,6 +1824,8 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
       max_drawdown: maxDrawdown,
       max_drawdown_percentage: peakBalance > 0 ? (maxDrawdown / peakBalance) * 100 : 0,
       trade_log: trades,
+      trades: trades,
+      profit_factor: grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? 999 : 1),
       data_source: "pending",
       candle_count: 0,
       date_range: { from: "", to: "" },

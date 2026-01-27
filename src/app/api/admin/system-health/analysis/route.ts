@@ -13,27 +13,27 @@ export async function GET(request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) return unauthorizedResponse();
 
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.user.id)
-    .single();
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.userId!)
+      .single();
 
-  if (!profile?.is_admin) {
-    return unauthorizedResponse();
-  }
+    if (!profile?.is_admin) {
+      return unauthorizedResponse();
+    }
 
-  try {
-    const status = await centralDataEngine.getComprehensiveStatus();
-    const architecture = await centralDataEngine.getDataFlowArchitecture();
-    const poolStatus = await apiKeyPoolManager.getPoolStatus();
+    try {
+      const status = await centralDataEngine.getComprehensiveStatus();
+      const architecture = await centralDataEngine.getDataFlowArchitecture();
+      const poolStatus = await apiKeyPoolManager.getPoolAllocation();
 
-    return successResponse({
-      status,
-      architecture,
-      apiKeyPool: poolStatus,
-      timestamp: new Date().toISOString(),
-    });
+      return successResponse({
+        status,
+        architecture,
+        apiKeyPool: poolStatus,
+        timestamp: new Date().toISOString(),
+      });
   } catch (error) {
     console.error("[SystemHealthAnalysis] Error:", error);
     return serverErrorResponse();

@@ -32,7 +32,10 @@ export async function POST(
     }
 
     const apiKey = decrypt(config.api_key);
-    let testResult = { success: false, error: "Unknown provider" };
+    let testResult: { success: boolean; error?: string } = {
+      success: false,
+      error: "Unknown provider",
+    };
 
     switch (config.provider) {
       case "openai":

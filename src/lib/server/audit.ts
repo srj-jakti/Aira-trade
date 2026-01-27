@@ -14,7 +14,18 @@ export type AuditAction =
   | "profile_updated"
   | "ai_config_created"
   | "ai_config_updated"
-  | "ai_config_deleted";
+  | "ai_config_deleted"
+  | "admin_plan_assigned"
+  | "admin_plan_revoked"
+  | "admin_user_blocked"
+  | "admin_user_unblocked"
+  | "admin_user_revoked"
+  | "zerodha_login_success"
+  | "zerodha_config_created"
+  | "zerodha_config_updated"
+  | "zerodha_config_deleted"
+  | "scanner_enabled"
+  | "scanner_disabled";
 
 interface AuditLogEntry {
   user_id: string;

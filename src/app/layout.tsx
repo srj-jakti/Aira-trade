@@ -112,6 +112,7 @@ export default function RootLayout({
             disableTransitionOnChange
             >
               <ServiceWorkerRegister />
+              <PWAInstallPrompt />
               {children}
               <Toaster />
               <VisualEditsMessenger />

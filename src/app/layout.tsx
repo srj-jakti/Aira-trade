@@ -87,6 +87,7 @@ export const viewport: Viewport = {
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
+import { PWAInstallPrompt } from "@/components/pwa/PWAInstallPrompt";
 import Script from "next/script";
 
 export default function RootLayout({

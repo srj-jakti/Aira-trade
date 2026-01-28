@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "next-themes";
 
 export interface CandleData {
   timestamp: string;
@@ -152,6 +153,8 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
   }, [timeframe]);
 
   // Initialize chart
+  const { theme } = useTheme();
+
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
@@ -164,42 +167,50 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
 
         if (!mounted || !chartContainerRef.current) return;
 
+        const isDark = theme === "dark";
+        const backgroundColor = isDark ? "#0a0a0a" : "#ffffff";
+        const textColor = isDark ? "#d1d5db" : "#374151";
+        const gridColor = isDark ? "rgba(255, 255, 255, 0.03)" : "rgba(0, 0, 0, 0.05)";
+        const crosshairColor = isDark ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.2)";
+        const labelBg = isDark ? "#1f2937" : "#e5e7eb";
+        const borderColor = isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+
         const chart = createChart(chartContainerRef.current, {
           width: chartContainerRef.current.clientWidth,
           height: chartContainerRef.current.clientHeight,
           layout: {
-            background: { type: ColorType.Solid, color: "#0a0a0a" },
-            textColor: "#d1d5db",
+            background: { type: ColorType.Solid, color: backgroundColor },
+            textColor: textColor,
             fontSize: 12,
             fontFamily: "Inter, sans-serif",
           },
           grid: {
-            vertLines: { color: "rgba(255, 255, 255, 0.03)" },
-            horzLines: { color: "rgba(255, 255, 255, 0.03)" },
+            vertLines: { color: gridColor },
+            horzLines: { color: gridColor },
           },
           crosshair: {
             mode: CrosshairMode.Normal,
             vertLine: {
-              color: "rgba(255, 255, 255, 0.2)",
-              labelBackgroundColor: "#1f2937",
+              color: crosshairColor,
+              labelBackgroundColor: labelBg,
               width: 1,
               style: 3,
             },
             horzLine: {
-              color: "rgba(255, 255, 255, 0.2)",
-              labelBackgroundColor: "#1f2937",
+              color: crosshairColor,
+              labelBackgroundColor: labelBg,
               width: 1,
               style: 3,
             },
           },
             rightPriceScale: {
-              borderColor: "rgba(255, 255, 255, 0.1)",
+              borderColor: borderColor,
               scaleMargins: { top: 0.1, bottom: 0.2 },
               autoScale: true,
               alignLabels: true,
             },
             timeScale: {
-              borderColor: "rgba(255, 255, 255, 0.1)",
+              borderColor: borderColor,
               timeVisible: true,
               secondsVisible: false,
               rightOffset: 30,
@@ -320,7 +331,7 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
       }
       setChartReady(false);
     };
-  }, [formatTime]);
+ } }, [formatTime, theme]);
 
     // Update chart data when data changes
     useEffect(() => {
@@ -540,37 +551,39 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
     }
   }, [lastPrice, tick, chartReady, timeframe, sortedData, formatTime]);
 
+  const { theme } = useTheme();
+  
   return (
-    <div className={cn("w-full h-full flex flex-col bg-[#0a0a0a] relative", className)}>
+    <div className={cn("w-full h-full flex flex-col relative bg-card", className)}>
       {isLoading && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px]">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-[2px]">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
-            <span className="text-white/70 text-sm font-medium">Loading market data...</span>
+            <span className="text-muted-foreground text-sm font-medium">Loading market data...</span>
           </div>
         </div>
       )}
 
-        <div className="flex items-center justify-between px-4 py-1.5 border-b border-white/5 bg-white/5 backdrop-blur-md z-10 min-h-[40px]">
+        <div className="flex items-center justify-between px-4 py-1.5 border-b border-border bg-card/5 backdrop-blur-md z-10 min-h-[40px]">
           {ohlcData ? (
             <div className="flex items-center gap-4 text-[11px] font-mono w-full justify-between">
               <div className="flex flex-col">
-                <span className="text-white/30 hidden sm:inline">{ohlcData.time}</span>
-                <span className="text-[10px] text-blue-400 font-bold">NEXT: {countdown}</span>
+                <span className="text-muted-foreground hidden sm:inline">{ohlcData.time}</span>
+                <span className="text-[10px] text-blue-500 font-bold">NEXT: {countdown}</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1"><span className="text-white/40">O</span> <span className="text-white">{formatPrice(ohlcData.o)}</span></span>
-                <span className="flex items-center gap-1"><span className="text-white/40">H</span> <span className="text-green-400">{formatPrice(ohlcData.h)}</span></span>
-                <span className="flex items-center gap-1"><span className="text-white/40">L</span> <span className="text-red-400">{formatPrice(ohlcData.l)}</span></span>
-                <span className="flex items-center gap-1"><span className="text-white/40">C</span> <span className={ohlcData.c >= ohlcData.o ? "text-green-400" : "text-red-400"}>{formatPrice(ohlcData.c)}</span></span>
+                <span className="flex items-center gap-1"><span className="text-muted-foreground">O</span> <span className="text-foreground">{formatPrice(ohlcData.o)}</span></span>
+                <span className="flex items-center gap-1"><span className="text-muted-foreground">H</span> <span className="text-green-500">{formatPrice(ohlcData.h)}</span></span>
+                <span className="flex items-center gap-1"><span className="text-muted-foreground">L</span> <span className="text-red-500">{formatPrice(ohlcData.l)}</span></span>
+                <span className="flex items-center gap-1"><span className="text-muted-foreground">C</span> <span className={ohlcData.c >= ohlcData.o ? "text-green-500" : "text-red-500"}>{formatPrice(ohlcData.c)}</span></span>
               </div>
             </div>
           ) : (
             <div className="flex items-center justify-between w-full">
-              <div className="text-[10px] text-white/20 uppercase tracking-wider font-semibold">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
                 {symbol} • {timeframe}
               </div>
-              <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">
+              <div className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">
                 NEXT: {countdown}
               </div>
             </div>
@@ -580,7 +593,7 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
       <div ref={chartContainerRef} className="flex-1 min-h-0 w-full" />
       
       {(!data || data.length === 0) && !isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white/30 text-sm pointer-events-none italic">
+        <div className="absolute inset-0 flex items-center justify-center bg-background/40 text-muted-foreground text-sm pointer-events-none italic">
           No data available for the selected timeframe
         </div>
       )}

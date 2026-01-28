@@ -58,6 +58,11 @@ export const metadata: Metadata = {
     { rel: "icon", url: "/favicon.ico" },
     { rel: "apple-touch-icon", url: "/icon-192x192.png" }
   ],
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "AiRA",
+  },
   robots: {
     index: true,
     follow: true,

@@ -74,11 +74,6 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "AiRA",
-  },
 };
 
 export const viewport: Viewport = {
@@ -93,7 +88,6 @@ export const viewport: Viewport = {
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import Script from "next/script";
-import { useEffect } from "react";
 
 export default function RootLayout({
   children,

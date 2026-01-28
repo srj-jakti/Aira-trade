@@ -105,7 +105,8 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ instrumentToken, source: "ai_analysis" }),
       });
-    } catch {
+    } catch (error) {
+      console.error("Failed to subscribe to instrument:", error);
     }
   }, []);
 
@@ -114,16 +115,23 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     try {
       await requestSubscription(instrument.instrument_token);
 
-const response = await fetch(
-          `/api/market-data/live?instrument=${instrument.instrument_token}&timeframe=${tf}&limit=500`
-        );
+      const response = await fetch(
+        `/api/market-data/live?instrument=${instrument.instrument_token}&timeframe=${tf}&limit=500`
+      );
       
       if (response.ok) {
         const data = await response.json();
         setInitialChartData(data.candles || []);
+      } else {
+        throw new Error(`API Error: ${response.status}`);
       }
     } catch (error) {
       console.error("Error fetching chart data:", error);
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        toast.error("Network error: Unable to reach market data server. Please check your connection.");
+      } else {
+        toast.error("Failed to load chart data");
+      }
     } finally {
       setIsLoadingChart(false);
     }
@@ -146,10 +154,17 @@ const response = await fetch(
         const data = await response.json();
         if (data.success) {
           setAnalysis(data.analysis);
+        } else {
+          toast.error(data.error || "Analysis failed");
         }
+      } else {
+        throw new Error(`API Error: ${response.status}`);
       }
     } catch (error) {
       console.error("Error fetching analysis:", error);
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        toast.error("Network error: AI service unreachable");
+      }
     } finally {
       setIsLoadingAnalysis(false);
     }
@@ -165,9 +180,14 @@ const response = await fetch(
           (s: AnalysisOutput) => s.tradingsymbol === instrument.tradingsymbol
         );
         setAnalysisOutputs(instrumentOutputs);
+      } else {
+        throw new Error(`API Error: ${response.status}`);
       }
     } catch (error) {
       console.error("Error fetching analysis outputs:", error);
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        toast.error("Network error: Unable to fetch analysis history");
+      }
     } finally {
       setIsLoadingOutputs(false);
     }

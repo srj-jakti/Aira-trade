@@ -503,7 +503,7 @@ const response = await fetch(
               {isLoadingAnalysis ? (
                 <div className="min-h-[200px] flex flex-col items-center justify-center gap-2">
                   <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-                  <span className="text-white/50 text-sm">Analyzing...</span>
+                  <span className="text-muted-foreground text-sm">Analyzing...</span>
                 </div>
               ) : analysis ? (
                 <div className="space-y-4">

@@ -464,25 +464,25 @@ const response = await fetch(
                 <CardContent className="p-2 md:p-3">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     <div className="text-center p-2 bg-muted/50 rounded-lg">
-                    <div className="text-[10px] text-muted-foreground mb-0.5">Entry Price</div>
+                    <div className="text-[10px] text-foreground/60 mb-0.5">Entry Price</div>
                     <div className="font-mono font-semibold text-blue-600 text-sm">{formatPrice(analysis.entry)}</div>
                   </div>
                   <div className="text-center p-2 bg-muted/50 rounded-lg">
-                    <div className="text-[10px] text-muted-foreground mb-0.5">Target</div>
+                    <div className="text-[10px] text-foreground/60 mb-0.5">Target</div>
                     <div className="font-mono font-semibold text-green-600 flex items-center justify-center gap-1 text-sm">
                       <ArrowUp className="w-3 h-3" />
                       {formatPrice(analysis.target)}
                     </div>
                   </div>
                   <div className="text-center p-2 bg-muted/50 rounded-lg">
-                    <div className="text-[10px] text-muted-foreground mb-0.5">Stop Loss</div>
+                    <div className="text-[10px] text-foreground/60 mb-0.5">Stop Loss</div>
                     <div className="font-mono font-semibold text-red-600 flex items-center justify-center gap-1 text-sm">
                       <ArrowDown className="w-3 h-3" />
                       {formatPrice(analysis.stopLoss)}
                     </div>
                   </div>
                   <div className="text-center p-2 bg-muted/50 rounded-lg">
-                    <div className="text-[10px] text-muted-foreground mb-0.5">Confidence</div>
+                    <div className="text-[10px] text-foreground/60 mb-0.5">Confidence</div>
                     <div className="font-mono font-semibold text-purple-600 text-sm">{analysis.confidence}%</div>
                   </div>
                   </div>
@@ -519,7 +519,7 @@ const response = await fetch(
                   
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-white/50">Trend Strength</span>
+                      <span className="text-foreground/60">Trend Strength</span>
                       <span className="font-medium">{analysis.strength}%</span>
                     </div>
                     <div className="h-2 bg-white/10 rounded-full overflow-hidden">
@@ -533,7 +533,7 @@ const response = await fetch(
                     </div>
                   </div>
 
-                  <div className="text-sm text-muted-foreground leading-relaxed">
+                  <div className="text-sm text-foreground/70 leading-relaxed">
                     {analysis.analysis}
                   </div>
                 </div>

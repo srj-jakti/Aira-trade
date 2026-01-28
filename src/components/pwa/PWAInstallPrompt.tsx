@@ -68,7 +68,12 @@ export function PWAInstallPrompt() {
     sessionStorage.setItem("pwa-prompt-dismissed", "true");
   };
 
-  if (isStandalone || sessionStorage.getItem("pwa-prompt-dismissed") === "true") {
+  if (isStandalone) {
+    return null;
+  }
+
+  // Ensure we don't render anything if the user has dismissed the prompt (checked in useEffect) or if we are on server
+  if (typeof window !== "undefined" && sessionStorage.getItem("pwa-prompt-dismissed") === "true") {
     return null;
   }
 

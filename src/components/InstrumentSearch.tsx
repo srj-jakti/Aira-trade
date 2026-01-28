@@ -152,12 +152,12 @@ export function InstrumentSearch({
             if (results.length > 0) setIsOpen(true);
           }}
           placeholder={placeholder}
-          className="pl-10 pr-10 bg-zinc-900 border-zinc-800 h-11 text-zinc-100 placeholder:text-zinc-600 focus:ring-1 focus:ring-orange-500/20"
+          className="pl-10 pr-10 bg-background border-input h-11 text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-primary/20"
         />
         {(query || selectedInstrument) && (
           <button
             onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
           </button>
@@ -165,7 +165,7 @@ export function InstrumentSearch({
       </div>
 
       {isOpen && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-zinc-950 border border-zinc-800 rounded shadow-2xl max-h-[440px] overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-popover border border-border rounded shadow-2xl max-h-[440px] overflow-y-auto">
           {results.map((instrument) => {
             const label = getSegmentLabel(instrument.segment, instrument.exchange, instrument.instrument_type);
             const labelColor = getLabelColor(instrument.segment, instrument.exchange, instrument.instrument_type);
@@ -175,28 +175,28 @@ export function InstrumentSearch({
               <button
                 key={instrument.instrument_token}
                 onClick={() => handleSelect(instrument)}
-                className="w-full px-4 py-3 text-left hover:bg-zinc-900 flex items-center justify-between border-b border-zinc-900 last:border-0 transition-colors group"
+                className="w-full px-4 py-3 text-left hover:bg-accent flex items-center justify-between border-b border-border last:border-0 transition-colors group"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-bold text-zinc-100 text-sm tracking-tight">
+                    <span className="font-bold text-foreground text-sm tracking-tight">
                       <HighlightedText text={instrument.tradingsymbol} highlight={query} />
                     </span>
                     <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", labelColor)}>
                       {label}
                     </span>
                     {expiry && (
-                      <span className="text-[10px] text-zinc-500 font-medium">{expiry}</span>
+                      <span className="text-[10px] text-muted-foreground font-medium">{expiry}</span>
                     )}
                   </div>
-                  <div className="text-xs text-zinc-500 truncate font-medium">
+                  <div className="text-xs text-muted-foreground truncate font-medium">
                     <HighlightedText text={instrument.name || instrument.tradingsymbol} highlight={query} />
                   </div>
                 </div>
                 <div className="flex items-center gap-3 ml-4">
                   <span className={cn(
                     "text-[10px] font-bold tracking-widest",
-                    instrument.exchange === "NSE" ? "text-blue-500/60" : "text-red-500/60"
+                    instrument.exchange === "NSE" ? "text-blue-500/80" : "text-red-500/80"
                   )}>
                     {instrument.exchange}
                   </span>
@@ -208,8 +208,8 @@ export function InstrumentSearch({
       )}
 
       {isOpen && results.length === 0 && query.length >= 2 && !isLoading && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-zinc-950 border border-zinc-800 rounded shadow-xl p-4 text-center text-zinc-500 text-sm">
-          No matches found for "<span className="text-zinc-300">{query}</span>"
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-popover border border-border rounded shadow-xl p-4 text-center text-muted-foreground text-sm">
+          No matches found for "<span className="text-foreground">{query}</span>"
         </div>
       )}
     </div>

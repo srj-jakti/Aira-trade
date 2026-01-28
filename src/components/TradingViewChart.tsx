@@ -153,7 +153,7 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
   }, [timeframe]);
 
   // Initialize chart
-  const { theme } = useTheme();
+  const { theme, resolvedTheme } = useTheme();
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -167,7 +167,7 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
 
         if (!mounted || !chartContainerRef.current) return;
 
-        const isDark = theme === "dark";
+        const isDark = resolvedTheme === "dark";
         const backgroundColor = isDark ? "#0a0a0a" : "#ffffff";
         const textColor = isDark ? "#d1d5db" : "#374151";
         const gridColor = isDark ? "rgba(255, 255, 255, 0.03)" : "rgba(0, 0, 0, 0.05)";
@@ -331,7 +331,7 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
       }
       setChartReady(false);
     };
- } }, [formatTime, theme]);
+  }, [formatTime, resolvedTheme]);
 
     // Update chart data when data changes
     useEffect(() => {

@@ -312,7 +312,7 @@ const response = await fetch(
           className="w-full"
         />
         <div className="flex items-center gap-1 flex-wrap">
-          <div className="flex items-center gap-0.5 bg-muted/50 border border-white/10 p-0.5 rounded-md shrink-0">
+          <div className="flex items-center gap-0.5 bg-muted/50 border border-border p-0.5 rounded-md shrink-0">
             {[
               { label: "1m", value: "1m" },
               { label: "5m", value: "5m" },
@@ -328,7 +328,7 @@ const response = await fetch(
                   "px-1.5 sm:px-2 py-1 text-[10px] rounded transition-all whitespace-nowrap",
                   timeframe === tf.value
                     ? "bg-blue-500/20 text-blue-600 font-semibold ring-1 ring-blue-500/30"
-                    : "text-white/40 hover:text-white/70 hover:bg-muted/50"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
               >
                 {tf.label}
@@ -349,8 +349,8 @@ const response = await fetch(
             </Button>
             
             {showIndicatorPanel && (
-              <div className="absolute top-full right-0 mt-1 z-50 w-56 bg-popover/95 backdrop-blur-md border border-white/10 rounded-lg shadow-xl p-2">
-                <div className="text-xs text-white/40 px-2 py-1 mb-1">Technical Indicators</div>
+              <div className="absolute top-full right-0 mt-1 z-50 w-56 bg-popover/95 backdrop-blur-md border border-border rounded-lg shadow-xl p-2">
+                <div className="text-xs text-muted-foreground px-2 py-1 mb-1">Technical Indicators</div>
                 {indicators.map((ind) => (
                   <button
                     key={ind.id}
@@ -359,12 +359,12 @@ const response = await fetch(
                   >
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded" style={{ backgroundColor: ind.color || "#f59e0b" }} />
-                      <span className={ind.visible ? "text-white" : "text-white/50"}>{ind.name}</span>
+                      <span className={ind.visible ? "text-foreground" : "text-muted-foreground"}>{ind.name}</span>
                     </div>
                     {ind.visible ? (
                       <Eye className="w-4 h-4 text-blue-600" />
                     ) : (
-                      <EyeOff className="w-4 h-4 text-white/30" />
+                      <EyeOff className="w-4 h-4 text-muted-foreground" />
                     )}
                   </button>
                 ))}
@@ -397,14 +397,14 @@ const response = await fetch(
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 md:gap-3">
           <div className="lg:col-span-2 space-y-2 md:space-y-3">
             <Card className="bg-card border-border overflow-hidden">
-              <CardHeader className="p-2 md:p-3 border-b border-white/10">
+              <CardHeader className="p-2 md:p-3 border-b border-border">
                 <CardTitle className="text-xs font-medium flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <LineChart className="w-3.5 h-3.5 text-blue-600" />
                     {selectedInstrument ? (
                       <span>
                         {selectedInstrument.tradingsymbol}
-                        <span className="text-white/50 ml-2 text-xs">{selectedInstrument.exchange}</span>
+                        <span className="text-muted-foreground ml-2 text-xs">{selectedInstrument.exchange}</span>
                           {currentPrice && (
                             <div className="flex flex-col ml-2">
                               <span className="font-mono text-green-600">
@@ -428,13 +428,13 @@ const response = await fetch(
                         <span className="text-[10px] uppercase font-bold">Live</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1 text-white/30">
+                      <div className="flex items-center gap-1 text-muted-foreground">
                         <WifiOff className="w-3 h-3" />
                         <span className="text-[10px] uppercase">Offline</span>
                       </div>
                     )}
                     {chartData.length > 0 && (
-                      <span className="text-xs text-white/40">{chartData.length} candles</span>
+                      <span className="text-xs text-muted-foreground">{chartData.length} candles</span>
                     )}
                   </div>
                 </CardTitle>
@@ -464,27 +464,27 @@ const response = await fetch(
                 <CardContent className="p-2 md:p-3">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     <div className="text-center p-2 bg-muted/50 rounded-lg">
-                      <div className="text-[10px] text-white/50 mb-0.5">Entry Price</div>
-                      <div className="font-mono font-semibold text-blue-600 text-sm">{formatPrice(analysis.entry)}</div>
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Entry Price</div>
+                    <div className="font-mono font-semibold text-blue-600 text-sm">{formatPrice(analysis.entry)}</div>
+                  </div>
+                  <div className="text-center p-2 bg-muted/50 rounded-lg">
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Target</div>
+                    <div className="font-mono font-semibold text-green-600 flex items-center justify-center gap-1 text-sm">
+                      <ArrowUp className="w-3 h-3" />
+                      {formatPrice(analysis.target)}
                     </div>
-                    <div className="text-center p-2 bg-muted/50 rounded-lg">
-                      <div className="text-[10px] text-white/50 mb-0.5">Target</div>
-                      <div className="font-mono font-semibold text-green-600 flex items-center justify-center gap-1 text-sm">
-                        <ArrowUp className="w-3 h-3" />
-                        {formatPrice(analysis.target)}
-                      </div>
+                  </div>
+                  <div className="text-center p-2 bg-muted/50 rounded-lg">
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Stop Loss</div>
+                    <div className="font-mono font-semibold text-red-600 flex items-center justify-center gap-1 text-sm">
+                      <ArrowDown className="w-3 h-3" />
+                      {formatPrice(analysis.stopLoss)}
                     </div>
-                    <div className="text-center p-2 bg-muted/50 rounded-lg">
-                      <div className="text-[10px] text-white/50 mb-0.5">Stop Loss</div>
-                      <div className="font-mono font-semibold text-red-600 flex items-center justify-center gap-1 text-sm">
-                        <ArrowDown className="w-3 h-3" />
-                        {formatPrice(analysis.stopLoss)}
-                      </div>
-                    </div>
-                    <div className="text-center p-2 bg-muted/50 rounded-lg">
-                      <div className="text-[10px] text-white/50 mb-0.5">Confidence</div>
-                      <div className="font-mono font-semibold text-purple-600 text-sm">{analysis.confidence}%</div>
-                    </div>
+                  </div>
+                  <div className="text-center p-2 bg-muted/50 rounded-lg">
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Confidence</div>
+                    <div className="font-mono font-semibold text-purple-600 text-sm">{analysis.confidence}%</div>
+                  </div>
                   </div>
                 </CardContent>
               </Card>
@@ -533,15 +533,15 @@ const response = await fetch(
                     </div>
                   </div>
 
-                  <div className="text-sm text-white/70 leading-relaxed">
+                  <div className="text-sm text-muted-foreground leading-relaxed">
                     {analysis.analysis}
                   </div>
                 </div>
               ) : (
                 <div className="min-h-[200px] flex items-center justify-center text-center">
                   <div>
-                    <AlertCircle className="w-8 h-8 text-white/20 mx-auto mb-2" />
-                    <p className="text-white/30 text-xs md:text-sm">
+                    <AlertCircle className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground text-xs md:text-sm">
                       Select an instrument to view AI analysis
                     </p>
                   </div>
@@ -551,7 +551,7 @@ const response = await fetch(
             </Card>
 
             <Card className="bg-card border-border">
-              <CardHeader className="p-3 md:p-4 border-b border-white/10">
+              <CardHeader className="p-3 md:p-4 border-b border-border">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Target className="w-4 h-4 text-indigo-600" />
                   Strategy Overlay
@@ -567,7 +567,7 @@ const response = await fetch(
                           "px-3 py-1.5 text-xs rounded-full border transition-colors",
                           !selectedStrategy
                             ? "bg-blue-500/20 text-blue-600 border-blue-500/30"
-                            : "bg-muted/50 text-white/50 border-white/10 hover:bg-accent/50"
+                            : "bg-muted/50 text-muted-foreground border-border hover:bg-accent/50"
                         )}
                       >
                         None
@@ -580,7 +580,7 @@ const response = await fetch(
                             "px-3 py-1.5 text-xs rounded-full border transition-colors",
                             selectedStrategy === strategy.id
                               ? "bg-indigo-500/20 text-indigo-600 border-indigo-500/30"
-                              : "bg-muted/50 text-white/50 border-white/10 hover:bg-accent/50"
+                              : "bg-muted/50 text-muted-foreground border-border hover:bg-accent/50"
                           )}
                         >
                           {strategy.name}
@@ -588,71 +588,71 @@ const response = await fetch(
                       ))}
                     </>
                   ) : (
-                    <span className="text-xs text-white/30 italic">No strategies available. Create one in the Strategy section.</span>
+                    <span className="text-xs text-muted-foreground italic">No strategies available. Create one in the Strategy section.</span>
                   )}
                 </div>
               </CardContent>
             </Card>
 
             <Card className="bg-card border-border">
-              <CardHeader className="p-3 md:p-4 border-b border-white/10">
+              <CardHeader className="p-3 md:p-4 border-b border-border">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Target className="w-4 h-4 text-green-600" />
                   Strategy Analysis Outputs
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              {isLoadingOutputs ? (
-                <div className="min-h-[150px] flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin text-green-600" />
-                  <span className="text-white/50 text-xs">Loading outputs...</span>
-                </div>
-              ) : analysisOutputs.length > 0 ? (
-                <div className="space-y-3">
-                  {analysisOutputs.slice(0, 5).map((output) => (
-                    <div 
-                      key={output.id} 
-                      className="p-3 bg-muted/50 rounded-lg border border-white/5"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">{output.strategy_name}</span>
-                        <Badge 
-                          className={
-                            output.direction === "long" 
-                              ? "bg-green-500/20 text-green-600 border-green-500/30" 
-                              : "bg-red-500/20 text-red-600 border-red-500/30"
-                          }
-                        >
-                          {output.direction?.toUpperCase()}
-                        </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                {isLoadingOutputs ? (
+                  <div className="min-h-[150px] flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-green-600" />
+                    <span className="text-muted-foreground text-xs">Loading outputs...</span>
+                  </div>
+                ) : analysisOutputs.length > 0 ? (
+                  <div className="space-y-3">
+                    {analysisOutputs.slice(0, 5).map((output) => (
+                      <div 
+                        key={output.id} 
+                        className="p-3 bg-muted/50 rounded-lg border border-border"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">{output.strategy_name}</span>
+                          <Badge 
+                            className={
+                              output.direction === "long" 
+                                ? "bg-green-500/20 text-green-600 border-green-500/30" 
+                                : "bg-red-500/20 text-red-600 border-red-500/30"
+                            }
+                          >
+                            {output.direction?.toUpperCase()}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Confidence: {output.confidence}%</span>
+                          <span className="text-muted-foreground">
+                            {new Date(output.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-white/50">Confidence: {output.confidence}%</span>
-                        <span className="text-white/40">
-                          {new Date(output.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
+                    ))}
+                  </div>
+                ) : selectedInstrument ? (
+                  <div className="min-h-[150px] flex items-center justify-center text-center">
+                    <div>
+                      <Target className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-muted-foreground text-xs">
+                        No active outputs for {selectedInstrument.tradingsymbol}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              ) : selectedInstrument ? (
-                <div className="min-h-[150px] flex items-center justify-center text-center">
-                  <div>
-                    <Target className="w-6 h-6 text-white/20 mx-auto mb-2" />
-                    <p className="text-white/30 text-xs">
-                      No active outputs for {selectedInstrument.tradingsymbol}
+                  </div>
+                ) : (
+                  <div className="min-h-[150px] flex items-center justify-center text-center">
+                    <p className="text-muted-foreground text-xs md:text-sm">
+                      Select an instrument to view outputs
                     </p>
                   </div>
-                </div>
-              ) : (
-                <div className="min-h-[150px] flex items-center justify-center text-center">
-                  <p className="text-white/30 text-xs md:text-sm">
-                    Select an instrument to view outputs
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
         </div>
       </div>
     </div>

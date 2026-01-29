@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build:web": "next build",
-    "start:web": "next start",
-    "start": "echo 'Checking Python:' && (python --version || echo 'python not found') && (python3 --version || echo 'python3 not found') && npm run worker:logic",
+    "build": "next build",
+    "start": "next start",
+    "start:worker": "echo 'Checking Python:' && (python --version || echo 'python not found') && (python3 --version || echo 'python3 not found') && npm run worker:logic",
     "lint": "eslint",
     "worker:ticker": "npx tsx src/workers/ticker-worker.ts",
     "worker:logic": "npx tsx src/workers/index.ts",

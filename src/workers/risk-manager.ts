@@ -1,15 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 import { KiteConnect } from "kiteconnect";
-import { decrypt } from "../src/lib/server/encryption";
+import { decrypt } from "../lib/server/encryption";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+
 
 export class RiskManagerWorker {
   private static instance: RiskManagerWorker;
   private isRunning = false;
   private checkInterval = 60000; // 1 minute
+  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   private constructor() {}
 
@@ -45,7 +44,7 @@ export class RiskManagerWorker {
 
   private async checkUserRiskProfiles() {
     // Fetch all active risk profiles
-    const { data: profiles, error } = await supabase
+    const { data: profiles, error } = await this.supabase
       .from("user_risk_profiles")
       .select("*")
       .eq("is_active", true)
@@ -66,7 +65,7 @@ export class RiskManagerWorker {
         console.log(`[RiskManager] User ${profile.user_id} PnL: ${pnl}`);
 
         // 2. Update DB with current PnL
-        await supabase
+        await this.supabase
           .from("user_risk_profiles")
           .update({ current_day_pnl: pnl, updated_at: new Date().toISOString() })
           .eq("user_id", profile.user_id);
@@ -91,7 +90,7 @@ export class RiskManagerWorker {
 
   private async calculateRealtimePnL(userId: string): Promise<{ pnl: number, kite: any }> {
     // Get Broker Account
-    const { data: account } = await supabase
+    const { data: account } = await this.supabase
         .from("user_broker_accounts")
         .select("*")
         .eq("user_id", userId)
@@ -141,7 +140,7 @@ export class RiskManagerWorker {
     console.log(`[RiskManager] KILL SWITCH TRIGGERED for ${userId}: ${reason}`);
     
     // 1. Activate Kill Switch in DB to prevent further trading
-    await supabase
+    await this.supabase
       .from("user_risk_profiles")
       .update({ kill_switch_active: true })
       .eq("user_id", userId);

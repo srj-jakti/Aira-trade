@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import * as dotenv from "dotenv";
-import { zerodhaService } from "../src/lib/server/zerodha-service"; // Adjust import if needed
+import { decrypt } from "../src/lib/server/encryption";
 
 dotenv.config({ path: ".env.local" });
 
@@ -52,6 +52,16 @@ async function seedData() {
   }
 
   const { api_key, access_token } = config;
+
+  let decryptedApiKey = api_key;
+  let decryptedAccessToken = access_token;
+  
+  try {
+      decryptedApiKey = decrypt(api_key);
+      decryptedAccessToken = decrypt(access_token);
+  } catch (e) {
+      console.warn("Keys might not be encrypted or decryption failed:", e);
+  }
 
   for (const inst of TARGET_INSTRUMENTS) {
     console.log(`\nProcessing ${inst.symbol} (${inst.token})...`);

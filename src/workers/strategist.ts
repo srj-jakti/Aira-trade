@@ -1,9 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { zerodhaService } from "../src/lib/server/zerodha-service";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { zerodhaService } from "../lib/server/zerodha-service";
 
 type StrategyCategory = 'SCALPING' | 'INTRADAY' | 'SWING' | 'INVESTMENT';
 
@@ -18,6 +14,8 @@ export class StrategistWorker {
     SWING: 3600000,       // 1 hour
     INVESTMENT: 86400000, // 1 day
   };
+
+  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   private constructor() {}
 
@@ -59,7 +57,7 @@ export class StrategistWorker {
 
   private async scanStrategies(category: StrategyCategory) {
     // 1. Fetch active strategies for this category
-    const { data: strategies } = await supabase
+    const { data: strategies } = await this.supabase
       .from("strategies")
       .select("*")
       .eq("category", category)
@@ -108,7 +106,7 @@ export class StrategistWorker {
     const timeframe = tfMap[category] || '15m';
 
     // Fetch latest prediction
-    const { data: prediction } = await supabase
+    const { data: prediction } = await this.supabase
         .from('ai_predictions')
         .select('*')
         .eq('instrument_token', token)

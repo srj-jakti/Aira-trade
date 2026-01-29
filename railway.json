@@ -75,7 +75,8 @@
         "watchPatterns": [
           "src/workers/**",
           "ml-engine/**",
-          "package.json"
+          "package.json",
+          "nixpacks.toml"
         ]
       },
       "deploy": {

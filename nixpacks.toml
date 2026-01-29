@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs", "python311", "ta-lib", "gcc"]
+
+[phases.install]
+cmds = [
+    "npm install",
+    "pip install -r ml-engine/requirements.txt"
+]
+
+[start]
+cmd = "npm run worker:logic"

@@ -39,3 +39,14 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# Python
+venv
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.dll
+*.so
+*.dylib

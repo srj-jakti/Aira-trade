@@ -14,3 +14,13 @@ download.log
 railway.json
 .next
 .vercel
+ml-engine
+venv
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.dll
+*.so
+*.dylib

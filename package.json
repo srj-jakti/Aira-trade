@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "build:web": "next build",
     "start": "next start",
     "start:worker": "echo 'Checking Python:' && (python --version || echo 'python not found') && (python3 --version || echo 'python3 not found') && npm run worker:logic",
     "lint": "eslint",

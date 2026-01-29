@@ -63,10 +63,10 @@ export function MarketChart({ data, symbol, support, resistance, isLoading }: Ma
 
   if (isLoading) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-black/40">
+      <div className="w-full h-full flex items-center justify-center bg-background/40">
         <div className="flex flex-col items-center gap-2">
           <div className="w-8 h-8 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-          <span className="text-white/50 text-sm">Loading chart data...</span>
+          <span className="text-muted-foreground text-sm">Loading chart data...</span>
         </div>
       </div>
     );
@@ -74,7 +74,7 @@ export function MarketChart({ data, symbol, support, resistance, isLoading }: Ma
 
   if (data.length === 0) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-black/40 text-white/30 text-sm">
+      <div className="w-full h-full flex items-center justify-center bg-background/40 text-muted-foreground text-sm">
         Select an instrument to view price chart
       </div>
     );
@@ -86,7 +86,7 @@ export function MarketChart({ data, symbol, support, resistance, isLoading }: Ma
   };
 
   return (
-    <div className="w-full h-full bg-black/40 p-2">
+    <div className="w-full h-full bg-background/40 p-2">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={chartData} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
           <defs>

@@ -37,7 +37,7 @@ export function Logo({ className, iconOnly = false, size = 'md' }: LogoProps) {
           </defs>
           
           {/* Background Shape */}
-          <rect x="5" y="5" width="90" height="90" rx="24" fill="currentColor" className="text-black/20" />
+          <rect x="5" y="5" width="90" height="90" rx="24" fill="currentColor" className="text-foreground/10" />
           
           {/* Stylized 'A' + Lightning Bolt */}
           <path 
@@ -57,11 +57,11 @@ export function Logo({ className, iconOnly = false, size = 'md' }: LogoProps) {
             strokeLinecap="round" 
             strokeLinejoin="round"
             filter="url(#glow)"
-            className="text-white dark:text-white"
+            className="text-foreground"
           />
           
           {/* Pulse Dot at the end of trend */}
-          <circle cx="75" cy="25" r="5" fill="currentColor" className="text-white dark:text-white">
+          <circle cx="75" cy="25" r="5" fill="currentColor" className="text-foreground">
             <animate 
               attributeName="r" 
               values="4;7;4" 

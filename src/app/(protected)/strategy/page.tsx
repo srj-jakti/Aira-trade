@@ -154,6 +154,7 @@ interface Strategy {
   created_at: string;
   admin_approved?: boolean;
   creator?: string;
+  category?: "SCALPING" | "INTRADAY" | "SWING" | "INVESTMENT";
   stats?: {
     win_rate: number;
     net_pnl_percentage: number;
@@ -186,10 +187,12 @@ interface PaperTrade {
 }
 
 const TIMEFRAMES = [
-  { value: "5m", label: "5 Min", coverage: "100 Days" },
-  { value: "15m", label: "15 Min", coverage: "200 Days" },
-  { value: "1h", label: "1 Hour", coverage: "400 Days" },
-  { value: "day", label: "Daily", coverage: "5 Years" },
+  { value: "1m", label: "1 Min", coverage: "30 Days", category: "SCALPING" },
+  { value: "3m", label: "3 Min", coverage: "60 Days", category: "SCALPING" },
+  { value: "5m", label: "5 Min", coverage: "100 Days", category: "INTRADAY" },
+  { value: "15m", label: "15 Min", coverage: "200 Days", category: "INTRADAY" },
+  { value: "1h", label: "1 Hour", coverage: "400 Days", category: "SWING" },
+  { value: "day", label: "Daily", coverage: "5 Years", category: "INVESTMENT" },
 ];
 
 export default function StrategyPage() {
@@ -254,7 +257,7 @@ export default function StrategyPage() {
                       className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
                     >
                       <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                      <span className="truncate w-full text-center sm:text-left">Public</span>
+                      <span className="truncate w-full text-center sm:text-left">Marketplace</span>
                     </TabsTrigger>
                     <TabsTrigger
                       value="invite-only"
@@ -395,6 +398,11 @@ function ActiveStrategiesTab() {
                   <Badge variant="outline" className="text-[10px] px-1 h-4 border-border text-muted-foreground">
                     {strategy.selected_timeframes[0]}
                   </Badge>
+                  {strategy.category && (
+                    <Badge variant="outline" className="text-[10px] px-1 h-4 border-border text-muted-foreground">
+                      {strategy.category}
+                    </Badge>
+                  )}
                   {strategy.is_paper_trading && (
                     <Badge variant="outline" className="text-[10px] px-1 h-4 border-cyan-500/30 text-cyan-400">
                       Paper

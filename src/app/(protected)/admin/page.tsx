@@ -238,34 +238,34 @@ export default function AdminPage() {
 
   if (isAdmin === null) {
     return (
-      <div className="flex items-center justify-center h-full bg-[#030303]">
+      <div className="flex items-center justify-center h-full bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#030303]">
+    <div className="flex flex-col h-full bg-background">
       <div className="flex-1 p-4 md:p-8 pt-6 space-y-6 max-w-7xl mx-auto w-full">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={() => router.push("/settings")}
-            className="text-white/60 hover:text-white"
+            className="text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Settings
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Admin Panel</h1>
-            <p className="text-white/50 text-sm">Manage global configurations and system health.</p>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Admin Panel</h1>
+            <p className="text-muted-foreground text-sm">Manage global configurations and system health.</p>
           </div>
         </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="px-0">
-                <TabsList className="flex h-auto sm:h-11 items-center justify-between gap-0.5 rounded-xl border border-white/10 bg-white/5 p-1 w-full sm:w-max overflow-x-auto scrollbar-hide">
+                <TabsList className="flex h-auto sm:h-11 items-center justify-between gap-0.5 rounded-xl border border-border bg-muted/50 p-1 w-full sm:w-max overflow-x-auto scrollbar-hide">
                   <TabsTrigger 
                     value="zerodha" 
                     className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white rounded-lg transition-all text-[9px] sm:text-xs md:text-sm flex-1 min-w-0"
@@ -440,19 +440,19 @@ function ZerodhaConfigManager() {
 
   return (
     <div className="space-y-6">
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-white text-lg flex items-center gap-2">
+            <CardTitle className="text-foreground text-lg flex items-center gap-2">
               <Key className="w-5 h-5 text-orange-400" />
               Zerodha API Configurations
             </CardTitle>
-            <CardDescription className="text-white/40">
+            <CardDescription className="text-muted-foreground">
               Configure multiple Zerodha APIs for market data access. These are global keys used by all users.
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={fetchConfigs} className="border-white/20 text-white hover:bg-white/10">
+            <Button variant="outline" size="sm" onClick={fetchConfigs} className="border-border text-foreground hover:bg-muted">
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
@@ -465,12 +465,12 @@ function ZerodhaConfigManager() {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-white/40" />
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : configs.length === 0 ? (
-            <div className="p-8 border border-dashed border-white/20 rounded-lg text-center">
-              <Key className="w-12 h-12 mx-auto text-white/20 mb-4" />
-              <p className="text-white/40 text-sm mb-4">No Zerodha APIs configured yet.</p>
+            <div className="p-8 border border-dashed border-border rounded-lg text-center">
+              <Key className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+              <p className="text-muted-foreground text-sm mb-4">No Zerodha APIs configured yet.</p>
               <Button size="sm" onClick={() => setShowAddDialog(true)} className="bg-orange-500 hover:bg-orange-600">
                 <Plus className="w-4 h-4 mr-2" />
                 Add First Configuration
@@ -481,12 +481,12 @@ function ZerodhaConfigManager() {
               {configs.map((config) => (
                 <div 
                   key={config.id} 
-                  className={`p-4 rounded-lg border ${config.is_active ? "bg-white/5 border-white/10" : "bg-white/2 border-white/5 opacity-60"}`}
+                  className={`p-4 rounded-lg border ${config.is_active ? "bg-card border-border" : "bg-muted/30 border-border/50 opacity-60"}`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="space-y-2 flex-1">
                       <div className="flex items-center gap-3">
-                        <span className="text-white font-medium text-lg">{config.name}</span>
+                        <span className="text-foreground font-medium text-lg">{config.name}</span>
                         <Badge className={getStatusColor(config.connection_status)}>
                           {config.connection_status}
                         </Badge>
@@ -505,22 +505,22 @@ function ZerodhaConfigManager() {
                       </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
-                            <span className="text-white/40">API Key:</span>
-                            <span className="text-white/70 ml-2 break-all">{config.api_key}</span>
+                            <span className="text-muted-foreground">API Key:</span>
+                            <span className="text-foreground/80 ml-2 break-all">{config.api_key}</span>
                           </div>
                           <div>
-                            <span className="text-white/40">User ID:</span>
-                            <span className="text-white/70 ml-2 break-all">{config.user_id}</span>
+                            <span className="text-muted-foreground">User ID:</span>
+                            <span className="text-foreground/80 ml-2 break-all">{config.user_id}</span>
                           </div>
                         <div>
-                          <span className="text-white/40">Auto-Login:</span>
-                          <span className="text-white/70 ml-2">
+                          <span className="text-muted-foreground">Auto-Login:</span>
+                          <span className="text-foreground/80 ml-2">
                             {config.auto_login_enabled ? config.auto_login_time : "Disabled"}
                           </span>
                         </div>
                         <div>
-                          <span className="text-white/40">Last Login:</span>
-                          <span className="text-white/70 ml-2">
+                          <span className="text-muted-foreground">Last Login:</span>
+                          <span className="text-foreground/80 ml-2">
                             {config.last_login_at 
                               ? new Date(config.last_login_at).toLocaleString() 
                               : "Never"}
@@ -546,7 +546,7 @@ function ZerodhaConfigManager() {
                                   >
                                     Click here to authorize in browser →
                                   </a>
-                                  <p className="text-white/40 text-xs mt-1">
+                                  <p className="text-muted-foreground text-xs mt-1">
                                     Log into Zerodha first, then click "Authorize" on the page
                                    </p>
                                 </div>
@@ -601,7 +601,7 @@ function ZerodhaConfigManager() {
                         variant="outline"
                         size="sm"
                         onClick={() => setEditingConfig(config)}
-                        className="border-white/20 text-white hover:bg-white/10"
+                        className="border-border text-foreground hover:bg-muted"
                       >
                         <Edit2 className="w-4 h-4" />
                       </Button>
@@ -609,7 +609,7 @@ function ZerodhaConfigManager() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(config.id)}
-                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                        className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -720,10 +720,10 @@ function ZerodhaConfigDialog({
 
   return (
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="bg-[#0a0a0a] border-white/10 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-popover border-border text-popover-foreground max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editConfig ? "Edit" : "Add"} Zerodha Configuration</DialogTitle>
-            <DialogDescription className="text-white/50">
+            <DialogDescription className="text-muted-foreground">
               {editConfig 
                 ? "Update the configuration. Leave credential fields empty to keep existing values."
                 : "Add a new Zerodha API configuration for market data access."}
@@ -735,19 +735,19 @@ function ZerodhaConfigDialog({
               <Globe className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-blue-400 font-medium text-sm mb-1">Kite Connect Redirect URL</p>
-                <p className="text-white/60 text-xs mb-2">
+                <p className="text-muted-foreground text-xs mb-2">
                   Use this URL as the Redirect URL when creating your Kite Connect app at{" "}
                   <a href="https://developers.kite.trade" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
                     developers.kite.trade
                   </a>
                 </p>
-                <div className="flex items-center gap-2 p-2 bg-black/30 rounded border border-white/10">
-                  <code className="text-green-400 text-xs flex-1 break-all">{redirectUrl}</code>
+                <div className="flex items-center gap-2 p-2 bg-muted rounded border border-border">
+                  <code className="text-green-500 dark:text-green-400 text-xs flex-1 break-all">{redirectUrl}</code>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => copyToClipboard(redirectUrl)}
-                      className="text-white/60 hover:text-white h-7 px-2"
+                      className="text-muted-foreground hover:text-foreground h-7 px-2"
                     >
                       Copy
                     </Button>
@@ -759,24 +759,24 @@ function ZerodhaConfigDialog({
             <div className="grid gap-4 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-white/60">Configuration Name</Label>
+                <Label className="text-muted-foreground">Configuration Name</Label>
                 <Input 
                   placeholder="e.g., Primary Account"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="bg-white/5 border-white/10 text-white"
+                  className="bg-background border-border text-foreground"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-white/60">Priority</Label>
+                <Label className="text-muted-foreground">Priority</Label>
                 <Select 
                   value={form.priority.toString()} 
                   onValueChange={(v) => setForm({ ...form, priority: parseInt(v) })}
                 >
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                  <SelectTrigger className="bg-background border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1a1a1a] border-white/10">
+                  <SelectContent className="bg-popover border-border">
                     <SelectItem value="1">1 - Primary</SelectItem>
                     <SelectItem value="2">2 - Secondary</SelectItem>
                     <SelectItem value="3">3 - Tertiary</SelectItem>
@@ -786,81 +786,81 @@ function ZerodhaConfigDialog({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-white/60">API Key</Label>
+                <Label className="text-muted-foreground">API Key</Label>
                 <Input 
                   type={showSecrets ? "text" : "password"}
                   placeholder={editConfig ? "Leave empty to keep" : "Enter API Key"}
                   value={form.apiKey}
                   onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-                  className="bg-white/5 border-white/10 text-white"
+                  className="bg-background border-border text-foreground"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-white/60">API Secret</Label>
+                <Label className="text-muted-foreground">API Secret</Label>
                 <Input 
                   type={showSecrets ? "text" : "password"}
                   placeholder={editConfig ? "Leave empty to keep" : "Enter API Secret"}
                   value={form.apiSecret}
                   onChange={(e) => setForm({ ...form, apiSecret: e.target.value })}
-                  className="bg-white/5 border-white/10 text-white"
+                  className="bg-background border-border text-foreground"
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-white/60">User ID</Label>
+                <Label className="text-muted-foreground">User ID</Label>
                 <Input 
                   type={showSecrets ? "text" : "password"}
                   placeholder={editConfig ? "Leave empty to keep" : "Enter User ID"}
                   value={form.userId}
                   onChange={(e) => setForm({ ...form, userId: e.target.value })}
-                  className="bg-white/5 border-white/10 text-white"
+                  className="bg-background border-border text-foreground"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-white/60">Password</Label>
+                <Label className="text-muted-foreground">Password</Label>
                 <Input 
                   type={showSecrets ? "text" : "password"}
                   placeholder={editConfig ? "Leave empty to keep" : "Enter Password"}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="bg-white/5 border-white/10 text-white"
+                  className="bg-background border-border text-foreground"
                 />
               </div>
             </div>
           <div className="space-y-2">
-            <Label className="text-white/60">TOTP Secret (for auto-login)</Label>
+            <Label className="text-muted-foreground">TOTP Secret (for auto-login)</Label>
             <Input 
               type={showSecrets ? "text" : "password"}
               placeholder={editConfig ? "Leave empty to keep" : "Enter TOTP Secret"}
               value={form.totpSecret}
               onChange={(e) => setForm({ ...form, totpSecret: e.target.value })}
-              className="bg-white/5 border-white/10 text-white"
+              className="bg-background border-border text-foreground"
             />
-            <p className="text-xs text-white/40">Get this from Zerodha: Console → Settings → Setup TOTP → Can't scan?</p>
+            <p className="text-xs text-muted-foreground/80">Get this from Zerodha: Console → Settings → Setup TOTP → Can't scan?</p>
           </div>
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowSecrets(!showSecrets)}
-              className="text-white/60 hover:text-white"
+              className="text-muted-foreground hover:text-foreground"
             >
               {showSecrets ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
               {showSecrets ? "Hide" : "Show"} Secrets
             </Button>
           </div>
-          <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
             <div>
-              <Label className="text-white">Auto Login</Label>
-              <p className="text-xs text-white/40">Automatically refresh token daily at specified time</p>
+              <Label className="text-foreground">Auto Login</Label>
+              <p className="text-xs text-muted-foreground">Automatically refresh token daily at specified time</p>
             </div>
             <div className="flex items-center gap-3">
               <Input 
                 type="time"
                 value={form.autoLoginTime}
                 onChange={(e) => setForm({ ...form, autoLoginTime: e.target.value })}
-                className="bg-white/5 border-white/10 text-white w-32"
+                className="bg-background border-border text-foreground w-32"
                 disabled={!form.autoLoginEnabled}
               />
               <Switch
@@ -871,7 +871,7 @@ function ZerodhaConfigDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} className="border-white/20 text-white hover:bg-white/10">
+          <Button variant="outline" onClick={onClose} className="border-border text-foreground hover:bg-muted">
             Cancel
           </Button>
           <Button 
@@ -960,24 +960,24 @@ function AIConfigManager() {
       google: "text-blue-400",
       groq: "text-purple-400",
     };
-    return <BrainCircuit className={`w-5 h-5 ${colors[provider] || "text-white/60"}`} />;
+    return <BrainCircuit className={`w-5 h-5 ${colors[provider] || "text-muted-foreground"}`} />;
   };
 
   return (
     <div className="space-y-6">
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-card border-border">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-white text-lg flex items-center gap-2">
+            <CardTitle className="text-foreground text-lg flex items-center gap-2">
               <BrainCircuit className="w-5 h-5 text-blue-400" />
               AI Service Configurations
             </CardTitle>
-            <CardDescription className="text-white/40">
+            <CardDescription className="text-muted-foreground">
               Configure multiple AI providers and models. These are global keys used by all users.
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={fetchConfigs} className="border-white/20 text-white hover:bg-white/10">
+            <Button variant="outline" size="sm" onClick={fetchConfigs} className="border-border text-foreground hover:bg-muted">
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
@@ -990,12 +990,12 @@ function AIConfigManager() {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-white/40" />
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : configs.length === 0 ? (
-            <div className="p-8 border border-dashed border-white/20 rounded-lg text-center">
-              <BrainCircuit className="w-12 h-12 mx-auto text-white/20 mb-4" />
-              <p className="text-white/40 text-sm mb-4">No AI providers configured yet.</p>
+            <div className="p-8 border border-dashed border-border rounded-lg text-center">
+              <BrainCircuit className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+              <p className="text-muted-foreground text-sm mb-4">No AI providers configured yet.</p>
               <Button size="sm" onClick={() => setShowAddDialog(true)} className="bg-blue-500 hover:bg-blue-600">
                 <Plus className="w-4 h-4 mr-2" />
                 Add First AI Provider
@@ -1006,16 +1006,16 @@ function AIConfigManager() {
               {configs.map((config) => (
                 <div 
                   key={config.id} 
-                  className={`p-4 rounded-lg border ${config.is_active ? "bg-white/5 border-white/10" : "bg-white/2 border-white/5 opacity-60"}`}
+                  className={`p-4 rounded-lg border ${config.is_active ? "bg-card border-border" : "bg-muted/30 border-border/50 opacity-60"}`}
                 >
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="space-y-2 flex-1 w-full">
                           <div className="flex flex-wrap items-center gap-3">
                             {getProviderIcon(config.provider)}
-                            <span className="text-white font-medium text-lg shrink-0">
+                            <span className="text-foreground font-medium text-lg shrink-0">
                               {providers[config.provider]?.name || config.provider}
                             </span>
-                            <Badge className="bg-white/10 text-white/70 border-white/20 shrink-0">
+                            <Badge className="bg-muted text-muted-foreground border-border shrink-0">
                               {config.model}
                             </Badge>
                             {config.is_default && (
@@ -1039,20 +1039,20 @@ function AIConfigManager() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
-                              <span className="text-white/40">API Key:</span>
-                              <span className="text-white/70 ml-2 break-all">{config.api_key}</span>
+                              <span className="text-muted-foreground">API Key:</span>
+                              <span className="text-foreground/80 ml-2 break-all">{config.api_key}</span>
                             </div>
                             <div>
-                              <span className="text-white/40">Priority:</span>
-                              <span className="text-white/70 ml-2">{config.priority}</span>
+                              <span className="text-muted-foreground">Priority:</span>
+                              <span className="text-foreground/80 ml-2">{config.priority}</span>
                             </div>
                             <div>
-                              <span className="text-white/40">Requests:</span>
-                              <span className="text-white/70 ml-2">{config.request_count}</span>
+                              <span className="text-muted-foreground">Requests:</span>
+                              <span className="text-foreground/80 ml-2">{config.request_count}</span>
                             </div>
                             <div>
-                              <span className="text-white/40">Status:</span>
-                              <span className={`ml-2 ${config.is_active ? "text-green-400" : "text-white/40"}`}>
+                              <span className="text-muted-foreground">Status:</span>
+                              <span className={`ml-2 ${config.is_active ? "text-green-400" : "text-muted-foreground"}`}>
                                 {config.is_active ? "Active" : "Inactive"}
                               </span>
                             </div>
@@ -1064,7 +1064,7 @@ function AIConfigManager() {
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0">
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 border-border/50 pt-3 sm:pt-0">
                           <Switch
                             checked={config.is_active}
                             onCheckedChange={(checked) => handleToggleActive(config.id, checked)}
@@ -1074,7 +1074,7 @@ function AIConfigManager() {
                             size="sm"
                             onClick={() => handleTest(config.id)}
                             disabled={testingId === config.id || !config.is_active}
-                            className="border-white/20 text-white hover:bg-white/10"
+                            className="border-border text-foreground hover:bg-muted"
                           >
                             {testingId === config.id ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -1096,7 +1096,7 @@ function AIConfigManager() {
                             variant="outline"
                             size="sm"
                             onClick={() => setEditingConfig(config)}
-                            className="border-white/20 text-white hover:bg-white/10"
+                            className="border-border text-foreground hover:bg-muted"
                           >
                             <Edit2 className="w-4 h-4" />
                           </Button>
@@ -1104,7 +1104,7 @@ function AIConfigManager() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(config.id)}
-                            className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                            className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -1206,10 +1206,10 @@ function AIConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="bg-[#0a0a0a] border-white/10 text-white max-w-lg">
+      <DialogContent className="bg-popover border-border text-popover-foreground max-w-lg">
         <DialogHeader>
           <DialogTitle>{editConfig ? "Edit" : "Add"} AI Configuration</DialogTitle>
-          <DialogDescription className="text-white/50">
+          <DialogDescription className="text-muted-foreground">
             {editConfig 
               ? "Update the AI configuration. Leave API key empty to keep existing value."
               : "Add a new AI provider for analysis and predictions."}
@@ -1217,12 +1217,12 @@ function AIConfigDialog({
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
-            <Label className="text-white/60">Provider</Label>
+            <Label className="text-muted-foreground">Provider</Label>
             <Select value={form.provider} onValueChange={handleProviderChange}>
-              <SelectTrigger className="bg-white/5 border-white/10 text-white">
+              <SelectTrigger className="bg-background border-border text-foreground">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#1a1a1a] border-white/10">
+              <SelectContent className="bg-popover border-border">
                 {Object.entries(providers).map(([key, value]) => (
                   <SelectItem key={key} value={key}>{value.name}</SelectItem>
                 ))}
@@ -1230,12 +1230,12 @@ function AIConfigDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className="text-white/60">Model</Label>
+            <Label className="text-muted-foreground">Model</Label>
             <Select value={form.model} onValueChange={(v) => setForm({ ...form, model: v })}>
-              <SelectTrigger className="bg-white/5 border-white/10 text-white">
+              <SelectTrigger className="bg-background border-border text-foreground">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#1a1a1a] border-white/10">
+              <SelectContent className="bg-popover border-border">
                 {(providers[form.provider]?.models || []).map((model) => (
                   <SelectItem key={model} value={model}>{model}</SelectItem>
                 ))}
@@ -1243,34 +1243,34 @@ function AIConfigDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className="text-white/60">API Key</Label>
+            <Label className="text-muted-foreground">API Key</Label>
             <Input 
               type="password"
               placeholder={editConfig ? "Leave empty to keep existing" : "Enter API Key"}
               value={form.apiKey}
               onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-              className="bg-white/5 border-white/10 text-white"
+              className="bg-background border-border text-foreground"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-white/60">Priority</Label>
+              <Label className="text-muted-foreground">Priority</Label>
               <Select 
                 value={form.priority.toString()} 
                 onValueChange={(v) => setForm({ ...form, priority: parseInt(v) })}
               >
-                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                <SelectTrigger className="bg-background border-border text-foreground">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-white/10">
+                <SelectContent className="bg-popover border-border">
                   <SelectItem value="1">1 - Primary</SelectItem>
                   <SelectItem value="2">2 - Secondary</SelectItem>
                   <SelectItem value="3">3 - Tertiary</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
-              <Label className="text-white">Set as Default</Label>
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+              <Label className="text-foreground">Set as Default</Label>
               <Switch
                 checked={form.isDefault}
                 onCheckedChange={(checked) => setForm({ ...form, isDefault: checked })}
@@ -1279,7 +1279,7 @@ function AIConfigDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} className="border-white/20 text-white hover:bg-white/10">
+          <Button variant="outline" onClick={onClose} className="border-border text-foreground hover:bg-muted">
             Cancel
           </Button>
           <Button 

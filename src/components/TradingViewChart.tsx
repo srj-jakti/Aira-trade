@@ -34,6 +34,8 @@ interface TradingViewChartProps {
   className?: string;
   lastPrice?: number | null;
   tick?: import("@/hooks/use-realtime-ticks").RealtimeTick | null;
+  predictivePath?: { time: string; price: number }[];
+  swingPoints?: { time: string; price: number; type: "HIGH" | "LOW" }[];
 }
 
 const TIMEFRAMES = [
@@ -83,11 +85,14 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
     className,
     lastPrice,
     tick,
+    predictivePath,
+    swingPoints,
   }: TradingViewChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<any>(null);
   const candleSeriesRef = useRef<any>(null);
   const volumeSeriesRef = useRef<any>(null);
+  const predictiveSeriesRef = useRef<any>(null);
   const indicatorSeriesRef = useRef<Map<string, any>>(new Map());
   const [ohlcData, setOhlcData] = useState<{ o: number; h: number; l: number; c: number; time: string } | null>(null);
     const [chartReady, setChartReady] = useState(false);
@@ -409,6 +414,42 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
     addPriceLines();
   }, [support, resistance, chartReady]);
 
+  // Update predictive path and swing points
+  useEffect(() => {
+    if (!chartReady || !chartInstanceRef.current || !predictiveSeriesRef.current || !candleSeriesRef.current) return;
+
+    if (predictivePath && predictivePath.length > 0) {
+      const lineData = predictivePath.map(p => ({
+        time: (new Date(p.time).getTime() / 1000) as import("lightweight-charts").Time,
+        value: p.price
+      }));
+      // Ensure timestamps are unique and ascending relative to existing data?
+      // Lightweight charts requires strictly ascending time.
+      // We assume predictivePath is strictly after the last candle or sorted correctly.
+      try {
+        predictiveSeriesRef.current.setData(lineData);
+      } catch (e) {
+        console.warn("Failed to set predictive data", e);
+      }
+    } else {
+      predictiveSeriesRef.current.setData([]);
+    }
+
+    if (swingPoints && swingPoints.length > 0) {
+      const markers = swingPoints.map(p => ({
+        time: (new Date(p.time).getTime() / 1000) as import("lightweight-charts").Time,
+        position: p.type === "HIGH" ? "aboveBar" : "belowBar",
+        color: p.type === "HIGH" ? "#ef4444" : "#22c55e",
+        shape: p.type === "HIGH" ? "arrowDown" : "arrowUp",
+        text: p.type === "HIGH" ? "SH" : "SL",
+      }));
+      // @ts-ignore - markers type is correct but TS might complain about string literals
+      candleSeriesRef.current.setMarkers(markers);
+    } else {
+      candleSeriesRef.current.setMarkers([]);
+    }
+  }, [predictivePath, swingPoints, chartReady]);
+
   // Update indicators
   useEffect(() => {
     if (!chartReady || !chartInstanceRef.current || !data || data.length === 0) return;
@@ -551,7 +592,6 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
     }
   }, [lastPrice, tick, chartReady, timeframe, sortedData, formatTime]);
 
-  const { theme } = useTheme();
   
   return (
     <div className={cn("w-full h-full flex flex-col relative bg-card", className)}>

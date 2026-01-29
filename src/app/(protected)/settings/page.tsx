@@ -377,8 +377,8 @@ export default function SettingsPage() {
                   </CardContent>
                 </Card>
               </TabsContent>
-  
-                <TabsContent value="risk" className="mt-0">
+
+              <TabsContent value="risk" className="mt-0">
                   <Card className="bg-card border-border">
                     <CardHeader>
                       <CardTitle className="text-foreground text-lg">Risk Settings</CardTitle>
@@ -389,7 +389,6 @@ export default function SettingsPage() {
                     </CardContent>
                   </Card>
                 </TabsContent>
-  
   
               <TabsContent value="history" className="mt-0">
                 <Card className="bg-card border-border">

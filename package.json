@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "worker:ticker": "npx tsx src/workers/ticker-worker.ts",
+    "worker:logic": "npx tsx src/workers/index.ts",
+    "seed:data": "npx tsx scripts/seed-market-data.ts",
     "worker:ticker:prod": "node --loader ts-node/esm src/workers/ticker-worker.ts",
     "db:migrate": "npx supabase db push"
   },

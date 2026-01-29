@@ -140,6 +140,8 @@ export async function POST(request: NextRequest) {
       target: null as number | null,
       stopLoss: null as number | null,
       reasoning: "Signal generation in progress...",
+      predictivePath: [] as any[], // New field
+      swingPoints: [] as any[], // New field
     };
 
     const parsed = parseAIResponse(humanAnalysis);
@@ -161,8 +163,30 @@ export async function POST(request: NextRequest) {
           entry: parsed.entry_zone?.[0] || null,
           target: parsed.target_zone?.[0] || null,
           stopLoss: parsed.stoploss_zone?.[0] || null,
-        reasoning: summary.join(". "),
-      };
+          reasoning: summary.join(". "),
+          predictivePath: [],
+          swingPoints: [],
+        };
+    }
+
+    // Merge ML Prediction if available and fresh (e.g., < 1 hour old)
+    if (mlPrediction) {
+      const predTime = new Date(mlPrediction.prediction_time).getTime();
+      const now = Date.now();
+      const isFresh = (now - predTime) < 3600000; // 1 hour
+
+      if (isFresh) {
+        result.predictivePath = mlPrediction.predicted_path || [];
+        // If ML confidence is high, it can override or weight the LLM confidence
+        if (mlPrediction.confidence_score > 70) {
+           result.confidence = (result.confidence + mlPrediction.confidence_score) / 2;
+        }
+        // If ML suggests targets, we could potentially merge them, but let's keep LLM for now as primary for text
+        if (mlPrediction.predicted_high) {
+           // We could add this to reasoning or use it
+           result.reasoning += ` [ML Model projects High: ${mlPrediction.predicted_high}]`;
+        }
+      }
     }
 
     // 3. Log AI usage

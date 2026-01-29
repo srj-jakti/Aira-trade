@@ -73,10 +73,10 @@ export function TradingToolbox({ onInsertTool, className }: TradingToolboxProps)
             <Plus className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="right" className="max-w-xs bg-slate-800 border-slate-700">
+        <TooltipContent side="right" className="max-w-xs bg-popover border-border">
           <div className="space-y-2">
-            <p className="font-medium text-white">{tool.name}</p>
-            <p className="text-xs text-slate-400">{tool.description}</p>
+            <p className="font-medium text-foreground">{tool.name}</p>
+            <p className="text-xs text-muted-foreground">{tool.description}</p>
             <div className="text-xs space-y-1">
               <p className="text-green-400">Bullish: {tool.signals.bullish}</p>
               <p className="text-red-400">Bearish: {tool.signals.bearish}</p>
@@ -93,23 +93,23 @@ export function TradingToolbox({ onInsertTool, className }: TradingToolboxProps)
   );
 
   return (
-    <div className={`bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden ${className}`}>
-      <div className="p-3 border-b border-slate-700">
-        <h3 className="text-sm font-semibold text-white mb-2">Trading Toolbox</h3>
+    <div className={`bg-card border border-border rounded-lg overflow-hidden ${className}`}>
+      <div className="p-3 border-b border-border">
+        <h3 className="text-sm font-semibold text-foreground mb-2">Trading Toolbox</h3>
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search indicators, patterns..."
-            className="pl-8 pr-8 h-8 text-sm bg-slate-900/50 border-slate-600"
+            className="pl-8 pr-8 h-8 text-sm bg-background/50 border-input"
           />
           {search && (
             <button
               onClick={() => setSearch("")}
               className="absolute right-2 top-1/2 -translate-y-1/2"
             >
-              <X className="w-4 h-4 text-slate-400 hover:text-white" />
+              <X className="w-4 h-4 text-muted-foreground hover:text-foreground" />
             </button>
           )}
         </div>
@@ -121,7 +121,7 @@ export function TradingToolbox({ onInsertTool, className }: TradingToolboxProps)
           {filteredTools ? (
             <div className="space-y-1">
               {filteredTools.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-4">No tools found</p>
+                <p className="text-sm text-muted-foreground text-center py-4">No tools found</p>
               ) : (
                 filteredTools.map(renderTool)
               )}
@@ -137,14 +137,14 @@ export function TradingToolbox({ onInsertTool, className }: TradingToolboxProps)
                   open={isExpanded}
                   onOpenChange={() => toggleCategory(categoryId as ToolCategory)}
                 >
-                  <CollapsibleTrigger className="w-full flex items-center justify-between px-2 py-2 hover:bg-slate-700/30 rounded-md transition-colors">
+                  <CollapsibleTrigger className="w-full flex items-center justify-between px-2 py-2 hover:bg-accent rounded-md transition-colors">
                     <div className="flex items-center gap-2">
                       {isExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
                       )}
-                      <span className="text-sm font-medium text-slate-200">
+                      <span className="text-sm font-medium text-foreground">
                         {category.name}
                       </span>
                     </div>

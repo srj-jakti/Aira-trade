@@ -69,19 +69,19 @@ function SignInContent() {
     <div className="w-full max-w-md space-y-8 relative z-10">
       <div className="text-center space-y-2">
         <Link href="/" className="inline-flex items-center gap-2 mb-4">
-          <Zap className="w-8 h-8 text-blue-400" />
-          <span className="text-2xl font-bold text-white">AiRA</span>
+          <Zap className="w-8 h-8 text-primary" />
+          <span className="text-2xl font-bold text-foreground">AiRA</span>
         </Link>
-        <h1 className="text-3xl font-bold text-white">Welcome Back</h1>
-        <p className="text-white/50 text-sm">Sign in to your account to continue trading</p>
+        <h1 className="text-3xl font-bold text-foreground">Welcome Back</h1>
+        <p className="text-muted-foreground text-sm">Sign in to your account to continue trading</p>
       </div>
 
-      <div className="bg-white/5 border border-white/10 p-8 rounded-2xl space-y-6 backdrop-blur-sm">
+      <div className="bg-card border border-border p-8 rounded-2xl space-y-6 backdrop-blur-sm">
         <Button
           onClick={handleGoogleSignIn}
           disabled={googleLoading}
           variant="outline"
-          className="w-full bg-white/5 border-white/10 hover:bg-white/10 text-white gap-2 h-11"
+          className="w-full bg-card border-border hover:bg-muted text-foreground gap-2 h-11"
         >
           {googleLoading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -110,18 +110,18 @@ function SignInContent() {
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-white/10" />
+            <span className="w-full border-t border-border" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-transparent px-2 text-white/30">Or continue with</span>
+            <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
           </div>
         </div>
 
         <form onSubmit={handleSignIn} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-white/70">Email address</Label>
+            <Label htmlFor="email" className="text-muted-foreground">Email address</Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="email"
                 type="email"
@@ -129,34 +129,34 @@ function SignInContent() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-white/5 border-white/10 text-white pl-10 h-11 focus:ring-blue-500/20"
+                className="bg-background border-border text-foreground pl-10 h-11 focus:ring-primary/20"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-white/70">Password</Label>
+            <Label htmlFor="password" className="text-muted-foreground">Password</Label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="password"
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="bg-white/5 border-white/10 text-white pl-10 h-11 focus:ring-blue-500/20"
+                className="bg-background border-border text-foreground pl-10 h-11 focus:ring-primary/20"
               />
             </div>
           </div>
 
           {error && (
-            <p className="text-sm text-red-400 text-center">{error}</p>
+            <p className="text-sm text-red-500 text-center">{error}</p>
           )}
 
           <Button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
             Sign In
@@ -165,16 +165,16 @@ function SignInContent() {
           <div className="text-center">
             <Link
               href="/forgot-password"
-              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+              className="text-xs text-primary hover:text-primary/80 transition-colors"
             >
               Forgot password?
             </Link>
           </div>
         </form>
 
-        <p className="text-center text-sm text-white/50">
+        <p className="text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-blue-400 hover:text-blue-300 transition-colors font-medium">
+          <Link href="/signup" className="text-primary hover:text-primary/80 transition-colors font-medium">
             Create account
           </Link>
         </p>
@@ -187,12 +187,12 @@ export default function SignInPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px]" />
       </div>
 
       <Suspense fallback={
         <div className="w-full max-w-md space-y-8 relative z-10 flex flex-col items-center justify-center">
-          <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
           <p className="text-muted-foreground mt-4">Loading...</p>
         </div>
       }>

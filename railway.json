@@ -1,6 +1,23 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "services": {
+    "trading-engine": {
+      "source": {
+        "repo": null
+      },
+      "build": {
+        "builder": "DOCKERFILE",
+        "watchPatterns": [
+          "railway/trading-engine/**",
+          "src/lib/zairoth/**"
+        ]
+      },
+      "deploy": {
+        "startCommand": "cd railway/trading-engine && npm install && npm run build && node dist/railway/trading-engine/src/engine.js",
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10
+      }
+    },
     "aira-brain": {
       "source": {
         "repo": null

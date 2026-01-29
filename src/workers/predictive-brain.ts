@@ -53,8 +53,8 @@ export class PredictiveBrainWorker {
       
       const scriptPath = path.join(process.cwd(), 'ml-engine', 'train_predictive_brain.py');
       
-      // Use 'python' or 'python3' depending on env
-      const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+      // Use 'python' or 'python3' depending on env, or override with PYTHON_CMD
+      const pythonCmd = process.env.PYTHON_CMD || (process.platform === 'win32' ? 'python' : 'python3');
       
       const pythonProcess = spawn(pythonCmd, [scriptPath], {
         env: { ...process.env } // Pass env vars like SUPABASE_KEY

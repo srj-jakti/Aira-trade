@@ -65,6 +65,24 @@
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10
       }
+    },
+    "aira-brain": {
+      "source": {
+        "repo": null
+      },
+      "build": {
+        "builder": "NIXPACKS",
+        "watchPatterns": [
+          "src/workers/**",
+          "ml-engine/**",
+          "package.json"
+        ]
+      },
+      "deploy": {
+        "startCommand": "npm run worker:logic",
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10
+      }
     }
   }
 }

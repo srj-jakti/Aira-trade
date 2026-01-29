@@ -169,6 +169,15 @@ export async function POST(request: NextRequest) {
         };
     }
 
+    // Fetch latest ML Prediction
+    const { data: mlPrediction } = await supabaseAdmin
+      .from('ai_predictions')
+      .select('*')
+      .eq('instrument_token', parseInt(instrumentToken))
+      .order('prediction_time', { ascending: false })
+      .limit(1)
+      .single();
+
     // Merge ML Prediction if available and fresh (e.g., < 1 hour old)
     if (mlPrediction) {
       const predTime = new Date(mlPrediction.prediction_time).getTime();

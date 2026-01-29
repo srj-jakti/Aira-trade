@@ -18,54 +18,6 @@
         "restartPolicyMaxRetries": 10
       }
     },
-    "market-data-worker": {
-      "source": {
-        "repo": null
-      },
-      "build": {
-        "builder": "DOCKERFILE",
-        "watchPatterns": [
-          "railway/market-data-worker/**"
-        ]
-      },
-      "deploy": {
-        "startCommand": "cd railway/market-data-worker && npm install && npm run build && node dist/worker.js",
-        "restartPolicyType": "ON_FAILURE",
-        "restartPolicyMaxRetries": 10
-      }
-    },
-    "cron-maintenance": {
-      "source": {
-        "repo": null
-      },
-      "build": {
-        "builder": "DOCKERFILE",
-        "watchPatterns": [
-          "railway/cron-maintenance/**"
-        ]
-      },
-      "deploy": {
-        "startCommand": "cd railway/cron-maintenance && npm install && npm run build && node dist/worker.js",
-        "restartPolicyType": "ON_FAILURE",
-        "restartPolicyMaxRetries": 10
-      }
-    },
-    "rl-engine": {
-      "source": {
-        "repo": null
-      },
-      "build": {
-        "builder": "DOCKERFILE",
-        "watchPatterns": [
-          "railway/rl-engine/**"
-        ]
-      },
-      "deploy": {
-        "startCommand": "cd railway/rl-engine && python main.py",
-        "restartPolicyType": "ON_FAILURE",
-        "restartPolicyMaxRetries": 10
-      }
-    },
     "aira-brain": {
       "source": {
         "repo": null

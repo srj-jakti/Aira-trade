@@ -177,6 +177,34 @@ export async function storeHistoricalCandles(
   return inserted;
 }
 
+/**
+ * Get the latest tick for an instrument from the database
+ * Used by server-side AI analysis to get real-time price context
+ */
+export async function getLatestTick(instrumentToken: number): Promise<{
+  lastPrice: number;
+  timestamp: Date;
+} | null> {
+  // Try to get from realtime_ticks table first (most up to date)
+  const { data: tick } = await supabaseAdmin
+    .from("realtime_ticks")
+    .select("last_price, tick_timestamp")
+    .eq("instrument_token", instrumentToken)
+    .order("tick_timestamp", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (tick && tick.last_price) {
+    return {
+      lastPrice: Number(tick.last_price),
+      timestamp: new Date(tick.tick_timestamp),
+    };
+  }
+
+  return null;
+}
+
+
 export async function fetchAndStoreInstruments(
   zerodhaConfig?: ZerodhaConfig
 ): Promise<number> {

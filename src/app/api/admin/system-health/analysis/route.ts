@@ -9,7 +9,7 @@ import { centralDataEngine } from "@/lib/server/central-data-engine";
 import { apiKeyPoolManager } from "@/lib/server/api-key-pool-manager";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) return unauthorizedResponse();
 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) return unauthorizedResponse();
 
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const body = await _request.json();
     const { action } = body;
 
     switch (action) {

@@ -283,7 +283,7 @@ export class IndicatorCalculator {
 
   // --- PATTERN DETECTION ---
 
-  static isHammer(candle: Candle, prevCandle: Candle | null): boolean {
+  static isHammer(candle: Candle, _prevCandle: Candle | null): boolean {
     const body = Math.abs(candle.close - candle.open);
     const range = candle.high - candle.low;
     if (range === 0) return false;

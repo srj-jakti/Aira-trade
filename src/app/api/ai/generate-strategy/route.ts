@@ -10,12 +10,25 @@ export const runtime = "nodejs";
 import { aiSharedService } from "@/lib/server/ai-shared-service";
 import { checkAILimit, logAIUsage } from "@/lib/server/ai-usage";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { generateStrategySchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated || !user.userId) return unauthorizedResponse();
 
   try {
+    const body = await request.json().catch(() => ({}));
+    const validation = generateStrategySchema.safeParse(body);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: "Invalid input", details: validation.error.format() },
+        { status: 400 }
+      );
+    }
+
+    const { userInput, referenceInstrument, mode } = validation.data;
+
     // 1. Get user's plan for limit checking
     const { data: sub } = await supabaseAdmin
       .from("subscriptions")
@@ -34,13 +47,6 @@ export async function POST(request: NextRequest) {
         usage: limitCheck.usage
       }, { status: 429 });
     }
-
-    const body = await request.json().catch(() => ({}));
-    const { userInput, referenceInstrument, mode } = body as {
-      userInput?: string;
-      referenceInstrument?: string;
-      mode?: "traditional" | "neural";
-    };
 
     const response = mode === "neural" 
       ? await aiSharedService.generateNeuralStrategyIdea(userInput, referenceInstrument)

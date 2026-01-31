@@ -227,7 +227,7 @@ class SemanticStrategyEngine {
     return concept;
   }
 
-  private deriveMarketConditions(strategyType: string, conditions: string[]): string[] {
+  private deriveMarketConditions(strategyType: string, _conditions: string[]): string[] {
     const baseConditions: Record<string, string[]> = {
       "trend_following": ["Clear directional trend", "Price above/below key EMAs", "Volume confirming direction"],
       "momentum": ["Strong price momentum", "RSI showing strength", "Volume expansion"],
@@ -490,7 +490,6 @@ Provide a JSON response with:
 
     const trendingRegimes: MarketRegime[] = ["STRONG_UPTREND", "UPTREND", "STRONG_DOWNTREND", "DOWNTREND"];
     const rangingRegimes: MarketRegime[] = ["SIDEWAYS", "CONSOLIDATION"];
-    const volatileRegimes: MarketRegime[] = ["VOLATILE_BULLISH", "VOLATILE_BEARISH"];
 
     const idealIsTrending = trendingRegimes.includes(understanding.idealRegime);
     const currentIsTrending = trendingRegimes.includes(currentRegime);

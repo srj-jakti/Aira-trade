@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const candleTimestamp = new Date(Math.floor(now.getTime() / 60000) * 60000).toISOString();
 
-    for (const [key, quote] of Object.entries(quotes)) {
+    for (const [_key, quote] of Object.entries(quotes)) {
       const q = quote as QuoteData;
       const token = q.instrument_token;
 

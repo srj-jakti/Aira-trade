@@ -81,7 +81,7 @@ export function BrainStatusDashboard() {
         const json = await res.json();
         setData(json.data);
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to fetch brain health");
     } finally {
       setLoading(false);
@@ -110,15 +110,6 @@ export function BrainStatusDashboard() {
       case 'extreme': return <Badge className="bg-red-500 text-white border-none">EXTREME VOLATILITY</Badge>;
       case 'high': return <Badge className="bg-orange-500 text-white border-none">HIGH VOLATILITY</Badge>;
       default: return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">NORMAL VOLATILITY</Badge>;
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'healthy': return <ShieldCheck className="w-5 h-5 text-green-400" />;
-      case 'degraded': return <AlertOctagon className="w-5 h-5 text-yellow-400" />;
-      case 'critical': return <ShieldAlert className="w-5 h-5 text-red-400" />;
-      default: return <Activity className="w-5 h-5 text-blue-400" />;
     }
   };
 

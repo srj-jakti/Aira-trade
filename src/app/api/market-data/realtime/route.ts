@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
   const heartbeatInterval = setInterval(() => {
     try {
       writer.write(encoder.encode(`data: ${JSON.stringify({ type: "heartbeat" })}\n\n`));
-    } catch (e) {
+    } catch (_e) {
       clearInterval(heartbeatInterval);
     }
   }, 30000);

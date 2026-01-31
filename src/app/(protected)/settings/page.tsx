@@ -14,8 +14,6 @@ import {
   Zap,
   Shield,
   Crown,
-  Check,
-  X,
   ArrowRight,
   Info
 } from "lucide-react";

@@ -30,7 +30,7 @@ interface MarketChartProps {
   isLoading?: boolean;
 }
 
-export function MarketChart({ data, symbol, support, resistance, isLoading }: MarketChartProps) {
+export function MarketChart({ data, symbol: _symbol, support, resistance, isLoading }: MarketChartProps) {
   const chartData = useMemo(() => {
     return data.map((candle) => ({
       ...candle,
@@ -47,8 +47,8 @@ export function MarketChart({ data, symbol, support, resistance, isLoading }: Ma
     }));
   }, [data]);
 
-  const { minPrice, maxPrice, priceRange } = useMemo(() => {
-    if (data.length === 0) return { minPrice: 0, maxPrice: 100, priceRange: 100 };
+  const { minPrice, maxPrice } = useMemo(() => {
+    if (data.length === 0) return { minPrice: 0, maxPrice: 100 };
     const lows = data.map((d) => d.low);
     const highs = data.map((d) => d.high);
     const min = Math.min(...lows);
@@ -57,7 +57,6 @@ export function MarketChart({ data, symbol, support, resistance, isLoading }: Ma
     return {
       minPrice: min - padding,
       maxPrice: max + padding,
-      priceRange: max - min,
     };
   }, [data]);
 

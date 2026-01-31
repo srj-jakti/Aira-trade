@@ -11,7 +11,7 @@ import { aiKeyAutoScaler } from "@/lib/server/ai-key-auto-scaler";
 import { selfLearningEngine } from "@/lib/server/self-learning-engine";
 import { brainAuditLogger } from "@/lib/server/brain-audit-logger";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) return unauthorizedResponse();
 

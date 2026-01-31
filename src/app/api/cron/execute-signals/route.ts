@@ -3,6 +3,7 @@ import { serverErrorResponse, successResponse } from "@/lib/server/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { zerodhaService } from "@/lib/server/zerodha-service";
 import { decrypt } from "@/lib/server/encryption";
+import { KillSwitchManager } from "@/lib/server/kill-switches";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -40,6 +41,14 @@ interface BrokerAccount {
 }
 
 export async function GET(request: NextRequest) {
+  if (process.env.ENABLE_NEXT_CRON_SIGNAL_EXECUTION !== "true") {
+    return successResponse({
+      success: true,
+      executed: 0,
+      message: "Signal execution is disabled",
+    });
+  }
+
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
   
@@ -48,6 +57,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const killSwitch = KillSwitchManager.getInstance();
+    const tradingEnabled = await killSwitch.isTradingEnabled();
+    if (!tradingEnabled) {
+      return successResponse({
+        success: true,
+        executed: 0,
+        message: "Trading is disabled (maintenance/kill switch)",
+      });
+    }
+
     const { data: pendingSignals } = await supabaseAdmin
       .from("trading_signals")
       .select("*")

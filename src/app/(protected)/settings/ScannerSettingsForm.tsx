@@ -15,16 +15,9 @@ import {
 import { toast } from "sonner";
 import { Loader2, Info } from "lucide-react";
 
-interface Strategy {
-  id: string;
-  name: string;
-  is_active: boolean;
-}
-
 export function ScannerSettingsForm() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [config, setConfig] = useState({
     segments: ["NSE", "NFO"],
     scanInterval: "5" // Default 5 minutes
@@ -74,7 +67,7 @@ export function ScannerSettingsForm() {
       } else {
         toast.error(data.error || "Failed to save settings");
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("An error occurred");
     } finally {
       setSaving(false);

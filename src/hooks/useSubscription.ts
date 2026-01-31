@@ -54,7 +54,7 @@ export function useSubscription() {
       } else {
         setError(data.error);
       }
-    } catch (err) {
+    } catch (_err) {
       setError("Failed to fetch subscription");
     } finally {
       setLoading(false);

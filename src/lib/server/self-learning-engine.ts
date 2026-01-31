@@ -316,7 +316,7 @@ class SelfLearningEngine {
     return true;
   }
 
-  async autoImproveStrategy(strategyId: string, userId: string): Promise<void> {
+  async autoImproveStrategy(strategyId: string, _userId: string): Promise<void> {
     if (!this.isEnabled) return;
 
     try {

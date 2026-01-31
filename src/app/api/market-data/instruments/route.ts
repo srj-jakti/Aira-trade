@@ -133,7 +133,6 @@ export async function GET(request: NextRequest) {
       .limit(500);
 
     if (search) {
-      const searchLower = search.toLowerCase();
       const hasStrike = /\d{4,}/.test(search);
       
       if (hasStrike) {

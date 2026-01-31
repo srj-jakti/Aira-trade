@@ -8,7 +8,7 @@ import {
 } from "@/lib/server/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) return unauthorizedResponse();
 

@@ -988,5 +988,34 @@ export async function checkKillSwitches(
       return { triggered: true, reason: `System flag: ${flag.flag_name}` };
     }
   }
+
+  const startOfDayIso = new Date(new Date().toISOString().split("T")[0]).toISOString();
+
+  if (userConfig.max_trades_per_day > 0) {
+    const { count: executedToday } = await supabase
+      .from("ai_signals")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("signal_status", "EXECUTED")
+      .gte("created_at", startOfDayIso);
+
+    if ((executedToday || 0) >= userConfig.max_trades_per_day) {
+      return { triggered: true, reason: "Daily trade limit reached" };
+    }
+  }
+
+  if (userConfig.max_daily_loss > 0) {
+    const { data: prefs } = await supabase
+      .from("trading_preferences")
+      .select("daily_pnl_realized")
+      .eq("user_id", userId)
+      .single();
+
+    const realizedPnL = parseFloat(prefs?.daily_pnl_realized as unknown as string) || 0;
+    if (realizedPnL <= -userConfig.max_daily_loss) {
+      return { triggered: true, reason: "Daily loss limit reached" };
+    }
+  }
+
   return { triggered: false };
 }

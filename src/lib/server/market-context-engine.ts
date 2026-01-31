@@ -332,9 +332,6 @@ class MarketContextEngine {
     const range20 = high20 - low20;
     const rangePercent = (range20 / low20) * 100;
     const isConsolidating = rangePercent < 3 && !strongMomentum;
-
-    const nearHigh = price > high20 * 0.98;
-    const nearLow = price < low20 * 1.02;
     const volumeIncreasing = volumeProfile === "HIGH" || volumeProfile === "CLIMACTIC";
 
     if (isConsolidating && volumeIncreasing) {

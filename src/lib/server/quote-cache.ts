@@ -188,50 +188,64 @@ class QuoteCache {
           return `NSE:${t}`;
         });
 
-        const response = await fetch(
-          `https://api.kite.trade/quote?${instrumentParams.map((i) => `i=${encodeURIComponent(i)}`).join("&")}`,
-          {
-            headers: {
-              "X-Kite-Version": "3",
-              Authorization: `token ${config.apiKey}:${config.accessToken}`,
-            },
-            cache: "no-store",
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
+
+        try {
+          const response = await fetch(
+            `https://api.kite.trade/quote?${instrumentParams.map((i) => `i=${encodeURIComponent(i)}`).join("&")}`,
+            {
+              headers: {
+                "X-Kite-Version": "3",
+                Authorization: `token ${config.apiKey}:${config.accessToken}`,
+              },
+              cache: "no-store",
+              signal: controller.signal,
+            }
+          );
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            console.error("[QuoteCache] Fetch failed:", response.status);
+            continue;
           }
-        );
 
-        if (!response.ok) {
-          console.error("[QuoteCache] Fetch failed:", response.status);
-          continue;
-        }
+          const data = await response.json();
+          const rawQuotes = data.data || {};
+          const fetchedAt = Date.now();
 
-        const data = await response.json();
-        const rawQuotes = data.data || {};
-        const fetchedAt = Date.now();
+          for (const [, quote] of Object.entries(rawQuotes)) {
+            const q = quote as any;
 
-        for (const [, quote] of Object.entries(rawQuotes)) {
-          const q = quote as any;
+            const prevClose = q.ohlc?.close || 0;
+            const change = q.last_price - prevClose;
+            const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
 
-          const prevClose = q.ohlc?.close || 0;
-          const change = q.last_price - prevClose;
-          const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+            const quoteData: QuoteData = {
+              instrument_token: q.instrument_token,
+              last_price: q.last_price,
+              change,
+              change_percent: changePercent,
+              volume: q.volume || 0,
+              oi: q.oi || 0,
+              open: q.ohlc?.open || 0,
+              high: q.ohlc?.high || 0,
+              low: q.ohlc?.low || 0,
+              close: q.ohlc?.close || 0,
+              bid: q.depth?.buy?.[0]?.price || 0,
+              ask: q.depth?.sell?.[0]?.price || 0,
+              timestamp: q.last_trade_time || new Date().toISOString(),
+            };
 
-          const quoteData: QuoteData = {
-            instrument_token: q.instrument_token,
-            last_price: q.last_price,
-            change,
-            change_percent: changePercent,
-            volume: q.volume || 0,
-            oi: q.oi || 0,
-            open: q.ohlc?.open || 0,
-            high: q.ohlc?.high || 0,
-            low: q.ohlc?.low || 0,
-            close: q.ohlc?.close || 0,
-            bid: q.depth?.buy?.[0]?.price || 0,
-            ask: q.depth?.sell?.[0]?.price || 0,
-            timestamp: q.last_trade_time || new Date().toISOString(),
-          };
-
-          this.cache.set(q.instrument_token, { data: quoteData, fetchedAt });
+            this.cache.set(q.instrument_token, { data: quoteData, fetchedAt });
+          }
+        } catch (err) {
+          clearTimeout(timeoutId);
+          if ((err as Error).name === 'AbortError') {
+             console.error("[QuoteCache] Fetch timed out");
+          } else {
+             console.error("[QuoteCache] Fetch error:", err);
+          }
         }
       }
 

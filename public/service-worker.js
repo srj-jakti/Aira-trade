@@ -1,4 +1,3 @@
-/* eslint-disable no-restricted-globals */
 const buildVersion = new URL(self.location.href).searchParams.get("build") || "dev";
 const cachePrefix = `aira-pwa-${buildVersion}`;
 const htmlCache = `${cachePrefix}-html`;
@@ -7,7 +6,6 @@ const apiCache = `${cachePrefix}-api`;
 const debugPrefix = `[PWA ${buildVersion}]`;
 
 const log = (...args) => {
-  // eslint-disable-next-line no-console
   console.info(debugPrefix, ...args);
 };
 

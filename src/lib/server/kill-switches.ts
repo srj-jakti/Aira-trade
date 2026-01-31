@@ -19,7 +19,7 @@ const DEFAULT_FLAGS: SystemFlags = {
   MAINTENANCE_MODE: false,
 };
 
-class KillSwitchManager {
+export class KillSwitchManager {
   private static instance: KillSwitchManager;
   private flags: SystemFlags = { ...DEFAULT_FLAGS };
   private lastRefresh: number = 0;

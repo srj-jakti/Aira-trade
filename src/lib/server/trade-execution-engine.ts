@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt, encrypt } from "@/lib/server/encryption";
 import { performZerodhaFullLogin } from "@/lib/server/zerodha-auth";
+import { KillSwitchManager } from "@/lib/server/kill-switches";
 
 export interface UserBrokerAccount {
   id: string;
@@ -210,7 +211,15 @@ class TradeExecutionEngine {
       return { allowed: false, reason: `Segment ${order.exchange} not enabled for this user` };
     }
 
-    const orderValue = order.quantity * (order.price || 0);
+    const referencePrice = order.price ?? order.triggerPrice;
+    if (!referencePrice || referencePrice <= 0) {
+      return {
+        allowed: false,
+        reason: "Order price is required for risk checks (provide price/triggerPrice)",
+      };
+    }
+
+    const orderValue = order.quantity * referencePrice;
     
     if (orderValue > riskSettings.maxOrderValue) {
       return {
@@ -246,6 +255,12 @@ class TradeExecutionEngine {
     order: OrderParams,
     strategyId?: string
   ): Promise<OrderResult> {
+    const killSwitch = KillSwitchManager.getInstance();
+    const tradingEnabled = await killSwitch.isTradingEnabled();
+    if (!tradingEnabled) {
+      return { success: false, error: "Trading is disabled (maintenance/kill switch)" };
+    }
+
     const account = await this.getUserBrokerAccount(userId);
     if (!account || !account.is_connected || !account.access_token) {
       return { success: false, error: "Broker not connected" };

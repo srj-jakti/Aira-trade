@@ -225,12 +225,6 @@ class InstrumentSubscriptionOptimizer {
       .select("instrument_token")
       .gt("quantity", 0);
 
-    // Get active scanner configs
-    const { data: scannerConfigs } = await supabaseAdmin
-      .from("trading_preferences")
-      .select("scanner_config")
-      .eq("is_scanner_active", true);
-
     // Calculate scores
     const scores = new Map<number, InstrumentPriority>();
 

@@ -58,7 +58,6 @@ export function useMarketData(options: UseMarketDataOptions = {}) {
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isFetchingRef = useRef(false);
-  const tokenSet = useMemo(() => new Set(instrumentTokens), [instrumentTokens]);
 
   const fetchQuotes = useCallback(async () => {
     if (isFetchingRef.current || instrumentTokens.length === 0) return;
@@ -88,7 +87,7 @@ export function useMarketData(options: UseMarketDataOptions = {}) {
       const quotes = data.quotes || {};
       const newTicks = new Map<number, MarketTick>();
 
-      for (const [tokenStr, quote] of Object.entries(quotes)) {
+      for (const [_tokenStr, quote] of Object.entries(quotes)) {
         const q = quote as {
           instrument_token: number;
           last_price: number;

@@ -89,7 +89,7 @@ class AIRAIntelligenceOrchestrator {
 
     reasoning.push(...quality.reasoning);
 
-    let shouldExecute = quality.shouldTrade;
+    const shouldExecute = quality.shouldTrade;
     let blockReason: string | undefined;
 
     if (!shouldExecute) {

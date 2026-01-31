@@ -77,7 +77,7 @@ export default function Dashboard() {
   const [pl, setPl] = useState({ total: "0.00", day: "0.00", isPositive: true });
   const [positionsSummary, setPositionsSummary] = useState({ active: 0, total: 0 });
   const [activePositions, setActivePositions] = useState<any[]>([]);
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [_recentOrders, _setRecentOrders] = useState<any[]>([]);
 
   const positionTokens = useMemo(() => 
     activePositions.map((p: any) => p.instrument_token).filter((t: any) => typeof t === 'number'),
@@ -102,7 +102,7 @@ export default function Dashboard() {
           setBalance(status.balance);
           setPl(status.pl);
           setActivePositions(status.activePositions);
-          setRecentOrders(status.recentOrders);
+          _setRecentOrders(status.recentOrders);
           setPositionsSummary({
             active: status.activePositions.length,
             total: status.recentOrders.filter((o: any) => o.status === "FILLED").length

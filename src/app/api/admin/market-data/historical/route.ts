@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - (days || retention.days));
 
-    let results: any[] = [];
+    const results: any[] = [];
 
     if (instrumentToken) {
       const candles = await fetchFromZerodha(apiKey, accessToken, instrumentToken, retention.zerodhaInterval, fromDate, toDate);

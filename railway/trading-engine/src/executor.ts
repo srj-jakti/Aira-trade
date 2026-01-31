@@ -182,6 +182,7 @@ async function logOrder(
   signal: Signal,
   result: OrderResult,
   brokerAccountId: string,
+  quantity: number,
   strategyId?: string
 ): Promise<void> {
   await supabase.from("user_orders").insert({
@@ -194,7 +195,7 @@ async function logOrder(
     transaction_type: signal.action,
     order_type: "MARKET",
     product: "MIS",
-    quantity: 1,
+    quantity,
     status: result.success ? "placed" : "error",
     status_message: result.error,
     placed_at: new Date().toISOString(),
@@ -269,7 +270,8 @@ async function logPaperOrder(
     userId: string,
     signal: Signal,
     error: unknown,
-    brokerAccountId: string
+    brokerAccountId: string,
+    quantity: number
   ): Promise<void> {
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
     await supabase.from("user_orders").insert({
@@ -280,7 +282,7 @@ async function logPaperOrder(
       transaction_type: signal.action,
       order_type: "MARKET",
       product: "MIS",
-      quantity: 1, // We should ideally log the intended quantity if available
+      quantity,
       status: "error",
       status_message: errorMsg,
     });
@@ -432,7 +434,7 @@ export async function executeOrder(
         error: success ? undefined : data.message || "Order failed",
       };
 
-      await logOrder(userId, signal, result, broker.id, strategyId);
+      await logOrder(userId, signal, result, broker.id, quantity, strategyId);
 
       if (!success) {
         logger.error(`Order rejected for user ${userId}: ${data.message}`);
@@ -446,7 +448,7 @@ export async function executeOrder(
 
       if (!isRetryable) {
         logger.error(`Non-retryable error for user ${userId}`, error);
-        await logOrderError(userId, signal, error, broker.id);
+        await logOrderError(userId, signal, error, broker.id, quantity);
         throw error;
       }
 
@@ -460,7 +462,7 @@ export async function executeOrder(
   }
 
   const error = new Error(`Failed to execute order after ${MAX_RETRIES} attempts`);
-  await logOrderError(userId, signal, error, broker.id);
+  await logOrderError(userId, signal, error, broker.id, quantity);
   throw error;
 }
 

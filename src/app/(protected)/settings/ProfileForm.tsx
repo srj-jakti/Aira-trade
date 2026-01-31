@@ -19,7 +19,7 @@ export function ProfileForm() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { data, error } = await supabase
+          const { data, error: _error } = await supabase
             .from("profiles")
             .select("full_name")
             .eq("id", user.id)

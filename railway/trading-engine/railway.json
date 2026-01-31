@@ -1,0 +1,21 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "services": {
+    "trading-engine": {
+      "source": {
+        "repo": null
+      },
+      "build": {
+        "builder": "DOCKERFILE",
+        "watchPatterns": [
+          "railway/trading-engine/**"
+        ]
+      },
+      "deploy": {
+        "startCommand": "npm run start",
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10
+      }
+    }
+  }
+}

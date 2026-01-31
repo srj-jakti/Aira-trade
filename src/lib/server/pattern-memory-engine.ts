@@ -113,7 +113,7 @@ class PatternMemoryEngine {
     if (candles.length < 3) return "unknown";
 
     const recent = candles.slice(-3);
-    const [prev2, prev1, current] = recent;
+    const [_prev2, prev1, current] = recent;
 
     const currentBody = Math.abs(current.close - current.open);
     const currentRange = current.high - current.low;

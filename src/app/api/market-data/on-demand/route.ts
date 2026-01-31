@@ -19,11 +19,6 @@ async function ensureConfigs() {
   try {
     const analysisKeys = await apiKeyPoolManager.getAnalysisKeys();
     const scannerKey = await apiKeyPoolManager.getScannerKey();
-    
-    const analysisConfigs = analysisKeys.map(k => ({
-      apiKey: k.api_key ? (typeof k.api_key === 'string' ? k.api_key : '') : '',
-      accessToken: k.access_token || ''
-    }));
 
     // Decrypt if necessary (ApiKeyPoolManager returns decrypted via getDecryptedCredentials usually, 
     // but here we are using the raw pool configs which might be encrypted)
@@ -80,6 +75,18 @@ export async function GET(request: NextRequest) {
 
   try {
     await ensureConfigs();
+
+    // Verify if we have valid configs to proceed
+    const stats = quoteCache.getStats();
+    if (stats.analysisKeys === 0 && !useScanner) {
+      console.warn("[OnDemand] No analysis keys available");
+      // Attempt one more forced refresh if missing
+      configsInitialized = false;
+      await ensureConfigs();
+      if (quoteCache.getStats().analysisKeys === 0) {
+        return serverErrorResponse("Service configuration unavailable");
+      }
+    }
 
     const quotesMap = await quoteCache.getQuotes(tokens, useScanner);
 

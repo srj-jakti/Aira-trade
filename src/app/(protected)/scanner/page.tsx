@@ -67,7 +67,7 @@ export default function ScannerPage() {
     [currentOutputs]
   );
 
-  const { prices: livePrices, isConnected: isPricesConnected, getPrice } = usePrices(
+  const { prices: _livePrices, isConnected: isPricesConnected, getPrice } = usePrices(
     instrumentTokens,
     instrumentTokens.length > 0
   );
@@ -144,7 +144,7 @@ export default function ScannerPage() {
       } else {
         toast.error(data.error || "Failed to toggle scanner");
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("An error occurred");
     } finally {
       setProcessing(false);

@@ -1,21 +1,34 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "services": {
-    "aira-brain": {
+    "market-data-worker": {
       "source": {
         "repo": null
       },
       "build": {
-        "builder": "DOCKERFILE",
+        "builder": "NIXPACKS",
         "watchPatterns": [
-          "src/workers/**",
-          "ml-engine/**",
-          "package.json",
-          "nixpacks.toml"
+          "railway/market-data-worker/**"
         ]
       },
       "deploy": {
-        "startCommand": "npm run worker:logic",
+        "startCommand": "cd railway/market-data-worker && npm start",
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10
+      }
+    },
+    "trading-engine": {
+      "source": {
+        "repo": null
+      },
+      "build": {
+        "builder": "NIXPACKS",
+        "watchPatterns": [
+          "railway/trading-engine/**"
+        ]
+      },
+      "deploy": {
+        "startCommand": "cd railway/trading-engine && npm start",
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10
       }

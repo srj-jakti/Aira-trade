@@ -24,7 +24,6 @@ import {
   Play,
   Sparkles,
   Eye,
-  EyeOff,
   Pencil,
   Trash2,
   Search,
@@ -632,7 +631,7 @@ function CreateStrategyTab({
   const [rawInput, setRawInput] = useState("");
   const [formatting, setFormatting] = useState(false);
   const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false);
-  const [generating, setGenerating] = useState(false);
+  const [generating, _setGenerating] = useState(false);
   const [strategy, setStrategy] = useState<StructuredStrategy | null>(null);
   const [subscriptionData, setSubscriptionData] = useState<{ plan_id: string } | null>(null);
 
@@ -730,7 +729,7 @@ function CreateStrategyTab({
     });
     const [toDate, setToDate] = useState(() => new Date().toISOString().split("T")[0]);
     const [selectedTf, setSelectedTf] = useState("15m");
-    const [showToolbox, setShowToolbox] = useState(false);
+    const [_showToolbox, _setShowToolbox] = useState(false);
     const [referenceInstrument, setReferenceInstrument] = useState("");
   const [refInstrumentSearch, setRefInstrumentSearch] = useState("");
   const [refInstruments, setRefInstruments] = useState<Array<{instrument_token: number; tradingsymbol: string; name: string}>>([]);
@@ -777,7 +776,7 @@ function CreateStrategyTab({
         fetchDrafts();
         alert("Draft saved successfully!");
       }
-    } catch (err) {
+    } catch (_err) {
       alert("Failed to save draft");
     } finally {
       setSavingDraft(false);
@@ -810,7 +809,7 @@ function CreateStrategyTab({
           setCurrentDraftId(null);
         }
       }
-    } catch (err) {
+    } catch (_err) {
       alert("Failed to delete draft");
     }
   };
@@ -896,7 +895,7 @@ function CreateStrategyTab({
     }
   }, []);
 
-  const handleInsertTool = (tool: TradingTool) => {
+  const _handleInsertTool = (tool: TradingTool) => {
     const toolText = `Use ${tool.name} (${tool.shortName})`;
     setRawInput((prev) => {
       if (prev.trim()) {
@@ -1829,7 +1828,7 @@ function BacktestResultCard({ timeframe, result }: { timeframe: string; result: 
       pnl: 0
     }];
     
-    (result.trade_log || []).forEach((trade, idx) => {
+    (result.trade_log || []).forEach((trade, _idx) => {
       currentEquity += (trade.pnl || 0);
       data.push({
         time: new Date(trade.entry_time).toLocaleDateString([], { month: 'short', day: 'numeric' }),
@@ -2036,15 +2035,13 @@ function StrategyDetailsDialog({
   open, 
   onOpenChange,
   onBacktest,
-  onActivate,
-  isOwner = false
+  onActivate
 }: { 
   strategy: any; 
   open: boolean; 
   onOpenChange: (open: boolean) => void;
   onBacktest?: () => void;
   onActivate?: (active: boolean) => void;
-  isOwner?: boolean;
 }) {
   const [details, setDetails] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -2322,7 +2319,7 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
         setStrategies(prev => prev.filter(s => s.id !== id));
         setDeletingId(null);
       }
-    } catch (err) {
+    } catch (_err) {
       alert("Error deleting strategy");
     }
   };
@@ -2475,7 +2472,6 @@ function PrivateStrategiesTab({ onEdit }: { onEdit?: (strategy: any) => void }) 
         open={showDetails}
         onOpenChange={setShowDetails}
         onActivate={(active) => selectedStrategy && toggleActive(selectedStrategy.id, active)}
-        isOwner={true}
       />
 
       <AlertDialog open={deletingId !== null} onOpenChange={(open) => !open && setDeletingId(null)}>
@@ -2508,7 +2504,7 @@ function PublicStrategiesTab({ onBacktest }: { onBacktest?: (strategy: any, goTo
   const [showDetails, setShowDetails] = useState(false);
   const [activating, setActivating] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [strategyDetails, setStrategyDetails] = useState<any>(null);
+  const [_strategyDetails, _setStrategyDetails] = useState<any>(null);
 
   useEffect(() => {
     fetchPublicStrategies();
@@ -2551,7 +2547,7 @@ function PublicStrategiesTab({ onBacktest }: { onBacktest?: (strategy: any, goTo
         const error = await res.json();
         alert(error.error || "Failed to activate strategy");
       }
-    } catch (err) {
+    } catch (_err) {
       alert("Error activating strategy");
     } finally {
       setActivating(null);
@@ -2783,7 +2779,7 @@ function InviteOnlyTab() {
         const error = await res.json();
         alert(error.error || "Failed to activate strategy");
       }
-    } catch (err) {
+    } catch (_err) {
       alert("Error activating strategy");
     }
   };

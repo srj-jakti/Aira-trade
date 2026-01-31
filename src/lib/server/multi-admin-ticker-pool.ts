@@ -194,7 +194,7 @@ class MultiAdminTickerPool {
     });
   }
 
-  private handleTicks(ticks: KiteTickData[], configId: string): void {
+  private handleTicks(ticks: KiteTickData[], _configId: string): void {
     for (const tick of ticks) {
       const normalizedTick: MarketTick = {
         instrumentToken: tick.instrument_token,
@@ -287,10 +287,6 @@ class MultiAdminTickerPool {
       console.error("[MultiTicker] No active connections for subscription");
       return;
     }
-
-    // Calculate target per connection
-    const totalCapacity = activeConnections.length * MAX_INSTRUMENTS_PER_CONNECTION;
-    const targetPerConnection = Math.ceil(instruments.length / activeConnections.length);
 
     console.log(`[MultiTicker] Distributing ${instruments.length} instruments across ${activeConnections.length} connections`);
 

@@ -175,7 +175,7 @@ function PricingContent() {
             } else {
               setError(verifyData.error || "Payment verification failed");
             }
-          } catch (err) {
+          } catch (_err) {
             setError("Payment verification failed. Please contact support.");
           }
         },

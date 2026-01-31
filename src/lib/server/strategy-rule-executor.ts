@@ -96,7 +96,7 @@ export class StrategyRuleExecutor {
     }
   }
 
-  private classifyRuleRole(rule: StrategyRule, ruleIndex: number, totalRules: number): SignalRole {
+  private classifyRuleRole(rule: StrategyRule, ruleIndex: number, _totalRules: number): SignalRole {
     if (rule.type === "trend" && rule.indicator === "SUPERTREND") return "INTENT";
     if (rule.type === "price_vs_indicator" && (rule.operator === "CROSS_ABOVE" || rule.operator === "CROSS_BELOW")) return "INTENT";
     if (rule.type === "indicator_vs_indicator" && (rule.operator === "CROSS_ABOVE" || rule.operator === "CROSS_BELOW")) return "INTENT";

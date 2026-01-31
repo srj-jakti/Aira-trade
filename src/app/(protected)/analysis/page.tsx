@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BrainCircuit, LineChart, Target, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw, ArrowUp, ArrowDown, Loader2, ChevronDown, Eye, EyeOff, Settings2, Info, Wifi, WifiOff, Share2, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowUp, BrainCircuit, ChevronDown, Eye, EyeOff, Info, LineChart, Loader2, Minus, RefreshCw, Settings2, Sparkles, Target, TrendingDown, TrendingUp, Wifi, WifiOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { InstrumentSearch, type Instrument } from "@/components/InstrumentSearch";
 import { TradingViewChart, type CandleData } from "@/components/TradingViewChart";
@@ -47,10 +46,12 @@ interface Strategy {
   is_active: boolean;
 }
 
+import { Input } from "@/components/ui/input";
+
 interface IndicatorOverlay {
   id: string;
   name: string;
-  type: "sma" | "ema" | "bollinger" | "support_resistance";
+  type: "sma" | "ema" | "bollinger" | "vwap" | "supertrend" | "support_resistance" | "rsi" | "macd" | "stochastic" | "atr";
   params?: Record<string, number>;
   color?: string;
   visible: boolean;
@@ -59,9 +60,14 @@ interface IndicatorOverlay {
 const DEFAULT_INDICATORS: IndicatorOverlay[] = [
   { id: "sma20", name: "SMA 20", type: "sma", params: { period: 20 }, color: "#f59e0b", visible: false },
   { id: "sma50", name: "SMA 50", type: "sma", params: { period: 50 }, color: "#06b6d4", visible: false },
+  { id: "sma200", name: "SMA 200", type: "sma", params: { period: 200 }, color: "#3b82f6", visible: false },
   { id: "ema9", name: "EMA 9", type: "ema", params: { period: 9 }, color: "#ec4899", visible: false },
   { id: "ema21", name: "EMA 21", type: "ema", params: { period: 21 }, color: "#8b5cf6", visible: false },
-  { id: "bollinger", name: "Bollinger Bands", type: "bollinger", params: { period: 20, stdDev: 2 }, visible: false },
+  { id: "bollinger", name: "Bollinger Bands", type: "bollinger", params: { period: 20, stdDev: 2 }, color: "#3b82f6", visible: false },
+  { id: "vwap", name: "VWAP", type: "vwap", params: {}, color: "#a855f7", visible: false },
+  { id: "supertrend", name: "Supertrend", type: "supertrend", params: { period: 10, multiplier: 3 }, visible: false },
+  { id: "rsi", name: "RSI", type: "rsi", params: { period: 14 }, color: "#8b5cf6", visible: false },
+  { id: "macd", name: "MACD", type: "macd", params: { fast: 12, slow: 26, signal: 9 }, color: "#3b82f6", visible: false },
 ];
 
   export default function AnalysisPage() {
@@ -86,11 +92,13 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
   const [showIndicatorPanel, setShowIndicatorPanel] = useState(false);
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
+  const [expandedIndicatorId, setExpandedIndicatorId] = useState<string | null>(null);
   
   // Predictive Brain State
-  const [predictiveMode, setPredictiveMode] = useState(false);
-  const [predictivePath, setPredictivePath] = useState<{ time: string; price: number }[]>([]);
-  const [swingPoints, setSwingPoints] = useState<{ time: string; price: number; type: "HIGH" | "LOW" }[]>([]);
+  // We now enable predictive mode by default or based on system config, removing user toggle for simpler UX
+  const [predictiveMode] = useState(true);
+  const [predictivePath, _setPredictivePath] = useState<{ time: string; price: number }[]>([]);
+  const [_swingPoints, _setSwingPoints] = useState<{ time: string; price: number; type: "HIGH" | "LOW" }[]>([]);
 
   const { candles: chartData, isConnected: isRealtimeConnected, refetch: refetchCandles } = useLiveCandles({
     instrumentToken: selectedInstrument?.instrument_token || 0,
@@ -147,6 +155,8 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
   const fetchAnalysis = useCallback(async (instrument: Instrument, tf: string) => {
     setIsLoadingAnalysis(true);
     try {
+      const activeIndicators = indicators.filter(i => i.visible).map(i => i.id);
+      
       const response = await fetch("/api/ai/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -154,6 +164,8 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
           instrumentToken: instrument.instrument_token,
           tradingsymbol: instrument.tradingsymbol,
           timeframe: tf,
+          activeIndicators, // Pass active indicators to AI
+          selectedStrategy: selectedStrategy // Pass active strategy to AI
         }),
       });
       
@@ -245,48 +257,19 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
       }
     };
 
-    const handleShare = (platform: "whatsapp" | "x" | "instagram" | "copy") => {
-      if (!analysis || !selectedInstrument) return;
-
-      const text = `📊 *AiRA Market Analysis: ${selectedInstrument.tradingsymbol}*
-      
-  Trend: ${analysis.trend.toUpperCase()} (${analysis.strength}% Strength)
-  Signal: ${analysis.signal.toUpperCase()}
-  Confidence: ${analysis.confidence}%
-  
-  🎯 Target: ₹${formatPrice(analysis.target)}
-  🛑 Stop Loss: ₹${formatPrice(analysis.stopLoss)}
-  
-  🤖 Analyzed by AiRA RL Engine.
-  Check it out at: ${window.location.origin}/analysis`;
-
-      const encodedText = encodeURIComponent(text);
-      const url = encodeURIComponent(window.location.origin + "/analysis");
-
-      switch (platform) {
-        case "whatsapp":
-          window.open(`https://wa.me/?text=${encodedText}`, "_blank");
-          break;
-        case "x":
-          window.open(`https://twitter.com/intent/tweet?text=${encodedText}`, "_blank");
-          break;
-        case "instagram":
-          // Instagram doesn't support direct text sharing via URL like others
-          // Usually copy to clipboard is the fallback
-          navigator.clipboard.writeText(text);
-          toast.success("Analysis copied to clipboard for Instagram!");
-          break;
-        case "copy":
-          navigator.clipboard.writeText(text);
-          toast.success("Analysis copied to clipboard!");
-          break;
-      }
-    };
-
     const toggleIndicator = (id: string) => {
 
     setIndicators(prev => prev.map(ind => 
       ind.id === id ? { ...ind, visible: !ind.visible } : ind
+    ));
+  };
+
+  const updateIndicatorParams = (id: string, paramName: string, value: string) => {
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return;
+    
+    setIndicators(prev => prev.map(ind => 
+      ind.id === id ? { ...ind, params: { ...ind.params, [paramName]: numValue } } : ind
     ));
   };
 
@@ -339,19 +322,6 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
           className="w-full"
         />
         <div className="flex items-center gap-1 flex-wrap">
-          <div className="flex items-center gap-2 mr-2 bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded-lg">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-              <Label htmlFor="predictive-mode" className="text-xs font-medium text-purple-400 cursor-pointer">Predictive Brain</Label>
-            </div>
-            <Switch 
-              id="predictive-mode" 
-              checked={predictiveMode} 
-              onCheckedChange={setPredictiveMode}
-              className="scale-75 data-[state=checked]:bg-purple-500" 
-            />
-          </div>
-
           <div className="flex items-center gap-0.5 bg-muted/50 border border-border p-0.5 rounded-md shrink-0">
             {[
               { label: "1m", value: "1m" },
@@ -389,25 +359,59 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
             </Button>
             
             {showIndicatorPanel && (
-              <div className="absolute top-full right-0 mt-1 z-50 w-56 bg-popover/95 backdrop-blur-md border border-border rounded-lg shadow-xl p-2">
+              <div className="absolute top-full right-0 mt-1 z-50 w-72 bg-popover/95 backdrop-blur-md border border-border rounded-lg shadow-xl p-2">
                 <div className="text-xs text-muted-foreground px-2 py-1 mb-1">Technical Indicators</div>
-                {indicators.map((ind) => (
-                  <button
-                    key={ind.id}
-                    onClick={() => toggleIndicator(ind.id)}
-                    className="w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-muted/50 text-sm"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded" style={{ backgroundColor: ind.color || "#f59e0b" }} />
-                      <span className={ind.visible ? "text-foreground" : "text-muted-foreground"}>{ind.name}</span>
+                <div className="max-h-[300px] overflow-y-auto space-y-1">
+                  {indicators.map((ind) => (
+                    <div key={ind.id} className="border border-border/40 rounded-md overflow-hidden bg-card/50">
+                      <div className="flex items-center justify-between px-2 py-1.5 hover:bg-muted/50 transition-colors">
+                        <button
+                          onClick={() => toggleIndicator(ind.id)}
+                          className="flex items-center gap-2 flex-1 text-sm text-left"
+                        >
+                          <div className="w-3 h-3 rounded shrink-0" style={{ backgroundColor: ind.color || "#f59e0b" }} />
+                          <span className={ind.visible ? "text-foreground font-medium" : "text-muted-foreground"}>{ind.name}</span>
+                        </button>
+                        
+                        <div className="flex items-center gap-1">
+                          {ind.params && Object.keys(ind.params).length > 0 && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className={cn("h-6 w-6 text-muted-foreground hover:text-foreground", expandedIndicatorId === ind.id && "bg-muted text-foreground")}
+                              onClick={() => setExpandedIndicatorId(expandedIndicatorId === ind.id ? null : ind.id)}
+                            >
+                              <Settings2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                          <button onClick={() => toggleIndicator(ind.id)} className="p-1 hover:text-foreground text-muted-foreground">
+                             {ind.visible ? (
+                              <Eye className="w-4 h-4 text-blue-600" />
+                            ) : (
+                              <EyeOff className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {expandedIndicatorId === ind.id && ind.params && (
+                        <div className="p-2 bg-muted/30 border-t border-border/40 space-y-2 animate-in slide-in-from-top-1 duration-200">
+                           {Object.entries(ind.params).map(([key, val]) => (
+                             <div key={key} className="flex items-center gap-2">
+                               <Label className="text-[10px] text-muted-foreground w-16 capitalize">{key}</Label>
+                               <Input 
+                                  type="number" 
+                                  className="h-6 text-xs" 
+                                  value={val} 
+                                  onChange={(e) => updateIndicatorParams(ind.id, key, e.target.value)}
+                               />
+                             </div>
+                           ))}
+                        </div>
+                      )}
                     </div>
-                    {ind.visible ? (
-                      <Eye className="w-4 h-4 text-blue-600" />
-                    ) : (
-                      <EyeOff className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </button>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -490,6 +494,7 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
                       timeframe={timeframe}
                       onTimeframeChange={handleTimeframeChange}
                       indicators={indicators}
+                      showVolume={false}
                       lastPrice={currentPrice}
                       tick={currentTick}
                     />
@@ -499,142 +504,132 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
             </CardContent>
           </Card>
 
-            {analysis && chartData.length > 0 && (
+            {/* Always render container if we have an instrument selected, show skeleton or content */}
+            {selectedInstrument && (
               <>
-                {predictiveMode && (
-                  <Card className="bg-purple-500/5 border-purple-500/20 mb-3">
-                    <CardHeader className="p-3 md:p-4 border-b border-purple-500/10">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 text-purple-400">
-                        <Sparkles className="w-4 h-4" />
-                        Predictive Forecast (1H)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-2 bg-muted/50 rounded-lg text-center">
-                          <p className="text-[10px] text-muted-foreground uppercase">Next High</p>
-                          <p className="text-green-400 font-mono font-bold text-sm">
-                            ₹{formatPrice((predictivePath[predictivePath.length - 1]?.price || 0) * 1.002)}
-                          </p>
-                        </div>
-                        <div className="p-2 bg-muted/50 rounded-lg text-center">
-                          <p className="text-[10px] text-muted-foreground uppercase">Next Low</p>
-                          <p className="text-red-400 font-mono font-bold text-sm">
-                            ₹{formatPrice((predictivePath[predictivePath.length - 1]?.price || 0) * 0.998)}
-                          </p>
-                        </div>
+                <Card className="bg-card border-border mb-3 overflow-hidden">
+                  <CardHeader className="p-3 md:p-4 border-b border-border bg-gradient-to-r from-purple-500/10 to-blue-500/10">
+                    <CardTitle className="text-sm font-medium flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BrainCircuit className="w-4 h-4 text-purple-500" />
+                        <span>Unified AI Intelligence</span>
                       </div>
-                      
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-muted-foreground">Model Confidence</span>
-                          <span className="text-purple-400 font-bold">87.4%</span>
-                        </div>
-                        <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
-                          <div className="h-full bg-purple-500 w-[87.4%]" />
-                        </div>
+                      {predictiveMode && (
+                        <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px] gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          Predictive Brain Active
+                        </Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-4">
+                    {isLoadingAnalysis ? (
+                      <div className="flex flex-col items-center justify-center min-h-[200px] gap-3">
+                        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                        <p className="text-sm text-muted-foreground animate-pulse">Running Deep Learning Analysis...</p>
                       </div>
+                    ) : analysis ? (
+                      <>
+                        {/* Top Stats Row */}
+                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+                          <div className="flex items-center gap-3">
+                             <div className={`p-2 rounded-lg ${
+                                analysis.trend === "bullish" ? "bg-green-500/10" : 
+                                analysis.trend === "bearish" ? "bg-red-500/10" : "bg-yellow-500/10"
+                              }`}>
+                                {getTrendIcon(analysis.trend)}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className={`font-bold uppercase tracking-tight ${getTrendColor(analysis.trend)}`}>
+                                    {analysis.trend}
+                                  </span>
+                                  {getDirectionBadge(analysis.signal)}
+                                </div>
+                                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                  <span>Strength: {analysis.strength}%</span>
+                                  <span className="w-1 h-1 bg-muted-foreground rounded-full" />
+                                  <span>Conf: {analysis.confidence}%</span>
+                                </div>
+                              </div>
+                          </div>
 
-                      <div className="p-2 border border-dashed border-purple-500/30 rounded bg-purple-500/5">
-                        <p className="text-[10px] text-purple-300 italic">
-                          &quot;Market structure suggests a potential breakout above the recent swing high. Recommend trailing stops.&quot;
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                          {predictiveMode && predictivePath.length > 0 && (
+                            <div className="flex gap-4 w-full md:w-auto bg-purple-500/5 p-2 rounded-lg border border-purple-500/10">
+                               <div className="text-center">
+                                  <p className="text-[10px] text-muted-foreground uppercase mb-0.5">Forecast High</p>
+                                  <p className="text-green-400 font-mono text-xs font-bold">
+                                    ₹{formatPrice((predictivePath[predictivePath.length - 1]?.price || 0) * 1.002)}
+                                  </p>
+                               </div>
+                               <div className="w-px bg-purple-500/20" />
+                               <div className="text-center">
+                                  <p className="text-[10px] text-muted-foreground uppercase mb-0.5">Forecast Low</p>
+                                  <p className="text-red-400 font-mono text-xs font-bold">
+                                    ₹{formatPrice((predictivePath[predictivePath.length - 1]?.price || 0) * 0.998)}
+                                  </p>
+                               </div>
+                            </div>
+                          )}
+                        </div>
 
-                <Card className="bg-card border-border">
-                <CardContent className="p-2 md:p-3">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <div className="text-center p-2 bg-muted/50 rounded-lg">
-                    <div className="text-[10px] text-foreground/60 mb-0.5">Entry Price</div>
-                    <div className="font-mono font-semibold text-blue-600 text-sm">{formatPrice(analysis.entry)}</div>
-                  </div>
-                  <div className="text-center p-2 bg-muted/50 rounded-lg">
-                    <div className="text-[10px] text-foreground/60 mb-0.5">Target</div>
-                    <div className="font-mono font-semibold text-green-600 flex items-center justify-center gap-1 text-sm">
-                      <ArrowUp className="w-3 h-3" />
-                      {formatPrice(analysis.target)}
-                    </div>
-                  </div>
-                  <div className="text-center p-2 bg-muted/50 rounded-lg">
-                    <div className="text-[10px] text-foreground/60 mb-0.5">Stop Loss</div>
-                    <div className="font-mono font-semibold text-red-600 flex items-center justify-center gap-1 text-sm">
-                      <ArrowDown className="w-3 h-3" />
-                      {formatPrice(analysis.stopLoss)}
-                    </div>
-                  </div>
-                  <div className="text-center p-2 bg-muted/50 rounded-lg">
-                    <div className="text-[10px] text-foreground/60 mb-0.5">Confidence</div>
-                    <div className="font-mono font-semibold text-purple-600 text-sm">{analysis.confidence}%</div>
-                  </div>
-                  </div>
-                </CardContent>
-              </Card>
+                        {/* Semantic Analysis Text */}
+                        <div className="bg-muted/30 p-3 rounded-lg border border-border/50">
+                          <p className="text-sm leading-relaxed text-foreground/80">
+                            {analysis.analysis}
+                          </p>
+                          {predictiveMode && (
+                            <div className="mt-3 pt-3 border-t border-dashed border-purple-500/20 flex items-start gap-2">
+                              <Sparkles className="w-3.5 h-3.5 text-purple-400 mt-0.5 shrink-0" />
+                              <p className="text-xs text-purple-300 italic">
+                                &quot;Predictive model suggests a {((predictivePath[predictivePath.length - 1]?.price || 0) > (currentPrice || 0)) ? "continuation upside" : "potential pullback"} in the next hour based on volatility structure.&quot;
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          <div className="p-2 bg-muted/50 rounded-lg border border-border/50">
+                            <div className="text-[10px] text-muted-foreground mb-1">Entry Zone</div>
+                            <div className="font-mono text-sm font-semibold text-blue-500">₹{formatPrice(analysis.entry)}</div>
+                          </div>
+                          <div className="p-2 bg-muted/50 rounded-lg border border-border/50">
+                            <div className="text-[10px] text-muted-foreground mb-1">Target</div>
+                            <div className="font-mono text-sm font-semibold text-green-500 flex items-center gap-1">
+                              <ArrowUp className="w-3 h-3" />
+                              ₹{formatPrice(analysis.target)}
+                            </div>
+                          </div>
+                          <div className="p-2 bg-muted/50 rounded-lg border border-border/50">
+                            <div className="text-[10px] text-muted-foreground mb-1">Stop Loss</div>
+                            <div className="font-mono text-sm font-semibold text-red-500 flex items-center gap-1">
+                              <ArrowDown className="w-3 h-3" />
+                              ₹{formatPrice(analysis.stopLoss)}
+                            </div>
+                          </div>
+                           <div className="p-2 bg-muted/50 rounded-lg border border-border/50">
+                            <div className="text-[10px] text-muted-foreground mb-1">AI Conviction</div>
+                            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-1.5">
+                               <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500" style={{ width: `${analysis.confidence}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center min-h-[150px] text-muted-foreground">
+                        <BrainCircuit className="w-10 h-10 mb-2 opacity-20" />
+                        <p className="text-sm">Waiting for market data...</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </>
             )}
           </div>
 
         <div className="lg:col-span-1 space-y-3">
-          <Card className="bg-card border-border">
-            <CardHeader className="p-2 md:p-3 border-b border-white/10">
-              <CardTitle className="text-xs font-medium flex items-center gap-2">
-                <BrainCircuit className="w-3.5 h-3.5 text-purple-600" />
-                AI Analysis
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2 md:p-3">
-              {isLoadingAnalysis ? (
-                <div className="min-h-[200px] flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-                  <span className="text-muted-foreground text-sm">Analyzing...</span>
-                </div>
-              ) : analysis ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {getTrendIcon(analysis.trend)}
-                      <span className={`font-semibold capitalize ${getTrendColor(analysis.trend)}`}>
-                        {analysis.trend}
-                      </span>
-                    </div>
-                    {getDirectionBadge(analysis.signal)}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-foreground/60">Trend Strength</span>
-                      <span className="font-medium">{analysis.strength}%</span>
-                    </div>
-                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all ${
-                          analysis.trend === "bullish" ? "bg-green-500" : 
-                          analysis.trend === "bearish" ? "bg-red-500" : "bg-yellow-500"
-                        }`}
-                        style={{ width: `${analysis.strength}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="text-sm text-foreground/70 leading-relaxed">
-                    {analysis.analysis}
-                  </div>
-                </div>
-              ) : (
-                <div className="min-h-[200px] flex items-center justify-center text-center">
-                  <div>
-                    <AlertCircle className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-muted-foreground text-xs md:text-sm">
-                      Select an instrument to view AI analysis
-                    </p>
-                  </div>
-                </div>
-              )}
-              </CardContent>
-            </Card>
-
+          {/* AI Analysis Card Removed - Merged into Unified Intelligence */}
             <Card className="bg-card border-border">
               <CardHeader className="p-3 md:p-4 border-b border-border">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">

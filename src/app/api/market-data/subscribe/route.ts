@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { instrumentToken, instrumentTokens, source = "user_request" } = body;
+    const { instrumentToken, instrumentTokens, source: _source = "user_request" } = body;
 
     const tokens: number[] = instrumentTokens 
       ? (Array.isArray(instrumentTokens) ? instrumentTokens : [instrumentTokens])
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function POST_LEGACY(request: NextRequest) {
+async function _POST_LEGACY(request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) {
     return unauthorizedResponse();

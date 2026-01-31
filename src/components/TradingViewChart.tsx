@@ -3,6 +3,16 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
+import { 
+  calculateBollingerBands, 
+  calculateVWAP, 
+  calculateSupertrend, 
+  calculateSMA, 
+  calculateEMA, 
+  calculateRSI,
+  calculateMACD,
+  Candle 
+} from "@/lib/indicators";
 
 export interface CandleData {
   timestamp: string;
@@ -16,7 +26,7 @@ export interface CandleData {
 interface IndicatorOverlay {
   id: string;
   name: string;
-  type: "sma" | "ema" | "bollinger" | "support_resistance";
+  type: "sma" | "ema" | "bollinger" | "vwap" | "supertrend" | "support_resistance" | "rsi" | "macd" | "stochastic" | "atr";
   params?: Record<string, number>;
   color?: string;
   visible: boolean;
@@ -32,21 +42,12 @@ interface TradingViewChartProps {
   onTimeframeChange: (tf: string) => void;
   indicators?: IndicatorOverlay[];
   className?: string;
+  showVolume?: boolean;
   lastPrice?: number | null;
   tick?: import("@/hooks/use-realtime-ticks").RealtimeTick | null;
   predictivePath?: { time: string; price: number }[];
   swingPoints?: { time: string; price: number; type: "HIGH" | "LOW" }[];
 }
-
-const TIMEFRAMES = [
-  { label: "1m", value: "1m" },
-  { label: "5m", value: "5m" },
-  { label: "15m", value: "15m" },
-  { label: "1H", value: "1h" },
-  { label: "4H", value: "4h" },
-  { label: "1D", value: "1d" },
-  { label: "1W", value: "1w" },
-];
 
 /**
  * Deduplicate and sort candle data by timestamp
@@ -80,9 +81,10 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
     resistance,
     isLoading,
     timeframe,
-    onTimeframeChange,
+    onTimeframeChange: _onTimeframeChange,
     indicators = [],
     className,
+    showVolume = false,
     lastPrice,
     tick,
     predictivePath,
@@ -158,7 +160,7 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
   }, [timeframe]);
 
   // Initialize chart
-  const { theme, resolvedTheme } = useTheme();
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -277,6 +279,7 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
           color: "#3b82f6",
           priceFormat: { type: "volume" },
           priceScaleId: "",
+          visible: showVolume,
         });
         volumeSeries.priceScale().applyOptions({
           scaleMargins: { top: 0.8, bottom: 0 },
@@ -326,7 +329,7 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
       if (chartInstanceRef.current) {
         try {
           chartInstanceRef.current.remove();
-        } catch (e) {
+        } catch (_e) {
           // Ignore cleanup errors
         }
         chartInstanceRef.current = null;
@@ -436,15 +439,18 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
     }
 
     if (swingPoints && swingPoints.length > 0) {
+      // @ts-ignore - markers type is correct but TS might complain about string literals
       const markers = swingPoints.map(p => ({
         time: (new Date(p.time).getTime() / 1000) as import("lightweight-charts").Time,
-        position: p.type === "HIGH" ? "aboveBar" : "belowBar",
+        position: (p.type === "HIGH" ? "aboveBar" : "belowBar") as "aboveBar" | "belowBar",
         color: p.type === "HIGH" ? "#ef4444" : "#22c55e",
-        shape: p.type === "HIGH" ? "arrowDown" : "arrowUp",
+        shape: (p.type === "HIGH" ? "arrowDown" : "arrowUp") as "arrowDown" | "arrowUp",
         text: p.type === "HIGH" ? "SH" : "SL",
       }));
-      // @ts-ignore - markers type is correct but TS might complain about string literals
-      candleSeriesRef.current.setMarkers(markers);
+      
+      // We need to cast markers to the correct SeriesMarker type expected by lightweight-charts
+      // The library expects an array of SeriesMarker<Time>
+      candleSeriesRef.current.setMarkers(markers as import("lightweight-charts").SeriesMarker<import("lightweight-charts").Time>[]);
     } else {
       candleSeriesRef.current.setMarkers([]);
     }
@@ -456,14 +462,18 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
 
     const updateIndicators = async () => {
       try {
-        const { LineSeries } = await import("lightweight-charts");
+        const { LineSeries, HistogramSeries } = await import("lightweight-charts");
         
         // Remove old indicator series
         indicatorSeriesRef.current.forEach((series) => {
           if (chartInstanceRef.current) {
             try {
-              chartInstanceRef.current.removeSeries(series);
-            } catch (e) {
+              if (Array.isArray(series)) {
+                series.forEach(s => chartInstanceRef.current.removeSeries(s));
+              } else {
+                chartInstanceRef.current.removeSeries(series);
+              }
+            } catch (_e) {
               // Ignore removal errors
             }
           }
@@ -475,55 +485,182 @@ function deduplicateAndSortCandles(data: CandleData[]): CandleData[] {
 
         if (sortedData.length === 0) return;
 
+        // Prepare data for calculators (convert timestamp string to seconds number)
+        const calcData: Candle[] = [];
+        for (const d of sortedData) {
+          const t = Math.floor(new Date(d.timestamp).getTime() / 1000);
+          if (!isNaN(t)) {
+            calcData.push({
+              time: t,
+              open: d.open,
+              high: d.high,
+              low: d.low,
+              close: d.close,
+              volume: d.volume || 0
+            });
+          }
+        }
+
+        if (calcData.length === 0) return;
+
         indicators.filter(ind => ind.visible).forEach((indicator) => {
           if (!chartInstanceRef.current) return;
 
           const color = indicator.color || "#f59e0b";
 
-          if (indicator.type === "sma" || indicator.type === "ema") {
-            const period = indicator.params?.period || 20;
-            const lineData: { time: import("lightweight-charts").Time; value: number }[] = [];
+          if (indicator.type === "sma") {
+            const period = indicator.params?.period ?? 20;
+            const res = calculateSMA(calcData, period);
+            const lineData = res.map(p => ({ time: p.time as import("lightweight-charts").Time, value: p.value }));
             
-            if (indicator.type === "sma") {
-              for (let i = period - 1; i < sortedData.length; i++) {
-                let sum = 0;
-                for (let j = 0; j < period; j++) {
-                  sum += sortedData[i - j].close;
-                }
-                lineData.push({
-                  time: (new Date(sortedData[i].timestamp).getTime() / 1000) as import("lightweight-charts").Time,
-                  value: sum / period,
-                });
-              }
-            } else {
-              const k = 2 / (period + 1);
-              let ema = sortedData.slice(0, period).reduce((sum, d) => sum + d.close, 0) / period;
-              
-              for (let i = period - 1; i < sortedData.length; i++) {
-                if (i === period - 1) {
-                  lineData.push({
-                    time: (new Date(sortedData[i].timestamp).getTime() / 1000) as import("lightweight-charts").Time,
-                    value: ema,
-                  });
-                } else {
-                  ema = sortedData[i].close * k + ema * (1 - k);
-                  lineData.push({
-                    time: (new Date(sortedData[i].timestamp).getTime() / 1000) as import("lightweight-charts").Time,
-                    value: ema,
-                  });
-                }
-              }
-            }
-
-            if (lineData.length > 0 && chartInstanceRef.current) {
-              const series = chartInstanceRef.current.addSeries(LineSeries, {
-                color,
-                lineWidth: 1.5,
-                title: indicator.name,
-              });
+            if (lineData.length > 0) {
+              const series = chartInstanceRef.current.addSeries(LineSeries, { color, lineWidth: 1.5, title: indicator.name });
               series.setData(lineData);
               indicatorSeriesRef.current.set(indicator.id, series);
             }
+          } 
+          else if (indicator.type === "ema") {
+            const period = indicator.params?.period ?? 20;
+            const res = calculateEMA(calcData, period);
+            const lineData = res.map(p => ({ time: p.time as import("lightweight-charts").Time, value: p.value }));
+            
+            if (lineData.length > 0) {
+              const series = chartInstanceRef.current.addSeries(LineSeries, { color, lineWidth: 1.5, title: indicator.name });
+              series.setData(lineData);
+              indicatorSeriesRef.current.set(indicator.id, series);
+            }
+          }
+          else if (indicator.type === "bollinger") {
+            const period = indicator.params?.period ?? 20;
+            const stdDev = indicator.params?.stdDev ?? 2;
+            const { upper, lower, basis } = calculateBollingerBands(calcData, period, stdDev);
+            
+            const upperData = upper.map(p => ({ time: p.time as import("lightweight-charts").Time, value: p.value }));
+            const lowerData = lower.map(p => ({ time: p.time as import("lightweight-charts").Time, value: p.value }));
+            const basisData = basis.map(p => ({ time: p.time as import("lightweight-charts").Time, value: p.value }));
+
+            if (upperData.length > 0) {
+              const s1 = chartInstanceRef.current.addSeries(LineSeries, { color, lineWidth: 1, title: `${indicator.name} Upper` });
+              const s2 = chartInstanceRef.current.addSeries(LineSeries, { color, lineWidth: 1, title: `${indicator.name} Lower` });
+              const s3 = chartInstanceRef.current.addSeries(LineSeries, { color: color, lineWidth: 1, lineStyle: 2, title: `${indicator.name} Basis` }); // Dashed basis
+              
+              s1.setData(upperData);
+              s2.setData(lowerData);
+              s3.setData(basisData);
+              
+              indicatorSeriesRef.current.set(indicator.id, [s1, s2, s3]);
+            }
+          }
+          else if (indicator.type === "vwap") {
+             const res = calculateVWAP(calcData);
+             const lineData = res.map(p => ({ time: p.time as import("lightweight-charts").Time, value: p.value }));
+             if (lineData.length > 0) {
+               const series = chartInstanceRef.current.addSeries(LineSeries, { color, lineWidth: 1.5, title: indicator.name });
+               series.setData(lineData);
+               indicatorSeriesRef.current.set(indicator.id, series);
+             }
+          }
+          else if (indicator.type === "supertrend") {
+            const period = indicator.params?.period ?? 10;
+            const multiplier = indicator.params?.multiplier ?? 3;
+            const res = calculateSupertrend(calcData, period, multiplier);
+            
+            const upData = [];
+            const downData = [];
+            
+            for (const p of res) {
+                if (p.direction === 1) {
+                    upData.push({ time: p.time as import("lightweight-charts").Time, value: p.value });
+                    downData.push({ time: p.time as import("lightweight-charts").Time, value: NaN }); // Gap
+                } else {
+                    downData.push({ time: p.time as import("lightweight-charts").Time, value: p.value });
+                    upData.push({ time: p.time as import("lightweight-charts").Time, value: NaN }); // Gap
+                }
+            }
+            
+            const sUp = chartInstanceRef.current.addSeries(LineSeries, { color: "#22c55e", lineWidth: 2, title: `${indicator.name} Up` });
+            const sDown = chartInstanceRef.current.addSeries(LineSeries, { color: "#ef4444", lineWidth: 2, title: `${indicator.name} Down` });
+            
+            sUp.setData(upData);
+            sDown.setData(downData);
+            
+            indicatorSeriesRef.current.set(indicator.id, [sUp, sDown]);
+          }
+          // --- NEW INDICATORS ---
+          else if (indicator.type === "rsi") {
+             // RSI needs a separate pane? Lightweight charts supports multiple panes but via multiple chart instances or custom logic.
+             // For simplicity in this single-chart component, we might need to overlay or handle separately.
+             // However, proper implementation usually requires a separate container.
+             // Given the current architecture, we will overlay it scaled 0-100 on separate scale or just warn.
+             // BETTER APPROACH: Add it to a new price scale on the left or separate pane.
+             // Let's add it to a separate left price scale for now to avoid messing up price action.
+             
+             const period = indicator.params?.period ?? 14;
+             const res = calculateRSI(calcData, period);
+             const lineData = res.map(p => ({ time: p.time as import("lightweight-charts").Time, value: p.value }));
+             
+             if (lineData.length > 0) {
+                const series = chartInstanceRef.current.addSeries(LineSeries, { 
+                  color: indicator.color || "#8b5cf6", 
+                  lineWidth: 1.5,
+                  title: indicator.name,
+                  priceScaleId: 'left', // Use left scale for oscillators
+                  priceFormat: { type: 'price', precision: 1, minMove: 0.1 }
+                });
+                series.setData(lineData);
+                
+                // Add 70/30 lines for reference?
+                series.createPriceLine({ price: 70, color: '#ef4444', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+                series.createPriceLine({ price: 30, color: '#22c55e', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+
+                chartInstanceRef.current.priceScale('left').applyOptions({
+                    visible: true,
+                    autoScale: false,
+                    scaleMargins: { top: 0.7, bottom: 0 }, // Place at bottom 30%
+                });
+                
+                // Adjust main price scale to not overlap
+                chartInstanceRef.current.priceScale('right').applyOptions({
+                    scaleMargins: { top: 0.1, bottom: 0.35 }, // Main chart takes top 65%
+                });
+
+                indicatorSeriesRef.current.set(indicator.id, series);
+             }
+          }
+          else if (indicator.type === "macd") {
+             const fast = indicator.params?.fast ?? 12;
+             const slow = indicator.params?.slow ?? 26;
+             const signal = indicator.params?.signal ?? 9;
+             const res = calculateMACD(calcData, fast, slow, signal);
+             
+             const macdData = res.map(p => ({ time: p.time as import("lightweight-charts").Time, value: p.macd }));
+             const signalData = res.map(p => ({ time: p.time as import("lightweight-charts").Time, value: p.signal }));
+             const histData = res.map(p => ({ 
+                 time: p.time as import("lightweight-charts").Time, 
+                 value: p.histogram,
+                 color: p.histogram >= 0 ? '#22c55e' : '#ef4444'
+             }));
+
+             if (macdData.length > 0) {
+                 // Using left scale for MACD too, overlapping with RSI if both present (simple implementation)
+                 const macdSeries = chartInstanceRef.current.addSeries(LineSeries, { color: '#3b82f6', lineWidth: 1, title: 'MACD', priceScaleId: 'left' });
+                 const signalSeries = chartInstanceRef.current.addSeries(LineSeries, { color: '#f97316', lineWidth: 1, title: 'Signal', priceScaleId: 'left' });
+                 const histSeries = chartInstanceRef.current.addSeries(HistogramSeries, { color: '#22c55e', title: 'Hist', priceScaleId: 'left' });
+
+                 macdSeries.setData(macdData);
+                 signalSeries.setData(signalData);
+                 histSeries.setData(histData);
+
+                 chartInstanceRef.current.priceScale('left').applyOptions({
+                    visible: true,
+                    scaleMargins: { top: 0.75, bottom: 0 },
+                 });
+                 chartInstanceRef.current.priceScale('right').applyOptions({
+                    scaleMargins: { top: 0.1, bottom: 0.3 },
+                 });
+
+                 indicatorSeriesRef.current.set(indicator.id, [macdSeries, signalSeries, histSeries]);
+             }
           }
         });
       } catch (error) {

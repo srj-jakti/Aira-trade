@@ -83,10 +83,15 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
     if (isFetchingTickRef.current || !instrumentToken) return;
     isFetchingTickRef.current = true;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s client timeout
+
     try {
       const response = await fetch(
-        `/api/market-data/on-demand?instruments=${instrumentToken}`
+        `/api/market-data/on-demand?instruments=${instrumentToken}`,
+        { signal: controller.signal }
       );
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         throw new Error("Failed to fetch tick");
@@ -122,8 +127,11 @@ export function useLiveCandles(options: UseLiveCandlesOptions): UseLiveCandlesRe
         }
       }
     } catch (err) {
-      console.error("Error fetching tick:", err);
+      if ((err as Error).name !== 'AbortError') {
+        console.error("Error fetching tick:", err);
+      }
     } finally {
+      clearTimeout(timeoutId);
       isFetchingTickRef.current = false;
     }
   }, [instrumentToken, candles.length]);

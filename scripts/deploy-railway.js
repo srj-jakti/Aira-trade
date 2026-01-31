@@ -1,9 +1,14 @@
-const RAILWAY_API_KEY = "dd2726f4-9212-46d1-afde-5cba75a3b7bc";
+const RAILWAY_API_KEY = process.env.RAILWAY_API_KEY;
 const RAILWAY_API_URL = "https://backboard.railway.com/graphql/v2";
 
-const SUPABASE_URL = "https://fhkathpufpbkwzdfczgj.supabase.co";
-const SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoa2F0aHB1ZnBia3d6ZGZjemdqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Njg1MDQ4NiwiZXhwIjoyMDgyNDI2NDg2fQ.rCxdqZ4PRN4WP0BMLl5z0xwCjjwrelgaKgGsqH-5g-Y";
-const ENCRYPTION_KEY = "a7f3b9c2d8e1f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+
+if (!RAILWAY_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error("❌ Missing required environment variables. Please check your .env.local file.");
+  process.exit(1);
+}
 
 async function railwayQuery(query, variables = {}) {
   const response = await fetch(RAILWAY_API_URL, {

@@ -131,8 +131,6 @@ export async function POST(
               for (const token of tokens) {
                 const tradingSymbol = instrumentMap.get(token) || `TOKEN_${token}`;
                 const tokenTrades = result.trades;
-                const tokenProfitable = tokenTrades.filter((t: any) => (t.pnl || 0) > 0).length;
-                const tokenWinRate = tokenTrades.length > 0 ? (tokenProfitable / tokenTrades.length) * 100 : 0;
                 const tokenAvgPnl = tokenTrades.length > 0 
                   ? tokenTrades.reduce((sum: number, t: any) => sum + (t.pnl || 0), 0) / tokenTrades.length 
                   : 0;

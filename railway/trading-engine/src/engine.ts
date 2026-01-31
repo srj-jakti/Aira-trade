@@ -47,12 +47,17 @@ interface TradingPreference {
   strategy_type: string;
   risk_per_trade: number;
   max_daily_loss: number;
-  max_trades_per_day: number;
   priority_score: number;
   paper_trading_enabled: boolean;
   daily_profit_limit: number;
   daily_loss_limit: number;
   daily_pnl_realized: number;
+  risk_profile?: {
+    max_trades_per_day?: number | null;
+    daily_loss_limit?: number | null;
+    daily_profit_target?: number | null;
+    kill_switch_active?: boolean | null;
+  } | null;
 }
 
 // NEW: Check if user's daily quota is already hit
@@ -116,6 +121,11 @@ async function processUser(user: TradingPreference): Promise<void> {
   if (quotaCheck.hit) {
     await autoDisableOnQuotaHit(user_id, quotaCheck.reason || "Daily quota limit reached");
     return; // Skip this user entirely
+  }
+
+  if (user.risk_profile?.kill_switch_active) {
+    logger.warn(`[KILL SWITCH] User kill switch active. Skipping trades for ${user_id}`);
+    return;
   }
 
   const acquired = await acquireExecutionLock(user_id);
@@ -185,9 +195,14 @@ async function processUser(user: TradingPreference): Promise<void> {
       return;
     }
 
+    const effectiveMaxDailyLoss =
+      (user.risk_profile?.daily_loss_limit ?? user.max_daily_loss) || 1000;
+    const effectiveMaxTradesPerDay =
+      (user.risk_profile?.max_trades_per_day ?? 10) || 10;
+
     const signal = await evaluateWithAI(strategy, candles, {
       risk_per_trade: user.risk_per_trade || 1,
-      max_daily_loss: user.max_daily_loss || 1000,
+      max_daily_loss: effectiveMaxDailyLoss,
       user_id: user_id,
       capital_used: user.daily_pnl_realized || 0 // Use PnL as a proxy for capital state if needed
     });
@@ -207,8 +222,8 @@ async function processUser(user: TradingPreference): Promise<void> {
       }
 
       const killSwitch = await checkKillSwitches(user_id, {
-        max_daily_loss: user.max_daily_loss || 1000,
-        max_trades_per_day: user.max_trades_per_day || 10,
+        max_daily_loss: effectiveMaxDailyLoss,
+        max_trades_per_day: effectiveMaxTradesPerDay,
       });
 
       if (killSwitch.triggered) {
@@ -224,8 +239,8 @@ async function processUser(user: TradingPreference): Promise<void> {
         const config = {
           user_id,
           risk_per_trade: user.risk_per_trade || 1,
-          max_daily_loss: user.max_daily_loss || 1000,
-          max_trades_per_day: user.max_trades_per_day || 10,
+          max_daily_loss: effectiveMaxDailyLoss,
+          max_trades_per_day: effectiveMaxTradesPerDay,
         };
 
         if (user.paper_trading_enabled) {
@@ -261,6 +276,11 @@ async function processUser(user: TradingPreference): Promise<void> {
   }
 }
 
+import pLimit from "p-limit";
+
+// Limit concurrency to 50 users at a time to prevent rate limits/timeouts
+const userProcessingLimit = pLimit(50);
+
 async function evaluationLoop(): Promise<void> {
   logger.info("Starting evaluation loop...");
 
@@ -274,7 +294,6 @@ async function evaluationLoop(): Promise<void> {
           strategy_type,
           risk_per_trade:max_allocation_per_trade,
           max_daily_loss:daily_loss_limit,
-          max_trades_per_day:daily_profit_limit,
           daily_pnl_realized,
           priority_score,
           paper_trading_enabled
@@ -285,16 +304,44 @@ async function evaluationLoop(): Promise<void> {
         .lt("consecutive_failures", 5)
         .order("priority_score", { ascending: false })
         .order("next_evaluation_at", { ascending: true })
-        .limit(10);
+        .limit(100); // Increased batch size for high throughput
 
       if (error) throw error;
 
-      for (const user of users || []) {
-        if (getShutdownFlag()) break;
-        await processUser(user as TradingPreference);
+      if (users && users.length > 0) {
+        const userIds = users.map(u => u.user_id);
+        const { data: riskProfiles } = await supabase
+          .from("user_risk_profiles")
+          .select("user_id, max_trades_per_day, daily_loss_limit, daily_profit_target, kill_switch_active")
+          .in("user_id", userIds);
+
+        const riskByUserId = new Map<string, TradingPreference["risk_profile"]>(
+          (riskProfiles || []).map(rp => [
+            rp.user_id,
+            {
+              max_trades_per_day: rp.max_trades_per_day,
+              daily_loss_limit: rp.daily_loss_limit,
+              daily_profit_target: rp.daily_profit_target,
+              kill_switch_active: rp.kill_switch_active,
+            },
+          ])
+        );
+
+        // Process users in parallel with concurrency limit
+        await Promise.all(
+          users.map((user) => 
+            userProcessingLimit(async () => {
+              if (getShutdownFlag()) return;
+              const withRisk = { ...(user as TradingPreference), risk_profile: riskByUserId.get(user.user_id) || null };
+              await processUser(withRisk);
+            })
+          )
+        );
       }
 
-      await sleep(5000);
+      // Dynamic sleep based on load
+      const processingTime = users && users.length > 0 ? 1000 : 5000;
+      await sleep(processingTime);
     } catch (error) {
       logger.error("Main loop error", error);
       await sleep(10000);

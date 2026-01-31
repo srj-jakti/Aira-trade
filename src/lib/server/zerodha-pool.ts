@@ -61,7 +61,7 @@ class AdminZerodhaPool {
           })
           .eq("id", configId);
       }
-    } catch (e) {
+    } catch (_e) {
       await supabaseAdmin
         .from("admin_zerodha_configs")
         .update({ 
@@ -79,7 +79,7 @@ class AdminZerodhaPool {
     private async incrementLoad(configId: string): Promise<void> {
       try {
         await supabaseAdmin.rpc("increment_zerodha_load", { config_id: configId });
-      } catch (err) {
+      } catch (_err) {
         await supabaseAdmin
           .from("admin_zerodha_configs")
           .update({ 

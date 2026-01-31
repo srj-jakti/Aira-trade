@@ -136,7 +136,7 @@ export function useLatestPrice(options: UseLatestPriceOptions) {
   const [price, setPrice] = useState<number | null>(null);
   const [tick, setTick] = useState<RealtimeTick | null>(null);
 
-  const { getTickForToken, isConnected, error } = useRealtimeTicks({
+  const { isConnected, error } = useRealtimeTicks({
     instrumentTokens: [instrumentToken],
     enabled,
     onTick: (newTick) => {

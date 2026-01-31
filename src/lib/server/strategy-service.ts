@@ -960,6 +960,19 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
 
           ARCHETYPE: ${optimizationArchetype}
           ${iterationContext ? `\nCURRENT ITERATION PROGRESS:\n${iterationContext}` : ""}
+          ${pastPerformanceContext}
+          ${rlContext}
+          ${aiEngineContext}
+
+          BACKTEST STATS:
+          - Total Trades: ${backtestResults.total_trades}
+          - Win Rate: ${backtestResults.win_rate?.toFixed?.(1) ?? backtestResults.win_rate}%
+          - Net P&L: ${backtestResults.net_pnl_percentage?.toFixed?.(2) ?? backtestResults.net_pnl_percentage}%
+          - Avg Win (₹): ${avgWin.toFixed(2)}
+          - Avg Loss (₹): ${avgLoss.toFixed(2)}
+          - SL Hits: ${lossPatterns.slHit}
+          - Target Hits: ${lossPatterns.targetHit}
+          - Trailing SL Hits: ${lossPatterns.trailingSlHit}
 
           🔒 CORE MISSION:
           Do NOT just "add filters." Adding too many conditions causes "overfitting" and kills trade frequency.
@@ -1122,6 +1135,8 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
 
       // 2. Call Python RL Service (on Railway)
       const RL_ENGINE_URL = process.env.RL_ENGINE_URL || "http://rl-engine.railway.internal:8000";
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
       const response = await fetch(`${RL_ENGINE_URL}/optimize`, {
         method: "POST",
@@ -1139,8 +1154,9 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
             close: c.close,
             volume: c.volume
           }))
-        })
-      });
+        }),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId));
 
       if (!response.ok) {
         console.error("[StrategyService] RL Engine call failed:", await response.text());
@@ -1196,25 +1212,51 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
     const tf15 = results["15m"];
     
     if (tf5 && tf15) {
-      const tfSuggestion = await airaBrain.suggestOptimalTimeframe(tf5, tf15);
-      const recommendation = tfSuggestion.success && typeof tfSuggestion.result === 'object' 
-        ? (tfSuggestion.result as any)
-        : { recommended_timeframe: timeframe, reasoning: "Based on backtest scores." };
+      try {
+        const tfSuggestion = await airaBrain.suggestOptimalTimeframe(tf5, tf15);
+        const recommendation = tfSuggestion.success && typeof tfSuggestion.result === "object"
+          ? (tfSuggestion.result as any)
+          : { recommended_timeframe: timeframe, reasoning: "Based on backtest scores." };
 
-      bestTimeframe = recommendation.recommended_timeframe || bestTimeframe;
-      currentBestResult = results[bestTimeframe];
-      
-      iterationContext += `Step 0 (Timeframe Optimization): Selected ${bestTimeframe} via AiraBrain Analysis\n`;
-      iterationNotes += `\n- **AiraBrain Timeframe Optimization**: ${recommendation.reasoning}`;
-      if (recommendation.parameter_tweak) {
-        iterationNotes += `\n- **Parameter Suggestion**: ${recommendation.parameter_tweak}`;
+        const recommended = recommendation.recommended_timeframe;
+        if (recommended && recommended in results) {
+          bestTimeframe = recommended;
+        } else {
+          bestTimeframe = (tf15.win_rate * 0.4 + (tf15.net_pnl_percentage || 0) * 0.6) >
+            (tf5.win_rate * 0.4 + (tf5.net_pnl_percentage || 0) * 0.6)
+            ? "15m"
+            : "5m";
+        }
+
+        currentBestResult = results[bestTimeframe] || null;
+        iterationContext += `Step 0 (Timeframe Optimization): Selected ${bestTimeframe} via AiraBrain Analysis\n`;
+        iterationNotes += `\n- **AiraBrain Timeframe Optimization**: ${recommendation.reasoning}`;
+        if (recommendation.parameter_tweak) {
+          iterationNotes += `\n- **Parameter Suggestion**: ${recommendation.parameter_tweak}`;
+        }
+      } catch (e) {
+        console.error("[StrategyService] Timeframe suggestion failed:", e);
+        bestTimeframe = (tf15.win_rate * 0.4 + (tf15.net_pnl_percentage || 0) * 0.6) >
+          (tf5.win_rate * 0.4 + (tf5.net_pnl_percentage || 0) * 0.6)
+          ? "15m"
+          : "5m";
+        currentBestResult = results[bestTimeframe] || null;
       }
+    } else if (tf5 || tf15) {
+      bestTimeframe = tf15 ? "15m" : "5m";
+      currentBestResult = results[bestTimeframe] || null;
+      iterationContext += `Step 0 (Timeframe Optimization): Only ${bestTimeframe} backtest available\n`;
     } else {
       currentBestResult = results[timeframe] || await this.runBacktest(currentStrategy, instrumentTokens, timeframe, capital, fromDate, toDate);
+      bestTimeframe = timeframe;
+    }
+
+    if (!currentBestResult) {
+      throw new Error("Failed to run baseline backtest for optimization");
     }
 
     // Step 1: Baseline Iteration
-    iterationContext += `Iteration 0 (Baseline): Win Rate ${currentBestResult.win_rate.toFixed(1)}%, Net P&L ₹${currentBestResult.net_pnl.toFixed(2)}\n`;
+    iterationContext += `Iteration 0 (Baseline): Win Rate ${Number(currentBestResult.win_rate).toFixed(1)}%, Net P&L ₹${Number(currentBestResult.net_pnl).toFixed(2)}\n`;
 
     // Step 2: RL Engine Trigger (Background)
     let rlOptimizedParams = null;
@@ -1258,13 +1300,13 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
 
               console.log(`[StrategyService] Iteration ${i}: Running Backtest with Real Trade Simulation...`);
               // Use evaluateWithMemory by default in improve loop
-              const performance = await this.runBacktest(improved, instrumentTokens, timeframe, capital, fromDate, toDate);
+              const performance = await this.runBacktest(improved, instrumentTokens, bestTimeframe, capital, fromDate, toDate);
               
               console.log(`[StrategyService] Iteration ${i} Results: Win Rate ${performance.win_rate.toFixed(1)}%, P&L ₹${performance.net_pnl.toFixed(2)}`);
 
               // Comparison logic (Multi-objective: Win Rate + P&L)
-              const currentScore = (performance.win_rate * 0.4) + (performance.net_pnl_percentage * 0.6);
-              const bestScore = (currentBestResult!.win_rate * 0.4) + (currentBestResult!.net_pnl_percentage * 0.6);
+              const currentScore = (performance.win_rate * 0.4) + ((performance.net_pnl_percentage || 0) * 0.6);
+              const bestScore = (currentBestResult!.win_rate * 0.4) + ((currentBestResult!.net_pnl_percentage || 0) * 0.6);
 
               if (currentScore > bestScore || i === 1) {
                 console.log(`[StrategyService] Iteration ${i} IMPROVED the strategy. Updating baseline.`);
@@ -1275,6 +1317,10 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
               } else {
                 console.log(`[StrategyService] Iteration ${i} did not improve results. Keeping previous best.`);
                 iterationContext += `Iteration ${i}: REJECTED (No improvement) - Win Rate ${performance.win_rate.toFixed(1)}%, P&L ₹${performance.net_pnl.toFixed(2)}\n`;
+              }
+
+              if (iterationContext.length > 12000) {
+                iterationContext = iterationContext.slice(-12000);
               }
             } catch (error) {
               console.error(`[StrategyService] Iteration ${i} failed:`, error);
@@ -1393,7 +1439,7 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
     capital: number = 100000,
     fromDate?: Date,
     toDate?: Date,
-    zerodhaConfigId?: string
+    _zerodhaConfigId?: string
   ): Promise<BacktestResult> {
     if (instrumentTokens.length === 0) {
       throw new Error("At least one instrument is required for backtesting");
@@ -1538,14 +1584,12 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
         
         let buySignal = false;
         let sellSignal = false;
-        let holdInfo = false;
 
         if (useNewExecutor && executor && strategy.executable_strategy) {
           // Use evaluateWithMemory for human-like time-aware execution in backtests
           const result = executor.evaluateWithMemory(strategy.executable_strategy, i);
           buySignal = result.buySignal;
           sellSignal = result.sellSignal;
-          holdInfo = result.holdInfo;
           
           if (i === warmupPeriod || i === warmupPeriod + 1 || i === warmupPeriod + 2) {
           console.log(`[Backtest] Sample eval candle ${i}:`, JSON.stringify({
@@ -1573,7 +1617,6 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
         const evaluation = StrategyEvaluator.evaluate(strategy, candles as CalcCandle[], i, indicatorData);
         buySignal = evaluation.buySignal;
         sellSignal = evaluation.sellSignal;
-        holdInfo = evaluation.holdSignal;
       }
 
       if (buySignal) buySignalCount++;

@@ -113,7 +113,7 @@ class AITradingEngine {
     }
   }
 
-  async applyEvolution(evolutionId: number, strategyId: number): Promise<boolean> {
+  async applyEvolution(evolutionId: number, _strategyId: number): Promise<boolean> {
     try {
       await supabaseAdmin
         .from("ai_strategy_evolution")
@@ -128,12 +128,12 @@ class AITradingEngine {
   }
 
   async analyzeChartForStrategy(
-    strategyId: number,
+    _strategyId: number,
     candles: Array<{ open: number; high: number; low: number; close: number; volume: number; timestamp: Date }>,
     strategyRules: unknown,
     timeframe: string,
     instrumentToken?: number,
-    tradingSymbol?: string
+    _tradingSymbol?: string
   ): Promise<TradeDecision> {
     const marketContext = this.analyzeMarketContext(candles);
 

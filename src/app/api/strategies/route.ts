@@ -10,15 +10,11 @@ import { strategyService } from "@/lib/server/strategy-service";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { SUBSCRIPTION_PLANS } from "@/lib/subscription/plans";
 
-import { strategyExecutionEngine } from "@/lib/server/strategy-execution-engine";
-
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const user = await getAuthenticatedUser();
   if (!user.authenticated) return unauthorizedResponse();
 
   try {
-    strategyExecutionEngine.start();
-    
     const strategies = await strategyService.getUserStrategies(user.userId!);
     return successResponse({ strategies });
   } catch (error) {

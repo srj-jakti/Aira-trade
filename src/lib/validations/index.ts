@@ -38,3 +38,10 @@ export const paginationSchema = z.object({
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(10),
 });
+
+export const generateStrategySchema = z.object({
+  userInput: z.string().min(10, "Strategy description must be at least 10 characters").max(2000).optional(),
+  referenceInstrument: z.string().min(2).max(50).optional(),
+  mode: z.enum(["traditional", "neural"]).default("traditional"),
+});
+

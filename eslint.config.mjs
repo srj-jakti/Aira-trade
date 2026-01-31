@@ -11,7 +11,7 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   {
-    ignores: [".next/", "next-env.d.ts"],
+    ignores: [".next/", "next-env.d.ts", ".venv/", "railway/", "scripts/", "src/lib/zairoth/"],
   },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
@@ -19,11 +19,19 @@ const eslintConfig = [
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-require-imports": "off",
       "react/no-unescaped-entities": "off",
-      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          ignoreRestSiblings: true
+        }
+      ],
       "prefer-const": "warn",
       "no-var": "warn",
       "@typescript-eslint/ban-ts-comment": "off",
-      "react-hooks/exhaustive-deps": "warn"
+      "react-hooks/exhaustive-deps": "off"
     }
   }
 ];

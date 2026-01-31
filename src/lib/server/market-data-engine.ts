@@ -17,8 +17,38 @@ export interface ZerodhaConfig {
   is_active: boolean;
 }
 
+export interface MarketTick {
+  instrumentToken: number;
+  lastPrice: number;
+  lastQuantity?: number;
+  averagePrice?: number;
+  volume?: number;
+  buyQuantity?: number;
+  sellQuantity?: number;
+  open?: number;
+  high?: number;
+  low?: number;
+  close?: number;
+  change?: number;
+  changePercent?: number;
+  lastTradeTime?: Date;
+  oi?: number;
+  oiDayHigh?: number;
+  oiDayLow?: number;
+  timestamp: Date;
+}
+
+export interface SubscribedInstrument {
+  instrumentToken: number;
+  tradingsymbol: string;
+  mode: "ltp" | "quote" | "full";
+}
+
 class MarketDataEngine {
   private static instance: MarketDataEngine;
+  private isRunning: boolean = false;
+  private activeConfigId: string | null = null;
+  private subscribedInstruments: Map<number, SubscribedInstrument> = new Map();
 
   private constructor() {}
 
@@ -50,6 +80,56 @@ class MarketDataEngine {
     }
     
     return configs[0];
+  }
+
+  async getSubscribedInstruments(): Promise<SubscribedInstrument[]> {
+    const { data: instruments } = await supabaseAdmin
+      .from("instruments")
+      .select("instrument_token, tradingsymbol, subscription_mode")
+      .eq("is_subscribed", true);
+
+    return (instruments || []).map((i) => ({
+      instrumentToken: i.instrument_token,
+      tradingsymbol: i.tradingsymbol,
+      mode: i.subscription_mode as "ltp" | "quote" | "full",
+    }));
+  }
+
+  setRunning(running: boolean, configId?: string): void {
+    this.isRunning = running;
+    if (configId) {
+      this.activeConfigId = configId;
+    }
+  }
+
+  setSubscribedInstruments(instruments: SubscribedInstrument[]): void {
+    this.subscribedInstruments.clear();
+    instruments.forEach((i) => {
+      this.subscribedInstruments.set(i.instrumentToken, i);
+    });
+  }
+
+  async processTick(tick: MarketTick): Promise<void> {
+    await supabaseAdmin.from("realtime_ticks").insert({
+      instrument_token: tick.instrumentToken,
+      last_price: tick.lastPrice,
+      last_quantity: tick.lastQuantity,
+      average_price: tick.averagePrice,
+      volume: tick.volume,
+      buy_quantity: tick.buyQuantity,
+      sell_quantity: tick.sellQuantity,
+      open: tick.open,
+      high: tick.high,
+      low: tick.low,
+      close: tick.close,
+      change: tick.change,
+      change_percent: tick.changePercent,
+      last_trade_time: tick.lastTradeTime?.toISOString(),
+      oi: tick.oi,
+      oi_day_high: tick.oiDayHigh,
+      oi_day_low: tick.oiDayLow,
+      tick_timestamp: tick.timestamp.toISOString(),
+    });
   }
 }
 

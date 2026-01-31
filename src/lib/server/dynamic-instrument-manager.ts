@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { marketDataEngine } from "./market-data-engine";
+import { marketDataEngine, getLatestTick } from "./market-data-engine";
 
 /**
  * PRODUCTION-GRADE DYNAMIC INSTRUMENT MANAGER
@@ -85,7 +85,7 @@ export async function refreshDynamicSubscriptions(): Promise<{
       // Add the index itself
       subscriptionQueue.add(idx.token);
       
-      const latestTick = await marketDataEngine.getLatestTick(idx.token);
+      const latestTick = await getLatestTick(idx.token);
       const atmPrice = latestTick?.lastPrice || 0;
 
       // Fetch near-ATM options for current week

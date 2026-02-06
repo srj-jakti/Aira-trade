@@ -14,13 +14,13 @@ export const metadata = {
 };
 
 interface SharedPageProps {
-  params: {
+  params: Promise<{
     shareId: string;
-  };
+  }>;
 }
 
 export default async function SharedAnalysisPage({ params }: SharedPageProps) {
-  const { shareId } = params;
+  const { shareId } = await params;
 
   // Fetch snapshot
   const { data: snapshot, error } = await supabaseAdmin

@@ -9,8 +9,8 @@ const shareSchema = z.object({
   instrumentToken: z.number(),
   tradingsymbol: z.string(),
   timeframe: z.string(),
-  analysisData: z.record(z.unknown()),
-  chartConfig: z.record(z.unknown()).optional(),
+  analysisData: z.record(z.string(), z.unknown()),
+  chartConfig: z.record(z.string(), z.unknown()).optional(),
 });
 
 export async function POST(request: NextRequest) {

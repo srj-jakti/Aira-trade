@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ArrowDown, ArrowUp, BrainCircuit, ChevronDown, Eye, EyeOff, Info, LineChart, Loader2, Minus, RefreshCw, Settings2, Sparkles, Target, TrendingDown, TrendingUp, Wifi, WifiOff } from "lucide-react";
+import { ArrowDown, ArrowUp, BrainCircuit, ChevronDown, Eye, EyeOff, Info, LineChart, Loader2, Minus, RefreshCw, Settings2, Sparkles, Target, TrendingDown, TrendingUp, Wifi, WifiOff, Twitter, Facebook, Linkedin, Link as LinkIcon, Share2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,20 +12,9 @@ import { cn } from "@/lib/utils";
 import { useLiveCandles } from "@/hooks/use-live-candles";
 import { useLatestPrice } from "@/hooks/use-realtime-ticks";
 import { toast } from "sonner";
-
-interface AnalysisResult {
-  trend: string;
-  strength: number;
-  support: number | null;
-  resistance: number | null;
-  analysis: string;
-  signal: string;
-  confidence: number;
-  entry: number | null;
-  target: number | null;
-  stopLoss: number | null;
-  reasoning: string;
-}
+import { AIAnalysisCard, type AnalysisResult } from "@/components/analysis/AIAnalysisCard";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 interface AnalysisOutput {
   id: string;
@@ -93,6 +82,11 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null);
   const [expandedIndicatorId, setExpandedIndicatorId] = useState<string | null>(null);
+  
+  // Sharing State
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [isSharing, setIsSharing] = useState(false);
   
   // Predictive Brain State
   // We now enable predictive mode by default or based on system config, removing user toggle for simpler UX
@@ -313,6 +307,48 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     return price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  const handleShare = async () => {
+    if (!selectedInstrument || !analysis) return;
+
+    setIsSharing(true);
+    try {
+      const activeIndicators = indicators.filter(i => i.visible).map(i => ({ id: i.id, params: i.params }));
+      
+      const response = await fetch("/api/share/analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instrumentToken: selectedInstrument.instrument_token,
+          tradingsymbol: selectedInstrument.tradingsymbol,
+          timeframe,
+          analysisData: analysis,
+          chartConfig: {
+            indicators: activeIndicators,
+            selectedStrategy
+          }
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setShareUrl(data.shareUrl);
+        setShareModalOpen(true);
+      } else {
+        toast.error("Failed to generate share link");
+      }
+    } catch (error) {
+      console.error("Share error:", error);
+      toast.error("Failed to share analysis");
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareUrl);
+    toast.success("Link copied to clipboard!");
+  };
+
   return (
     <div className="p-1.5 md:p-4 space-y-1.5 md:space-y-2 max-w-[1600px] mx-auto">
         <div className="flex flex-col gap-1 md:gap-2">
@@ -506,125 +542,15 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
 
             {/* Always render container if we have an instrument selected, show skeleton or content */}
             {selectedInstrument && (
-              <>
-                <Card className="bg-card border-border mb-3 overflow-hidden">
-                  <CardHeader className="p-3 md:p-4 border-b border-border bg-gradient-to-r from-purple-500/10 to-blue-500/10">
-                    <CardTitle className="text-sm font-medium flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <BrainCircuit className="w-4 h-4 text-purple-500" />
-                        <span>Unified AI Intelligence</span>
-                      </div>
-                      {predictiveMode && (
-                        <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px] gap-1">
-                          <Sparkles className="w-3 h-3" />
-                          Predictive Brain Active
-                        </Badge>
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 space-y-4">
-                    {isLoadingAnalysis ? (
-                      <div className="flex flex-col items-center justify-center min-h-[200px] gap-3">
-                        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
-                        <p className="text-sm text-muted-foreground animate-pulse">Running Deep Learning Analysis...</p>
-                      </div>
-                    ) : analysis ? (
-                      <>
-                        {/* Top Stats Row */}
-                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                          <div className="flex items-center gap-3">
-                             <div className={`p-2 rounded-lg ${
-                                analysis.trend === "bullish" ? "bg-green-500/10" : 
-                                analysis.trend === "bearish" ? "bg-red-500/10" : "bg-yellow-500/10"
-                              }`}>
-                                {getTrendIcon(analysis.trend)}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <span className={`font-bold uppercase tracking-tight ${getTrendColor(analysis.trend)}`}>
-                                    {analysis.trend}
-                                  </span>
-                                  {getDirectionBadge(analysis.signal)}
-                                </div>
-                                <div className="text-xs text-muted-foreground flex items-center gap-2">
-                                  <span>Strength: {analysis.strength}%</span>
-                                  <span className="w-1 h-1 bg-muted-foreground rounded-full" />
-                                  <span>Conf: {analysis.confidence}%</span>
-                                </div>
-                              </div>
-                          </div>
-
-                          {predictiveMode && predictivePath.length > 0 && (
-                            <div className="flex gap-4 w-full md:w-auto bg-purple-500/5 p-2 rounded-lg border border-purple-500/10">
-                               <div className="text-center">
-                                  <p className="text-[10px] text-muted-foreground uppercase mb-0.5">Forecast High</p>
-                                  <p className="text-green-400 font-mono text-xs font-bold">
-                                    ₹{formatPrice((predictivePath[predictivePath.length - 1]?.price || 0) * 1.002)}
-                                  </p>
-                               </div>
-                               <div className="w-px bg-purple-500/20" />
-                               <div className="text-center">
-                                  <p className="text-[10px] text-muted-foreground uppercase mb-0.5">Forecast Low</p>
-                                  <p className="text-red-400 font-mono text-xs font-bold">
-                                    ₹{formatPrice((predictivePath[predictivePath.length - 1]?.price || 0) * 0.998)}
-                                  </p>
-                               </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Semantic Analysis Text */}
-                        <div className="bg-muted/30 p-3 rounded-lg border border-border/50">
-                          <p className="text-sm leading-relaxed text-foreground/80">
-                            {analysis.analysis}
-                          </p>
-                          {predictiveMode && (
-                            <div className="mt-3 pt-3 border-t border-dashed border-purple-500/20 flex items-start gap-2">
-                              <Sparkles className="w-3.5 h-3.5 text-purple-400 mt-0.5 shrink-0" />
-                              <p className="text-xs text-purple-300 italic">
-                                &quot;Predictive model suggests a {((predictivePath[predictivePath.length - 1]?.price || 0) > (currentPrice || 0)) ? "continuation upside" : "potential pullback"} in the next hour based on volatility structure.&quot;
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Action Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                          <div className="p-2 bg-muted/50 rounded-lg border border-border/50">
-                            <div className="text-[10px] text-muted-foreground mb-1">Entry Zone</div>
-                            <div className="font-mono text-sm font-semibold text-blue-500">₹{formatPrice(analysis.entry)}</div>
-                          </div>
-                          <div className="p-2 bg-muted/50 rounded-lg border border-border/50">
-                            <div className="text-[10px] text-muted-foreground mb-1">Target</div>
-                            <div className="font-mono text-sm font-semibold text-green-500 flex items-center gap-1">
-                              <ArrowUp className="w-3 h-3" />
-                              ₹{formatPrice(analysis.target)}
-                            </div>
-                          </div>
-                          <div className="p-2 bg-muted/50 rounded-lg border border-border/50">
-                            <div className="text-[10px] text-muted-foreground mb-1">Stop Loss</div>
-                            <div className="font-mono text-sm font-semibold text-red-500 flex items-center gap-1">
-                              <ArrowDown className="w-3 h-3" />
-                              ₹{formatPrice(analysis.stopLoss)}
-                            </div>
-                          </div>
-                           <div className="p-2 bg-muted/50 rounded-lg border border-border/50">
-                            <div className="text-[10px] text-muted-foreground mb-1">AI Conviction</div>
-                            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-1.5">
-                               <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500" style={{ width: `${analysis.confidence}%` }} />
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center min-h-[150px] text-muted-foreground">
-                        <BrainCircuit className="w-10 h-10 mb-2 opacity-20" />
-                        <p className="text-sm">Waiting for market data...</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </>
+              <AIAnalysisCard
+                analysis={analysis}
+                isLoading={isLoadingAnalysis}
+                predictiveMode={predictiveMode}
+                predictivePath={predictivePath}
+                currentPrice={currentPrice}
+                showShareButton={!!analysis}
+                onShare={handleShare}
+              />
             )}
           </div>
 
@@ -735,6 +661,49 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
             </Card>
         </div>
       </div>
+
+      {/* Share Modal */}
+      <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Analysis</DialogTitle>
+            <DialogDescription>
+              Share this snapshot of AiRA analysis with others.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex items-center space-x-2 my-4">
+            <div className="grid flex-1 gap-2">
+              <Label htmlFor="link" className="sr-only">Link</Label>
+              <Input
+                id="link"
+                defaultValue={shareUrl}
+                readOnly
+                className="h-9"
+              />
+            </div>
+            <Button size="sm" onClick={copyToClipboard} className="px-3">
+              <span className="sr-only">Copy</span>
+              <LinkIcon className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          <div className="flex justify-center gap-4">
+             <Button variant="outline" size="icon" className="rounded-full" onClick={() => window.open(`https://twitter.com/intent/tweet?text=Check out this AI Analysis on ${selectedInstrument?.tradingsymbol}&url=${encodeURIComponent(shareUrl)}`, '_blank')}>
+               <Twitter className="h-4 w-4 text-blue-400" />
+             </Button>
+             <Button variant="outline" size="icon" className="rounded-full" onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank')}>
+               <Facebook className="h-4 w-4 text-blue-600" />
+             </Button>
+             <Button variant="outline" size="icon" className="rounded-full" onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank')}>
+               <Linkedin className="h-4 w-4 text-blue-700" />
+             </Button>
+             <Button variant="outline" size="icon" className="rounded-full" onClick={() => window.open(`https://wa.me/?text=Check out this AI Analysis on ${selectedInstrument?.tradingsymbol}: ${encodeURIComponent(shareUrl)}`, '_blank')}>
+               <Share2 className="h-4 w-4 text-green-500" />
+             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

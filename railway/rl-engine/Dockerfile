@@ -4,15 +4,12 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     build-essential \
-    curl \
-    software-properties-common \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY railway/rl-engine/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY railway/rl-engine/ .
 
 EXPOSE 8000
 

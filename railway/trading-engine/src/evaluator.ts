@@ -3,11 +3,15 @@ import { supabase } from "./utils/supabase";
 import { logger } from "./utils/logger";
 import { Signal } from "./executor";
 import { createDecipheriv } from "crypto";
-import { processZairothSafe, evaluateSafety } from "../../../src/lib/zairoth";
 import { redis, REDIS_KEYS } from "./utils/redis";
 import { getRLScoreForInstrument, extractPatternType } from "./rl-scorer";
 import { MarketContextEngine, MarketContext } from "./market-context";
 import { TradeFilter } from "./trade-filter";
+
+const { processZairothSafe, evaluateSafety } = require("../../../src/lib/zairoth/index.js") as {
+  processZairothSafe: (input: string, version?: "1.0" | "2.0") => { success: true; result: any } | { success: false; error: string };
+  evaluateSafety: (instructions: any[], context: Record<string, unknown>) => { safe: boolean; reason?: string };
+};
 
 const ALGORITHM = "aes-256-gcm";
 
@@ -349,7 +353,19 @@ function classifyRuleRole(rule: any, ruleIndex: number, totalRules: number): Sig
 
 const RL_ENGINE_URL = process.env.RL_ENGINE_URL || "http://rl-engine:8000";
 
-async function getRLPrediction(instrumentToken: number, timeframe: string, candles: CandleData[]) {
+type RLPrediction = {
+  prediction: "UP" | "DOWN";
+  confidence: number;
+  [key: string]: unknown;
+};
+
+type RLForecast = {
+  target_high: number;
+  target_low?: number;
+  [key: string]: unknown;
+};
+
+async function getRLPrediction(instrumentToken: number, timeframe: string, candles: CandleData[]): Promise<RLPrediction | null> {
   try {
     const response = await fetch(`${RL_ENGINE_URL}/predict/direction`, {
       method: "POST",
@@ -360,14 +376,14 @@ async function getRLPrediction(instrumentToken: number, timeframe: string, candl
         data: candles
       }),
     });
-    return await response.json();
+    return (await response.json()) as RLPrediction;
   } catch (err) {
     logger.error("Failed to fetch RL direction prediction:", err);
     return null;
   }
 }
 
-async function getRLForecast(instrumentToken: number, timeframe: string, candles: CandleData[]) {
+async function getRLForecast(instrumentToken: number, timeframe: string, candles: CandleData[]): Promise<RLForecast | null> {
   try {
     const response = await fetch(`${RL_ENGINE_URL}/predict/forecast`, {
       method: "POST",
@@ -378,7 +394,7 @@ async function getRLForecast(instrumentToken: number, timeframe: string, candles
         data: candles
       }),
     });
-    return await response.json();
+    return (await response.json()) as RLForecast;
   } catch (err) {
     logger.error("Failed to fetch RL price forecast:", err);
     return null;

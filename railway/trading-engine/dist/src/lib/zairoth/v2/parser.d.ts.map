@@ -1,1 +1,0 @@
-{"version":3,"file":"parser.d.ts","sourceRoot":"","sources":["../../../../../../../src/lib/zairoth/v2/parser.ts"],"names":[],"mappings":"AACA,OAAO,EAAkC,kBAAkB,EAAE,MAAM,WAAW,CAAC;AAE/E,MAAM,WAAW,oBAAqB,SAAQ,kBAAkB;IAC9D,SAAS,CAAC,EAAE,MAAM,CAAC;IACnB,OAAO,EAAE,KAAK,CAAC;CAChB;AAED,wBAAgB,cAAc,CAAC,KAAK,EAAE,MAAM,GAAG,oBAAoB,EAAE,CAuHpE"}

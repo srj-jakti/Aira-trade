@@ -12,6 +12,7 @@
     "@supabase/supabase-js": "^2.89.0",
     "ioredis": "^5.9.1",
     "kiteconnect": "^5.1.0",
+    "otpauth": "^9.4.4",
     "typescript": "^5"
   },
   "devDependencies": {

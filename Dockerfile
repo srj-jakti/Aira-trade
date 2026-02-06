@@ -1,37 +1,14 @@
-# Use Node.js 22 on Debian Bookworm (includes python3 usually, but we ensure it)
-FROM node:22-bookworm
+FROM node:20-alpine
 
-# Install Python and build tools
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app/railway/aira-brain
 
-# Install Bun
-RUN npm install -g bun
+COPY railway/aira-brain/package*.json ./
+COPY railway/aira-brain/tsconfig.json ./
 
-WORKDIR /app
+RUN npm install
 
-# Copy dependency files
-COPY package.json bun.lock ./
+COPY railway/aira-brain/src ./src
+RUN npm run build
 
-# Install dependencies
-RUN bun install --no-save
-
-# Copy source code
-COPY . .
-
-# Install Python dependencies
-# Create venv to avoid conflicts
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir -r ml-engine/requirements.txt
-
-# Set environment variables
-ENV PYTHON_CMD=python3
 ENV NODE_ENV=production
-
-# Start the worker
-CMD ["npm", "run", "worker:logic"]
+CMD ["node", "dist/index.js"]

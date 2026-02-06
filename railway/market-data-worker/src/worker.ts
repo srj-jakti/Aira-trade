@@ -24,7 +24,7 @@
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { KiteTicker } from "kiteconnect";
-import { createDecipheriv } from "crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 import { 
   SubscriptionManager, 
   ApiKeyConfig, 
@@ -34,8 +34,10 @@ import {
 import { BackfillService } from "./backfill-service";
 import { TechnicalIndicators } from "./utils/indicators";
 import { redis, REDIS_KEYS, scheduleMarketCloseCleanup, cleanupDayEndData } from "./utils/redis";
+import { performZerodhaFullLogin } from "./zerodha-auth";
 
 const ALGORITHM = "aes-256-gcm";
+const IV_LENGTH = 16;
 const MAX_INSTRUMENTS_PER_CONNECTION = 3000;
 const TICK_FLUSH_INTERVAL = 5000;
 const CANDLE_FLUSH_INTERVAL = 5000;
@@ -63,6 +65,15 @@ function decrypt(ciphertext: string): string {
   let decrypted = decipher.update(encrypted, "hex", "utf8");
   decrypted += decipher.final("utf8");
   return decrypted;
+}
+
+function encrypt(plaintext: string): string {
+  const iv = randomBytes(IV_LENGTH);
+  const cipher = createCipheriv(ALGORITHM, getEncryptionKey(), iv);
+  let encrypted = cipher.update(plaintext, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted}`;
 }
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -1004,58 +1015,93 @@ function setupGracefulShutdown(): void {
 
 async function checkAndTriggerAutoLogin(): Promise<void> {
   try {
+    console.log("[MarketDataWorker] Auto-login check executing");
     const { data: expiredConfigs } = await supabase
       .from("admin_zerodha_configs")
-      .select("id, name, token_expires_at, connection_status")
+      .select("id, name, api_key, api_secret, user_id, password, totp_secret, token_expires_at, connection_status")
       .eq("is_active", true)
       .eq("auto_login_enabled", true);
 
     if (!expiredConfigs || expiredConfigs.length === 0) return;
 
     const now = new Date();
-    const needsLogin: string[] = [];
-
-    for (const config of expiredConfigs) {
+    const needsLogin = expiredConfigs.filter((config) => {
       const expiresAt = config.token_expires_at ? new Date(config.token_expires_at) : null;
       const isExpired = !expiresAt || expiresAt <= now;
       const isDisconnected = config.connection_status !== "connected";
+      return isExpired || isDisconnected;
+    });
 
-      if (isExpired || isDisconnected) {
-        needsLogin.push(config.name);
-      }
-    }
+    if (needsLogin.length === 0) return;
 
-    if (needsLogin.length > 0) {
-      console.log(`[MarketDataWorker] Event-based auto-login triggered for: ${needsLogin.join(", ")}`);
-      
-      const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      
+    console.log(`[MarketDataWorker] Auto-login running in worker for: ${needsLogin.map(c => c.name).join(", ")}`);
+
+    let totalProcessed = 0;
+    let totalSuccess = 0;
+    const results: Array<{ id: string; name: string; success: boolean; error?: string; requiresManualAuth?: boolean; authUrl?: string }> = [];
+
+    for (const config of needsLogin) {
+      totalProcessed++;
       try {
-        const response = await fetch(`${appUrl}/api/cron/zerodha-auto-login`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${serviceKey}`,
-          },
-          body: JSON.stringify({ triggerType: "event_based_worker" }),
+        await supabase.from("admin_zerodha_configs").update({ connection_status: "connecting" }).eq("id", config.id);
+
+        const result = await performZerodhaFullLogin({
+          api_key: decrypt(config.api_key),
+          api_secret: decrypt(config.api_secret),
+          user_id: decrypt(config.user_id),
+          password: decrypt(config.password),
+          totp_secret: decrypt(config.totp_secret),
         });
 
-        if (response.ok) {
-          console.log("[MarketDataWorker] Event-based auto-login completed successfully");
-          await supabase.from("system_health_logs").insert({
-            metric_type: "event_auto_login",
-            metric_value: { accounts: needsLogin, source: "market_data_worker" },
-            severity: "info",
-            message: `Event-based auto-login triggered for ${needsLogin.length} accounts`,
-          });
+        if (result.success && result.accessToken) {
+          totalSuccess++;
+          const tokenExpiry = new Date();
+          tokenExpiry.setHours(23, 59, 59, 999);
+
+          await supabase
+            .from("admin_zerodha_configs")
+            .update({
+              access_token: encrypt(result.accessToken),
+              token_expires_at: tokenExpiry.toISOString(),
+              last_login_at: new Date().toISOString(),
+              connection_status: "connected",
+              last_error: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", config.id);
+
+          results.push({ id: config.id, name: config.name, success: true });
         } else {
-          console.error("[MarketDataWorker] Event-based auto-login failed:", await response.text());
+          await supabase
+            .from("admin_zerodha_configs")
+            .update({
+              connection_status: "error",
+              last_error: result.error,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", config.id);
+
+          results.push({
+            id: config.id,
+            name: config.name,
+            success: false,
+            error: result.error,
+            requiresManualAuth: result.requiresManualAuth,
+            authUrl: result.authUrl,
+          });
         }
-      } catch (fetchErr) {
-        console.error("[MarketDataWorker] Failed to call auto-login endpoint:", fetchErr);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Unknown error";
+        results.push({ id: config.id, name: config.name, success: false, error: message });
       }
     }
+
+    await supabase.from("system_health_logs").insert({
+      metric_type: "event_auto_login",
+      metric_value: { results, totalProcessed, totalSuccess, source: "market_data_worker" },
+      severity: totalSuccess === totalProcessed ? "info" : "warning",
+      message: `Worker auto-login completed for ${totalSuccess}/${totalProcessed} accounts`,
+    });
   } catch (err) {
     console.error("[MarketDataWorker] Error checking token expiry:", err);
   }
@@ -1072,17 +1118,16 @@ async function heartbeatLoop(): Promise<void> {
   
     while (!getShutdownFlag()) {
         try {
-          // If worker is not running, try to start it periodically
-          if (!worker.isRunning) {
-            console.log("[MarketDataWorker] Worker not running, attempting periodic restart...");
-            await worker.start().catch(err => console.error("[MarketDataWorker] Restart failed:", err));
-          }
-
-          // Check for expired tokens and trigger auto-login if needed (every 5 minutes)
           const now = Date.now();
           if (now - lastAutoLoginCheck >= AUTO_LOGIN_CHECK_INTERVAL) {
             lastAutoLoginCheck = now;
             await checkAndTriggerAutoLogin();
+          }
+
+          // If worker is not running, try to start it periodically
+          if (!worker.isRunning) {
+            console.log("[MarketDataWorker] Worker not running, attempting periodic restart...");
+            await worker.start().catch(err => console.error("[MarketDataWorker] Restart failed:", err));
           }
 
           // Use the worker's own update method which is more robust
@@ -1128,14 +1173,10 @@ async function main(): Promise<void> {
   console.log("[MarketDataWorker] Starting Market Data Worker (24/7 Persistent Mode)...");
   
   setupGracefulShutdown();
-  
-  await worker.start();
-  
-  console.log("[MarketDataWorker] Worker initialized, entering persistent mode...");
-  
-  await Promise.all([
-    heartbeatLoop(),
-  ]);
+
+  await heartbeatLoop();
+
+  throw new Error("Heartbeat loop exited unexpectedly");
 }
 
 main().catch((err) => {

@@ -2,7 +2,6 @@ import os
 import json
 import pandas as pd
 import numpy as np
-import pandas_ta as ta
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Optional, Dict
@@ -14,15 +13,18 @@ import xgboost as xgb
 from sklearn.preprocessing import StandardScaler
 from darts import TimeSeries
 from darts.models import TiDEModel, ExponentialSmoothing
+from ta.momentum import RSIIndicator, StochasticOscillator
+from ta.trend import MACD, EMAIndicator, ADXIndicator
+from ta.volatility import BollingerBands, AverageTrueRange
 
 load_dotenv()
 
 app = FastAPI(title="Aira RL Engine - Advanced AI")
 
 # Supabase Setup
-SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase: Client | None = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
 class StrategyImprovementRequest(BaseModel):
     strategy_id: int
@@ -46,26 +48,43 @@ async def root():
     return {"status": "Aira RL Engine is online", "features": ["XGBoost", "Darts", "Pandas-TA"]}
 
 def engineer_features(df: pd.DataFrame):
-    """Adds 50+ technical features using pandas-ta"""
+    """Adds technical features using ta (pandas-compatible)"""
     # Ensure columns are numeric
     cols = ['open', 'high', 'low', 'close', 'volume']
     for col in cols:
         df[col] = pd.to_numeric(df[col])
     
     # 1. Momentum Indicators
-    df.ta.rsi(length=14, append=True)
-    df.ta.macd(fast=12, slow=26, signal=9, append=True)
-    df.ta.stoch(append=True)
+    close = df["close"]
+    high = df["high"]
+    low = df["low"]
+
+    df["RSI_14"] = RSIIndicator(close=close, window=14).rsi()
+
+    macd = MACD(close=close, window_slow=26, window_fast=12, window_sign=9)
+    df["MACD_12_26_9"] = macd.macd()
+    df["MACDs_12_26_9"] = macd.macd_signal()
+    df["MACDh_12_26_9"] = macd.macd_diff()
+
+    stoch = StochasticOscillator(high=high, low=low, close=close)
+    df["STOCHk_14_3_3"] = stoch.stoch()
+    df["STOCHd_14_3_3"] = stoch.stoch_signal()
     
     # 2. Volatility Indicators
-    df.ta.bbands(length=20, std=2, append=True)
-    df.ta.atr(length=14, append=True)
+    bb = BollingerBands(close=close, window=20, window_dev=2)
+    df["BBL_20_2.0"] = bb.bollinger_lband()
+    df["BBM_20_2.0"] = bb.bollinger_mavg()
+    df["BBU_20_2.0"] = bb.bollinger_hband()
+
+    atr = AverageTrueRange(high=high, low=low, close=close, window=14)
+    df["ATR_14"] = atr.average_true_range()
     
     # 3. Trend Indicators
-    df.ta.ema(length=9, append=True)
-    df.ta.ema(length=21, append=True)
-    df.ta.ema(length=50, append=True)
-    df.ta.adx(length=14, append=True)
+    df["EMA_9"] = EMAIndicator(close=close, window=9).ema_indicator()
+    df["EMA_21"] = EMAIndicator(close=close, window=21).ema_indicator()
+    df["EMA_50"] = EMAIndicator(close=close, window=50).ema_indicator()
+
+    df["ADX_14"] = ADXIndicator(high=high, low=low, close=close, window=14).adx()
     
     # 4. Custom Features
     df['returns'] = df['close'].pct_change()
@@ -209,6 +228,10 @@ def simulate_mass_training(request: StrategyImprovementRequest):
 def run_optimization_task(job_id: str, request: StrategyImprovementRequest):
     print(f"Starting deep RL optimization for strategy {request.strategy_id} (Job: {job_id})")
     
+    if supabase is None:
+        print("Supabase is not configured; skipping persistence.")
+        return
+
     try:
         # 1. Prepare Data
         df = pd.DataFrame(request.historical_data)
@@ -258,13 +281,14 @@ def run_optimization_task(job_id: str, request: StrategyImprovementRequest):
         
     except Exception as e:
         print(f"Error in deep optimization job {job_id}: {str(e)}")
-        supabase.table("strategy_evolutions").insert({
-            "strategy_id": request.strategy_id,
-            "job_id": job_id,
-            "status": "failed",
-            "error": str(e)
-        }).execute()
+        if supabase is not None:
+            supabase.table("strategy_evolutions").insert({
+                "strategy_id": request.strategy_id,
+                "job_id": job_id,
+                "status": "failed",
+                "error": str(e)
+            }).execute()
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8000")))

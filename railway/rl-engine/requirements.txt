@@ -8,7 +8,7 @@ pydantic
 supabase
 python-dotenv
 httpx
-pandas-ta
+ta
 xgboost
 darts
 scikit-learn

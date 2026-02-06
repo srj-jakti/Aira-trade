@@ -27,7 +27,7 @@ async function applyMigration() {
     await client.connect();
     console.log("✅ Connected.");
 
-    const migrationPath = path.join(process.cwd(), "supabase", "migrations", "006_social_sharing.sql");
+    const migrationPath = path.join(process.cwd(), "supabase", "migrations", "007_missing_orders_table.sql");
     console.log(`📖 Reading migration file: ${migrationPath}`);
     
     const sql = fs.readFileSync(migrationPath, "utf-8");

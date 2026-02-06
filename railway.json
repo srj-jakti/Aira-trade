@@ -6,13 +6,10 @@
         "repo": null
       },
       "build": {
-        "builder": "NIXPACKS",
-        "watchPatterns": [
-          "railway/market-data-worker/**"
-        ]
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "railway/market-data-worker/Dockerfile"
       },
       "deploy": {
-        "startCommand": "cd railway/market-data-worker && npm start",
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10
       }
@@ -22,13 +19,23 @@
         "repo": null
       },
       "build": {
-        "builder": "NIXPACKS",
-        "watchPatterns": [
-          "railway/trading-engine/**"
-        ]
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "railway/trading-engine/Dockerfile"
       },
       "deploy": {
-        "startCommand": "cd railway/trading-engine && npm start",
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10
+      }
+    },
+    "rl-engine": {
+      "source": {
+        "repo": null
+      },
+      "build": {
+        "builder": "DOCKERFILE",
+        "dockerfilePath": "railway/rl-engine/Dockerfile"
+      },
+      "deploy": {
         "restartPolicyType": "ON_FAILURE",
         "restartPolicyMaxRetries": 10
       }

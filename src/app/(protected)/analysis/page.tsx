@@ -35,8 +35,6 @@ interface Strategy {
   is_active: boolean;
 }
 
-import { Input } from "@/components/ui/input";
-
 interface IndicatorOverlay {
   id: string;
   name: string;

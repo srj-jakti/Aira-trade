@@ -4,25 +4,24 @@
  * 
  * Tiers:
  * - CORE: Always subscribed (indices, NIFTY50, ATM options) - NEVER cleaned
- * - SCANNER: Fixed instruments for Scanner + AI Auto-Trading - NEVER cleaned while active strategies exist
+ * - SCANNER: AI-trading subscription set (limited list) - NEVER cleaned while active strategies exist
  * - TEMP: User on-demand instruments (Strategy/Analysis pages) - 5-min inactivity cleanup
  * 
  * API Key Assignment:
- * - API Key A (CORE): Indices, NIFTY50, index options
- * - API Key B (SCANNER): Strategy instruments, scanner instruments  
- * - API Key C (TEMP): User on-demand requests
+ * - API Key A (CORE): CORE + SCANNER tiers share this key
+ * - API Key B (TEMP): On-demand subscriptions for backtests and analysis
+ * - API Key C (FALLBACK): Overflow capacity used when CORE/TEMP keys are near limit
  * 
  * Limits:
  * - MAX 3000 instruments per WebSocket (Zerodha hard limit)
  * - SOFT LIMIT 2500 instruments per WebSocket (buffer)
- * - MAX 1 fallback WebSocket per API key (EPHEMERAL ONLY)
+ * - Fallback capacity is provided by a dedicated fallback key (not per-key ephemeral sockets)
  * 
  * CRITICAL RULES:
  * - Instrument tokens are GLOBALLY UNIQUE (one token = one socket)
  * - Priority: CORE > SCANNER > TEMP (higher tier never overridden)
  * - CORE and SCANNER tiers: NEVER auto-cleanup
  * - TEMP tier: 5-min inactivity cleanup
- * - Fallback WebSocket is EPHEMERAL - destroyed when load drops
  * - Resubscribe in priority order on reconnect
  */
 
@@ -37,6 +36,8 @@ const TIER_PRIORITY: Record<SubscriptionTier, number> = {
   TEMP: 1,
 };
 
+export type ApiKeyRole = "CORE" | "TEMP" | "FALLBACK";
+
 export interface InstrumentSubscription {
   instrumentToken: number;
   tier: SubscriptionTier;
@@ -47,7 +48,7 @@ export interface InstrumentSubscription {
 
 export interface ApiKeyConfig {
   id: string;
-  tierAssignment: SubscriptionTier;
+  tierAssignment: ApiKeyRole;
   zerodhaConfigId: string;
   apiKey: string;
   accessToken: string;
@@ -116,6 +117,7 @@ export class SubscriptionManager {
   private websockets: Map<string, WebSocketState> = new Map();
   private subscriptions: Map<number, InstrumentSubscription> = new Map();
   private tierToApiKey: Map<SubscriptionTier, string> = new Map();
+  private fallbackApiKeyId: string | null = null;
   private cleanupInterval: NodeJS.Timeout | null = null;
   private fallbackCheckInterval: NodeJS.Timeout | null = null;
   private onFallbackDestroy?: (websocketId: string) => void;
@@ -133,7 +135,15 @@ export class SubscriptionManager {
 
     for (const config of configs) {
       this.apiKeyConfigs.set(config.id, config);
-      this.tierToApiKey.set(config.tierAssignment, config.id);
+      if (config.tierAssignment === "CORE") {
+        this.tierToApiKey.set("CORE", config.id);
+        this.tierToApiKey.set("SCANNER", config.id);
+        this.tierToApiKey.set("POPULAR", config.id);
+      } else if (config.tierAssignment === "TEMP") {
+        this.tierToApiKey.set("TEMP", config.id);
+      } else if (config.tierAssignment === "FALLBACK") {
+        this.fallbackApiKeyId = config.id;
+      }
 
       const primaryWsId = `${config.id}_primary`;
       this.websockets.set(primaryWsId, {
@@ -150,7 +160,7 @@ export class SubscriptionManager {
     this.startCleanupTimer();
     this.startFallbackMonitor();
 
-    console.log(`[SubscriptionManager] Initialized. Tiers: CORE=${this.tierToApiKey.get("CORE")}, SCANNER=${this.tierToApiKey.get("SCANNER") || this.tierToApiKey.get("POPULAR")}, TEMP=${this.tierToApiKey.get("TEMP")}`);
+    console.log(`[SubscriptionManager] Initialized. Key routing: CORE+SCANNER=${this.tierToApiKey.get("CORE")}, TEMP=${this.tierToApiKey.get("TEMP")}, FALLBACK=${this.fallbackApiKeyId || "none"}`);
   }
 
   private async loadExistingSubscriptions(): Promise<void> {
@@ -378,25 +388,14 @@ export class SubscriptionManager {
       }
     }
 
-    if (tier === "TEMP") {
-      const fallbackWsId = `${apiKeyId}_fallback`;
-      let fallbackWs = this.websockets.get(fallbackWsId);
-
-      if (!fallbackWs && primaryWs && primaryWs.subscribedTokens.size >= SOFT_LIMIT) {
-        console.log(`[SubscriptionManager] Creating EPHEMERAL fallback WebSocket for ${apiKeyId}`);
-        fallbackWs = {
-          id: fallbackWsId,
-          apiKeyId,
-          isPrimary: false,
-          subscribedTokens: new Set(),
-          isConnected: false,
-          createdAt: new Date(),
-        };
-        this.websockets.set(fallbackWsId, fallbackWs);
+    if (this.fallbackApiKeyId) {
+      const fallbackPrimaryId = `${this.fallbackApiKeyId}_primary`;
+      const fallbackPrimary = this.websockets.get(fallbackPrimaryId);
+      if (fallbackPrimary && fallbackPrimary.subscribedTokens.size < SOFT_LIMIT) {
+        return fallbackPrimary;
       }
-
-      if (fallbackWs && fallbackWs.subscribedTokens.size < SOFT_LIMIT) {
-        return fallbackWs;
+      if (fallbackPrimary && fallbackPrimary.subscribedTokens.size < MAX_INSTRUMENTS_PER_WS) {
+        return fallbackPrimary;
       }
     }
 
@@ -596,18 +595,11 @@ export class SubscriptionManager {
   }
 
   needsFallbackWebSocket(apiKeyId: string): boolean {
-    const primaryWsId = `${apiKeyId}_primary`;
-    const primaryWs = this.websockets.get(primaryWsId);
-    const fallbackWsId = `${apiKeyId}_fallback`;
-    const fallbackWs = this.websockets.get(fallbackWsId);
-
-    return primaryWs !== undefined && 
-           primaryWs.subscribedTokens.size >= SOFT_LIMIT && 
-           !fallbackWs;
+    return false;
   }
 
   hasFallbackWebSocket(apiKeyId: string): boolean {
-    return this.websockets.has(`${apiKeyId}_fallback`);
+    return false;
   }
 
   isInstrumentSubscribed(instrumentToken: number): boolean {
@@ -661,27 +653,6 @@ export class SubscriptionManager {
 
   async subscribeScannerInstruments(): Promise<SubscriptionResult[]> {
     const results: SubscriptionResult[] = [];
-
-    // Get instruments from scanner_instruments table
-    const { data: scannerInstruments, error: scannerError } = await this.supabase
-      .from("scanner_instruments")
-      .select("instrument_token, tradingsymbol")
-      .eq("is_active", true);
-
-    if (scannerError) {
-      console.error("[SubscriptionManager] Failed to load scanner instruments:", scannerError.message);
-    } else if (scannerInstruments) {
-      for (const inst of scannerInstruments) {
-        const result = await this.subscribe({
-          instrumentToken: inst.instrument_token,
-          tier: "SCANNER",
-          source: "scanner_instruments",
-          neverCleanup: true,
-        });
-        results.push(result);
-      }
-      console.log(`[SubscriptionManager] Subscribed ${scannerInstruments.length} scanner instruments`);
-    }
 
     // Get instruments from active strategies
     const { data: strategyInstruments, error: strategyError } = await this.supabase

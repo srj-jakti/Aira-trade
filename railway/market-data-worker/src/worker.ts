@@ -2,13 +2,14 @@
  * MARKET DATA WORKER - Multi-API-Key Architecture
  * 
  * Manages multiple Zerodha API keys with tier-based subscription allocation:
- * - API KEY A (CORE): NIFTY, BANKNIFTY, FINNIFTY, SENSEX, NIFTY50 stocks, index options
- * - API KEY B (SCANNER): Strategy instruments, Scanner instruments - NEVER auto-cleaned
- * - API KEY C (TEMP): User on-demand requests (Strategy/Analysis pages) - 5-min cleanup
+ * - API KEY A (CORE): Always-on instruments + AI Trading subscriptions (limited set)
+ * - API KEY B (TEMP): On-demand instruments (Strategy backtest + AI analysis pages)
+ * - API KEY C (FALLBACK): Overflow capacity for CORE/TEMP when primary keys are near limit
  * 
  * Data Flow:
- * - Scanner + AI Trading: 24/7 data feed via SCANNER tier (runs even when users logged out)
- * - Strategy/Analysis: On-demand via TEMP tier (cleaned when user leaves)
+ * - AI Trading: Uses CORE key (only allowed subscriptions, not "all instruments")
+ * - Strategy/Analysis/Backtest: Uses TEMP key (cleaned on inactivity)
+ * - Fallback: Uses dedicated fallback key when needed
  * 
  * LIVE-HISTORICAL DATA:
  * - Backfills live_candles from Zerodha Historical API on startup
@@ -18,8 +19,7 @@
  * Safety constraints:
  * - MAX 3000 instruments per WebSocket (Zerodha hard limit)
  * - SOFT LIMIT 2500 instruments (buffer zone)
- * - 1 primary + 1 fallback WebSocket per API key
- * - Fallback WebSocket ONLY for TEMP tier under pressure
+ * - Primary websockets per configured key + dedicated fallback key for overflow
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -28,6 +28,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 import { 
   SubscriptionManager, 
   ApiKeyConfig, 
+  ApiKeyRole,
   SubscriptionTier,
   SubscriptionRequest 
 } from "./subscription-manager";
@@ -243,6 +244,13 @@ class MarketDataWorker {
     
     console.log("[MarketDataWorker] Market data enabled. Proceeding with initialization...");
 
+    if (!isNseMarketOpenNow()) {
+      console.log("[MarketDataWorker] Market closed. Skipping WebSocket initialization (will start automatically during market hours).");
+      this.isRunning = false;
+      await this.updateEngineStatus();
+      return;
+    }
+
     const configs = await this.getApiKeyConfigs();
     
     if (configs.length === 0) {
@@ -256,7 +264,7 @@ class MarketDataWorker {
       for (const c of legacyConfigs) {
         configs.push({
           id: c.id,
-          tierAssignment: "CORE" as SubscriptionTier,
+          tierAssignment: "CORE" as ApiKeyRole,
           zerodhaConfigId: c.id,
           apiKey: c.apiKey,
           accessToken: c.accessToken,
@@ -354,7 +362,7 @@ class MarketDataWorker {
       console.log(`[MarketDataWorker] Fetching Zerodha config for ${akc.label} (ID: ${akc.zerodha_config_id})...`);
       const { data: zerodhaConfig, error: zError } = await supabase
         .from("admin_zerodha_configs")
-        .select("id, name, api_key, access_token")
+        .select("id, name, api_key, access_token, token_expires_at")
         .eq("id", akc.zerodha_config_id)
         .eq("is_active", true)
         .eq("connection_status", "connected")
@@ -365,12 +373,20 @@ class MarketDataWorker {
         continue;
       }
 
+      const now = new Date();
+      const expiresAt = zerodhaConfig?.token_expires_at ? new Date(zerodhaConfig.token_expires_at) : null;
+      const expectedExpiry = getIstEndOfDayExpiryUtc(now);
+      if (!expiresAt || expiresAt <= now || now > expectedExpiry) {
+        console.warn(`[MarketDataWorker] Zerodha config ${akc.zerodha_config_id} token expired; skipping for now`);
+        continue;
+      }
+
       if (zerodhaConfig && zerodhaConfig.access_token) {
         try {
           console.log(`[MarketDataWorker] Decrypting keys for ${zerodhaConfig.name}...`);
           configs.push({
             id: akc.id,
-            tierAssignment: akc.tier_assignment as SubscriptionTier,
+            tierAssignment: akc.tier_assignment as ApiKeyRole,
             zerodhaConfigId: zerodhaConfig.id,
             apiKey: decrypt(zerodhaConfig.api_key),
             accessToken: decrypt(zerodhaConfig.access_token),
@@ -466,13 +482,24 @@ class MarketDataWorker {
         });
 
         ticker.on("disconnect", (code: number) => {
-          console.log(`[MarketDataWorker][${websocketId}] Disconnected: ${code}`);
+          let reason = "";
+          if (typeof code === "number") {
+            reason = String(code);
+          } else if (code && typeof code === "object") {
+            const c: any = code as any;
+            const extracted = c.code ?? c.target?._closeCode;
+            reason = extracted !== undefined ? String(extracted) : "unknown";
+          } else {
+            reason = String(code);
+          }
+          console.log(`[MarketDataWorker][${websocketId}] Disconnected: ${reason}`);
           connection.isConnected = false;
           this.subscriptionManager.setWebSocketConnected(websocketId, false);
         });
 
         ticker.on("error", (error: Error) => {
-          console.error(`[MarketDataWorker][${websocketId}] Error:`, error.message);
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(`[MarketDataWorker][${websocketId}] Error:`, message);
         });
 
         ticker.on("noreconnect", () => {
@@ -483,6 +510,24 @@ class MarketDataWorker {
             ticker.disconnect();
           } catch (e) {}
           this.connections.delete(websocketId);
+
+          void (async () => {
+            try {
+              const { error } = await supabase
+                .from("admin_zerodha_configs")
+                .update({
+                  connection_status: "error",
+                  last_error: "WebSocket max reconnect attempts reached",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", config.zerodhaConfigId);
+              if (error) {
+                console.error(`[MarketDataWorker] Failed to mark config error for ${config.zerodhaConfigId}: ${error.message}`);
+              } else {
+                console.log(`[MarketDataWorker] Marked config ${config.zerodhaConfigId} as error (noreconnect)`);
+              }
+            } catch (_e) {}
+          })();
         });
 
         ticker.connect();
@@ -557,7 +602,7 @@ class MarketDataWorker {
   }
 
   private async subscribeToScanner(): Promise<void> {
-    console.log("[MarketDataWorker] Subscribing to SCANNER instruments (strategies + scanner)...");
+    console.log("[MarketDataWorker] Subscribing to AI-trading instruments (SCANNER tier)...");
     
     const results = await this.subscriptionManager.subscribeScannerInstruments();
     const success = results.filter(r => r.success).length;
@@ -868,17 +913,26 @@ class MarketDataWorker {
         this.isRunning = true;
       }
 
+      const marketOpen = isNseMarketOpenNow();
       const now = Date.now();
       for (const [wsId, connection] of this.connections.entries()) {
-        if (connection.isConnected && (now - connection.lastHeartbeat) > 60000) {
-          console.warn(`[MarketDataWorker] Connection ${wsId} appears stale, reconnecting...`);
-          connection.ticker.disconnect();
+        if (!connection.isConnected) continue;
+        if (!marketOpen) continue;
+
+        const subscribedCount = this.subscriptionManager.getSubscribedTokensForWebSocket(wsId).length;
+        if (subscribedCount === 0) continue;
+
+        if ((now - connection.lastHeartbeat) > 5 * 60 * 1000) {
+          console.warn(`[MarketDataWorker] Connection ${wsId} appears stale (${Math.round((now - connection.lastHeartbeat) / 1000)}s). Reconnecting...`);
+          try {
+            connection.ticker.disconnect();
+          } catch (e) {}
         }
       }
 
       const connectedCount = Array.from(this.connections.values()).filter(c => c.isConnected).length;
-      if (this.isRunning && connectedCount === 0) {
-        console.error("[MarketDataWorker] No active WebSocket connections. Marking worker as not running for restart.");
+      if (this.isRunning && connectedCount === 0 && marketOpen) {
+        console.error("[MarketDataWorker] No active WebSocket connections during market hours. Marking worker as not running for restart.");
         this.isRunning = false;
       }
 
@@ -902,26 +956,8 @@ class MarketDataWorker {
   private startSubscriptionRefresh(): void {
     this.subscriptionRefreshInterval = setInterval(async () => {
       if (this.isRunning && !this.isShuttingDown) {
-        // Refresh SCANNER tier from scanner_instruments and active_trade_instruments
+        // Refresh AI-trading subscription set (limited list) from active_trade_instruments
         await this.subscribeToScanner();
-
-        // Also handle legacy high-priority instruments
-        const { data: popular } = await supabase
-          .from("instruments")
-          .select("instrument_token")
-          .eq("is_subscribed", true)
-          .eq("subscription_priority", "high")
-          .limit(1000);
-
-        if (popular) {
-          for (const inst of popular) {
-            await this.subscribeInstrument({
-              instrumentToken: inst.instrument_token,
-              tier: "SCANNER",
-              source: "subscription_refresh",
-            });
-          }
-        }
       }
     }, SUBSCRIPTION_REFRESH_INTERVAL);
   }
@@ -1112,9 +1148,10 @@ async function checkAndTriggerAutoLogin(): Promise<void> {
     if (!expiredConfigs || expiredConfigs.length === 0) return;
 
     const now = new Date();
+    const expectedExpiry = getIstEndOfDayExpiryUtc(now);
     const needsLogin = expiredConfigs.filter((config) => {
       const expiresAt = config.token_expires_at ? new Date(config.token_expires_at) : null;
-      const isExpired = !expiresAt || expiresAt <= now;
+      const isExpired = !expiresAt || expiresAt <= now || now > expectedExpiry;
       const isDisconnected = config.connection_status !== "connected";
       return isExpired || isDisconnected;
     });
@@ -1142,8 +1179,7 @@ async function checkAndTriggerAutoLogin(): Promise<void> {
 
         if (result.success && result.accessToken) {
           totalSuccess++;
-          const tokenExpiry = new Date();
-          tokenExpiry.setHours(23, 59, 59, 999);
+          const tokenExpiry = getIstEndOfDayExpiryUtc(new Date());
 
           await supabase
             .from("admin_zerodha_configs")
@@ -1206,15 +1242,20 @@ async function heartbeatLoop(): Promise<void> {
     while (!getShutdownFlag()) {
         try {
           const now = Date.now();
-          if (now - lastAutoLoginCheck >= AUTO_LOGIN_CHECK_INTERVAL) {
+          const autoLoginInterval = worker.isRunning ? AUTO_LOGIN_CHECK_INTERVAL : 60000;
+          if (now - lastAutoLoginCheck >= autoLoginInterval) {
             lastAutoLoginCheck = now;
             await checkAndTriggerAutoLogin();
           }
 
           // If worker is not running, try to start it periodically
           if (!worker.isRunning) {
-            console.log("[MarketDataWorker] Worker not running, attempting periodic restart...");
-            await worker.start().catch(err => console.error("[MarketDataWorker] Restart failed:", err));
+            if (isNseMarketOpenNow()) {
+              console.log("[MarketDataWorker] Worker not running, attempting periodic restart...");
+              await worker.start().catch(err => console.error("[MarketDataWorker] Restart failed:", err));
+            } else {
+              console.log("[MarketDataWorker] Worker not running but market is closed. Skipping restart.");
+            }
           }
 
           // Use the worker's own update method which is more robust
@@ -1272,3 +1313,33 @@ main().catch((err) => {
 });
 
 export { worker, MarketDataWorker };
+
+function isNseMarketOpenNow(): boolean {
+  const now = new Date();
+  const ist = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  const day = ist.getDay();
+  if (day === 0 || day === 6) return false;
+
+  const minutes = ist.getHours() * 60 + ist.getMinutes();
+  const open = 9 * 60 + 15;
+  const close = 15 * 60 + 30;
+  return minutes >= open && minutes <= close;
+}
+
+function getIstEndOfDayExpiryUtc(date: Date): Date {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const parts = dtf.formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value;
+
+  const year = Number(get("year"));
+  const month = Number(get("month"));
+  const day = Number(get("day"));
+
+  return new Date(Date.UTC(year, month - 1, day, 18, 29, 59, 999));
+}

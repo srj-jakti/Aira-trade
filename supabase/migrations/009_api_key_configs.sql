@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS api_key_configs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   label TEXT NOT NULL,
-  tier_assignment TEXT NOT NULL CHECK (tier_assignment IN ('CORE', 'SCANNER', 'TEMP')),
+  tier_assignment TEXT NOT NULL CHECK (tier_assignment IN ('CORE', 'TEMP', 'FALLBACK')),
   zerodha_config_id UUID NOT NULL REFERENCES admin_zerodha_configs(id) ON DELETE CASCADE,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -11,8 +11,11 @@ CREATE TABLE IF NOT EXISTS api_key_configs (
 CREATE UNIQUE INDEX IF NOT EXISTS api_key_configs_unique_active_core ON api_key_configs (tier_assignment)
   WHERE is_active = TRUE AND tier_assignment = 'CORE';
 
-CREATE UNIQUE INDEX IF NOT EXISTS api_key_configs_unique_active_scanner ON api_key_configs (tier_assignment)
-  WHERE is_active = TRUE AND tier_assignment = 'SCANNER';
+CREATE UNIQUE INDEX IF NOT EXISTS api_key_configs_unique_active_temp ON api_key_configs (tier_assignment)
+  WHERE is_active = TRUE AND tier_assignment = 'TEMP';
+
+CREATE UNIQUE INDEX IF NOT EXISTS api_key_configs_unique_active_fallback ON api_key_configs (tier_assignment)
+  WHERE is_active = TRUE AND tier_assignment = 'FALLBACK';
 
 CREATE INDEX IF NOT EXISTS api_key_configs_by_zerodha_config_id ON api_key_configs (zerodha_config_id);
 
@@ -36,8 +39,8 @@ BEGIN
         r.name,
         CASE
           WHEN i = 1 THEN 'CORE'
-          WHEN i = 2 THEN 'SCANNER'
-          ELSE 'TEMP'
+          WHEN i = 2 THEN 'TEMP'
+          ELSE 'FALLBACK'
         END,
         r.id
       );

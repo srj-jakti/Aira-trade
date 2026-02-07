@@ -819,14 +819,15 @@ Generate ONLY the ZAIROTH lines. No explanations. No markdown. No code blocks.`;
 
       if (result.success && typeof result.result === "string") {
         try {
-          let zairoth = processZairoth(result.result);
+          const sanitized = sanitizeZairothText(result.result);
+          let zairoth = processZairoth(sanitized);
           
           // Apply Volatility Gating
           const gating = applyVolatilityGating(zairoth.instructions, this.volatility);
           
           await this.logZairothIntent(
             userInput,
-            result.result,
+            sanitized,
             { 
               ...zairoth.validation, 
               volatility_gating: gating.violations,
@@ -1146,6 +1147,35 @@ OUTPUT FORMAT (JSON):
 
     return this.executeAnalysis("timeframe_optimization", messages, { maxTokens: 1000 });
   }
+}
+
+function sanitizeZairothText(raw: string): string {
+  const normalized = raw.replace(/\r\n/g, "\n").trim();
+  const lines = normalized
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .filter((l) => !l.startsWith("```"));
+
+  const validPrefix = /^(RA|NA|VA|XA)\s+/;
+
+  const convertCertainty = (line: string): string => {
+    if (/\s+•{1,3}$/.test(line)) return line;
+    if (/\s+\*{1,3}$/.test(line)) {
+      const stars = (line.match(/\*+$/)?.[0] || "*").length;
+      const mapped = stars === 1 ? "•" : stars === 2 ? "••" : "•••";
+      return line.replace(/\s+\*{1,3}$/, ` ${mapped}`);
+    }
+    if (line.startsWith("XA ")) return `${line} •••`;
+    if (line.startsWith("NA ")) return `${line} ••`;
+    return `${line} ••`;
+  };
+
+  const filtered = lines.filter((l) => validPrefix.test(l)).map(convertCertainty);
+  if (filtered.length > 0) return filtered.join("\n");
+
+  if (validPrefix.test(normalized)) return convertCertainty(normalized);
+  return normalized;
 }
 
 export const airaBrain = AiraBrain.getInstance();

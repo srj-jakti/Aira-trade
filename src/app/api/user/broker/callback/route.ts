@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
       .from("user_broker_accounts")
       .select("api_key")
       .eq("user_id", userId)
+      .eq("broker", "zerodha")
       .single();
 
     if (!account || !account.api_key) {
@@ -92,12 +93,19 @@ export async function GET(request: NextRequest) {
       return renderResult(false, "API Secret not found. Please save your credentials again.", "user");
     }
 
+    let apiKey = "";
+    try {
+      apiKey = decrypt(account.api_key);
+    } catch {
+      apiKey = account.api_key;
+    }
+
     const checksum = crypto
       .createHash("sha256")
-      .update(account.api_key + requestToken + apiSecret)
+      .update(apiKey + requestToken + apiSecret)
       .digest("hex");
 
-    console.log("[Broker Callback] Exchanging token with API key:", account.api_key.substring(0, 4) + "...");
+    console.log("[Broker Callback] Exchanging token with API key:", apiKey.substring(0, 4) + "...");
 
     const tokenResp = await fetch("https://api.kite.trade/session/token", {
       method: "POST",
@@ -106,7 +114,7 @@ export async function GET(request: NextRequest) {
         "X-Kite-Version": "3",
       },
       body: new URLSearchParams({
-        api_key: account.api_key,
+        api_key: apiKey,
         request_token: requestToken,
         checksum: checksum,
       }).toString(),
@@ -134,7 +142,8 @@ export async function GET(request: NextRequest) {
         last_error: null,
         updated_at: new Date().toISOString(),
       })
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .eq("broker", "zerodha");
 
     console.log("[Broker Callback] Successfully connected broker for user:", userId, "broker_id:", brokerUserId);
 

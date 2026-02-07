@@ -70,6 +70,14 @@ function decrypt(ciphertext: string): string {
   return decrypted;
 }
 
+function safeDecrypt(value: string): string {
+  try {
+    return decrypt(value);
+  } catch {
+    return value;
+  }
+}
+
 export interface BrokerCredentials {
   id: string;
   user_id: string;
@@ -148,8 +156,8 @@ export async function getBrokerCredentials(
   return {
     id: data.id,
     user_id: data.user_id,
-    api_key: decrypt(data.api_key),
-    access_token: decrypt(data.access_token),
+    api_key: safeDecrypt(data.api_key),
+    access_token: safeDecrypt(data.access_token),
     token_expires_at: data.token_expires_at,
   };
 }

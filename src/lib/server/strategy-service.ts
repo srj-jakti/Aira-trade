@@ -406,16 +406,10 @@ Same structure as traditional, but rules focus on price action.
 
           try {
             let jsonString = typeof result.result === "string" ? result.result : JSON.stringify(result.result);
-            
-            // More robust JSON extraction
-            const firstBrace = jsonString.indexOf("{");
-            const lastBrace = jsonString.lastIndexOf("}");
-            
-            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-              jsonString = jsonString.substring(firstBrace, lastBrace + 1);
-            } else {
-              jsonString = jsonString.replace(/```json\n?|\n?```/g, "").trim();
-            }
+            jsonString = jsonString.replace(/```json\n?|\n?```/g, "").trim();
+
+            const extracted = extractFirstJsonObject(jsonString);
+            if (extracted) jsonString = extracted;
 
             const parsed = JSON.parse(jsonString);
 
@@ -2087,3 +2081,46 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
 }
 
 export const strategyService = StrategyService.getInstance();
+
+function extractFirstJsonObject(input: string): string | null {
+  const text = input.trim();
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escape = true;
+        continue;
+      }
+      if (ch === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+
+  return null;
+}

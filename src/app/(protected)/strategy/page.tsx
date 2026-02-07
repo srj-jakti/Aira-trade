@@ -2542,7 +2542,12 @@ function PublicStrategiesTab({ onBacktest }: { onBacktest?: (strategy: any, goTo
       });
       if (res.ok) {
         fetchPublicStrategies();
-        alert(active ? "Strategy activated!" : "Strategy deactivated!");
+        const data = await res.json().catch(() => null);
+        if (data?.forked) {
+          alert(active ? "Strategy copied to your private strategies and activated!" : "Strategy deactivated!");
+        } else {
+          alert(active ? "Strategy activated!" : "Strategy deactivated!");
+        }
       } else {
         const error = await res.json();
         alert(error.error || "Failed to activate strategy");
@@ -2774,7 +2779,12 @@ function InviteOnlyTab() {
       });
       if (res.ok) {
         fetchData();
-        alert(active ? "Strategy activated!" : "Strategy deactivated!");
+        const data = await res.json().catch(() => null);
+        if (data?.forked) {
+          alert(active ? "Strategy copied to your private strategies and activated!" : "Strategy deactivated!");
+        } else {
+          alert(active ? "Strategy activated!" : "Strategy deactivated!");
+        }
       } else {
         const error = await res.json();
         alert(error.error || "Failed to activate strategy");

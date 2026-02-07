@@ -121,11 +121,15 @@ function ApiKeysFormContent() {
         throw new Error(error.error || "Failed to save");
       }
 
-      await fetch("/api/user/broker", {
+      const brokerResp = await fetch("/api/user/broker", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: keys.apiKey }),
+        body: JSON.stringify({ apiKey: keys.apiKey, apiSecret: keys.apiSecret }),
       });
+      if (!brokerResp.ok) {
+        const error = await brokerResp.json().catch(() => ({} as any));
+        throw new Error(error.error || "Failed to save broker settings");
+      }
 
       toast.success("API keys saved! Now connect to Zerodha.");
       setStatus("keys_saved");

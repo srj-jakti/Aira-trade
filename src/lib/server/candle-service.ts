@@ -471,21 +471,39 @@ export async function getCandlesForAI(
   timeframe: string,
   minCandles: number = 500
 ): Promise<{ candles: CandleData[]; sufficient: boolean; message?: string }> {
-  const result = await getCandles({
+  const liveResult = await getCandles({
     instrumentToken,
     timeframe,
     mode: "LIVE",
     limit: minCandles,
   });
 
-  const sufficient = result.candles.length >= minCandles * 0.8;
+  if (liveResult.candles.length === 0) {
+    const runtimeResult = await getCandles({
+      instrumentToken,
+      timeframe,
+      mode: "RUNTIME_HISTORICAL",
+      limit: minCandles,
+    });
+
+    const sufficient = runtimeResult.candles.length >= minCandles * 0.8;
+    return {
+      candles: runtimeResult.candles,
+      sufficient,
+      message: runtimeResult.candles.length > 0
+        ? `Live feed unavailable, using runtime historical data (${runtimeResult.candles.length} candles)`
+        : `No candles available (live feed + runtime historical unavailable)`,
+    };
+  }
+
+  const sufficient = liveResult.candles.length >= minCandles * 0.8;
 
   return {
-    candles: result.candles,
+    candles: liveResult.candles,
     sufficient,
     message: sufficient 
       ? undefined 
-      : `Only ${result.candles.length} candles available (minimum ${minCandles} recommended for accurate analysis)`,
+      : `Only ${liveResult.candles.length} candles available (minimum ${minCandles} recommended for accurate analysis)`,
   };
 }
 

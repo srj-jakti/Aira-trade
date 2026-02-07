@@ -7,7 +7,7 @@ import {
   successResponse,
 } from "@/lib/server/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { maskCredential } from "@/lib/server/encryption";
+import { decrypt, encrypt, maskCredential } from "@/lib/server/encryption";
 
 export async function GET() {
   const user = await getAuthenticatedUser();
@@ -18,6 +18,7 @@ export async function GET() {
       .from("user_broker_accounts")
       .select("id, broker, is_connected, last_connected_at, last_error, is_active, created_at, user_id_broker, api_key")
       .eq("user_id", user.userId)
+      .eq("broker", "zerodha")
       .single();
 
     if (!account) {
@@ -27,7 +28,7 @@ export async function GET() {
     return successResponse({
       account: {
         ...account,
-        api_key: account.api_key ? maskCredential(account.api_key) : null,
+        api_key: account.api_key ? maskCredential(safeDecrypt(account.api_key)) : null,
         user_id_broker: account.user_id_broker || null,
       },
     });
@@ -43,22 +44,29 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { apiKey } = body;
+    const { apiKey, apiSecret } = body;
 
-    if (!apiKey) {
-      return badRequestResponse("API Key is required");
+    if (!apiKey || !apiSecret) {
+      return badRequestResponse("API Key and API Secret are required");
     }
 
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from("user_broker_accounts")
       .upsert({
         user_id: user.userId,
         broker: "zerodha",
-        api_key: apiKey,
+        api_key: encrypt(apiKey),
+        api_secret: encrypt(apiSecret),
+        user_id_broker: "",
         is_connected: false,
         is_active: true,
+        is_authorized: false,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id" });
+      }, { onConflict: "user_id,broker" });
+
+    if (error) {
+      return serverErrorResponse(error.message);
+    }
 
     return successResponse({ success: true });
   } catch (error) {
@@ -80,11 +88,20 @@ export async function DELETE() {
         last_error: "Disconnected by user",
         updated_at: new Date().toISOString(),
       })
-      .eq("user_id", user.userId);
+      .eq("user_id", user.userId)
+      .eq("broker", "zerodha");
 
     return successResponse({ success: true });
   } catch (error) {
     console.error("Error disconnecting broker:", error);
     return serverErrorResponse();
+  }
+}
+
+function safeDecrypt(value: string): string {
+  try {
+    return decrypt(value);
+  } catch {
+    return value;
   }
 }

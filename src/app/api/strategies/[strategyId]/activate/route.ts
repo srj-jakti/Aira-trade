@@ -48,6 +48,7 @@ export async function POST(
           "selected_instruments",
           "is_paper_trading",
           "ai_analysis_enabled",
+          "category"
         ].join(",")
       )
       .eq("id", id)
@@ -203,6 +204,7 @@ async function getOrCreateStrategyFork(
       hold_logic: sourceStrategy.hold_logic ?? { conditions: [] },
       executable_strategy: sourceStrategy.executable_strategy ?? null,
       zairoth_intent: sourceStrategy.zairoth_intent ?? null,
+      category: sourceStrategy.category ?? null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -210,7 +212,8 @@ async function getOrCreateStrategyFork(
     .single();
 
   if (insertError || !inserted?.id) {
-    throw new Error("Failed to create strategy copy");
+    console.error("Strategy Copy Insert Error:", insertError);
+    throw new Error("Failed to create strategy copy: " + (insertError?.message || "Unknown error"));
   }
 
   await supabaseAdmin.from("strategy_forks").insert({
@@ -221,19 +224,23 @@ async function getOrCreateStrategyFork(
     updated_at: new Date().toISOString(),
   });
 
-  await supabaseAdmin.from("strategy_versions").insert({
-    strategy_id: inserted.id,
-    version: 1,
-    buy_entry_logic: sourceStrategy.buy_entry_logic ?? { conditions: [] },
-    buy_stop_loss: sourceStrategy.buy_stop_loss ?? { conditions: [] },
-    buy_target: sourceStrategy.buy_target ?? { conditions: [] },
-    buy_trailing_sl: sourceStrategy.buy_trailing_sl ?? { conditions: [] },
-    sell_entry_logic: sourceStrategy.sell_entry_logic ?? { conditions: [] },
-    sell_stop_loss: sourceStrategy.sell_stop_loss ?? { conditions: [] },
-    sell_target: sourceStrategy.sell_target ?? { conditions: [] },
-    sell_trailing_sl: sourceStrategy.sell_trailing_sl ?? { conditions: [] },
-    hold_logic: sourceStrategy.hold_logic ?? { conditions: [] },
-  });
+  try {
+    await supabaseAdmin.from("strategy_versions").insert({
+      strategy_id: inserted.id,
+      version: 1,
+      buy_entry_logic: sourceStrategy.buy_entry_logic ?? { conditions: [] },
+      buy_stop_loss: sourceStrategy.buy_stop_loss ?? { conditions: [] },
+      buy_target: sourceStrategy.buy_target ?? { conditions: [] },
+      buy_trailing_sl: sourceStrategy.buy_trailing_sl ?? { conditions: [] },
+      sell_entry_logic: sourceStrategy.sell_entry_logic ?? { conditions: [] },
+      sell_stop_loss: sourceStrategy.sell_stop_loss ?? { conditions: [] },
+      sell_target: sourceStrategy.sell_target ?? { conditions: [] },
+      sell_trailing_sl: sourceStrategy.sell_trailing_sl ?? { conditions: [] },
+      hold_logic: sourceStrategy.hold_logic ?? { conditions: [] },
+    });
+  } catch (err) {
+    console.warn("Failed to create initial version for fork:", err);
+  }
 
   return inserted.id;
 }

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { getUserPortfolio } from "@/lib/server/user-portfolio-service";
 
 export async function getDashboardStatus() {
   const supabase = await createClient();
@@ -11,8 +12,8 @@ export async function getDashboardStatus() {
   if (!user) return null;
 
   try {
-    const [configRes, prefsRes, engineStatusRes, recentSignalsRes] = await Promise.all([
-      supabase.from("config").select("zerodha_connection_status").single().then(r => r, e => ({ data: null, error: e })),
+    const [brokerRes, prefsRes, engineStatusRes, recentSignalsRes] = await Promise.all([
+      supabaseAdmin.from("user_broker_accounts").select("is_connected").eq("user_id", user.id).eq("broker", "zerodha").single().then(r => r, e => ({ data: null, error: e })),
       supabase.from("trading_preferences").select("*").eq("user_id", user.id).single().then(r => r, e => ({ data: null, error: e })),
       supabaseAdmin.from("trading_engine_status").select("*").eq("engine_type", "trading_engine").single().then(r => r, e => ({ data: null, error: e })),
       supabase.from("ai_signals").select("id, signal_status, status_reason, tradingsymbol, direction, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5).then(r => r, e => ({ data: null, error: e }))
@@ -21,6 +22,7 @@ export async function getDashboardStatus() {
     const prefs = prefsRes.data;
     const engineStatus = engineStatusRes.data;
     const isPaperMode = prefs?.paper_trading_enabled || false;
+    const connectionStatus = brokerRes.data?.is_connected ? "connected" : "disconnected";
 
     let balance = { total: "10,00,000.00", available: "10,00,000.00" };
     let pl = { total: "0.00", day: "0.00", isPositive: true };
@@ -64,10 +66,21 @@ export async function getDashboardStatus() {
       if (orderRes.data) {
         recentOrders = orderRes.data;
       }
+    } else {
+      // Live Trading - Fetch from Broker
+      if (connectionStatus === "connected") {
+        const portfolio = await getUserPortfolio(user.id);
+        if (portfolio.isConnected) {
+          balance = portfolio.balance;
+          pl = portfolio.pl;
+          activePositions = portfolio.positions;
+          recentOrders = portfolio.orders;
+        }
+      }
     }
 
     return {
-      connectionStatus: configRes.data?.zerodha_connection_status || "disconnected",
+      connectionStatus,
       autoTradingEnabled: prefs?.auto_trading_enabled || false,
       paperTradingEnabled: isPaperMode,
       balance,

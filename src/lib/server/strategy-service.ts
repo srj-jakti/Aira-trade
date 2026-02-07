@@ -462,7 +462,29 @@ Same structure as traditional, but rules focus on price action.
             return finalized as StructuredStrategy;
         } catch (e) {
           console.error("[StrategyService] Failed to parse AI response:", e);
-          throw new Error("Failed to parse AI response");
+          
+          // Fallback mechanism for vague inputs or AI failures
+          console.log("[StrategyService] Generating fallback strategy for input:", rawInput);
+          
+          const tempStrategy: StructuredStrategy = {
+            name: "New Strategy",
+            description: rawInput,
+            strategy_type: "INTRADAY",
+            buy_entry_logic: { conditions: [rawInput] },
+            sell_entry_logic: { conditions: [rawInput] },
+            buy_stop_loss: { conditions: [], parameters: { percentage: 2 } },
+            buy_target: { conditions: [], parameters: { percentage: 4 } },
+            buy_trailing_sl: { conditions: [] },
+            sell_stop_loss: { conditions: [], parameters: { percentage: 2 } },
+            sell_target: { conditions: [], parameters: { percentage: 4 } },
+            sell_trailing_sl: { conditions: [] },
+            hold_logic: { conditions: [] }
+          };
+
+          const fallbackExec = this.createFallbackExecutableStrategy(tempStrategy);
+          tempStrategy.executable_strategy = fallbackExec;
+          
+          return this.syncConditionsWithExecutable(tempStrategy);
         }
       }
 

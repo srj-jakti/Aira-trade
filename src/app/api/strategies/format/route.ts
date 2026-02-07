@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
         timeframe = "15m"
       } = body;
 
-      if (!rawInput || typeof rawInput !== "string" || rawInput.trim().length < 5) {
+      if (!rawInput || typeof rawInput !== "string" || rawInput.trim().length < 2) {
         return badRequestResponse("Please provide a valid strategy description");
       }
 

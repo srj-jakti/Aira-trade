@@ -128,6 +128,8 @@ class MarketDataWorker {
   private candleBuffers: Map<string, CandleBuffer> = new Map();
   public isRunning = false;
   private isShuttingDown = false;
+  private isStarting = false;
+  private schedulersStarted = false;
   private tickCount = 0;
   private ticksPerSecond = 0;
   private lastTickAt: string | null = null;
@@ -137,6 +139,7 @@ class MarketDataWorker {
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private subscriptionRefreshInterval: NodeJS.Timeout | null = null;
   private backfillCheckInterval: NodeJS.Timeout | null = null;
+  private backfillQueueInterval: NodeJS.Timeout | null = null;
   private pendingSubscriptionRequests: SubscriptionRequest[] = [];
   private backfillService: BackfillService | null = null;
   private priceHistory: Map<string, number[]> = new Map();
@@ -147,6 +150,52 @@ class MarketDataWorker {
       this.subscriptionManager.setFallbackDestroyCallback((wsId) => {
         this.destroyFallbackConnection(wsId);
       });
+    }
+
+    private resetSubscriptionManager(): void {
+      this.subscriptionManager = new SubscriptionManager(supabase);
+      this.subscriptionManager.setFallbackDestroyCallback((wsId) => {
+        this.destroyFallbackConnection(wsId);
+      });
+    }
+
+    private async resetRuntimeState(): Promise<void> {
+      this.isRunning = false;
+
+      if (this.tickFlushInterval) clearInterval(this.tickFlushInterval);
+      if (this.candleFlushInterval) clearInterval(this.candleFlushInterval);
+      if (this.healthCheckInterval) clearInterval(this.healthCheckInterval);
+      if (this.subscriptionRefreshInterval) clearInterval(this.subscriptionRefreshInterval);
+      if (this.backfillCheckInterval) clearInterval(this.backfillCheckInterval);
+      if (this.backfillQueueInterval) clearInterval(this.backfillQueueInterval);
+
+      this.tickFlushInterval = null;
+      this.candleFlushInterval = null;
+      this.healthCheckInterval = null;
+      this.subscriptionRefreshInterval = null;
+      this.backfillCheckInterval = null;
+      this.backfillQueueInterval = null;
+
+      try {
+        await this.subscriptionManager.destroy();
+      } catch (e) {}
+
+      for (const [_, connection] of this.connections.entries()) {
+        try {
+          connection.ticker.disconnect();
+        } catch (e) {}
+      }
+
+      this.connections.clear();
+      this.apiKeyConfigs.clear();
+      this.tickBuffer = [];
+      this.candleBuffers.clear();
+      this.pendingSubscriptionRequests = [];
+      this.backfillService = null;
+      this.priceHistory.clear();
+      this.indicatorStates.clear();
+
+      this.resetSubscriptionManager();
     }
 
     private destroyFallbackConnection(websocketId: string): void {
@@ -161,14 +210,26 @@ class MarketDataWorker {
     }
 
   async start(): Promise<void> {
+    if (this.isShuttingDown) return;
+    if (this.isStarting) return;
+    this.isStarting = true;
+
+    try {
+      if (this.connections.size > 0 || this.tickFlushInterval || this.candleFlushInterval || this.healthCheckInterval) {
+        await this.resetRuntimeState();
+      }
+
     console.log("[MarketDataWorker] Starting Multi-API-Key Architecture...");
     console.log(`[MarketDataWorker] Supabase URL: ${supabaseUrl}`);
     console.log(`[MarketDataWorker] Redis URL: ${process.env.REDIS_URL ? "configured" : "NOT SET"}`);
 
     await this.logSystemHealth("worker_started", { source: "market_data_worker", architecture: "multi_api_key" }, "info", "Market Data Worker started (Multi-API-Key)");
 
-    scheduleMarketCloseCleanup();
-    console.log("[MarketDataWorker] Day-end Redis cleanup scheduler initialized");
+    if (!this.schedulersStarted) {
+      scheduleMarketCloseCleanup();
+      console.log("[MarketDataWorker] Day-end Redis cleanup scheduler initialized");
+      this.schedulersStarted = true;
+    }
 
     while (!(await this.isMarketDataEnabled())) {
       console.log("[MarketDataWorker] Market data disabled. Waiting for enable signal (polling every 30s)...");
@@ -255,6 +316,9 @@ class MarketDataWorker {
 
     console.log(`[MarketDataWorker] Running with ${connectedCount}/${configs.length} connections`);
     await this.logSystemHealth("worker_running", { connections: connectedCount, total: configs.length }, "info", `Market Data Worker running with ${connectedCount} connections`);
+    } finally {
+      this.isStarting = false;
+    }
   }
 
   private async getApiKeyConfigs(): Promise<ApiKeyConfig[]> {
@@ -363,6 +427,14 @@ class MarketDataWorker {
   private createConnection(config: ApiKeyConfig, websocketId: string): Promise<boolean> {
     return new Promise((resolve) => {
         try {
+          const existing = this.connections.get(websocketId);
+          if (existing) {
+            try {
+              existing.ticker.disconnect();
+            } catch (e) {}
+            this.connections.delete(websocketId);
+          }
+
           const ticker: any = new KiteTicker({
             api_key: config.apiKey,
             access_token: config.accessToken,
@@ -407,6 +479,10 @@ class MarketDataWorker {
           console.error(`[MarketDataWorker][${websocketId}] Max reconnect attempts reached`);
           connection.isConnected = false;
           this.subscriptionManager.setWebSocketConnected(websocketId, false);
+          try {
+            ticker.disconnect();
+          } catch (e) {}
+          this.connections.delete(websocketId);
         });
 
         ticker.connect();
@@ -415,6 +491,10 @@ class MarketDataWorker {
         setTimeout(() => {
           if (!connection.isConnected) {
             console.warn(`[MarketDataWorker][${websocketId}] Connection timeout`);
+            try {
+              ticker.disconnect();
+            } catch (e) {}
+            this.connections.delete(websocketId);
             resolve(false);
           }
         }, 30000);
@@ -796,6 +876,12 @@ class MarketDataWorker {
         }
       }
 
+      const connectedCount = Array.from(this.connections.values()).filter(c => c.isConnected).length;
+      if (this.isRunning && connectedCount === 0) {
+        console.error("[MarketDataWorker] No active WebSocket connections. Marking worker as not running for restart.");
+        this.isRunning = false;
+      }
+
       for (const [apiKeyId, config] of this.apiKeyConfigs.entries()) {
         if (this.subscriptionManager.needsFallbackWebSocket(apiKeyId)) {
           if (!this.connections.has(`${apiKeyId}_fallback`)) {
@@ -859,7 +945,7 @@ class MarketDataWorker {
     }, BACKFILL_CHECK_INTERVAL);
 
     // Also run every 5 minutes for queue processing
-    setInterval(async () => {
+    this.backfillQueueInterval = setInterval(async () => {
       if (this.backfillService && !this.isShuttingDown) {
         await this.backfillService.processQueue();
       }
@@ -941,6 +1027,7 @@ class MarketDataWorker {
     if (this.healthCheckInterval) clearInterval(this.healthCheckInterval);
     if (this.subscriptionRefreshInterval) clearInterval(this.subscriptionRefreshInterval);
     if (this.backfillCheckInterval) clearInterval(this.backfillCheckInterval);
+    if (this.backfillQueueInterval) clearInterval(this.backfillQueueInterval);
 
     await this.subscriptionManager.destroy();
 

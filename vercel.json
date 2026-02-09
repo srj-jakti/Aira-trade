@@ -1,32 +1,5 @@
 {
   "buildCommand": "npm run build:web",
   "outputDirectory": ".next",
-  "framework": "nextjs",
-  "crons": [
-    {
-      "path": "/api/cron/health-check",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/database-cleanup",
-      "schedule": "0 18 * * *"
-    },
-    {
-      "path": "/api/cron/aggregate-instruments",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/option-roll",
-      "schedule": "30 0 * * *"
-    },
-    {
-      "path": "/api/cron/market-poll",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/execute-signals",
-      "schedule": "* * * * *"
-    }
-  ],
-  "ignoreCommand": "bash -c 'if [ \"$VERCEL_ENV\" == \"production\" ]; then exit 1; else exit 0; fi'" 
+  "framework": "nextjs"
 }

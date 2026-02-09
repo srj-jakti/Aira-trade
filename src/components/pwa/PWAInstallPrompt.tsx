@@ -19,8 +19,15 @@ export function PWAInstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
 
   useEffect(() => {
+    // Check if already dismissed
+    if (sessionStorage.getItem("pwa-prompt-dismissed") === "true") {
+      setIsDismissed(true);
+      return;
+    }
+
     // Check if already in standalone mode
     if (window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone) {
       setIsStandalone(true);
@@ -31,49 +38,57 @@ export function PWAInstallPrompt() {
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(ios);
 
+    let promptTimer: NodeJS.Timeout | null = null;
+
     const handleBeforeInstallPrompt = (e: any) => {
+      console.log("[PWA] beforeinstallprompt event fired");
       e.preventDefault();
       setDeferredPrompt(e);
-      // Show prompt after a delay
-      const timer = setTimeout(() => setShowPrompt(true), 5000);
-      return () => clearTimeout(timer);
+      // Show prompt after a short delay
+      promptTimer = setTimeout(() => {
+        console.log("[PWA] Showing install prompt");
+        setShowPrompt(true);
+      }, 3000);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
     // For iOS, show prompt manually since beforeinstallprompt isn't supported
     if (ios) {
-      const timer = setTimeout(() => setShowPrompt(true), 10000);
-      return () => clearTimeout(timer);
+      console.log("[PWA] iOS detected, showing manual prompt");
+      promptTimer = setTimeout(() => setShowPrompt(true), 5000);
     }
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      if (promptTimer) {
+        clearTimeout(promptTimer);
+      }
     };
   }, []);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
+    console.log("[PWA] User clicked install");
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
+    console.log("[PWA] User choice:", outcome);
     if (outcome === "accepted") {
       setDeferredPrompt(null);
       setShowPrompt(false);
+      sessionStorage.setItem("pwa-prompt-dismissed", "true");
     }
   };
 
   const handleDismiss = () => {
+    console.log("[PWA] User dismissed prompt");
     setShowPrompt(false);
+    setIsDismissed(true);
     // Don't show again for this session
     sessionStorage.setItem("pwa-prompt-dismissed", "true");
   };
 
-  if (isStandalone) {
-    return null;
-  }
-
-  // Ensure we don't render anything if the user has dismissed the prompt (checked in useEffect) or if we are on server
-  if (typeof window !== "undefined" && sessionStorage.getItem("pwa-prompt-dismissed") === "true") {
+  if (isStandalone || isDismissed) {
     return null;
   }
 

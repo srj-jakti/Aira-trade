@@ -1316,13 +1316,22 @@ export { worker, MarketDataWorker };
 
 function isNseMarketOpenNow(): boolean {
   const now = new Date();
-  const ist = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-  const day = ist.getDay();
-  if (day === 0 || day === 6) return false;
+  
+  // Get IST offset (UTC+5:30 = 5.5 hours = 19800000 milliseconds)
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istTime = new Date(now.getTime() + istOffset);
+  
+  // Use UTC methods on the offset time to get IST values
+  const day = istTime.getUTCDay();
+  if (day === 0 || day === 6) return false; // Weekend
 
-  const minutes = ist.getHours() * 60 + ist.getMinutes();
-  const open = 9 * 60 + 15;
-  const close = 15 * 60 + 30;
+  const minutes = istTime.getUTCHours() * 60 + istTime.getUTCMinutes();
+  const open = 9 * 60 + 15;  // 9:15 AM = 555 minutes
+  const close = 15 * 60 + 30; // 3:30 PM = 930 minutes
+  
+  // Log for debugging
+  console.log(`[MarketHours] IST: ${istTime.getUTCHours()}:${istTime.getUTCMinutes()}, Day: ${day}, Minutes: ${minutes}, Open: ${open}, Close: ${close}, IsOpen: ${minutes >= open && minutes <= close}`);
+  
   return minutes >= open && minutes <= close;
 }
 

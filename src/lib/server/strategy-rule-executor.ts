@@ -432,6 +432,9 @@ export class StrategyRuleExecutor {
           case "BEARISH_ENGULFING":
             passed = prevCandle ? IndicatorCalculator.isEngulfing(candle, prevCandle).bearish : false;
             break;
+          case "INSIDE_BAR":
+            passed = prevCandle ? candle.high < prevCandle.high && candle.low > prevCandle.low : false;
+            break;
           default:
             return { passed: false, reason: `Pattern ${rule.pattern} not implemented` };
         }
@@ -464,6 +467,18 @@ export class StrategyRuleExecutor {
           case "LOWER_HIGH":
             passed = prevCandle ? candle.high < prevCandle.high : false;
             break;
+          case "GAP_UP":
+            passed = prevCandle ? candle.open > prevCandle.high : false;
+            break;
+          case "GAP_DOWN":
+            passed = prevCandle ? candle.open < prevCandle.low : false;
+            break;
+          case "CLOSE_ABOVE_HIGH_1":
+            passed = prevCandle ? candle.close > prevCandle.high : false;
+            break;
+          case "CLOSE_BELOW_LOW_1":
+            passed = prevCandle ? candle.close < prevCandle.low : false;
+            break;
         }
         return {
           passed,
@@ -481,7 +496,7 @@ export class StrategyRuleExecutor {
             this.candles.map((c) => c.volume),
             period
           );
-          compareValue = volSma[index];
+          compareValue = volSma[index] * (rule.multiplier || 1);
         } else {
           compareValue = rule.value || 100000;
         }
@@ -508,6 +523,10 @@ export class StrategyRuleExecutor {
 
   private evaluateRuleSet(ruleSet: RuleSet, index: number): { result: boolean; ruleResults: Array<{ rule: StrategyRule; passed: boolean; actualValue?: number; expectedValue?: number; reason?: string }> } {
     const ruleResults: Array<{ rule: StrategyRule; passed: boolean; actualValue?: number; expectedValue?: number; reason?: string }> = [];
+
+    if (ruleSet.rules.length === 0) {
+      return { result: false, ruleResults: [] };
+    }
 
     for (const rule of ruleSet.rules) {
       const evalResult = this.evaluateRule(rule, index);

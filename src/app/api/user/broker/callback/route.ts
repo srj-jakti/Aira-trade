@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { encrypt, decrypt } from "@/lib/server/encryption";
+import { getIstEndOfDayExpiryUtcIso } from "@/lib/server/ist-time";
 import crypto from "crypto";
 
 export async function GET(request: NextRequest) {
@@ -199,8 +200,7 @@ async function handleAdminCallback(configId: string, requestToken: string) {
 
     const accessToken = tokenData.data.access_token;
     const now = new Date();
-    const expiresAt = new Date(now);
-    expiresAt.setHours(23, 59, 59, 999);
+    const expiresAt = getIstEndOfDayExpiryUtcIso(now);
 
     await supabaseAdmin
       .from("admin_zerodha_configs")
@@ -209,7 +209,7 @@ async function handleAdminCallback(configId: string, requestToken: string) {
         connection_status: "connected",
         is_authorized: true,
         last_login_at: now.toISOString(),
-        token_expires_at: expiresAt.toISOString(),
+        token_expires_at: expiresAt,
         last_error: null,
         updated_at: now.toISOString(),
       })

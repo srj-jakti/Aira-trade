@@ -95,17 +95,21 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const enableOrchidsOverlays = process.env.NODE_ENV !== "production";
+
   return (
     <html lang="en" suppressHydrationWarning>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen overflow-x-hidden pb-[safe-area-inset-bottom]`}
         >
-        <Script
-          id="orchids-browser-logs"
-          src="https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/scripts/orchids-browser-logs.js"
-          strategy="afterInteractive"
-          data-orchids-project-id="4c5c238c-6da6-4257-86ab-86cbb8b4222d"
-        />
+        {enableOrchidsOverlays ? (
+          <Script
+            id="orchids-browser-logs"
+            src="https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/scripts/orchids-browser-logs.js"
+            strategy="afterInteractive"
+            data-orchids-project-id="4c5c238c-6da6-4257-86ab-86cbb8b4222d"
+          />
+        ) : null}
           <ThemeProvider
             attribute="class"
             defaultTheme="dark"
@@ -116,7 +120,7 @@ export default function RootLayout({
               <PWAInstallPrompt />
               {children}
               <Toaster />
-              <VisualEditsMessenger />
+              {enableOrchidsOverlays ? <VisualEditsMessenger /> : null}
             </ThemeProvider>
 
         </body>

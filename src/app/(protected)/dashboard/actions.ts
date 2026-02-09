@@ -28,6 +28,7 @@ export async function getDashboardStatus() {
     let pl = { total: "0.00", day: "0.00", isPositive: true };
     let activePositions: any[] = [];
     let recentOrders: any[] = [];
+    let brokerError: string | undefined;
 
     if (isPaperMode) {
       const [posRes, histRes, orderRes] = await Promise.all([
@@ -76,11 +77,15 @@ export async function getDashboardStatus() {
           activePositions = portfolio.positions;
           recentOrders = portfolio.orders;
         }
+        if (portfolio.error) {
+           brokerError = portfolio.error;
+        }
       }
     }
 
     return {
       connectionStatus,
+      brokerError,
       autoTradingEnabled: prefs?.auto_trading_enabled || false,
       paperTradingEnabled: isPaperMode,
       balance,
@@ -114,10 +119,10 @@ export async function toggleAiTrading(enabled: boolean) {
 
   if (!user) return { error: "Not authenticated" };
 
-  const { error } = await supabase
+  // Use supabaseAdmin to bypass RLS for the upsert/update
+  const { error } = await supabaseAdmin
     .from("trading_preferences")
-    .update({ auto_trading_enabled: enabled })
-    .eq("user_id", user.id);
+    .upsert({ user_id: user.id, auto_trading_enabled: enabled }, { onConflict: "user_id" });
 
   if (error) return { error: error.message };
   
@@ -131,10 +136,10 @@ export async function togglePaperTrading(enabled: boolean) {
 
   if (!user) return { error: "Not authenticated" };
 
-  const { error } = await supabase
+  // Use supabaseAdmin to bypass RLS for the upsert/update
+  const { error } = await supabaseAdmin
     .from("trading_preferences")
-    .update({ paper_trading_enabled: enabled })
-    .eq("user_id", user.id);
+    .upsert({ user_id: user.id, paper_trading_enabled: enabled }, { onConflict: "user_id" });
 
   if (error) return { error: error.message };
   

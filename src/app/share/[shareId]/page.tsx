@@ -34,14 +34,21 @@ export default async function SharedAnalysisPage({ params }: SharedPageProps) {
   }
 
   const analysis = snapshot.analysis_data;
-  const { instrument_token, tradingsymbol, timeframe, created_at } = snapshot;
+  const { instrument_token, tradingsymbol, timeframe, created_at, chart_config } = snapshot;
   const date = new Date(created_at).toLocaleString();
 
-  // In a real implementation, we would fetch historical candles ending at 'created_at'
-  // For now, we'll pass empty data to the chart or a placeholder, 
-  // but we focus on the AI Analysis which is the core value.
-  // If we had stored candles in snapshot.chart_config.candles, we would use that.
-  
+  // Extract chart data from snapshot config
+  const candles = chart_config?.candles || [];
+  const indicators = chart_config?.indicators || [];
+  const lastPrice = chart_config?.lastPrice || null;
+
+  // Determine the exact candle timestamp for analysis
+  let analysisTime = date;
+  if (candles.length > 0) {
+    const lastCandle = candles[candles.length - 1];
+    analysisTime = new Date(lastCandle.timestamp).toLocaleString();
+  }
+
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -58,7 +65,7 @@ export default async function SharedAnalysisPage({ params }: SharedPageProps) {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Badge variant="outline">{tradingsymbol}</Badge>
                 <Badge variant="secondary">{timeframe}</Badge>
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1 text-xs" title="Snapshot Created At">
                   <Calendar className="h-3 w-3" />
                   {date}
                 </span>
@@ -73,24 +80,44 @@ export default async function SharedAnalysisPage({ params }: SharedPageProps) {
           </Button>
         </div>
 
-        {/* Chart Placeholder / Context */}
-        <Card className="bg-card border-border">
+        {/* Analysis Timing Info */}
+        <div className="flex items-center gap-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-600">
+          <LineChart className="h-3.5 w-3.5" />
+          <span>
+            <strong>Analysis Point:</strong> AI analyzed market structure based on candle closed at <strong>{analysisTime}</strong>
+          </span>
+        </div>
+
+        {/* Chart Snapshot */}
+        <Card className="bg-card border-border overflow-hidden">
           <CardHeader className="p-4 border-b border-border">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <LineChart className="h-4 w-4 text-blue-500" />
               Market Context (Snapshot)
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0 h-[300px] relative bg-muted/10 flex items-center justify-center">
-             <div className="text-center p-6">
-               <LineChart className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-20" />
-               <p className="text-muted-foreground text-sm">
-                 Chart snapshot for {tradingsymbol} at {date}
-               </p>
-               <p className="text-xs text-muted-foreground mt-1">
-                 (Live chart data not stored in snapshot)
-               </p>
-             </div>
+          <CardContent className="p-0 h-[400px] relative bg-card">
+             {candles.length > 0 ? (
+               <TradingViewChart
+                 data={candles}
+                 symbol={tradingsymbol}
+                 timeframe={timeframe}
+                 onTimeframeChange={() => {}} // No-op for snapshot
+                 indicators={indicators}
+                 showVolume={false}
+                 lastPrice={lastPrice}
+                 support={analysis?.support}
+                 resistance={analysis?.resistance}
+                 isLoading={false}
+               />
+             ) : (
+               <div className="text-center p-6 h-full flex flex-col items-center justify-center">
+                 <LineChart className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-20" />
+                 <p className="text-muted-foreground text-sm">
+                   Chart data not available for this snapshot.
+                 </p>
+               </div>
+             )}
           </CardContent>
         </Card>
 

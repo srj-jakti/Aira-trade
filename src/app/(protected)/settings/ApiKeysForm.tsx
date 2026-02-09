@@ -260,14 +260,26 @@ function ApiKeysFormContent() {
             </div>
           </div>
           {status === 'connected' && (
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="border-red-500/30 text-red-600 hover:bg-red-500/10"
-              onClick={handleDisconnect}
-            >
-              Disconnect
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="border-blue-500/30 text-blue-600 hover:bg-blue-500/10"
+                onClick={handleConnectZerodha}
+                disabled={connecting}
+              >
+                {connecting ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                Reconnect
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="border-red-500/30 text-red-600 hover:bg-red-500/10"
+                onClick={handleDisconnect}
+              >
+                Disconnect
+              </Button>
+            </div>
           )}
         </div>
   

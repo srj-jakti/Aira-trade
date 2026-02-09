@@ -92,7 +92,12 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
   const [predictivePath, _setPredictivePath] = useState<{ time: string; price: number }[]>([]);
   const [_swingPoints, _setSwingPoints] = useState<{ time: string; price: number; type: "HIGH" | "LOW" }[]>([]);
 
-  const { candles: chartData, isConnected: isRealtimeConnected, refetch: refetchCandles } = useLiveCandles({
+  const {
+    candles: chartData,
+    isConnected: isRealtimeConnected,
+    error: chartError,
+    refetch: refetchCandles,
+  } = useLiveCandles({
     instrumentToken: selectedInstrument?.instrument_token || 0,
     timeframe,
     initialData: initialChartData,
@@ -128,7 +133,12 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
       
       if (response.ok) {
         const data = await response.json();
-        setInitialChartData(data.candles || []);
+        if (data?.error) {
+          toast.error(data.error);
+          setInitialChartData([]);
+        } else {
+          setInitialChartData(data.candles || []);
+        }
       } else {
         throw new Error(`API Error: ${response.status}`);
       }
@@ -312,6 +322,10 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
     try {
       const activeIndicators = indicators.filter(i => i.visible).map(i => ({ id: i.id, params: i.params }));
       
+      // Get the last 200 candles for context in the shared chart
+      // This allows the viewer to see the price action leading up to the analysis
+      const snapshotCandles = chartData.slice(-200);
+
       const response = await fetch("/api/share/analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -322,7 +336,10 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
           analysisData: analysis,
           chartConfig: {
             indicators: activeIndicators,
-            selectedStrategy
+            selectedStrategy,
+            candles: snapshotCandles,
+            lastPrice: currentPrice,
+            lastTick: currentTick
           }
         }),
       });
@@ -518,22 +535,58 @@ const DEFAULT_INDICATORS: IndicatorOverlay[] = [
                 </CardTitle>
               </CardHeader>
             <CardContent className="p-0">
-              <div className="h-[250px] md:h-[320px]">
-                    <TradingViewChart
-                      data={chartData}
-                      symbol={selectedInstrument?.tradingsymbol}
-                      support={analysis?.support || undefined}
-                      resistance={analysis?.resistance || undefined}
-                      isLoading={isLoadingChart}
-                      timeframe={timeframe}
-                      onTimeframeChange={handleTimeframeChange}
-                      indicators={indicators}
-                      showVolume={false}
-                      lastPrice={currentPrice}
-                      tick={currentTick}
-                    />
-
-
+              <div className="h-[250px] md:h-[320px] relative">
+                {chartError ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-card">
+                    <div className="text-xs text-muted-foreground text-center max-w-[90%]">
+                      {chartError}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          refetchCandles();
+                          if (selectedInstrument) fetchChartData(selectedInstrument, timeframe);
+                        }}
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                        Retry
+                      </Button>
+                    </div>
+                  </div>
+                ) : chartData.length === 0 && !isLoadingChart ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-card">
+                    <div className="text-xs text-muted-foreground text-center max-w-[90%]">
+                      No chart candles available for this instrument/timeframe.
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        refetchCandles();
+                        if (selectedInstrument) fetchChartData(selectedInstrument, timeframe);
+                      }}
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                      Reload
+                    </Button>
+                  </div>
+                ) : (
+                  <TradingViewChart
+                    data={chartData}
+                    symbol={selectedInstrument?.tradingsymbol}
+                    support={analysis?.support || undefined}
+                    resistance={analysis?.resistance || undefined}
+                    isLoading={isLoadingChart}
+                    timeframe={timeframe}
+                    onTimeframeChange={handleTimeframeChange}
+                    indicators={indicators}
+                    showVolume={false}
+                    lastPrice={currentPrice}
+                    tick={currentTick}
+                  />
+                )}
               </div>
             </CardContent>
           </Card>

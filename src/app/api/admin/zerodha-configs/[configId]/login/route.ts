@@ -11,6 +11,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt, encrypt } from "@/lib/server/encryption";
 import { logAudit } from "@/lib/server/audit";
 import { performZerodhaFullLogin } from "@/lib/server/zerodha-auth";
+import { getIstEndOfDayExpiryUtcIso } from "@/lib/server/ist-time";
 
 export async function POST(
   request: NextRequest,
@@ -49,14 +50,13 @@ export async function POST(
     });
 
     if (result.success && result.accessToken) {
-      const tokenExpiry = new Date();
-      tokenExpiry.setHours(23, 59, 59, 999);
+      const tokenExpiry = getIstEndOfDayExpiryUtcIso();
 
       await supabaseAdmin
         .from("admin_zerodha_configs")
         .update({
           access_token: encrypt(result.accessToken),
-          token_expires_at: tokenExpiry.toISOString(),
+          token_expires_at: tokenExpiry,
           last_login_at: new Date().toISOString(),
           connection_status: "connected",
           last_error: null,

@@ -1,0 +1,52 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "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"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "search_repositories",
+        "list_commits"
+      ]
+    },
+    "railway": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@crisog/railway-mcp-server"
+      ],
+      "env": {
+        "RAILWAY_API_TOKEN": "d0c32d3b-1837-4038-944e-d926252d16b7"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "railway_projects_list",
+        "railway_services_list",
+        "railway_environments_list",
+        "railway_deployment_list",
+        "railway_deployment_logs"
+      ]
+    },
+    "vercel": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "vercel-mcp",
+        "VERCEL_API_KEY=sP8YhrfvEZK05sJebyqXhyNd"
+      ],
+      "env": {
+        "VERCEL_API_KEY": "sP8YhrfvEZK05sJebyqXhyNd"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "getDeployments"
+      ]
+    }
+  }
+}

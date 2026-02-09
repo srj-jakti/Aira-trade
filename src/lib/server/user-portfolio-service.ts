@@ -70,17 +70,21 @@ export async function getUserPortfolio(userId: string): Promise<UserPortfolio> {
     ]);
 
     if (!marginsRes.ok || !positionsRes.ok || !ordersRes.ok) {
+        let errorMessage = "Failed to fetch broker data";
+        
         // If 403, token might be expired
-        if (marginsRes.status === 403 || positionsRes.status === 403) {
+        if (marginsRes.status === 403 || positionsRes.status === 403 || ordersRes.status === 403) {
             console.error("[UserPortfolio] Token expired for user:", userId);
+            errorMessage = "Session Expired. Please reconnect your broker.";
         }
+        
         return {
             balance: { total: "0.00", available: "0.00" },
             pl: { total: "0.00", day: "0.00", isPositive: true },
             positions: [],
             orders: [],
             isConnected: true, // Still theoretically connected, just failed fetch
-            error: "Failed to fetch broker data"
+            error: errorMessage
         };
     }
 

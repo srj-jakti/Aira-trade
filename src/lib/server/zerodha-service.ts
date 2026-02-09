@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decrypt, encrypt } from "@/lib/server/encryption";
 import { performZerodhaFullLogin } from "@/lib/server/zerodha-auth";
+import { getIstEndOfDayExpiryUtcIso } from "@/lib/server/ist-time";
 
 interface ZerodhaConfig {
   id: string;
@@ -31,6 +32,7 @@ class ZerodhaService {
 
     let validConfigs = this.configs.filter(c => {
       if (!c.is_active || !c.access_token) return false;
+      if (c.connection_status !== "connected") return false;
       if (c.token_expires_at && new Date(c.token_expires_at) < new Date()) return false;
       return true;
     });
@@ -54,6 +56,7 @@ class ZerodhaService {
         // Refresh valid configs after attempt
         validConfigs = this.configs.filter(c => {
           if (!c.is_active || !c.access_token) return false;
+          if (c.connection_status !== "connected") return false;
           if (c.token_expires_at && new Date(c.token_expires_at) < new Date()) return false;
           return true;
         });
@@ -98,14 +101,13 @@ class ZerodhaService {
           });
 
           if (result.success && result.accessToken) {
-            const tokenExpiry = new Date();
-            tokenExpiry.setHours(23, 59, 59, 999);
+            const tokenExpiry = getIstEndOfDayExpiryUtcIso();
 
             const { error: updateError } = await supabaseAdmin
               .from("admin_zerodha_configs")
               .update({
                 access_token: encrypt(result.accessToken),
-                token_expires_at: tokenExpiry.toISOString(),
+                token_expires_at: tokenExpiry,
                 last_login_at: new Date().toISOString(),
                 connection_status: "connected",
                 last_error: null,
@@ -156,6 +158,7 @@ class ZerodhaService {
       const res: Array<{ apiKey: string; accessToken: string; configId: string; name: string }> = [];
       for (const config of this.configs) {
         if (!config.is_active || !config.access_token) continue;
+        if (config.connection_status !== "connected") continue;
         if (config.token_expires_at && new Date(config.token_expires_at) < new Date()) continue;
 
         try {

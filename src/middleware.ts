@@ -52,7 +52,6 @@ export async function middleware(request: NextRequest) {
     publicPaths.includes(pathname) ||
     legalPaths.includes(pathname) ||
     pathname.startsWith("/auth/") ||
-    pathname.startsWith("/api/cron/") ||
     pathname.startsWith("/api/admin/system-health/") ||
     pathname.startsWith("/api/subscription") ||
     pathname === "/favicon.ico";

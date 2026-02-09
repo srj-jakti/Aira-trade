@@ -7,6 +7,7 @@ import {
   successResponse,
 } from "@/lib/server/auth";
 import { zerodhaService } from "@/lib/server/zerodha-service";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function normalizeTimeframe(tf: string): string {
   const aliases: Record<string, string> = {
@@ -185,10 +186,29 @@ export async function GET(request: NextRequest) {
     );
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: response.statusText }));
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { message: errorText || response.statusText };
+      }
+      
       console.error("[LiveRoute] Zerodha API error:", errorData);
       
-      if (response.status === 403) {
+      if (response.status === 403 || errorData.status === "error" && errorData.error_type === "TokenException") {
+        if (config?.configId) {
+          await supabaseAdmin
+            .from("admin_zerodha_configs")
+            .update({
+              connection_status: "expired",
+              token_expires_at: new Date(Date.now() - 1000).toISOString(),
+              last_error: typeof errorData?.message === "string" ? errorData.message : "Token expired or invalid",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", config.configId);
+          zerodhaService.clearCache();
+        }
         return successResponse({
           candles: [],
           latestTick: null,
@@ -200,7 +220,20 @@ export async function GET(request: NextRequest) {
         });
       }
       
-      return serverErrorResponse();
+      // If instrument not found or other data error, return empty instead of 500
+      if (response.status === 400 || response.status === 404) {
+         return successResponse({
+          candles: [],
+          latestTick: null,
+          dataSource: "NO_DATA",
+          error: `Data not available for instrument ${instrumentToken}`,
+          timeframe,
+          count: 0,
+          hasMore: false,
+        });
+      }
+
+      return serverErrorResponse(`External API Error: ${errorData.message || response.statusText}`);
     }
 
     const data = await response.json();

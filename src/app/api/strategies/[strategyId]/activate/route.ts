@@ -65,6 +65,7 @@ export async function POST(
     }
 
     if (strategy.user_id === user.userId) {
+      // If activating and not finalized, force finalize
       if (active && !strategy.is_finalized) {
         await supabaseAdmin
           .from("strategies")
@@ -76,10 +77,15 @@ export async function POST(
           .eq("id", id);
       }
 
-      await supabaseAdmin
+      const { error: updateError } = await supabaseAdmin
         .from("strategies")
         .update({ is_active: active, updated_at: new Date().toISOString() })
         .eq("id", id);
+
+      if (updateError) {
+        console.error("Failed to update strategy status:", updateError);
+        return serverErrorResponse(updateError.message);
+      }
 
       return successResponse({
         message: active ? "Strategy activated" : "Strategy deactivated",

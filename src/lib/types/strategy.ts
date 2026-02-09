@@ -43,7 +43,8 @@ export type PatternType =
   | "MORNING_STAR"
   | "EVENING_STAR"
   | "THREE_WHITE_SOLDIERS"
-  | "THREE_BLACK_CROWS";
+  | "THREE_BLACK_CROWS"
+  | "INSIDE_BAR";
 
 export type RuleLogic = "AND" | "OR";
 
@@ -92,7 +93,11 @@ export interface PriceActionRule {
     | "HIGHER_HIGH"
     | "LOWER_LOW"
     | "HIGHER_LOW"
-    | "LOWER_HIGH";
+    | "LOWER_HIGH"
+    | "GAP_UP"
+    | "GAP_DOWN"
+    | "CLOSE_ABOVE_HIGH_1"
+    | "CLOSE_BELOW_LOW_1";
 }
 
 export interface VolumeRule {
@@ -101,6 +106,7 @@ export interface VolumeRule {
   value?: number;
   compareToAverage?: boolean;
   averagePeriod?: number;
+  multiplier?: number;
 }
 
 export type StrategyRule =

@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed:data": "npx tsx scripts/seed-market-data.ts",
-    "db:migrate": "npx supabase db push"
+    "db:migrate": "npx supabase db push",
+    "diagnostic": "npx tsx scripts/quick-diagnostic.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -79,6 +80,7 @@
     "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "commander": "^14.0.3",
     "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "^15.5.7",

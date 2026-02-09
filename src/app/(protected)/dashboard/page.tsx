@@ -17,6 +17,7 @@ import {
   WifiOff
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { 
@@ -48,7 +49,7 @@ const SIGNAL_STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: s
 
 export default function Dashboard() {
   const [isAiTradingEnabled, setIsAiTradingEnabled] = useState(false);
-  const [isPaperTradingEnabled, setIsPaperTradingEnabled] = useState(true);
+  const [isPaperTradingEnabled, setIsPaperTradingEnabled] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
   const [loading, setLoading] = useState(true);
   const [_tradingEngine, setTradingEngine] = useState<{
@@ -78,6 +79,7 @@ export default function Dashboard() {
   const [positionsSummary, setPositionsSummary] = useState({ active: 0, total: 0 });
   const [activePositions, setActivePositions] = useState<any[]>([]);
   const [_recentOrders, _setRecentOrders] = useState<any[]>([]);
+  const [brokerError, setBrokerError] = useState<string | null>(null);
 
   const positionTokens = useMemo(() => 
     activePositions.map((p: any) => p.instrument_token).filter((t: any) => typeof t === 'number'),
@@ -107,6 +109,7 @@ export default function Dashboard() {
             active: status.activePositions.length,
             total: status.recentOrders.filter((o: any) => o.status === "FILLED").length
           });
+          setBrokerError(status.brokerError || null);
         }
       setLoading(false);
     }
@@ -201,6 +204,19 @@ export default function Dashboard() {
               </div>
             </div>
         </div>
+
+        {brokerError && (
+          <Alert variant="destructive" className="border-red-500/50 bg-red-500/10 text-red-500 animate-in fade-in zoom-in duration-300">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Broker Connection Error</AlertTitle>
+            <AlertDescription className="flex items-center gap-2">
+              {brokerError} 
+              <a href="/settings" className="underline font-bold hover:text-red-400">
+                Reconnect Now
+              </a>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {[

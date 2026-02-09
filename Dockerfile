@@ -1,3 +1,7 @@
+# This Dockerfile is for aira-brain service only
+# Other services use their own Dockerfiles in railway/<service-name>/Dockerfile
+# See railway.json for service-specific build configurations
+
 FROM node:20-alpine
 
 WORKDIR /app/railway/aira-brain

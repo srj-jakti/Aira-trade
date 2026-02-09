@@ -72,6 +72,7 @@ export interface TradeEntry {
   pnl?: number;
   pnl_percentage?: number;
   exit_reason?: string;
+  duration_minutes?: number;
 }
 
 export interface Candle {
@@ -234,6 +235,36 @@ ${aiAnalysisEnabled ? `
   5. TRAILING STOP LOSS (TSL): You MUST include Trailing Stop Loss logic for both directions.
   6. MT5 LOGIC: Use logic consistent with MetaTrader 5 (MT5) and institutional trading (Order Blocks, FVG, etc. if relevant).
 
+  ### INTERPRETING VAGUE INPUTS (CRITICAL FOR ACCURACY):
+  ⚠️ CRITICAL: DO NOT TRANSLATE VAGUE REQUESTS LITERALLY. INTERPRET TRADING INTENT.
+
+  1. "Buy when RSI > 20" (The "Always True" Trap):
+     - LITERALLY: RSI > 20. (BAD! This is true 90% of the time. Will buy constantly.)
+     - INTENT A (Reversal): RSI CROSSES_ABOVE 20 (Momentum shifting up from oversold).
+     - INTENT B (Zone): RSI BETWEEN 20 AND 40 (Accumulation zone).
+     - ACTION: Use CROSS_ABOVE or BETWEEN. NEVER use simple '>' for oscillators as a trigger unless combined with other strict conditions.
+
+  2. "Sell when RSI < 80":
+     - LITERALLY: RSI < 80. (BAD! This is true 90% of the time.)
+     - INTENT A (Reversal): RSI CROSSES_BELOW 80 (Momentum shifting down from overbought).
+     - INTENT B (Zone): RSI BETWEEN 60 AND 80 (Distribution zone).
+
+  3. "Buy if Price above EMA":
+     - MEANING: Trend Confirmation. Use "Price > EMA".
+     - BUT "Buy WHEN Price crosses EMA" means "Price CROSSES_ABOVE EMA".
+
+  4. "RSI Buy":
+     - IMPLIES: RSI < 30 (Oversold) -> Reversal likely.
+     - Rule: RSI CROSSES_ABOVE 30 (Standard Reversal).
+
+  5. "Previous Logic / Screener Logic":
+     - "Volume Shock": Volume > 2 * Average Volume(20).
+     - "Gap Up": Open > High of Previous Candle.
+     - "Inside Bar": High < Prev High AND Low > Prev Low.
+     - "Rising RSI": RSI(Current) > RSI(Previous).
+
+  6. GENERAL RULE: For Oscillators (RSI, Stochastic, CCI), prefer 'CROSS_ABOVE'/'CROSS_BELOW' for entry triggers over simple '>'/'<' comparisons, unless defining a zone.
+
 ### STRATEGY TYPES:
 - INTRADAY: Same-day entry/exit. Must exit by 3:15 PM IST.
 - SWING: Positions held 2-15 days.
@@ -252,26 +283,38 @@ ${aiAnalysisEnabled ? `
 | VWAP | Volume | - | Intraday fair value |
 | ATR | Volatility | 14 | Stop loss sizing |
 
-### RULE TYPES (like Chartink scanner):
+### RULE TYPES (Chartink / Screener Style):
 1. **indicator**: Compare indicator to a value
    \`{ "type": "indicator", "name": "RSI", "period": 14, "operator": "<", "value": 35 }\`
 
 2. **price_vs_indicator**: Compare price (close/high/low/open) to indicator
    \`{ "type": "price_vs_indicator", "priceField": "close", "operator": "CROSS_ABOVE", "indicator": "EMA", "indicatorPeriod": 20 }\`
 
-3. **indicator_vs_indicator**: Compare two indicators (like EMA crossover)
+3. **indicator_vs_indicator**: Compare two indicators (like EMA crossover or Rising RSI)
    \`{ "type": "indicator_vs_indicator", "indicator1": "EMA", "period1": 9, "indicator2": "EMA", "period2": 21, "operator": "CROSS_ABOVE" }\`
+   *For Slope/Rising:* \`{ "type": "indicator_vs_indicator", "indicator1": "RSI", "period1": 14, "indicator2": "RSI", "period2": 14, "offset2": 1, "operator": ">" }\` (RSI > Prev RSI)
 
 4. **trend**: Supertrend/ADX direction
    \`{ "type": "trend", "indicator": "SUPERTREND", "direction": "BULLISH" }\`
+
+5. **volume**: Volume spikes/shocks
+   \`{ "type": "volume", "operator": ">", "compareToAverage": true, "averagePeriod": 20, "multiplier": 2.0 }\` (Vol > 2x Avg Vol)
+
+6. **price_action**: Candle relationships
+   \`{ "type": "price_action", "action": "GAP_UP" }\`
+   \`{ "type": "price_action", "action": "CLOSE_ABOVE_HIGH_1" }\` (Close > Prev High)
+   \`{ "type": "price_action", "action": "INSIDE_BAR" }\`
 
 ### OPERATORS:
 - Comparison: "<", ">", "<=", ">=", "=="
 - Crossovers: "CROSS_ABOVE", "CROSS_BELOW" (for detecting when line A crosses line B)
 
-### LOGIC:
-- "OR": ANY rule triggers signal (more trades, good for catching moves)
-- "AND": ALL rules must be true (fewer but higher quality trades)
+### LOGIC (IF / OR / AND):
+- **OR Logic**: "Buy if A OR B". The strategy triggers if ANY rule is met. Good for catching multiple types of setups.
+  - JSON: \`"logic": "OR"\`
+- **AND Logic**: "Buy if A AND B". The strategy triggers ONLY if ALL rules are met. Good for high-probability setups.
+  - JSON: \`"logic": "AND"\`
+- **Complex Logic**: For "If A OR (B AND C)", simplify to "OR" logic with composite rules if possible, or prioritize the dominant logic.
 
 ### OUTPUT JSON:
 {
@@ -426,8 +469,9 @@ Same structure as traditional, but rules focus on price action.
           "hold_logic"
         ];
         fields.forEach(field => {
-          if (!obj[field]) obj[field] = { conditions: [] };
+          if (!obj[field]) obj[field] = { conditions: [], parameters: {} };
           if (!obj[field].conditions) obj[field].conditions = [];
+          if (!obj[field].parameters) obj[field].parameters = {};
         });
         if (!obj.name) obj.name = "New Strategy";
         if (!obj.description) obj.description = "Generated by AI";
@@ -539,10 +583,22 @@ Same structure as traditional, but rules focus on price action.
           rule.value = 60;
         }
 
-        // Fix overly strict RSI thresholds
+        // Fix overly strict RSI thresholds and "Always True" conditions
         if (rule.type === "indicator" && rule.name === "RSI") {
           if (rule.operator === "<" && rule.value <= 30) rule.value = 40;
           if (rule.operator === ">" && rule.value >= 70) rule.value = 60;
+
+          // "Always True" trap: Buy if RSI > 20 (Almost always true)
+          // We convert this to CROSS_ABOVE to capture the *event* of leaving oversold
+          if (rule.operator === ">" && rule.value < 40) {
+             rule.operator = "CROSS_ABOVE";
+          }
+          
+          // "Always True" trap: Sell if RSI < 80 (Almost always true)
+          // We convert this to CROSS_BELOW to capture the *event* of leaving overbought
+          if (rule.operator === "<" && rule.value > 60) {
+             rule.operator = "CROSS_BELOW";
+          }
         }
 
         return rule;
@@ -702,6 +758,7 @@ Same structure as traditional, but rules focus on price action.
     }
 
       if (exec.buyExit?.trailingSL) {
+        if (!strategy.buy_trailing_sl.parameters) strategy.buy_trailing_sl.parameters = {};
         (strategy.buy_trailing_sl.parameters as any).enabled = exec.buyExit.trailingSL.enabled;
         (strategy.buy_trailing_sl.parameters as any).activation_percent = exec.buyExit.trailingSL.activationPercent;
         (strategy.buy_trailing_sl.parameters as any).trail_percent = exec.buyExit.trailingSL.trailPercent;
@@ -711,6 +768,7 @@ Same structure as traditional, but rules focus on price action.
       }
   
         if (exec.sellExit?.trailingSL) {
+          if (!strategy.sell_trailing_sl.parameters) strategy.sell_trailing_sl.parameters = {};
           (strategy.sell_trailing_sl.parameters as any).enabled = exec.sellExit.trailingSL.enabled;
           (strategy.sell_trailing_sl.parameters as any).activation_percent = exec.sellExit.trailingSL.activationPercent;
           (strategy.sell_trailing_sl.parameters as any).trail_percent = exec.sellExit.trailingSL.trailPercent;
@@ -949,13 +1007,47 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
           const winningTrades = trades.filter(t => (t.pnl || 0) > 0);
           const losingTrades = trades.filter(t => (t.pnl || 0) <= 0);
           
-          // Calculate trade statistics
+          // Calculate comprehensive trade statistics
           const avgWin = winningTrades.length > 0 
             ? winningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0) / winningTrades.length 
             : 0;
           const avgLoss = losingTrades.length > 0 
             ? Math.abs(losingTrades.reduce((sum, t) => sum + (t.pnl || 0), 0) / losingTrades.length)
             : 0;
+          
+          // CRITICAL METRIC: Profit Factor
+          const profitFactor = avgLoss > 0 ? (avgWin / avgLoss) : 0;
+          
+          // Calculate Sharpe Ratio (simplified)
+          const returns = trades.map(t => (t.pnl_percentage || 0) / 100);
+          const avgReturn = returns.reduce((a, b) => a + b, 0) / (returns.length || 1);
+          const stdDev = Math.sqrt(
+            returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / (returns.length || 1)
+          );
+          const sharpeRatio = stdDev > 0 ? (avgReturn / stdDev) * Math.sqrt(252) : 0;
+          
+          // Calculate Maximum Drawdown
+          let peak = 0;
+          let maxDrawdown = 0;
+          let runningPnL = 0;
+          trades.forEach(t => {
+            runningPnL += (t.pnl || 0);
+            if (runningPnL > peak) peak = runningPnL;
+            const drawdown = ((peak - runningPnL) / (peak || 1)) * 100;
+            if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+          });
+          
+          // Calculate Consecutive Losses
+          let maxConsecutiveLosses = 0;
+          let currentStreak = 0;
+          trades.forEach(t => {
+            if ((t.pnl || 0) <= 0) {
+              currentStreak++;
+              if (currentStreak > maxConsecutiveLosses) maxConsecutiveLosses = currentStreak;
+            } else {
+              currentStreak = 0;
+            }
+          });
           
           // Analyze exit reasons
           const exitReasons: Record<string, number> = {};
@@ -964,13 +1056,23 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
             exitReasons[reason] = (exitReasons[reason] || 0) + 1;
           });
 
-          // Analyze Loss Patterns
+          // Comprehensive Loss Analysis (ALL trades, not just 5)
           const lossPatterns = {
             slHit: losingTrades.filter(t => t.exit_reason === "Stop Loss Hit").length,
             targetHit: winningTrades.filter(t => t.exit_reason === "Target Hit").length,
             trailingSlHit: trades.filter(t => t.exit_reason === "Trailing Stop Loss Hit").length,
             avgLossPct: losingTrades.reduce((a, b) => a + (b.pnl_percentage || 0), 0) / (losingTrades.length || 1),
             avgWinPct: winningTrades.reduce((a, b) => a + (b.pnl_percentage || 0), 0) / (winningTrades.length || 1),
+            immediateSlHits: losingTrades.filter(t => (t.duration_minutes || 0) < 15).length,
+            largestLoss: losingTrades.length > 0 ? Math.min(...losingTrades.map(t => t.pnl || 0)) : 0,
+            largestWin: winningTrades.length > 0 ? Math.max(...winningTrades.map(t => t.pnl || 0)) : 0,
+          };
+          
+          // Loss Distribution Analysis
+          const lossDistribution = {
+            shallow: losingTrades.filter(t => Math.abs(t.pnl_percentage || 0) < 1).length,
+            moderate: losingTrades.filter(t => Math.abs(t.pnl_percentage || 0) >= 1 && Math.abs(t.pnl_percentage || 0) < 2).length,
+            deep: losingTrades.filter(t => Math.abs(t.pnl_percentage || 0) >= 2).length,
           };
 
           const messages = [
@@ -991,9 +1093,21 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
           - Net P&L: ${backtestResults.net_pnl_percentage?.toFixed?.(2) ?? backtestResults.net_pnl_percentage}%
           - Avg Win (₹): ${avgWin.toFixed(2)}
           - Avg Loss (₹): ${avgLoss.toFixed(2)}
+          - **PROFIT FACTOR: ${profitFactor.toFixed(2)}** (Target: >2.0, Excellent: >3.0)
+          - **SHARPE RATIO: ${sharpeRatio.toFixed(2)}** (Target: >1.5, Excellent: >2.0)
+          - **MAX DRAWDOWN: ${maxDrawdown.toFixed(2)}%** (Target: <15%, Excellent: <10%)
+          - **MAX CONSECUTIVE LOSSES: ${maxConsecutiveLosses}** (Target: <5)
           - SL Hits: ${lossPatterns.slHit}
           - Target Hits: ${lossPatterns.targetHit}
           - Trailing SL Hits: ${lossPatterns.trailingSlHit}
+          - Immediate SL Hits (<15min): ${lossPatterns.immediateSlHits}
+          - Largest Win: ₹${lossPatterns.largestWin.toFixed(2)}
+          - Largest Loss: ₹${lossPatterns.largestLoss.toFixed(2)}
+          
+          LOSS DISTRIBUTION:
+          - Shallow Losses (<1%): ${lossDistribution.shallow} trades
+          - Moderate Losses (1-2%): ${lossDistribution.moderate} trades
+          - Deep Losses (>2%): ${lossDistribution.deep} trades
 
           🔒 CORE MISSION:
           Do NOT just "add filters." Adding too many conditions causes "overfitting" and kills trade frequency.
@@ -1009,9 +1123,13 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
           - Identify "Missed Profits": Trades that were in profit but hit SL because of bad exit logic.
 
           📋 IMPROVEMENT GUIDELINES:
-          - If many losses are "Stop Loss Hit" immediately: Entry is too early. Tighten entry OR widen SL.
-          - If Win Rate is high but P&L is low: Risk/Reward is broken. Increase Target or use Trailing SL.
-          - If Win Rate is low: Entry logic is weak or picking up noise. Add a Regime filter (ADX/EMA) only if necessary.
+          - **PROFIT FACTOR < 2.0**: Risk/Reward is broken. Widen targets OR tighten SL OR improve entry timing.
+          - **SHARPE RATIO < 1.5**: Returns are too volatile. Reduce position size OR add filters to avoid choppy markets.
+          - **MAX DRAWDOWN > 15%**: Risk management is weak. Tighten SL OR reduce trade frequency OR add regime filter.
+          - **IMMEDIATE SL HITS HIGH**: Entry is too early. Add confirmation OR widen SL slightly.
+          - **DEEP LOSSES (>2%) FREQUENT**: SL is too wide OR entry logic is fundamentally flawed.
+          - **WIN RATE HIGH BUT P&L LOW**: Targets are too small. Increase target OR use trailing SL.
+          - **WIN RATE LOW (<50%)**: Entry logic is weak. Simplify conditions OR add trend filter.
           
           🚫 STRICT LIMITS:
           - Max 3 Entry rules per side.
@@ -1044,13 +1162,40 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
           BACKTEST PERFORMANCE:
           - Win Rate: ${backtestResults.win_rate.toFixed(1)}%
           - Net P&L: ₹${backtestResults.net_pnl.toFixed(2)}
+          - Profit Factor: ${profitFactor.toFixed(2)}
+          - Sharpe Ratio: ${sharpeRatio.toFixed(2)}
+          - Max Drawdown: ${maxDrawdown.toFixed(2)}%
+          - Max Consecutive Losses: ${maxConsecutiveLosses}
           - Exit Reasons: ${JSON.stringify(exitReasons)}
           - Pattern Analysis: ${JSON.stringify(lossPatterns)}
+          - Loss Distribution: ${JSON.stringify(lossDistribution)}
           
-          Losing Trade Samples: ${JSON.stringify(losingTrades.slice(-5))}
-          Winning Trade Samples: ${JSON.stringify(winningTrades.slice(-5))}
+          COMPREHENSIVE TRADE ANALYSIS:
+          - Total Losing Trades: ${losingTrades.length}
+          - Total Winning Trades: ${winningTrades.length}
+          - Immediate SL Hits: ${lossPatterns.immediateSlHits} (${((lossPatterns.immediateSlHits / losingTrades.length) * 100).toFixed(1)}% of losses)
+          - Avg Loss Duration: ${(losingTrades.reduce((sum, t) => sum + (t.duration_minutes || 0), 0) / losingTrades.length).toFixed(0)} minutes
+          - Avg Win Duration: ${(winningTrades.reduce((sum, t) => sum + (t.duration_minutes || 0), 0) / winningTrades.length).toFixed(0)} minutes
           
-          Target: Improve the Profit Factor and Win Rate while keeping trade frequency sustainable.`,
+          Sample Losing Trades (Last 10): ${JSON.stringify(losingTrades.slice(-10).map(t => ({
+            pnl: t.pnl,
+            pnl_pct: t.pnl_percentage,
+            exit_reason: t.exit_reason,
+            duration_min: t.duration_minutes,
+            entry_price: t.entry_price,
+            exit_price: t.exit_price
+          })))}
+          
+          Sample Winning Trades (Last 10): ${JSON.stringify(winningTrades.slice(-10).map(t => ({
+            pnl: t.pnl,
+            pnl_pct: t.pnl_percentage,
+            exit_reason: t.exit_reason,
+            duration_min: t.duration_minutes,
+            entry_price: t.entry_price,
+            exit_price: t.exit_price
+          })))}
+          
+          Target: Maximize Profit Factor (>2.0) and Sharpe Ratio (>1.5) while maintaining sustainable trade frequency and keeping Max Drawdown <15%.`,
                 },
               ];
       
@@ -1484,6 +1629,7 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
 
     let allCandles: Candle[] = [];
     let dataSource = "historical_candles";
+    let aggregatedResult: BacktestResult | null = null;
 
     const { getCandles } = await import("./candle-service");
 
@@ -1513,26 +1659,25 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
         // For backtesting, it's best to run per-instrument and aggregate results
         const instrumentResult = this.executeBacktest(strategy, candles, capital / instrumentTokens.length);
         
-        if (allCandles.length === 0) {
+        if (!aggregatedResult) {
           // Initialize with first instrument's aggregated result structure
-          (this as any).aggregatedResult = { ...instrumentResult, trade_log: [...instrumentResult.trade_log] };
+          aggregatedResult = { ...instrumentResult, trade_log: [...instrumentResult.trade_log] };
         } else {
           // Merge results
-          const agg = (this as any).aggregatedResult;
-          agg.total_trades += instrumentResult.total_trades;
-          agg.buy_count += instrumentResult.buy_count;
-          agg.sell_count += instrumentResult.sell_count;
-          agg.hold_count += instrumentResult.hold_count;
-          agg.net_pnl += instrumentResult.net_pnl;
-          agg.net_pnl_percentage = (agg.net_pnl / capital) * 100;
-          agg.trade_log = [...agg.trade_log, ...instrumentResult.trade_log].sort((a, b) => 
+          aggregatedResult.total_trades += instrumentResult.total_trades;
+          aggregatedResult.buy_count += instrumentResult.buy_count;
+          aggregatedResult.sell_count += instrumentResult.sell_count;
+          aggregatedResult.hold_count += instrumentResult.hold_count;
+          aggregatedResult.net_pnl += instrumentResult.net_pnl;
+          aggregatedResult.net_pnl_percentage = (aggregatedResult.net_pnl / capital) * 100;
+          aggregatedResult.trade_log = [...aggregatedResult.trade_log, ...instrumentResult.trade_log].sort((a, b) => 
             new Date(a.entry_time).getTime() - new Date(b.entry_time).getTime()
           );
           // Simplified Win Rate merge
-          const totalWins = (agg.win_rate * (agg.total_trades - instrumentResult.total_trades) / 100) + 
+          const totalWins = (aggregatedResult.win_rate * (aggregatedResult.total_trades - instrumentResult.total_trades) / 100) + 
                           (instrumentResult.win_rate * instrumentResult.total_trades / 100);
-          agg.win_rate = agg.total_trades > 0 ? (totalWins / agg.total_trades) * 100 : 0;
-          agg.max_drawdown = Math.max(agg.max_drawdown, instrumentResult.max_drawdown);
+          aggregatedResult.win_rate = aggregatedResult.total_trades > 0 ? (totalWins / aggregatedResult.total_trades) * 100 : 0;
+          aggregatedResult.max_drawdown = Math.max(aggregatedResult.max_drawdown, instrumentResult.max_drawdown);
         }
 
         allCandles = allCandles.concat(candles);
@@ -1544,8 +1689,7 @@ CRITICAL: Incorporate these learnings into your improvements. The AI Engine has 
       throw new Error("No data available for backtesting. We tried to fetch it automatically but failed. This could be due to invalid instrument tokens or market holidays.");
     }
 
-    const finalResult = (this as any).aggregatedResult || this.executeBacktest(strategy, allCandles, capital);
-    delete (this as any).aggregatedResult;
+    const finalResult = aggregatedResult || this.executeBacktest(strategy, allCandles, capital);
     
     return {
       ...finalResult,

@@ -90,11 +90,14 @@ export async function POST(
 
       // CRITICAL FIX: Update trading_preferences.strategy_id so trading engine picks up this strategy
       if (active) {
+        // Convert strategy ID to UUID format for trading_preferences
+        const strategyUuid = `00000000-0000-0000-0000-${id.toString().padStart(12, '0')}`;
+        
         const { error: prefError } = await supabaseAdmin
           .from("trading_preferences")
           .upsert({
             user_id: user.userId,
-            strategy_id: id,
+            strategy_id: strategyUuid,
             strategy_type: strategy.category || "INTRADAY",
             updated_at: new Date().toISOString(),
           }, {
@@ -129,13 +132,14 @@ export async function POST(
         }
       } else {
         // When deactivating, optionally clear strategy_id if it matches
+        const strategyUuid = `00000000-0000-0000-0000-${id.toString().padStart(12, '0')}`;
         const { data: currentPref } = await supabaseAdmin
           .from("trading_preferences")
           .select("strategy_id")
           .eq("user_id", user.userId)
           .single();
 
-        if (currentPref?.strategy_id === id) {
+        if (currentPref?.strategy_id === strategyUuid) {
           await supabaseAdmin
             .from("trading_preferences")
             .update({
@@ -190,11 +194,14 @@ export async function POST(
 
     // CRITICAL FIX: Update trading_preferences for forked strategy
     if (active) {
+      // Convert strategy ID to UUID format for trading_preferences
+      const strategyUuid = `00000000-0000-0000-0000-${forkId.toString().padStart(12, '0')}`;
+      
       const { error: prefError } = await supabaseAdmin
         .from("trading_preferences")
         .upsert({
           user_id: user.userId!,
-          strategy_id: forkId,
+          strategy_id: strategyUuid,
           strategy_type: strategy.category || "INTRADAY",
           updated_at: new Date().toISOString(),
         }, {

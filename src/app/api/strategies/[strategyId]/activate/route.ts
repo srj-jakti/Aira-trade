@@ -27,6 +27,7 @@ export async function POST(
         [
           "id",
           "user_id",
+          "type",
           "is_finalized",
           "visibility",
           "admin_approved",
@@ -316,6 +317,7 @@ async function getOrCreateStrategyFork(
       name: forkName,
       description: sourceStrategy.description ?? null,
       raw_input: sourceStrategy.raw_input ?? null,
+      type: sourceStrategy.type ?? "custom",
       visibility: "private",
       is_active: false,
       is_finalized: true,

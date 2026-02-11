@@ -144,7 +144,7 @@ export async function POST(
       if (instrumentTokens && timeframe && candleData) {
         try {
           console.log(`[Improve] Auto-backtesting iteration ${iteration}`);
-          newResults = await strategyService.backtestStrategy(
+          newResults = await strategyService.runBacktest(
             improvedStrategy,
             instrumentTokens,
             timeframe,

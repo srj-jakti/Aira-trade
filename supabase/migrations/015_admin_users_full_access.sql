@@ -34,14 +34,14 @@ BEGIN
             created_at,
             updated_at
         ) VALUES (
-            NEW.id,
+            NEW.id::text,
             'admin',
             'ADMIN',
             'active',
             now(),
             now() + interval '100 years', -- Effectively permanent
             true,
-            NEW.id, -- Self-granted
+            NEW.id::text, -- Self-granted
             'Admin user - automatic grant',
             now(),
             now()

@@ -4,7 +4,7 @@
 -- 1. Create trading_preferences table if it doesn't exist
 CREATE TABLE IF NOT EXISTS trading_preferences (
     user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    strategy_id text,
+    strategy_id integer,
     strategy_type text DEFAULT 'INTRADAY',
     risk_per_trade numeric DEFAULT 2.0,
     max_daily_loss numeric DEFAULT 5000,

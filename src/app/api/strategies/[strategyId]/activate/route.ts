@@ -93,7 +93,7 @@ export async function POST(
           .from("trading_preferences")
           .upsert({
             user_id: user.userId,
-            strategy_id: id.toString(),
+            strategy_id: id,
             strategy_type: strategy.category || "INTRADAY",
             updated_at: new Date().toISOString(),
           }, {
@@ -134,7 +134,7 @@ export async function POST(
           .eq("user_id", user.userId)
           .single();
 
-        if (currentPref?.strategy_id === id.toString()) {
+        if (currentPref?.strategy_id === id) {
           await supabaseAdmin
             .from("trading_preferences")
             .update({
@@ -193,7 +193,7 @@ export async function POST(
         .from("trading_preferences")
         .upsert({
           user_id: user.userId!,
-          strategy_id: forkId.toString(),
+          strategy_id: forkId,
           strategy_type: strategy.category || "INTRADAY",
           updated_at: new Date().toISOString(),
         }, {

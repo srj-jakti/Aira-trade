@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { StrategyService } from "@/lib/server/strategy-service";
+import { strategyService } from "@/lib/server/strategy-service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 Found ${strategies.length} admin strategies`);
 
-    const strategyService = StrategyService.getInstance();
     const results = [];
 
     for (const strategy of strategies) {
@@ -52,32 +51,22 @@ export async function POST(request: NextRequest) {
           timeframe = "1d";
         }
 
-        const result = await strategyService.runBacktest({
-          strategyId: strategy.id,
-          instrumentToken,
+        const result = await strategyService.runBacktest(
+          strategy as any,
+          [instrumentToken],
           timeframe,
-          capital: 100000,
-        });
+          100000
+        );
 
-        if (result.success) {
-          console.log(`✅ ${strategy.name}: ${result.totalTrades} trades, ${result.netPnlPercentage.toFixed(2)}% P&L, ${result.winRate.toFixed(2)}% win rate`);
-          results.push({
-            id: strategy.id,
-            name: strategy.name,
-            success: true,
-            trades: result.totalTrades,
-            pnl: result.netPnlPercentage,
-            winRate: result.winRate,
-          });
-        } else {
-          console.log(`⚠️  ${strategy.name}: Backtest completed but no trades generated`);
-          results.push({
-            id: strategy.id,
-            name: strategy.name,
-            success: false,
-            message: "No trades generated",
-          });
-        }
+        console.log(`✅ ${strategy.name}: ${result.total_trades} trades, ${result.net_pnl_percentage.toFixed(2)}% P&L, ${result.win_rate.toFixed(2)}% win rate`);
+        results.push({
+          id: strategy.id,
+          name: strategy.name,
+          success: true,
+          trades: result.total_trades,
+          pnl: result.net_pnl_percentage,
+          winRate: result.win_rate,
+        });
       } catch (error: any) {
         console.error(`❌ ${strategy.name}: ${error.message}`);
         results.push({

@@ -245,7 +245,15 @@ export async function POST(
     });
   } catch (error) {
     console.error("Error toggling strategy activation:", error);
-    return serverErrorResponse();
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: user.userId,
+      strategyId: params
+    });
+    
+    const errorMessage = error instanceof Error ? error.message : "Failed to activate strategy";
+    return serverErrorResponse(errorMessage);
   }
 }
 

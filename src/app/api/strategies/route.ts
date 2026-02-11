@@ -9,6 +9,7 @@ import {
 import { strategyService } from "@/lib/server/strategy-service";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { SUBSCRIPTION_PLANS } from "@/lib/subscription/plans";
+import { getUserPlan } from "@/lib/server/admin-check";
 
 export async function GET(_request: NextRequest) {
   const user = await getAuthenticatedUser();
@@ -51,14 +52,8 @@ export async function POST(request: NextRequest) {
       return badRequestResponse("Strategy must have name and description");
     }
 
-    const { data: subscription } = await supabaseAdmin
-      .from("subscriptions")
-      .select("plan_id, status")
-      .eq("user_id", user.userId!)
-      .eq("status", "active")
-      .single();
-
-    const planId = subscription?.plan_id || "basic";
+    // Get user's effective plan (considers admin status)
+    const planId = await getUserPlan(user.userId!);
     const plan = SUBSCRIPTION_PLANS[planId as keyof typeof SUBSCRIPTION_PLANS] || SUBSCRIPTION_PLANS.basic;
     
     if (visibility === "invite_only" && !plan.features.inviteOnlyStrategies) {

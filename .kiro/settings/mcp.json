@@ -12,7 +12,8 @@
       "disabled": false,
       "autoApprove": [
         "search_repositories",
-        "list_commits"
+        "list_commits",
+        "get_file_contents"
       ]
     },
     "railway": {
@@ -45,7 +46,11 @@
       },
       "disabled": false,
       "autoApprove": [
-        "getDeployments"
+        "getDeployments",
+        "getDeployment",
+        "getDeploymentEvents",
+        "cancelDeployment",
+        "cancelDeployment"
       ]
     }
   }

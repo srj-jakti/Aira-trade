@@ -52,3 +52,5 @@ __pycache__
 *.dll
 *.so
 *.dylib
+
+.vercel

@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Key, ShieldCheck, CheckCircle2, XCircle, ExternalLink, Globe, Copy, Check } from "lucide-react";
+import { Loader2, Key, ShieldCheck, CheckCircle2, XCircle, ExternalLink, Globe, Copy, Check, RefreshCw } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 function ApiKeysFormContent() {
@@ -26,13 +27,16 @@ function ApiKeysFormContent() {
   const [maskedKeys, setMaskedKeys] = useState({ apiKey: "", apiSecret: "" });
   const [status, setStatus] = useState<"connected" | "disconnected" | "keys_saved">("disconnected");
   const [brokerAccount, setBrokerAccount] = useState<{ is_connected: boolean; user_id_broker?: string } | null>(null);
+  const [autoLoginEnabled, setAutoLoginEnabled] = useState(false);
+  const [togglingAutoLogin, setTogglingAutoLogin] = useState(false);
   const searchParams = useSearchParams();
 
   const loadData = useCallback(async () => {
     try {
-      const [credsRes, brokerRes] = await Promise.all([
+      const [credsRes, brokerRes, autoLoginRes] = await Promise.all([
         fetch("/api/credentials"),
         fetch("/api/user/broker"),
+        fetch("/api/user/broker/auto-login"),
       ]);
 
       if (credsRes.ok) {
@@ -55,6 +59,11 @@ function ApiKeysFormContent() {
             setStatus("connected");
           }
         }
+      }
+
+      if (autoLoginRes.ok) {
+        const data = await autoLoginRes.json();
+        setAutoLoginEnabled(data.auto_login_enabled || false);
       }
     } catch (error) {
       console.error("Error loading data:", error);
@@ -204,6 +213,31 @@ function ApiKeysFormContent() {
     }
   };
 
+  const handleToggleAutoLogin = async (enabled: boolean) => {
+    setTogglingAutoLogin(true);
+    try {
+      const response = await fetch("/api/user/broker/auto-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update auto-login");
+      }
+
+      const data = await response.json();
+      setAutoLoginEnabled(enabled);
+      toast.success(data.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update auto-login");
+      setAutoLoginEnabled(!enabled); // Revert on error
+    } finally {
+      setTogglingAutoLogin(false);
+    }
+  };
+
     if (loading) {
       return (
         <div className="flex items-center justify-center p-8">
@@ -282,6 +316,45 @@ function ApiKeysFormContent() {
             </div>
           )}
         </div>
+
+        {status === 'connected' && (
+          <div className="p-4 bg-card border border-border rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <RefreshCw className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Auto-Login</p>
+                  <p className="text-xs text-muted-foreground">
+                    Automatically refresh your Zerodha session daily
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={autoLoginEnabled}
+                onCheckedChange={handleToggleAutoLogin}
+                disabled={togglingAutoLogin}
+              />
+            </div>
+            {autoLoginEnabled && (
+              <div className="p-3 bg-green-500/5 border border-green-500/10 rounded-lg">
+                <p className="text-[10px] text-green-600/80 leading-relaxed">
+                  <strong>Enabled:</strong> Your Zerodha session will be automatically refreshed every day. 
+                  AI trading will continue without requiring manual login.
+                </p>
+              </div>
+            )}
+            {!autoLoginEnabled && (
+              <div className="p-3 bg-yellow-500/5 border border-yellow-500/10 rounded-lg">
+                <p className="text-[10px] text-yellow-600/80 leading-relaxed">
+                  <strong>Disabled:</strong> You'll need to manually reconnect to Zerodha daily. 
+                  Enable auto-login to keep your AI trading running seamlessly.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
   
         {status === 'keys_saved' && (
           <Button

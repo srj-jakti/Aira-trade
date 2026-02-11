@@ -131,12 +131,14 @@ export async function GET(request: NextRequest) {
 
     const accessToken = tokenData.data.access_token;
     const brokerUserId = tokenData.data.user_id;
+    const tokenExpiry = getIstEndOfDayExpiryUtcIso(new Date());
 
     await supabaseAdmin
       .from("user_broker_accounts")
       .update({
         access_token: encrypt(accessToken),
         user_id_broker: brokerUserId,
+        token_expires_at: tokenExpiry,
         is_connected: true,
         is_authorized: true,
         last_connected_at: new Date().toISOString(),

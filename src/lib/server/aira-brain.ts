@@ -680,11 +680,11 @@ Invalidate ONLY IF: Candle closes beyond invalidation zone, Market regime change
       { role: "system", content: systemPrompt },
       {
         role: "user",
-        content: `Analyze ${input.symbol} on ${timeframe} timeframe with recent price data: ${JSON.stringify(candlesSummary)}`,
+        content: `Analyze ${input.symbol} on ${timeframe} timeframe with recent price data (Current Time: ${new Date().toISOString()}): ${JSON.stringify(candlesSummary)}`,
       },
     ];
 
-    return this.executeAnalysis("human_market_analysis", messages, { cacheTTL: 2, maxTokens: 1500 });
+    return this.executeAnalysis("human_market_analysis", messages, { skipCache: true, maxTokens: 1500 });
   }
 
   async analyzeMarketTrend(input: MarketAnalysisInput): Promise<AIAnalysisResult> {

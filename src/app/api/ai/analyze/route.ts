@@ -218,7 +218,14 @@ export async function POST(request: NextRequest) {
         dataWarning: message,
         latestPrice: latestTick?.lastPrice || candles[candles.length - 1]?.close,
         aiProvider: humanAnalysis.provider || "fallback",
-        cached: humanAnalysis.cached,
+        cached: false,
+        timestamp: new Date().toISOString(),
+      }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
       });
   } catch (error) {
     console.error("AI Analysis error:", error);

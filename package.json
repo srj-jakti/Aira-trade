@@ -10,7 +10,10 @@
     "lint": "eslint",
     "seed:data": "npx tsx scripts/seed-market-data.ts",
     "db:migrate": "npx supabase db push",
-    "diagnostic": "npx tsx scripts/quick-diagnostic.ts"
+    "diagnostic": "npx tsx scripts/quick-diagnostic.ts",
+    "health-check": "npx tsx scripts/health-check/cli.ts",
+    "health-check:dev": "npx tsx scripts/health-check/cli.ts --env=development",
+    "health-check:prod": "npx tsx scripts/health-check/cli.ts --env=production"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

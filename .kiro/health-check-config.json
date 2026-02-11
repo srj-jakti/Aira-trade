@@ -1,0 +1,93 @@
+{
+  "version": "1.0.0",
+  "environments": {
+    "development": {
+      "vercelProjectId": "",
+      "railwayProjectId": "",
+      "supabaseProjectRef": "",
+      "redisUrl": ""
+    },
+    "staging": {
+      "vercelProjectId": "",
+      "railwayProjectId": "",
+      "supabaseProjectRef": "",
+      "redisUrl": ""
+    },
+    "production": {
+      "vercelProjectId": "",
+      "railwayProjectId": "",
+      "supabaseProjectRef": "",
+      "redisUrl": ""
+    }
+  },
+  "checks": {
+    "frontend": {
+      "enabled": true,
+      "timeout": 30000,
+      "checks": [
+        "deployment-status",
+        "api-routes",
+        "page-accessibility",
+        "build-config"
+      ]
+    },
+    "backend": {
+      "enabled": true,
+      "timeout": 30000,
+      "checks": [
+        "database-connection",
+        "auth-system",
+        "rls-policies",
+        "table-schemas"
+      ]
+    },
+    "workers": {
+      "enabled": true,
+      "timeout": 30000,
+      "checks": [
+        "services-status",
+        "environment-variables",
+        "service-logs"
+      ]
+    },
+    "redis": {
+      "enabled": true,
+      "timeout": 30000,
+      "checks": [
+        "connection",
+        "operations",
+        "server-info"
+      ]
+    },
+    "integrations": {
+      "enabled": true,
+      "timeout": 30000,
+      "checks": [
+        "zerodha-integration",
+        "razorpay-integration"
+      ]
+    },
+    "code-quality": {
+      "enabled": true,
+      "timeout": 60000,
+      "checks": [
+        "linting",
+        "typescript",
+        "security-config",
+        "encryption"
+      ]
+    }
+  },
+  "thresholds": {
+    "healthyMinScore": 90,
+    "degradedMinScore": 70,
+    "criticalMaxIssues": 0,
+    "highMaxIssues": 2
+  },
+  "notifications": {
+    "enabled": false,
+    "channels": [],
+    "onCritical": true,
+    "onDegraded": false
+  }
+}

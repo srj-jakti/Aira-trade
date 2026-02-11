@@ -172,12 +172,8 @@ export async function POST(
           }
           
           // Calculate profit factor for comparison
-          const oldProfitFactor = bestResults.total_trades > 0 
-            ? (bestResults.net_pnl / Math.abs(bestResults.net_pnl - bestResults.gross_profit)) 
-            : 0;
-          const newProfitFactor = newResults.total_trades > 0 
-            ? (newResults.net_pnl / Math.abs(newResults.net_pnl - newResults.gross_profit)) 
-            : 0;
+          const oldProfitFactor = bestResults.profit_factor || 0;
+          const newProfitFactor = newResults.profit_factor || 0;
           
           // Accept if better profit factor AND maintains reasonable trade count
           const isImprovement = newProfitFactor > oldProfitFactor && newResults.total_trades >= (bestResults.total_trades * 0.5);

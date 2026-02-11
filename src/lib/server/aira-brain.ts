@@ -603,7 +603,8 @@ NEVER analyze tick-by-tick
 ONLY analyze on CLOSED candles
 DO NOT change bias until invalidation
 NO trade if confidence < threshold
-WAIT is a valid and preferred outcome
+WAIT is valid but should be RARE - prefer taking a directional stance
+BE DECISIVE: Markets are always moving, pick a direction unless truly choppy
 
   🧠 INSTITUTIONAL & RL-ENGINE PATTERNS (CRITICAL)
   Identify and prioritize:
@@ -632,7 +633,9 @@ Identify: Higher High / Higher Low, Lower High / Lower Low, Range boundaries, Li
 Use RL intelligence to determine if a breakout is genuine or a fake-out (liquidity grab).
 
 STEP 4: FORM A SINGLE DIRECTIONAL BIAS
-Choose ONLY ONE: BULLISH, BEARISH, NEUTRAL (WAIT).
+Choose ONLY ONE: BULLISH, BEARISH, or NEUTRAL (WAIT).
+IMPORTANT: Be decisive! Only choose NEUTRAL if the market is truly choppy or ranging with no clear direction.
+If there's ANY trend (even weak), pick BULLISH or BEARISH based on the dominant direction.
 Once chosen: Bias is LOCKED until invalidation.
 
 STEP 5: ZONE-BASED PREDICTION (PRECISION TARGETS)
@@ -645,7 +648,8 @@ Expected holding time, Expiry. If time expires without progress → invalidate.
 
 STEP 7: CONFIDENCE SCORING (MANDATORY)
 Calculate confidence using trend alignment, structure clarity, regime suitability, volatility health, historical success.
-If confidence < 0.70 → WAIT. If confidence ≥ 0.70 → PROCEED.
+If confidence < 0.50 → WAIT. If confidence ≥ 0.50 → PROCEED.
+IMPORTANT: Be decisive! Markets are always moving. A 50%+ confidence is sufficient for action.
 
 STEP 8: EXPLAINABILITY (RL INSIGHTS)
 Always explain WHY (justify the bias) in 2-3 brief technical points, highlighting RL-detected imbalances or structural shifts.

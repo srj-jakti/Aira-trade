@@ -171,11 +171,17 @@ async function processUser(user: TradingPreference): Promise<void> {
       return;
     }
 
-    const instruments = strategy.instruments.length > 0 
-      ? strategy.instruments 
+    // Use selected_instruments array (strategies can have multiple instruments)
+    const instruments = strategy.selected_instruments && strategy.selected_instruments.length > 0 
+      ? strategy.selected_instruments 
       : [256265];
 
-    const candles = await getLatestCandles(instruments, strategy.timeframe);
+    // Use first timeframe from selected_timeframes array
+    const timeframe = strategy.selected_timeframes && strategy.selected_timeframes.length > 0
+      ? strategy.selected_timeframes[0]
+      : "5m"; // Default fallback
+
+    const candles = await getLatestCandles(instruments, timeframe);
 
     if (candles.length === 0) {
       logger.debug(`No candle data for user ${user_id}`);
@@ -729,11 +735,17 @@ async function processScannerUser(user: any): Promise<void> {
     const strategy = await getStrategy(strategy_id);
     if (!strategy) return;
 
-    const instruments = strategy.instruments.length > 0 
-      ? strategy.instruments 
+    // Use selected_instruments array (strategies can have multiple instruments)
+    const instruments = strategy.selected_instruments && strategy.selected_instruments.length > 0 
+      ? strategy.selected_instruments 
       : [256265]; // NIFTY 50 default
 
-    const candles = await getLatestCandles(instruments, strategy.timeframe);
+    // Use first timeframe from selected_timeframes array
+    const timeframe = strategy.selected_timeframes && strategy.selected_timeframes.length > 0
+      ? strategy.selected_timeframes[0]
+      : "5m"; // Default fallback
+
+    const candles = await getLatestCandles(instruments, timeframe);
     if (candles.length === 0) return;
 
     const signal = await evaluateWithAI(strategy, candles, {

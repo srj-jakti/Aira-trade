@@ -158,8 +158,8 @@ export interface CandleData {
 export interface Strategy {
   id: string;
   name: string;
-  timeframe: string;
-  instruments: number[];
+  selected_timeframes: string[]; // Changed from timeframe to selected_timeframes (array)
+  selected_instruments: number[]; // Changed from instruments to selected_instruments (array)
   zairoth_intent?: string;
   buy_entry_logic?: any;
   sell_entry_logic?: any;
@@ -419,17 +419,23 @@ export async function evaluateWithAI(
 
   // 2. RL KNOWLEDGE ENGINE & ADVANCED PREDICTIONS
   const patternType = extractPatternType(strategy.zairoth_intent || strategy.name || "");
+  
+  // Use first timeframe from array (strategies can have multiple timeframes)
+  const timeframe = strategy.selected_timeframes && strategy.selected_timeframes.length > 0 
+    ? strategy.selected_timeframes[0] 
+    : "5m"; // Default fallback
+  
   const rlScore = await getRLScoreForInstrument(
     instrumentToken,
     patternType,
-    strategy.timeframe,
+    timeframe,
     { trend: context.regime.includes("UP") ? "UPTREND" : context.regime.includes("DOWN") ? "DOWNTREND" : "SIDEWAYS", volatility: context.volatility }
   );
 
   // New: Advanced RL Predictions (XGBoost + Darts)
   const [rlPrediction, rlForecast] = await Promise.all([
-    getRLPrediction(instrumentToken, strategy.timeframe, instrumentCandles.slice(-100)),
-    getRLForecast(instrumentToken, strategy.timeframe, instrumentCandles.slice(-100))
+    getRLPrediction(instrumentToken, timeframe, instrumentCandles.slice(-100)),
+    getRLForecast(instrumentToken, timeframe, instrumentCandles.slice(-100))
   ]);
 
   // AI Gating logic

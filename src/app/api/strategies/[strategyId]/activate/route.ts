@@ -87,10 +87,78 @@ export async function POST(
         return serverErrorResponse(updateError.message);
       }
 
+      // CRITICAL FIX: Update trading_preferences.strategy_id so trading engine picks up this strategy
+      if (active) {
+        const { error: prefError } = await supabaseAdmin
+          .from("trading_preferences")
+          .upsert({
+            user_id: user.userId,
+            strategy_id: id.toString(),
+            strategy_type: strategy.category || "INTRADAY",
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: "user_id"
+          });
+
+        if (prefError) {
+          console.error("Failed to update trading preferences:", prefError);
+          // Rollback strategy activation
+          await supabaseAdmin
+            .from("strategies")
+            .update({ is_active: false })
+            .eq("id", id);
+          return serverErrorResponse("Failed to link strategy to trading engine: " + prefError.message);
+        }
+
+        // Also add to active_trade_instruments for scanner
+        if (strategy.selected_instruments && strategy.selected_instruments.length > 0) {
+          const instruments = strategy.selected_instruments.map((token: number) => ({
+            instrument_token: token,
+            source_type: "strategy",
+            source_id: id.toString(),
+            is_active: true,
+            added_at: new Date().toISOString(),
+          }));
+
+          await supabaseAdmin
+            .from("active_trade_instruments")
+            .upsert(instruments, {
+              onConflict: "instrument_token,source_type,source_id"
+            });
+        }
+      } else {
+        // When deactivating, optionally clear strategy_id if it matches
+        const { data: currentPref } = await supabaseAdmin
+          .from("trading_preferences")
+          .select("strategy_id")
+          .eq("user_id", user.userId)
+          .single();
+
+        if (currentPref?.strategy_id === id.toString()) {
+          await supabaseAdmin
+            .from("trading_preferences")
+            .update({
+              strategy_id: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("user_id", user.userId);
+        }
+
+        // Remove from active_trade_instruments
+        await supabaseAdmin
+          .from("active_trade_instruments")
+          .delete()
+          .eq("source_type", "strategy")
+          .eq("source_id", id.toString());
+      }
+
       return successResponse({
-        message: active ? "Strategy activated" : "Strategy deactivated",
+        message: active 
+          ? "Strategy activated and connected to trading engine" 
+          : "Strategy deactivated",
         is_active: active,
         strategy_id: id,
+        trading_enabled: active,
       });
     }
 
@@ -119,11 +187,61 @@ export async function POST(
       .update({ is_active: active, updated_at: new Date().toISOString() })
       .eq("id", forkId);
 
+    // CRITICAL FIX: Update trading_preferences for forked strategy
+    if (active) {
+      const { error: prefError } = await supabaseAdmin
+        .from("trading_preferences")
+        .upsert({
+          user_id: user.userId!,
+          strategy_id: forkId.toString(),
+          strategy_type: strategy.category || "INTRADAY",
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: "user_id"
+        });
+
+      if (prefError) {
+        console.error("Failed to update trading preferences for fork:", prefError);
+        await supabaseAdmin
+          .from("strategies")
+          .update({ is_active: false })
+          .eq("id", forkId);
+        return serverErrorResponse("Failed to link forked strategy to trading engine: " + prefError.message);
+      }
+
+      // Add instruments to active_trade_instruments
+      if (strategy.selected_instruments && strategy.selected_instruments.length > 0) {
+        const instruments = strategy.selected_instruments.map((token: number) => ({
+          instrument_token: token,
+          source_type: "strategy",
+          source_id: forkId.toString(),
+          is_active: true,
+          added_at: new Date().toISOString(),
+        }));
+
+        await supabaseAdmin
+          .from("active_trade_instruments")
+          .upsert(instruments, {
+            onConflict: "instrument_token,source_type,source_id"
+          });
+      }
+    } else {
+      // Remove from active_trade_instruments
+      await supabaseAdmin
+        .from("active_trade_instruments")
+        .delete()
+        .eq("source_type", "strategy")
+        .eq("source_id", forkId.toString());
+    }
+
     return successResponse({
-      message: active ? "Strategy activated" : "Strategy deactivated",
+      message: active 
+        ? "Strategy activated and connected to trading engine" 
+        : "Strategy deactivated",
       is_active: active,
       forked: true,
       strategy_id: forkId,
+      trading_enabled: active,
     });
   } catch (error) {
     console.error("Error toggling strategy activation:", error);

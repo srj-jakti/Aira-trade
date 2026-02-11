@@ -39,11 +39,16 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!strategy || !rawInput || !selectedTimeframes || !visibility) {
-      return badRequestResponse("Missing required fields");
+      return badRequestResponse("Missing required fields: strategy, rawInput, selectedTimeframes, visibility");
     }
 
     if (!["private", "public", "invite_only"].includes(visibility)) {
-      return badRequestResponse("Invalid visibility option");
+      return badRequestResponse("Invalid visibility option. Must be: private, public, or invite_only");
+    }
+
+    // Validate strategy structure
+    if (!strategy.name || !strategy.description) {
+      return badRequestResponse("Strategy must have name and description");
     }
 
     const { data: subscription } = await supabaseAdmin
@@ -60,6 +65,14 @@ export async function POST(request: NextRequest) {
       return badRequestResponse("Invite-only strategies require ELITE plan or higher");
     }
 
+    console.log("[Strategy Save] Saving strategy:", {
+      userId: user.userId,
+      name: strategy.name,
+      visibility,
+      timeframes: selectedTimeframes,
+      instruments: selectedInstruments?.length || 0
+    });
+
     const strategyId = await strategyService.saveStrategy(
       user.userId!,
       strategy,
@@ -70,9 +83,17 @@ export async function POST(request: NextRequest) {
       selectedInstruments || []
     );
 
-    return successResponse({ id: strategyId, message: "Strategy saved successfully" }, 201);
+    console.log("[Strategy Save] Strategy saved successfully:", strategyId);
+
+    return successResponse({ 
+      id: strategyId, 
+      message: `Strategy saved successfully as ${visibility}`,
+      visibility,
+      can_activate: true
+    }, 201);
   } catch (error) {
     console.error("Error saving strategy:", error);
-    return serverErrorResponse();
+    const message = error instanceof Error ? error.message : "Failed to save strategy";
+    return serverErrorResponse(message);
   }
 }

@@ -13,7 +13,6 @@ import { toast } from "sonner";
 export function RiskSettingsForm() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [enabled, setEnabled] = useState(false);
   const [maxCapital, setMaxCapital] = useState(100000);
   const [dailyLossLimit, setDailyLossLimit] = useState(5000);
   const [dailyProfitTarget, setDailyProfitTarget] = useState(10000);
@@ -45,12 +44,11 @@ export function RiskSettingsForm() {
       }
 
       if (data) {
-        setEnabled(data.is_active);
-        setMaxCapital(data.max_capital_per_trade || 100000);
+        setMaxCapital(data.max_position_size || 100000);
         setDailyLossLimit(data.daily_loss_limit || 5000);
         setDailyProfitTarget(data.daily_profit_target || 10000);
-        setMaxPositions(data.max_open_positions || 5);
-        setKillSwitchEnabled(data.kill_switch_enabled);
+        setMaxPositions(data.max_trades_per_day || 5);
+        setKillSwitchEnabled(data.kill_switch_active || false);
       }
     } catch (error) {
       console.error("Error:", error);
@@ -67,12 +65,11 @@ export function RiskSettingsForm() {
 
       const updates = {
         user_id: user.id,
-        is_active: enabled,
-        max_capital_per_trade: maxCapital,
+        max_position_size: maxCapital,
         daily_loss_limit: dailyLossLimit,
         daily_profit_target: dailyProfitTarget,
-        max_open_positions: maxPositions,
-        kill_switch_enabled: killSwitchEnabled,
+        max_trades_per_day: maxPositions,
+        kill_switch_active: killSwitchEnabled,
         updated_at: new Date().toISOString(),
       };
 
@@ -105,16 +102,6 @@ export function RiskSettingsForm() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
-          <div className="space-y-0.5">
-            <Label className="text-base">Enable Sentry Mode</Label>
-            <p className="text-sm text-muted-foreground">
-              Automatically monitor and close positions if limits are breached.
-            </p>
-          </div>
-          <Switch checked={enabled} onCheckedChange={setEnabled} />
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label>Daily Loss Limit (₹)</Label>
@@ -137,21 +124,23 @@ export function RiskSettingsForm() {
           </div>
 
           <div className="space-y-2">
-            <Label>Max Capital Per Trade (₹)</Label>
+            <Label>Max Position Size (₹)</Label>
             <Input 
               type="number" 
               value={maxCapital} 
               onChange={(e) => setMaxCapital(Number(e.target.value))} 
             />
+            <p className="text-xs text-muted-foreground">Maximum capital allocated per position.</p>
           </div>
 
           <div className="space-y-2">
-            <Label>Max Open Positions</Label>
+            <Label>Max Trades Per Day</Label>
             <Input 
               type="number" 
               value={maxPositions} 
               onChange={(e) => setMaxPositions(Number(e.target.value))} 
             />
+            <p className="text-xs text-muted-foreground">Maximum number of trades allowed per day.</p>
           </div>
         </div>
 

@@ -100,33 +100,137 @@ export async function POST(
       };
     }
 
-    // Run AI improvement with fallback handling
-    console.log("[Improve] Running AI improvement");
-    const improvement = await strategyService.improveStrategyWithAI(
-      strategy,
-      backtestResults,
-      candleData,
-      strategyIdNum,
-      aiEngineSuggestions
-    );
-
-    console.log("[Improve] Improvement completed:", {
-      tokensUsed: improvement.tokensUsed,
-      model: improvement.model,
-      hasImprovedStrategy: !!improvement.improved
+    // ITERATIVE IMPROVEMENT: Run multiple iterations until profitable
+    console.log("[Improve] Starting iterative improvement with auto-backtest validation");
+    
+    const maxIterations = 5;
+    let bestStrategy = strategy;
+    let bestResults = backtestResults;
+    let iterationHistory = [];
+    let totalTokensUsed = 0;
+    
+    for (let iteration = 1; iteration <= maxIterations; iteration++) {
+      console.log(`[Improve] Iteration ${iteration}/${maxIterations}`);
+      
+      // Build iteration context
+      const iterationContext = iteration > 1 
+        ? `ITERATION ${iteration}/${maxIterations}:\nPrevious attempt had ${bestResults.total_trades} trades, ${bestResults.win_rate.toFixed(1)}% win rate, ${bestResults.net_pnl_percentage.toFixed(2)}% P&L.\n${iteration > 2 ? `History: ${iterationHistory.map((h: any) => `v${h.iteration}: ${h.trades} trades, ${h.winRate}% WR, ${h.pnl}% P&L`).join('; ')}` : ''}`
+        : undefined;
+      
+      // Run AI improvement
+      const improvement = await strategyService.improveStrategyWithAI(
+        bestStrategy,
+        bestResults,
+        candleData,
+        strategyIdNum,
+        aiEngineSuggestions,
+        "ITERATIVE",
+        iterationContext
+      );
+      
+      totalTokensUsed += improvement.tokensUsed || 0;
+      
+      // Validate: Check if improved strategy has valid logic
+      const improvedStrategy = improvement.improved;
+      if (!improvedStrategy.executable_strategy || 
+          !improvedStrategy.executable_strategy.buy?.rules?.length ||
+          !improvedStrategy.executable_strategy.sell?.rules?.length) {
+        console.log(`[Improve] Iteration ${iteration} produced invalid strategy, keeping previous version`);
+        break;
+      }
+      
+      // Auto-backtest the improved strategy (if we have the data)
+      let newResults = null;
+      if (instrumentTokens && timeframe && candleData) {
+        try {
+          console.log(`[Improve] Auto-backtesting iteration ${iteration}`);
+          newResults = await strategyService.backtestStrategy(
+            improvedStrategy,
+            instrumentTokens,
+            timeframe,
+            capital || 100000
+          );
+          
+          console.log(`[Improve] Iteration ${iteration} results:`, {
+            trades: newResults.total_trades,
+            winRate: newResults.win_rate,
+            pnl: newResults.net_pnl_percentage
+          });
+          
+          // Track history
+          iterationHistory.push({
+            iteration,
+            trades: newResults.total_trades,
+            winRate: newResults.win_rate.toFixed(1),
+            pnl: newResults.net_pnl_percentage.toFixed(2)
+          });
+          
+          // CRITICAL: Reject if zero trades or worse performance
+          if (newResults.total_trades === 0) {
+            console.log(`[Improve] Iteration ${iteration} produced ZERO trades - REJECTED`);
+            continue; // Try next iteration
+          }
+          
+          // Calculate profit factor for comparison
+          const oldProfitFactor = bestResults.total_trades > 0 
+            ? (bestResults.net_pnl / Math.abs(bestResults.net_pnl - bestResults.gross_profit)) 
+            : 0;
+          const newProfitFactor = newResults.total_trades > 0 
+            ? (newResults.net_pnl / Math.abs(newResults.net_pnl - newResults.gross_profit)) 
+            : 0;
+          
+          // Accept if better profit factor AND maintains reasonable trade count
+          const isImprovement = newProfitFactor > oldProfitFactor && newResults.total_trades >= (bestResults.total_trades * 0.5);
+          
+          if (isImprovement) {
+            console.log(`[Improve] Iteration ${iteration} ACCEPTED - Better performance`);
+            bestStrategy = improvedStrategy;
+            bestResults = newResults;
+            
+            // If highly profitable, stop early
+            if (newResults.win_rate > 60 && newResults.net_pnl_percentage > 10) {
+              console.log(`[Improve] Highly profitable strategy found, stopping early`);
+              break;
+            }
+          } else {
+            console.log(`[Improve] Iteration ${iteration} REJECTED - No improvement`);
+          }
+        } catch (backtestError) {
+          console.error(`[Improve] Backtest failed for iteration ${iteration}:`, backtestError);
+          // Continue with next iteration
+        }
+      } else {
+        // No auto-backtest available, accept the improvement
+        console.log(`[Improve] No backtest data available, accepting iteration ${iteration}`);
+        bestStrategy = improvedStrategy;
+        break;
+      }
+    }
+    
+    console.log("[Improve] Iterative improvement completed:", {
+      iterations: iterationHistory.length,
+      finalTrades: bestResults.total_trades,
+      finalWinRate: bestResults.win_rate,
+      finalPnL: bestResults.net_pnl_percentage,
+      totalTokensUsed
     });
 
     // 3. Log AI usage
     logAIUsage(
       user.userId,
       "improve",
-      improvement.tokensUsed || 0,
-      improvement.model,
-      { strategyId: strategyIdNum, mode }
+      totalTokensUsed,
+      "iterative-improvement",
+      { strategyId: strategyIdNum, mode, iterations: iterationHistory.length }
     ).catch(console.error);
 
     return successResponse({
-      ...improvement,
+      improved: bestStrategy,
+      notes: `Iterative improvement completed after ${iterationHistory.length} iterations. Final: ${bestResults.total_trades} trades, ${bestResults.win_rate.toFixed(1)}% win rate, ${bestResults.net_pnl_percentage.toFixed(2)}% P&L.`,
+      tokensUsed: totalTokensUsed,
+      model: "iterative-improvement",
+      iterationHistory,
+      finalBacktestResults: bestResults,
       aiEngineSuggestions,
       rlEngineConnected: !!process.env.RL_ENGINE_URL,
       mode
